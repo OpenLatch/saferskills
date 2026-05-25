@@ -14,7 +14,9 @@ runs:
     - uses: actions/setup-node@v4
       with:
         node-version: 24
-        cache: pnpm
+        # `cache: pnpm` requires a committed pnpm-lock.yaml — re-enable once
+        # the lockfile lands. Until then setup-node hard-errors on missing
+        # lockfile and kills every job.
 
     - uses: actions/setup-python@v5
       with: { python-version: "3.14" }
