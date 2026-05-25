@@ -1,0 +1,156 @@
+<svg width="900" height="620" viewBox="0 0 900 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- ── Light Side Background ─────────────────────────── -->
+  <rect width="450" height="620" fill="#FFFFFF"/>
+  <!-- ── Dark Side Background ──────────────────────────── -->
+  <rect x="450" width="450" height="620" fill="#0A0A0A"/>
+
+  <!-- Headers -->
+  <text x="40"  y="45" font-family="Crimson Pro, Georgia, serif" font-size="24" font-weight="600" fill="#0A0A0A">Light Mode</text>
+  <text x="40"  y="68" font-family="Manrope, sans-serif" font-size="12" fill="#5A5A5F">SaferSkills Theme System</text>
+
+  <text x="490" y="45" font-family="Crimson Pro, Georgia, serif" font-size="24" font-weight="600" fill="#F5F5F7">Dark Mode</text>
+  <text x="490" y="68" font-family="Manrope, sans-serif" font-size="12" fill="#A1A1AA">SaferSkills Theme System</text>
+
+  <!-- ===== LIGHT MODE SWATCHES ===== -->
+
+  <!-- BASE -->
+  <text x="40" y="105" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#5A5A5F" letter-spacing="0.08em">BASE</text>
+
+  <rect x="40" y="115" width="90" height="55" fill="#FFFFFF" stroke="#DCDCE0" stroke-width="1"/>
+  <text x="85" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Background</text>
+  <text x="85" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#FFFFFF</text>
+
+  <rect x="140" y="115" width="90" height="55" fill="#0A0A0A"/>
+  <text x="185" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Foreground</text>
+  <text x="185" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#0A0A0A</text>
+
+  <!-- PRIMARY (Cobalt) -->
+  <text x="260" y="105" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#5A5A5F" letter-spacing="0.08em">PRIMARY — COBALT</text>
+
+  <rect x="260" y="115" width="90" height="55" fill="#1E40AF"/>
+  <text x="305" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Primary</text>
+  <text x="305" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#1E40AF</text>
+
+  <rect x="360" y="115" width="70" height="55" fill="#EFF6FF" stroke="#DCDCE0" stroke-width="1"/>
+  <text x="395" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Tint</text>
+  <text x="395" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#EFF6FF</text>
+
+  <!-- SECONDARY & MUTED -->
+  <text x="40" y="225" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#5A5A5F" letter-spacing="0.08em">MUTED &amp; BORDER</text>
+
+  <rect x="40" y="235" width="90" height="55" fill="#F5F5F7"/>
+  <text x="85" y="305" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Muted</text>
+  <text x="85" y="318" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#F5F5F7</text>
+
+  <rect x="140" y="235" width="90" height="55" fill="#5A5A5F"/>
+  <text x="185" y="305" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Muted FG</text>
+  <text x="185" y="318" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#5A5A5F</text>
+
+  <rect x="240" y="235" width="90" height="55" fill="#DCDCE0"/>
+  <text x="285" y="305" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Border</text>
+  <text x="285" y="318" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#DCDCE0</text>
+
+  <!-- 4-BAND SCORE PALETTE (light) -->
+  <text x="40" y="345" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#5A5A5F" letter-spacing="0.08em">SCORE BANDS — 4-COLOR LANGUAGE</text>
+
+  <rect x="40" y="355" width="90" height="55" fill="#107A4F"/>
+  <text x="85" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Green</text>
+  <text x="85" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#107A4F</text>
+  <text x="85" y="451" font-family="Manrope, sans-serif" font-size="9" fill="#5A5A5F" text-anchor="middle">0–39</text>
+
+  <rect x="140" y="355" width="90" height="55" fill="#CA8A04"/>
+  <text x="185" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Yellow</text>
+  <text x="185" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#CA8A04</text>
+  <text x="185" y="451" font-family="Manrope, sans-serif" font-size="9" fill="#5A5A5F" text-anchor="middle">40–69</text>
+
+  <rect x="240" y="355" width="90" height="55" fill="#EA580C"/>
+  <text x="285" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Orange</text>
+  <text x="285" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#EA580C</text>
+  <text x="285" y="451" font-family="Manrope, sans-serif" font-size="9" fill="#5A5A5F" text-anchor="middle">70–89</text>
+
+  <rect x="340" y="355" width="90" height="55" fill="#B91C1C"/>
+  <text x="385" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Red</text>
+  <text x="385" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#B91C1C</text>
+  <text x="385" y="451" font-family="Manrope, sans-serif" font-size="9" fill="#5A5A5F" text-anchor="middle">90–100</text>
+
+  <!-- RING -->
+  <text x="40" y="490" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#5A5A5F" letter-spacing="0.08em">FOCUS RING</text>
+  <rect x="40" y="500" width="90" height="40" fill="#1E40AF"/>
+  <text x="85" y="555" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#0A0A0A" text-anchor="middle">Ring</text>
+  <text x="85" y="568" font-family="JetBrains Mono, monospace" font-size="9" fill="#5A5A5F" text-anchor="middle">#1E40AF</text>
+
+  <!-- Anti-recommendation note -->
+  <text x="40" y="600" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#5A5A5F">
+    Score bands MUST always carry a text label. Color is never the only signal.
+  </text>
+
+  <!-- ===== DARK MODE SWATCHES ===== -->
+
+  <text x="490" y="105" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#A1A1AA" letter-spacing="0.08em">BASE</text>
+
+  <rect x="490" y="115" width="90" height="55" fill="#0A0A0A" stroke="#2D2D32" stroke-width="1"/>
+  <text x="535" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Background</text>
+  <text x="535" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#0A0A0A</text>
+
+  <rect x="590" y="115" width="90" height="55" fill="#F5F5F7"/>
+  <text x="635" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Foreground</text>
+  <text x="635" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#F5F5F7</text>
+
+  <!-- PRIMARY — lighter cobalt for dark surfaces -->
+  <text x="710" y="105" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#A1A1AA" letter-spacing="0.08em">PRIMARY</text>
+
+  <rect x="710" y="115" width="90" height="55" fill="#60A5FA"/>
+  <text x="755" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Primary</text>
+  <text x="755" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#60A5FA</text>
+
+  <rect x="810" y="115" width="70" height="55" fill="#1E293B" stroke="#2D2D32" stroke-width="1"/>
+  <text x="845" y="185" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Tint</text>
+  <text x="845" y="198" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#1E293B</text>
+
+  <!-- MUTED + BORDER -->
+  <text x="490" y="225" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#A1A1AA" letter-spacing="0.08em">MUTED &amp; BORDER</text>
+
+  <rect x="490" y="235" width="90" height="55" fill="#181818" stroke="#2D2D32" stroke-width="1"/>
+  <text x="535" y="305" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Muted</text>
+  <text x="535" y="318" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#181818</text>
+
+  <rect x="590" y="235" width="90" height="55" fill="#A1A1AA"/>
+  <text x="635" y="305" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Muted FG</text>
+  <text x="635" y="318" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#A1A1AA</text>
+
+  <rect x="690" y="235" width="90" height="55" fill="#2D2D32"/>
+  <text x="735" y="305" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Border</text>
+  <text x="735" y="318" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#2D2D32</text>
+
+  <!-- 4-BAND SCORE PALETTE (dark mode — same hex, surface flips) -->
+  <text x="490" y="345" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#A1A1AA" letter-spacing="0.08em">SCORE BANDS</text>
+
+  <rect x="490" y="355" width="90" height="55" fill="#107A4F"/>
+  <text x="535" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Green</text>
+  <text x="535" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#107A4F</text>
+
+  <rect x="590" y="355" width="90" height="55" fill="#CA8A04"/>
+  <text x="635" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Yellow</text>
+  <text x="635" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#CA8A04</text>
+
+  <rect x="690" y="355" width="90" height="55" fill="#EA580C"/>
+  <text x="735" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Orange</text>
+  <text x="735" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#EA580C</text>
+
+  <rect x="790" y="355" width="90" height="55" fill="#B91C1C"/>
+  <text x="835" y="425" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Red</text>
+  <text x="835" y="438" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#B91C1C</text>
+
+  <!-- RING -->
+  <text x="490" y="490" font-family="Manrope, sans-serif" font-size="11" font-weight="600" fill="#A1A1AA" letter-spacing="0.08em">FOCUS RING</text>
+  <rect x="490" y="500" width="90" height="40" fill="#60A5FA"/>
+  <text x="535" y="555" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#F5F5F7" text-anchor="middle">Ring</text>
+  <text x="535" y="568" font-family="JetBrains Mono, monospace" font-size="9" fill="#A1A1AA" text-anchor="middle">#60A5FA</text>
+
+  <text x="490" y="600" font-family="Manrope, sans-serif" font-size="10" font-weight="500" fill="#A1A1AA">
+    Score-band hexes are intentionally identical across modes.
+  </text>
+
+  <!-- Center Divider -->
+  <line x1="450" y1="20" x2="450" y2="600" stroke="#2D2D32" stroke-width="1" stroke-dasharray="4 4"/>
+</svg>

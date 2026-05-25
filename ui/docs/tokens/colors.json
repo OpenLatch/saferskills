@@ -1,0 +1,70 @@
+{
+  "_source": "Mirrors ui/styles/tokens.css — the live runtime SSOT. If you edit one, edit both.",
+  "light": {
+    "background": "#FFFFFF",
+    "foreground": "#0A0A0A",
+
+    "card": "#FFFFFF",
+    "cardForeground": "#0A0A0A",
+
+    "popover": "#FFFFFF",
+    "popoverForeground": "#0A0A0A",
+
+    "primary": "#1E40AF",
+    "primaryForeground": "#FFFFFF",
+    "primaryTint": "#EFF6FF",
+
+    "secondary": "#F5F5F7",
+    "secondaryForeground": "#0A0A0A",
+
+    "muted": "#F5F5F7",
+    "mutedForeground": "#5A5A5F",
+
+    "border": "#DCDCE0",
+    "input": "#DCDCE0",
+    "ring": "#1E40AF"
+  },
+  "dark": {
+    "background": "#0A0A0A",
+    "foreground": "#F5F5F7",
+
+    "card": "#0A0A0A",
+    "cardForeground": "#F5F5F7",
+
+    "popover": "#181818",
+    "popoverForeground": "#F5F5F7",
+
+    "primary": "#60A5FA",
+    "primaryForeground": "#0A0A0A",
+    "primaryTint": "#1E293B",
+
+    "secondary": "#181818",
+    "secondaryForeground": "#F5F5F7",
+
+    "muted": "#181818",
+    "mutedForeground": "#A1A1AA",
+
+    "border": "#2D2D32",
+    "input": "#2D2D32",
+    "ring": "#60A5FA"
+  },
+  "brand": {
+    "_description": "Static brand colors — mode-independent. Cobalt is the SaferSkills hero.",
+    "primary": "#1E40AF",
+    "primaryLightSurface": "#60A5FA",
+    "primaryTint": "#EFF6FF"
+  },
+  "score": {
+    "_description": "4-band scoring color language. See docs/methodology.md and rubric/. Each band MUST be paired with a text label — never color alone.",
+    "green":  "#107A4F",
+    "yellow": "#CA8A04",
+    "orange": "#EA580C",
+    "red":    "#B91C1C"
+  },
+  "radius": {
+    "sm": "0px",
+    "md": "0px",
+    "lg": "0px",
+    "xl": "0px"
+  }
+}

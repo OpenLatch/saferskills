@@ -1,0 +1,138 @@
+{
+  "$schema": "https://tr.designtokens.org/format/",
+  "$extensions": {
+    "ai.saferskills": {
+      "version": "0.1.0",
+      "generatedAt": "2026-05-25",
+      "description": "SaferSkills Design System Tokens — Editorial Precision aesthetic, cobalt brand, 4-band scoring palette. Mirrors ui/styles/tokens.css."
+    }
+  },
+  "color": {
+    "light": {
+      "$description": "Light mode color tokens",
+      "background":          { "$type": "color", "$value": "#FFFFFF", "$description": "Primary background" },
+      "foreground":          { "$type": "color", "$value": "#0A0A0A", "$description": "Primary text" },
+      "card":                { "$type": "color", "$value": "#FFFFFF", "$description": "Card backgrounds" },
+      "cardForeground":      { "$type": "color", "$value": "#0A0A0A", "$description": "Card text" },
+      "popover":             { "$type": "color", "$value": "#FFFFFF", "$description": "Popover backgrounds" },
+      "popoverForeground":   { "$type": "color", "$value": "#0A0A0A", "$description": "Popover text" },
+      "primary":             { "$type": "color", "$value": "#1E40AF", "$description": "Cobalt — primary action color" },
+      "primaryForeground":   { "$type": "color", "$value": "#FFFFFF", "$description": "Text on primary" },
+      "primaryTint":         { "$type": "color", "$value": "#EFF6FF", "$description": "5% cobalt wash" },
+      "secondary":           { "$type": "color", "$value": "#F5F5F7", "$description": "Secondary surface" },
+      "secondaryForeground": { "$type": "color", "$value": "#0A0A0A", "$description": "Text on secondary" },
+      "muted":               { "$type": "color", "$value": "#F5F5F7", "$description": "Muted backgrounds" },
+      "mutedForeground":     { "$type": "color", "$value": "#5A5A5F", "$description": "Muted text" },
+      "border":              { "$type": "color", "$value": "#DCDCE0", "$description": "Default 1px hairline borders" },
+      "input":               { "$type": "color", "$value": "#DCDCE0", "$description": "Input borders" },
+      "ring":                { "$type": "color", "$value": "#1E40AF", "$description": "Focus rings" }
+    },
+    "dark": {
+      "$description": "Dark mode color tokens",
+      "background":          { "$type": "color", "$value": "#0A0A0A", "$description": "Primary background" },
+      "foreground":          { "$type": "color", "$value": "#F5F5F7", "$description": "Primary text" },
+      "card":                { "$type": "color", "$value": "#0A0A0A", "$description": "Card backgrounds" },
+      "cardForeground":      { "$type": "color", "$value": "#F5F5F7", "$description": "Card text" },
+      "popover":             { "$type": "color", "$value": "#181818", "$description": "Popover backgrounds" },
+      "popoverForeground":   { "$type": "color", "$value": "#F5F5F7", "$description": "Popover text" },
+      "primary":             { "$type": "color", "$value": "#60A5FA", "$description": "Lighter cobalt for dark surfaces" },
+      "primaryForeground":   { "$type": "color", "$value": "#0A0A0A", "$description": "Text on primary" },
+      "primaryTint":         { "$type": "color", "$value": "#1E293B", "$description": "Cobalt wash on dark" },
+      "secondary":           { "$type": "color", "$value": "#181818", "$description": "Secondary surface" },
+      "secondaryForeground": { "$type": "color", "$value": "#F5F5F7", "$description": "Text on secondary" },
+      "muted":               { "$type": "color", "$value": "#181818", "$description": "Muted backgrounds" },
+      "mutedForeground":     { "$type": "color", "$value": "#A1A1AA", "$description": "Muted text" },
+      "border":              { "$type": "color", "$value": "#2D2D32", "$description": "Default 1px hairline borders" },
+      "input":               { "$type": "color", "$value": "#2D2D32", "$description": "Input borders" },
+      "ring":                { "$type": "color", "$value": "#60A5FA", "$description": "Focus rings" }
+    },
+    "brand": {
+      "$description": "Static brand colors (mode-independent)",
+      "primary":             { "$type": "color", "$value": "#1E40AF", "$description": "Cobalt — hero color" },
+      "primaryLightSurface": { "$type": "color", "$value": "#60A5FA", "$description": "Cobalt for dark surfaces" },
+      "primaryTint":         { "$type": "color", "$value": "#EFF6FF", "$description": "5% cobalt wash" }
+    },
+    "score": {
+      "$description": "4-band scoring color language. Each band MUST be paired with its text label — color alone is never the signal. See docs/methodology.md.",
+      "green":  { "$type": "color", "$value": "#107A4F", "$description": "0–39 — clean / passes / low risk" },
+      "yellow": { "$type": "color", "$value": "#CA8A04", "$description": "40–69 — caution / advisory / medium risk" },
+      "orange": { "$type": "color", "$value": "#EA580C", "$description": "70–89 — flagged / high risk" },
+      "red":    { "$type": "color", "$value": "#B91C1C", "$description": "90–100 — failed / critical risk" }
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans":    { "$type": "fontFamily", "$value": "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+      "serif":   { "$type": "fontFamily", "$value": "'Crimson Pro', Georgia, 'Times New Roman', serif" },
+      "mono":    { "$type": "fontFamily", "$value": "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace" },
+      "display": { "$type": "fontFamily", "$value": "'Crimson Pro', Georgia, serif", "$description": "Alias for the serif display stack" }
+    },
+    "fontSize": {
+      "2xs":  { "$type": "dimension", "$value": "11px" },
+      "xs":   { "$type": "dimension", "$value": "12px" },
+      "sm":   { "$type": "dimension", "$value": "14px" },
+      "base": { "$type": "dimension", "$value": "16px" },
+      "lg":   { "$type": "dimension", "$value": "18px" },
+      "xl":   { "$type": "dimension", "$value": "22px" },
+      "2xl":  { "$type": "dimension", "$value": "28px" },
+      "3xl":  { "$type": "dimension", "$value": "36px" },
+      "hero": { "$type": "dimension", "$value": "56px" }
+    },
+    "fontWeight": {
+      "regular":  { "$type": "number", "$value": 400 },
+      "medium":   { "$type": "number", "$value": 500 },
+      "semibold": { "$type": "number", "$value": 600 },
+      "bold":     { "$type": "number", "$value": 700 }
+    },
+    "lineHeight": {
+      "tight":   { "$type": "number", "$value": 1.1 },
+      "snug":    { "$type": "number", "$value": 1.25 },
+      "normal":  { "$type": "number", "$value": 1.5 },
+      "relaxed": { "$type": "number", "$value": 1.6 }
+    }
+  },
+  "spacing": {
+    "$description": "4px-grid spacing scale",
+    "1":  { "$type": "dimension", "$value": "4px" },
+    "2":  { "$type": "dimension", "$value": "8px" },
+    "3":  { "$type": "dimension", "$value": "12px" },
+    "4":  { "$type": "dimension", "$value": "16px" },
+    "6":  { "$type": "dimension", "$value": "24px" },
+    "8":  { "$type": "dimension", "$value": "32px" },
+    "12": { "$type": "dimension", "$value": "48px" },
+    "16": { "$type": "dimension", "$value": "64px" }
+  },
+  "borderRadius": {
+    "$description": "Editorial Precision: 0px corners everywhere. Avatars / score pills are the only round shapes (`full`).",
+    "none": { "$type": "dimension", "$value": "0" },
+    "sm":   { "$type": "dimension", "$value": "0" },
+    "md":   { "$type": "dimension", "$value": "0" },
+    "lg":   { "$type": "dimension", "$value": "0" },
+    "xl":   { "$type": "dimension", "$value": "0" },
+    "full": { "$type": "dimension", "$value": "9999px" }
+  },
+  "borderWidth": {
+    "default": { "$type": "dimension", "$value": "1px" }
+  },
+  "shadow": {
+    "$description": "No shadows. Depth is communicated through 1px hairline borders and tonal value.",
+    "none": { "$type": "shadow", "$value": "none" }
+  },
+  "letterSpacing": {
+    "tight":  { "$type": "dimension", "$value": "-0.02em", "$description": "Wordmark / hero serif" },
+    "snug":   { "$type": "dimension", "$value": "-0.01em", "$description": "Headings" },
+    "normal": { "$type": "dimension", "$value": "0" },
+    "wide":   { "$type": "dimension", "$value": "0.05em",  "$description": "Overlines, table headers" }
+  },
+  "motion": {
+    "$description": "Sparse motion — fades and 120–200ms transitions. No spring overshoot, no entrance staggering.",
+    "easing": {
+      "default": { "$type": "cubicBezier", "$value": [0.32, 0, 0.67, 0], "$description": "House easing — restrained, professional" },
+      "linear":  { "$type": "cubicBezier", "$value": [0, 0, 1, 1] }
+    },
+    "duration": {
+      "fast": { "$type": "duration", "$value": "120ms", "$description": "Hover / focus / micro-state" },
+      "base": { "$type": "duration", "$value": "200ms", "$description": "Color / opacity transitions" }
+    }
+  }
+}
