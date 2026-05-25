@@ -27,7 +27,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:ci@postgres:5432/saferskills_ci
       GIT_SHA: ci
-      VERSION: 0.0.0-foundation
+      VERSION: 0.0.0+foundation
+    ports:
+      - "8000:8000"   # the pr-checks docker-smoke step curls localhost:8000
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
       interval: 10s

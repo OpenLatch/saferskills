@@ -16,7 +16,7 @@ from app.routers import health
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     await init_observability(settings)
     yield
