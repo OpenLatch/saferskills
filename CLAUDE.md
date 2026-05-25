@@ -56,7 +56,7 @@ After any code change touching shipped layers, run `/verify-build` — it auto-d
 
 1. **Schema-Driven Everything.** Two sources of truth: JSON Schema (`schemas/*.schema.json`) for entity shapes, FastAPI's `app.openapi()` for endpoint DTOs. Generated code under any `generated/` directory is **never edited manually**. See `.claude/rules/schema-driven-development.md`.
 2. **Public single-tenant service.** No org isolation at W1 (auth lands W5 / Track E). Public submissions in, public scan reports out. Adversarial-input handling at every system boundary. See `.claude/rules/security.md`.
-3. **Methodology over opinion.** Every detection rule is documented in `rubric/` with rule_id (`SS-<CATEGORY>-<NUMBER>`), trigger, severity, FP-review history. Closed-source rules are not allowed. See `.claude/rules/methodology.md`.
+3. **Methodology over opinion.** Every detection rule is documented in `rubric/` with rule_id (`SS-<CATEGORY>-<NUMBER>`), trigger, severity, FP-review history. Closed-source rules are not allowed. See `docs/methodology.md` + `.claude/rules/methodology.md`.
 4. **Vendor right-of-reply is structural.** Every public verdict is appealable; every verified appeal gets a substantive public response within 1 hour. See `.claude/rules/vendor-appeals.md`.
 5. **Scope discipline.** Build what's needed now. Extension points (nullable fields, metadata JSONB) for future capabilities. No speculative features.
 

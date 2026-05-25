@@ -1,14 +1,14 @@
 ---
 paths:
-  - "METHODOLOGY.md"
-  - "RULES.md"
+  - "docs/methodology.md"
+  - "docs/rules.md"
   - "rubric/**"
 ---
 
 # Methodology — open scoring rubric + rule-RFC governance
 
-> **Paths**: `METHODOLOGY.md`, `RULES.md`, `rubric/**`
-> **Public-facing summary**: `METHODOLOGY.md` (repo root). This rule is the contributor-facing detail; the two MUST stay in sync.
+> **Paths**: `docs/methodology.md`, `docs/rules.md`, `rubric/**`
+> **Public-facing summary**: `docs/methodology.md` (repo root). This rule is the contributor-facing detail; the two MUST stay in sync.
 
 ## Purpose
 
@@ -97,7 +97,7 @@ Every rule's `limitations` section names what it cannot catch. Examples:
 3. **Scoring is deterministic** — same input + same `rubric_version` → same score.
 4. **Rule-RFC for additions + changes.** 7-day comment window minimum.
 5. **No silent retirements.** Deprecation goes through the documented policy.
-6. **`METHODOLOGY.md` (root, public) and this rule stay in sync.** Public-facing changes ship in both.
+6. **`docs/methodology.md` (root, public) and this rule stay in sync.** Public-facing changes ship in both.
 
 ## When to update this rule
 

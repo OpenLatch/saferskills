@@ -43,5 +43,29 @@
       "additionalProperties": true,
       "description": "Extensible bag for per-kind fields surfaced by W2 ingestion adapters. Treat as opaque at the API boundary."
     }
-  }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-1234-7000-8000-000000000001",
+      "kind": "mcp_server",
+      "displayName": "github-toolbelt",
+      "githubUrl": "https://github.com/example-org/github-toolbelt",
+      "createdAt": "2026-05-25T10:00:00Z",
+      "updatedAt": "2026-05-25T10:00:00Z",
+      "metadata": {
+        "stars": 2410,
+        "primaryLanguage": "TypeScript",
+        "defaultBranch": "main"
+      }
+    },
+    {
+      "id": "018e7c8b-1234-7000-8000-000000000002",
+      "kind": "skill",
+      "displayName": "claude-skills/secret-scanner",
+      "githubUrl": "https://github.com/anthropics/claude-skills",
+      "createdAt": "2026-05-25T10:00:00Z",
+      "updatedAt": "2026-05-25T10:00:00Z",
+      "metadata": {}
+    }
+  ]
 }

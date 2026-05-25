@@ -12,7 +12,7 @@
 [![Project status](https://img.shields.io/badge/status-v0.x_pre--launch-orange.svg)](#project-status)
 [![Discussions](https://img.shields.io/github/discussions/OpenLatch/saferskills)](https://github.com/OpenLatch/saferskills/discussions)
 
-[saferskills.ai](https://saferskills.ai) · [Methodology](./METHODOLOGY.md) · [Discussions](https://github.com/OpenLatch/saferskills/discussions) · [Security](./SECURITY.md)
+[saferskills.ai](https://saferskills.ai) · [Methodology](./docs/methodology.md) · [Discussions](https://github.com/OpenLatch/saferskills/discussions) · [Security](./SECURITY.md)
 
 </div>
 
@@ -62,7 +62,7 @@ open https://saferskills.ai
 | Orange | 40–59 | Anonymous author OR mid-severity finding OR provenance unclear |
 | Red | 0–39 | Critical finding (prompt injection / shell RCE / secret exfil / supply-chain) |
 
-Sub-scores are weighted (Identity 25% · Integrity 25% · Behavior 30% · Provenance 20%). Full rubric: [METHODOLOGY.md](./METHODOLOGY.md). Every detection rule: [RULES.md](./RULES.md).
+Sub-scores are weighted (Identity 25% · Integrity 25% · Behavior 30% · Provenance 20%). Full rubric: [docs/methodology.md](./docs/methodology.md). Every detection rule: [docs/rules.md](./docs/rules.md).
 
 ## Use it as
 
@@ -102,7 +102,7 @@ Requirements: Node 24 LTS, Python 3.14, pnpm 10, uv 0.7+, Docker.
 
 ## Contributing
 
-We welcome contributions — code, detection-rule RFCs, scan-report appeals, and translations. Read [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md), and [METHODOLOGY.md](./METHODOLOGY.md) first.
+We welcome contributions — code, detection-rule RFCs, scan-report appeals, and translations. Read [CONTRIBUTING.md](./CONTRIBUTING.md), [Code of Conduct](./.github/CODE_OF_CONDUCT.md), and [docs/methodology.md](./docs/methodology.md) first.
 
 Detection-rule proposals go via [the rule-RFC issue template](.github/ISSUE_TEMPLATE/03-rule-proposal.yml). Vendor appeals go via [the vendor-appeal template](.github/ISSUE_TEMPLATE/04-vendor-appeal.yml).
 
@@ -114,4 +114,4 @@ Concerns about **what SaferSkills says about an item it scans** (incorrect verdi
 
 ## License
 
-Apache License 2.0 — see [LICENSE](./LICENSE) and [NOTICE](./NOTICE). Stewarded by [OpenLatch](https://openlatch.ai).
+Apache License 2.0 — see [LICENSE](./LICENSE). Stewarded by [OpenLatch](https://openlatch.ai).

@@ -4,7 +4,7 @@ Thanks for your interest in contributing! SaferSkills is an Apache-2.0, public, 
 
 ## Code of Conduct
 
-This project adopts the [Contributor Covenant 3.0](./CODE_OF_CONDUCT.md). Enforcement contact: `conduct@openlatch.ai`.
+This project adopts the [Contributor Covenant 3.0](./.github/CODE_OF_CONDUCT.md). Enforcement contact: `conduct@openlatch.ai`.
 
 ## Prerequisites
 
@@ -79,7 +79,7 @@ Detection rules are not landed via direct PR. Open a **`03-rule-proposal.yml`** 
 
 The community + maintainers comment for **7 days**. Maintainer decision is public. If approved, the PR landing the rule adds `rubric/<rule_id>.json` + a unit test + the two fixtures.
 
-Full lifecycle: `METHODOLOGY.md` + `.claude/rules/methodology.md`.
+Full lifecycle: `docs/methodology.md` + `.claude/rules/methodology.md`.
 
 ## Vendor appeals
 
@@ -97,7 +97,7 @@ A bug fix lands with a regression test that fails on `main` and passes on the br
 
 If your PR changes shipped behavior, update:
 - The relevant `.claude/rules/<rule>.md` (look up paths via `paths:` frontmatter)
-- The user-facing surface (`README.md`, `METHODOLOGY.md`, `RULES.md`, the relevant page in `webapp/src/pages/`)
+- The user-facing surface (`README.md`, `docs/methodology.md`, `docs/rules.md`, the relevant page in `webapp/src/pages/`)
 
 See `.claude/rules/documentation-sync.md`.
 

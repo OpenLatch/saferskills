@@ -4,8 +4,8 @@ Detection rules land under `rubric/<rule_id>.json` from W2 (Initiative I-02 / Tr
 
 The rule lifecycle, ID convention, and approval workflow are documented in:
 
-- [`METHODOLOGY.md`](../METHODOLOGY.md) — public-facing summary
-- [`RULES.md`](../RULES.md) — rule-ID convention + lifecycle
+- [`docs/methodology.md`](../docs/methodology.md) — public-facing summary
+- [`docs/rules.md`](../docs/rules.md) — rule-ID convention + lifecycle
 - [`.claude/rules/methodology.md`](../.claude/rules/methodology.md) — contributor-facing detail
 
 ## Status

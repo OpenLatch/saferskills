@@ -12,7 +12,7 @@ body:
         - Approved RFCs land via a PR adding `rubric/<rule_id>.json` + a unit test + a positive fixture + a negative fixture.
         - The "What this rule cannot catch" section is **required** — no black-box findings.
 
-        Full lifecycle: [`METHODOLOGY.md`](https://github.com/OpenLatch/saferskills/blob/main/METHODOLOGY.md) and [`.claude/rules/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/methodology.md).
+        Full lifecycle: [`docs/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/docs/methodology.md) and [`.claude/rules/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/methodology.md).
   - type: dropdown
     id: kind
     attributes:

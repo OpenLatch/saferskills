@@ -1,6 +1,6 @@
 # SaferSkills Methodology
 
-> v0 — current as of W1 (2026-05-25). The substantive rule contents land via the rule-RFC process starting W2 (Track B). This document is the public-facing summary; the contributor-facing detail lives in `.claude/rules/methodology.md`.
+> v0 — current as of W1 (2026-05-25). The substantive rule contents land via the rule-RFC process starting W2 (Track B). This document is the public-facing summary; the contributor-facing detail lives in `../.claude/rules/methodology.md`.
 
 ## Inputs
 
@@ -74,13 +74,13 @@ RFC (issue) → 7-day comment window → maintainer decision → PR adds rubric/
             ── deprecation RFC → 30-day notice → removal PR
 ```
 
-Full contract: `.claude/rules/methodology.md`.
+Full contract: `../.claude/rules/methodology.md`.
 
 ## Vendor right-of-reply
 
 Every verdict is appealable. Verified vendors (a `.saferskills/verify.txt` token in the scanned repo, or response from a maintainer email matching the repo) get a substantive public response within 1 hour for an active appeal. The appeal becomes a permanent comment on the catalog item — transparency over erasure.
 
-See `.github/ISSUE_TEMPLATE/04-vendor-appeal.yml` and `.claude/rules/vendor-appeals.md`.
+See `../.github/ISSUE_TEMPLATE/04-vendor-appeal.yml` and `../.claude/rules/vendor-appeals.md`.
 
 ## Methodology changelog
 

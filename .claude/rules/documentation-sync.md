@@ -15,7 +15,7 @@
 | `tech-stack.md` | `telemetry.md` (`services/api/app/**`, `webapp/src/**`, `ui/**`) |
 | | `environment-config.md` (env files + `app/core/config.py`) |
 | | `frontend-patterns.md` (`webapp/**`, `ui/**`) |
-| | `methodology.md` (`METHODOLOGY.md`, `RULES.md`, `rubric/**`) |
+| | `methodology.md` (`docs/methodology.md`, `docs/rules.md`, `rubric/**`) |
 | | `vendor-appeals.md` (vendor-appeal templates + flows) |
 
 ## Deferred rules (write when the feature lands)
@@ -65,7 +65,7 @@
 3. **No speculative docs** — only document what exists now. Deferred rules stay in the table above until the feature lands.
 4. **Update, don't duplicate** — integrate into existing structure.
 5. **Remove stale content** — contradictory guidance is a violation.
-6. **Public docs vs contributor docs are in sync** — `METHODOLOGY.md` (root, public-facing) and `methodology.md` (this directory, contributor-facing) cover the same contract; never let them drift.
+6. **Public docs vs contributor docs are in sync** — `docs/methodology.md` (public-facing) and `.claude/rules/methodology.md` (contributor-facing) cover the same contract; never let them drift.
 
 ## When to update this rule
 

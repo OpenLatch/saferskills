@@ -24,7 +24,7 @@ Examples: `SS-MCP-POISON-01` (zero-width Unicode in tool description), `SS-HOOKS
 4. **PR** — adds `rubric/<rule_id>.json` + a unit test + a fixture pair (positive + negative).
 5. **Deprecation** — RFC documenting why; 30-day public notice; removal PR. Deprecated rules stay in git history forever.
 
-Full governance contract: `.claude/rules/methodology.md`. Public-facing summary: `METHODOLOGY.md`.
+Full governance contract: `../.claude/rules/methodology.md`. Public-facing summary: `methodology.md` (this directory).
 
 ## Current rule set (W1)
 
