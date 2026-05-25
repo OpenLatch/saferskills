@@ -12,7 +12,7 @@ body:
         - Verified appeals trigger an immediate re-scan; the updated verdict publishes within 1 hour.
         - We never reject an appeal with "we already cover this" or "the rule is correct" — every appeal gets substantive engagement on the merits.
 
-        Full contract: [`.claude/rules/vendor-appeals.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/vendor-appeals.md).
+        Full contract: [`.claude/rules/vendor-appeals.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/vendor-appeals.md). Reach us directly at `appeals@openlatch.ai` if the form doesn't fit your case.
   - type: input
     id: catalog-id
     attributes:

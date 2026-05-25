@@ -79,7 +79,7 @@
   description: "Incompatible API / behaviour change."
 - name: "dependencies"
   color: "0366d6"
-  description: "Dependency bump (Renovate or Dependabot)."
+  description: "Dependency bump (Dependabot)."
 - name: "rubric-change"
   color: "5319e7"
   description: "Adds, modifies, or deprecates a detection rule."

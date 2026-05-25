@@ -56,8 +56,7 @@ W1 is unhosted (preview deploys via Fly.io launch later in Track D). When deploy
 
 ## Dependency-bump policy
 
-- **Renovate** is primary: broad ecosystem coverage, `minimumReleaseAge: 3 days`, grouped PRs per ecosystem (`frontend-minor-patch`, `backend-minor-patch`).
-- **Dependabot** is enabled for `github-actions` only (Renovate doesn't pin SHAs as cleanly).
+- **Dependabot** drives every ecosystem (npm root + pip `services/api` + pip `tools/e2e` + docker + github-actions). Weekly Monday schedule, grouped PRs per ecosystem (`frontend-minor-patch`, `api-minor-patch`, etc.).
 - Every dep on its current latest major or latest stable minor; major bumps reviewed individually.
 
 ## Pre-Commit Hooks

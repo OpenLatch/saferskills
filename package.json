@@ -12,7 +12,7 @@
     "url": "https://github.com/OpenLatch/saferskills/issues"
   },
   "license": "Apache-2.0",
-  "author": "OpenLatch, Inc. <hello@saferskills.ai>",
+  "author": "Luc Delsalle <hello@openlatch.ai>",
   "packageManager": "pnpm@10.0.0",
   "engines": {
     "node": ">=24.0.0",

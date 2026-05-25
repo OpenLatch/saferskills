@@ -32,7 +32,7 @@ Public-tier data is **never** retroactively scrubbed except via the vendor-appea
 
 ## Dependency Security
 
-- **Renovate** is primary (broad ecosystem, `minimumReleaseAge: 3 days`); **Dependabot** is enabled for `github-actions` only.
+- **Dependabot** drives weekly bumps across every ecosystem (npm root + pip `services/api` + pip `tools/e2e` + docker + github-actions). Grouped by update-type so the PR queue stays small.
 - **pip-audit** + **pnpm audit** in CI (lanes 12 / `dep-scan`).
 - **Bandit** SAST for Python.
 - **Trivy** container scan (CRITICAL/HIGH) on every PR.

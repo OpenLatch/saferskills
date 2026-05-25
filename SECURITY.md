@@ -6,7 +6,7 @@ We take the security of SaferSkills itself seriously, and we treat reports as a 
 
 | In scope | Out of scope |
 |---|---|
-| Vulnerabilities in **SaferSkills code, infrastructure, CI pipeline, or release artifacts** (`services/api/`, `webapp/`, `ui/`, the CLI, the codegen scripts, the GitHub Actions workflows, the Fly.io deployment). | **Disputes about the verdict SaferSkills assigns to an item it scanned.** Those route through the vendor-appeal process — see `.github/ISSUE_TEMPLATE/04-vendor-appeal.yml` or `appeals@saferskills.ai`. |
+| Vulnerabilities in **SaferSkills code, infrastructure, CI pipeline, or release artifacts** (`services/api/`, `webapp/`, `ui/`, the CLI, the codegen scripts, the GitHub Actions workflows, the Fly.io deployment). | **Disputes about the verdict SaferSkills assigns to an item it scanned.** Those route through the vendor-appeal process — see `.github/ISSUE_TEMPLATE/04-vendor-appeal.yml` or `appeals@openlatch.ai`. |
 | Supply-chain issues in our dependencies that affect SaferSkills users. | Vulnerabilities in items SaferSkills scans (those should be reported to the upstream maintainer). |
 
 ## Supported versions
@@ -22,7 +22,7 @@ We do not currently backport fixes to pre-`v1.0` releases.
 
 **Preferred**: GitHub Private Vulnerability Reporting at <https://github.com/OpenLatch/saferskills/security/advisories/new>.
 
-**Alternative**: email `security@saferskills.ai` (PGP key fingerprint will be published with the first release).
+**Alternative**: email `security@openlatch.ai` (PGP key fingerprint will be published with the first release).
 
 Please include:
 - The version (or git SHA) you tested

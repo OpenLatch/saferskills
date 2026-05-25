@@ -91,7 +91,7 @@ rubric/            # Detection rules (W2+ — placeholder dir at W1)
 cli/               # `saferskills` CLI (W4+ — placeholder dir at W1)
 tools/e2e/         # Playwright + Python e2e command suite
 .claude/rules/     # Domain-specific rules (path-scoped — load only when relevant files are edited)
-.github/           # Workflows, ISSUE_TEMPLATEs, CODEOWNERS, dependabot, renovate, labels
+.github/           # Workflows, ISSUE_TEMPLATEs, CODEOWNERS, dependabot, labels
 ```
 
 Reusable cross-app components → `ui/components/`. Webapp-specific components → `webapp/src/components/`. Reuse or extend before creating new ones. See `ui/CLAUDE.md` and `.claude/rules/design-system.md`.
@@ -127,7 +127,7 @@ SaferSkills and OpenLatch share stewardship but are visually + editorially indep
 ## In-flight chores
 
 - Reactivate the schema-to-code drift gate once `openlatch-client-schemas`-equivalent is published for SaferSkills wire schemas (Track A W3).
-- Renovate weekly bumps land Monday morning; review the dependency-dashboard issue.
+- Dependabot weekly bumps land Monday morning; review them in the PR queue.
 
 ---
 

@@ -4,7 +4,7 @@ Thanks for your interest in contributing! SaferSkills is an Apache-2.0, public, 
 
 ## Code of Conduct
 
-This project adopts the [Contributor Covenant 3.0](./CODE_OF_CONDUCT.md). Enforcement contact: `conduct@saferskills.ai`.
+This project adopts the [Contributor Covenant 3.0](./CODE_OF_CONDUCT.md). Enforcement contact: `conduct@openlatch.ai`.
 
 ## Prerequisites
 
@@ -35,7 +35,7 @@ open http://localhost:5173                 # → placeholder homepage
 
 ## Branch naming
 
-`<type>/<short-slug>` — e.g. `feat/scoring-engine`, `fix/health-endpoint-encoding`, `chore/bump-renovate`, `docs/contributing-clarify`. `<type>` mirrors Conventional Commits.
+`<type>/<short-slug>` — e.g. `feat/scoring-engine`, `fix/health-endpoint-encoding`, `chore/bump-dependabot`, `docs/contributing-clarify`. `<type>` mirrors Conventional Commits.
 
 ## Commits
 
@@ -107,7 +107,7 @@ Release Please opens release PRs from Conventional Commits. Merging the release 
 
 ## Security
 
-If you find a security issue in SaferSkills itself, **do not open a public issue**. Use GitHub Private Vulnerability Reporting or email `security@saferskills.ai`. See `SECURITY.md`.
+If you find a security issue in SaferSkills itself, **do not open a public issue**. Use GitHub Private Vulnerability Reporting or email `security@openlatch.ai`. See `SECURITY.md`.
 
 Concerns about a verdict on an item SaferSkills *scanned* are not security issues — file a vendor appeal instead.
 

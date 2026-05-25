@@ -12,7 +12,7 @@ body:
         Use the private channel:
 
         - **GitHub Private Vulnerability Reporting** — <https://github.com/OpenLatch/saferskills/security/advisories/new>
-        - **Email** — `security@saferskills.ai`
+        - **Email** — `security@openlatch.ai`
 
         Our response SLA: ≤72h acknowledgement, ≤90 days fix or update (faster for Critical).
 
@@ -26,5 +26,5 @@ body:
     attributes:
       label: I understand
       options:
-        - label: I understand this surface is NOT for security reports and I will close this issue and use Private Vulnerability Reporting or `security@saferskills.ai`.
+        - label: I understand this surface is NOT for security reports and I will close this issue and use Private Vulnerability Reporting or `security@openlatch.ai`.
           required: true

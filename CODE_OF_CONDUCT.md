@@ -8,14 +8,14 @@ Read the full text at: <https://www.contributor-covenant.org/version/3/0/code_of
 
 Concerns about behavior in our community spaces (GitHub Discussions, issue threads, PR review, Discord/social — anywhere SaferSkills maintainers or contributors interact):
 
-- **Email**: `conduct@saferskills.ai`
+- **Email**: `conduct@openlatch.ai`
 - **Response SLA**: 72 hours for initial acknowledgement, 14 days for a substantive decision.
 
 Reports are confidential to the conduct response team. Anonymous reports are accepted but limit our ability to follow up.
 
 ## Scope
 
-This Code of Conduct applies in all SaferSkills project spaces, and in public spaces when an individual is representing the project (e.g. using an official `@saferskills.ai` email address, posting on official social media, or acting as an appointed representative at an event).
+This Code of Conduct applies in all SaferSkills project spaces, and in public spaces when an individual is representing the project (e.g. posting from an official `@openlatch.ai` address, posting on official social media, or acting as an appointed representative at an event).
 
 ## Attribution
 

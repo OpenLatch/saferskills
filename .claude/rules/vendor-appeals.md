@@ -22,7 +22,7 @@ Public scan results are a powerful claim. SaferSkills' legitimacy depends on the
 |---|---|---|
 | **GitHub issue template** (`.github/ISSUE_TEMPLATE/04-vendor-appeal.yml`) | Live | Default at W1. Tracks the appeal in a public issue, links the catalog item, captures structured fields (rule_id, scan timestamp, rebuttal). |
 | **Web form** (`/appeal` on `saferskills.ai/appeal`) | **W6** | Ships with the appeal form route in `webapp/src/pages/appeal.astro`. Posts to `POST /api/v1/appeals` (W6 endpoint). |
-| **Email** (`appeals@saferskills.ai`) | Live | Human-escalation path when the GitHub form is insufficient (e.g. private-disclosure-of-sensitive-detail). Email is converted to a public issue by a maintainer unless the vendor explicitly requests private handling. |
+| **Email** (`appeals@openlatch.ai`) | Live | Human-escalation path when the GitHub form is insufficient (e.g. private-disclosure-of-sensitive-detail). Email is converted to a public issue by a maintainer unless the vendor explicitly requests private handling. |
 
 ## Identity verification
 
@@ -74,7 +74,7 @@ Every appeal gets a **substantive public response** that engages the vendor's sp
 
 Each state transition is an audit event (cf. `security.md` § "Audit Trail").
 
-## Escalation — `appeals@saferskills.ai`
+## Escalation — `appeals@openlatch.ai`
 
 The email inbox is for cases the GitHub form cannot serve:
 

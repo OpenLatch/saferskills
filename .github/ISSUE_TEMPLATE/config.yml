@@ -7,5 +7,5 @@ contact_links:
     url: https://github.com/OpenLatch/saferskills/security/advisories/new
     about: Privately report a vulnerability via GitHub Private Vulnerability Reporting. Do NOT open a public issue for security.
   - name: Conduct concern
-    url: mailto:conduct@saferskills.ai
+    url: mailto:conduct@openlatch.ai
     about: Reach the conduct response team. 72-hour acknowledgement SLA.

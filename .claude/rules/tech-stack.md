@@ -1,6 +1,6 @@
 # Tech Stack
 
-The stack below is the W1 contract. Every dep tracks its current latest major or latest stable minor; Renovate handles bumps with `minimumReleaseAge: 3 days` (cf. `ci-cd.md`).
+The stack below is the W1 contract. Every dep tracks its current latest major or latest stable minor; Dependabot drives weekly bumps grouped by update-type (cf. `ci-cd.md`).
 
 ## Stack table (W1)
 
@@ -56,10 +56,9 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 
 ## Version-bump policy
 
-- Renovate primary (broad ecosystem, `minimumReleaseAge: 3 days`, grouped PRs).
-- Dependabot for `github-actions` only.
+- **Dependabot** is the only dep-bot. Weekly Monday across every ecosystem (npm root + pip `services/api` + pip `tools/e2e` + docker + github-actions).
 - Every dep on its current latest major or latest stable minor.
-- Major bumps land individually with a brief migration note in the PR body; minor/patch bumps group automatically per ecosystem.
+- Major bumps land individually with a brief migration note in the PR body; minor/patch bumps group automatically per ecosystem (`frontend-minor-patch`, `api-minor-patch`, etc.).
 
 ## When to update this rule
 

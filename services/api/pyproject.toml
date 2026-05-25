@@ -5,7 +5,7 @@ description = "SaferSkills API — FastAPI backend for the public AI-agent trust
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
-authors = [{ name = "OpenLatch, Inc.", email = "hello@saferskills.ai" }]
+authors = [{ name = "OpenLatch, Inc.", email = "hello@openlatch.ai" }]
 
 dependencies = [
   "fastapi[standard]>=0.136",

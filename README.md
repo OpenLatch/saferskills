@@ -22,7 +22,7 @@
 
 You install a Claude skill, an MCP server, a Cursor rules file, or a Codex hook. It runs with your file-system access. It can read your `.env`. It can `curl | bash`. It can ship your repo to a paste site. There is **no public, transparent record** of what each of those tens of thousands of items actually does.
 
-SaferSkills is that public, transparent record. Anyone — a developer, a vendor, a researcher — can submit a GitHub URL. A 30-second scan returns a Yuka-style report: aggregate trust score (0–100), four-tier breakdown (Identity / Integrity / Behavior / Provenance), every detector that fired, the rule that fired it, the exact line of evidence, the remediation, and a permalink that vendors can dispute.
+SaferSkills is that public, transparent record. Anyone — a developer, a vendor, a researcher — can submit a GitHub URL. A 30-second scan returns a digestable security report: aggregate trust score (0–100), four-tier breakdown (Identity / Integrity / Behavior / Provenance), every detector that fired, the rule that fired it, the exact line of evidence, the remediation, and a permalink that vendors can dispute.
 
 Methodology, not opinion. Every rule is documented. Every score is reproducible. Every appeal is public.
 
@@ -108,9 +108,9 @@ Detection-rule proposals go via [the rule-RFC issue template](.github/ISSUE_TEMP
 
 ## Security
 
-Vulnerabilities in SaferSkills itself: see [SECURITY.md](./SECURITY.md) (GitHub Private Vulnerability Reporting or `security@saferskills.ai`).
+Vulnerabilities in SaferSkills itself: see [SECURITY.md](./SECURITY.md) (GitHub Private Vulnerability Reporting or `security@openlatch.ai`).
 
-Concerns about **what SaferSkills says about an item it scans** (incorrect verdict, scope dispute, rule misapplication): file a [vendor appeal](.github/ISSUE_TEMPLATE/04-vendor-appeal.yml) or email `appeals@saferskills.ai`. Every appeal gets a substantive public response within 1 hour for verified maintainers.
+Concerns about **what SaferSkills says about an item it scans** (incorrect verdict, scope dispute, rule misapplication): file a [vendor appeal](.github/ISSUE_TEMPLATE/04-vendor-appeal.yml) or email `appeals@openlatch.ai`. Every appeal gets a substantive public response within 1 hour for verified maintainers.
 
 ## License
 

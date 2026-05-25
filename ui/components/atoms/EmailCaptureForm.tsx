@@ -111,7 +111,7 @@ export default function EmailCaptureForm() {
       )}
       {status === 'error' && (
         <p className="text-sm w-full sm:w-auto" style={{ color: 'rgb(var(--score-red))' }}>
-          Something went wrong. Try again later or email us at hello@saferskills.ai.
+          Something went wrong. Try again later or email us at hello@openlatch.ai.
         </p>
       )}
     </form>

@@ -1,22 +1,61 @@
-# Dependabot config — github-actions ONLY.
-# Code dependencies (npm + pip + cargo) are managed by Renovate
-# (renovate.json) because we need `minimumReleaseAge` for the supply-chain
-# compromise guard, which Dependabot does not support natively.
+# Dependabot config — mirrors openlatch-platform.
+# Covers all dep ecosystems at W1: npm (root + webapp), pip (services/api +
+# tools/e2e), docker, and github-actions. Weekly Monday bumps, grouped by
+# update type so the PR queue stays small.
 
 version: 2
 updates:
-  - package-ecosystem: github-actions
-    directory: /
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: "UTC"
-    commit-message:
-      prefix: "ci"
-      include: "scope"
-    labels: ["dependencies", "area/ci"]
+      interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 5
+    labels: ["dependencies", "area/ci"]
     groups:
-      actions:
+      frontend-minor-patch:
+        update-types: ["minor", "patch"]
+      frontend-major:
+        update-types: ["major"]
+
+  - package-ecosystem: "pip"
+    directory: "/services/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "area/api"]
+    groups:
+      api-minor-patch:
+        update-types: ["minor", "patch"]
+      api-major:
+        update-types: ["major"]
+
+  - package-ecosystem: "pip"
+    directory: "/tools/e2e"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels: ["dependencies", "area/e2e"]
+    groups:
+      e2e-all:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "area/ci"]
+    groups:
+      docker-all:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "area/ci"]
+    groups:
+      gha-all:
         patterns: ["*"]
