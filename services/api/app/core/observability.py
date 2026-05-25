@@ -39,5 +39,5 @@ async def init_observability(settings: Settings) -> None:
             )
             trace.set_tracer_provider(TracerProvider(resource=resource))
             logger.info("otel.initialised")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — observability must never break the app
             logger.warning("otel.init_failed", error=str(exc))

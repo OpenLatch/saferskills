@@ -16,7 +16,7 @@ ADD https://astral.sh/uv/install.sh /tmp/install-uv.sh
 RUN sh /tmp/install-uv.sh && rm /tmp/install-uv.sh
 ENV PATH="/root/.local/bin:$PATH"
 
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml uv.lock* README.md ./
 RUN uv sync --frozen --no-dev || uv sync --no-dev
 
 COPY app/ ./app/
