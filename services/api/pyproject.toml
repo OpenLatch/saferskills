@@ -1,0 +1,62 @@
+[project]
+name = "saferskills-api"
+version = "0.0.0-foundation"
+description = "SaferSkills API — FastAPI backend for the public AI-agent trust-scoring catalog."
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "Apache-2.0" }
+authors = [{ name = "OpenLatch, Inc.", email = "hello@saferskills.ai" }]
+
+dependencies = [
+  "fastapi[standard]>=0.136",
+  "uvicorn[standard]>=0.36",
+  "pydantic>=2.13",
+  "pydantic-settings>=2.6",
+  "sqlalchemy[asyncio]>=2.0",
+  "alembic>=1.18",
+  "asyncpg>=0.30",
+  "sentry-sdk[fastapi]>=2.20",
+  "opentelemetry-api>=1.30",
+  "opentelemetry-sdk>=1.30",
+  "opentelemetry-instrumentation-fastapi>=0.51b0",
+  "structlog>=25.0",
+  "httpx>=0.28",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6.0",
+  "ruff>=0.9",
+  "pyright>=1.1.390",
+  "datamodel-code-generator>=0.26",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["app/schemas/generated", "app/models/generated"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.pyright]
+include = ["app", "tests"]
+exclude = ["**/generated/**"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --cov=app --cov-report=term-missing"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

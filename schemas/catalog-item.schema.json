@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/catalog-item.schema.json",
+  "title": "CatalogItem",
+  "description": "A single deduplicated entry in the SaferSkills catalog (a skill, MCP server, hook, or plugin). W1 placeholder shape — replaced by the real model from Initiative I-02 / Track A in W2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "displayName", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Server-assigned UUID v4."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["skill", "mcp_server", "hook", "plugin"],
+      "description": "Artifact taxonomy. Extended via the W2 schema rewrite."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Human-facing name as resolved from the source artifact."
+    },
+    "githubUrl": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "Canonical GitHub URL when the artifact lives in a public Git repo. Null for npm-only or curl-installed artifacts."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "First indexed-at timestamp (ISO 8601 with timezone)."
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last-modified timestamp."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extensible bag for per-kind fields surfaced by W2 ingestion adapters. Treat as opaque at the API boundary."
+    }
+  }
+}

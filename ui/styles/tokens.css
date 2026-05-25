@@ -1,0 +1,88 @@
+/* SaferSkills design tokens — the single source of truth.
+ *
+ * Editorial-Precision aesthetic: 0px radius, 1px hairline borders, no shadows.
+ * Distinct from the OpenLatch emerald-teal brand via the cobalt primary.
+ *
+ * See .claude/rules/design-system.md.
+ */
+
+:root {
+  /* ── Surface ──────────────────────────────────────────── */
+  --background:    255 255 255;
+  --foreground:    10 10 10;
+  --muted:         245 245 247;
+  --muted-fg:      90 90 95;
+  --border:        220 220 224;
+
+  /* ── Brand ────────────────────────────────────────────── */
+  --primary:       30 64 175;    /* #1E40AF cobalt */
+  --primary-fg:    255 255 255;
+  --primary-tint:  239 246 255;  /* #EFF6FF — 5% wash */
+
+  /* ── 4-band score colors (Methodology §Trust score rubric) */
+  --score-green:   16 122 79;    /* #107A4F */
+  --score-yellow:  202 138 4;    /* #CA8A04 */
+  --score-orange:  234 88 12;    /* #EA580C */
+  --score-red:     185 28 28;    /* #B91C1C */
+
+  /* ── Typography scale (px) ────────────────────────────── */
+  --type-2xs:      11px;
+  --type-xs:       12px;
+  --type-sm:       14px;
+  --type-base:     16px;
+  --type-lg:       18px;
+  --type-xl:       22px;
+  --type-2xl:      28px;
+  --type-3xl:      36px;
+  --type-hero:     56px;
+
+  /* ── Spacing scale (4px grid) ─────────────────────────── */
+  --space-1:       4px;
+  --space-2:       8px;
+  --space-3:       12px;
+  --space-4:       16px;
+  --space-6:       24px;
+  --space-8:       32px;
+  --space-12:      48px;
+  --space-16:      64px;
+
+  /* ── Architecture: 0px corners, 1px hairlines ─────────── */
+  --radius:        0;
+  --border-width:  1px;
+
+  /* ── Motion (sparingly) ───────────────────────────────── */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease:          cubic-bezier(0.32, 0, 0.67, 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background:    10 10 10;
+    --foreground:    245 245 247;
+    --muted:         24 24 27;
+    --muted-fg:      161 161 170;
+    --border:        45 45 50;
+
+    --primary:       96 165 250;   /* lighter cobalt for dark surface */
+    --primary-fg:    10 10 10;
+    --primary-tint:  30 41 59;
+  }
+}
+
+/* Tailwind v4 mapping — when consuming `bg-primary text-primary-fg` etc. */
+@theme {
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-fg: rgb(var(--muted-fg));
+  --color-border: rgb(var(--border));
+  --color-primary: rgb(var(--primary));
+  --color-primary-fg: rgb(var(--primary-fg));
+  --color-primary-tint: rgb(var(--primary-tint));
+  --color-score-green: rgb(var(--score-green));
+  --color-score-yellow: rgb(var(--score-yellow));
+  --color-score-orange: rgb(var(--score-orange));
+  --color-score-red: rgb(var(--score-red));
+  --radius: 0;
+}

@@ -1,0 +1,32 @@
+---
+import Base from '@/layouts/Base.astro';
+import Footer from '@ui/components/atoms/Footer.astro';
+---
+<Base title="Privacy — SaferSkills">
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-2xl prose">
+      <h1>Privacy</h1>
+      <p>
+        Our final privacy policy will be published before public launch. It is
+        currently in counsel review.
+      </p>
+      <p>
+        Questions in the meantime: <a href="mailto:legal@saferskills.ai">legal@saferskills.ai</a>.
+      </p>
+      <p>
+        Short-form summary of what we will collect and why:
+      </p>
+      <ul>
+        <li>IP address + user agent — 90-day retention, for abuse prevention only.</li>
+        <li>Submitted GitHub URLs — public + indefinite (the catalog).</li>
+        <li>Voluntary email subscription — private; self-serve deletion at <code>/account/delete</code> when that surface ships.</li>
+        <li>Scan results — public + indefinite.</li>
+      </ul>
+      <p>
+        We do not run analytics on visitors. We do not embed third-party
+        trackers. We do not fingerprint.
+      </p>
+    </article>
+  </main>
+  <Footer />
+</Base>

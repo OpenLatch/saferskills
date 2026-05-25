@@ -1,0 +1,50 @@
+# CI smoke compose — used by .github/workflows/pr-checks.yml `docker-smoke`.
+# Brings the same three services up as the dev compose, but with the prod
+# image flavour (no host-volume mounts, no `--reload`) and a stripped-down
+# environment that doesn't depend on a real .env on disk.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci
+      POSTGRES_DB: saferskills_ci
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d saferskills_ci"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: ${API_IMAGE:-saferskills-api:ci}
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:ci@postgres:5432/saferskills_ci
+      GIT_SHA: ci
+      VERSION: 0.0.0-foundation
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  webapp:
+    image: ${WEBAPP_IMAGE:-saferskills-webapp:ci}
+    build:
+      context: ..
+      dockerfile: webapp/Dockerfile
+    depends_on: [api]
+    environment:
+      PUBLIC_API_URL: http://api:8000
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10

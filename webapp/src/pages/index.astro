@@ -1,0 +1,36 @@
+---
+import Base from '@/layouts/Base.astro';
+import Wordmark from '@ui/components/atoms/Wordmark.astro';
+import Footer from '@ui/components/atoms/Footer.astro';
+import EmailCaptureForm from '@ui/components/atoms/EmailCaptureForm.tsx';
+---
+<Base title="SaferSkills — the VirusTotal of AI agents">
+  <main class="flex-1 flex items-center justify-center px-6 py-16">
+    <div class="w-full max-w-2xl">
+      <Wordmark size="hero" />
+
+      <p class="mt-8 text-xl leading-relaxed text-foreground/80">
+        The VirusTotal of AI agents. Free, public, open-source trust scoring for
+        skills, MCP servers, hooks, and plugins — across every agent platform.
+      </p>
+
+      <p class="mt-10 text-sm uppercase tracking-wide text-foreground/60">
+        Launching publicly mid-2026. Get notified:
+      </p>
+
+      <EmailCaptureForm client:idle />
+
+      <p class="mt-10 text-sm text-foreground/60">
+        <a href="/methodology">Methodology</a>
+        <span class="mx-2">·</span>
+        <a href="https://github.com/OpenLatch/saferskills" rel="noopener">Source on GitHub</a>
+        <span class="mx-2">·</span>
+        <a href="/privacy">Privacy</a>
+        <span class="mx-2">·</span>
+        <a href="/terms">Terms</a>
+      </p>
+    </div>
+  </main>
+
+  <Footer />
+</Base>

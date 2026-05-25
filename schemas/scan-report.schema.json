@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/scan-report.schema.json",
+  "title": "ScanReport",
+  "description": "Public scan report for a CatalogItem. W1 placeholder shape — replaced by the real Initiative I-02 / Track B schema in W2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "catalogItemId",
+    "aggregateScore",
+    "tier",
+    "subScores",
+    "findings",
+    "rubricVersion",
+    "engineVersion",
+    "scannedAt"
+  ],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "catalogItemId": {"type": "string", "format": "uuid"},
+    "aggregateScore": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "0-100 deterministic aggregate per METHODOLOGY.md weighting (Identity 25% / Integrity 25% / Behavior 30% / Provenance 20%)."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["green", "yellow", "orange", "red", "unscoped"]
+    },
+    "subScores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "integrity", "behavior", "provenance"],
+      "properties": {
+        "identity": {"type": "integer", "minimum": 0, "maximum": 100},
+        "integrity": {"type": "integer", "minimum": 0, "maximum": 100},
+        "behavior": {"type": "integer", "minimum": 0, "maximum": 100},
+        "provenance": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ruleId", "severity", "evidenceLocation", "remediation"],
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "pattern": "^SS-[A-Z]+(-[A-Z]+)*-\\d{2}$",
+            "description": "Format `SS-<CATEGORY>-<NUMBER>` per RULES.md."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "evidenceLocation": {
+            "type": "string",
+            "description": "Path + line range in the scanned artifact (e.g. `src/mcp/server.ts:42-58`)."
+          },
+          "matchedContent": {
+            "type": ["string", "null"],
+            "description": "Exact substring or canonicalised summary of the matched evidence. Null when the rule cannot publish content (e.g. a credential pattern)."
+          },
+          "remediation": {
+            "type": "string",
+            "description": "One-paragraph fix recommendation."
+          },
+          "ruleUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Permalink to the rule's JSON under rubric/ at the rubricVersion SHA."
+          }
+        }
+      }
+    },
+    "rubricVersion": {
+      "type": "string",
+      "description": "Git SHA of rubric/ at scan time. Enables vendor-side reproducibility."
+    },
+    "engineVersion": {
+      "type": "string",
+      "description": "Git SHA of the scan engine at scan time."
+    },
+    "scannedAt": {"type": "string", "format": "date-time"}
+  }
+}

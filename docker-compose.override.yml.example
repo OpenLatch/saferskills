@@ -1,0 +1,12 @@
+# Copy this file to docker-compose.override.yml (gitignored) for local-only
+# tweaks: mount your services/api/.env, swap the postgres port if 5432 is
+# taken, point webapp at a non-default API URL, etc.
+
+services:
+  api:
+    env_file: ./services/api/.env
+    volumes:
+      - ./services/api/app:/app/app           # live-reload on save
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+  postgres:
+    ports: ["5433:5432"]                       # avoid host-postgres conflict

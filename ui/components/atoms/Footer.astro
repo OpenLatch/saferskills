@@ -1,0 +1,44 @@
+---
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="row">
+    <span>Stewarded by <a href="https://openlatch.ai" rel="noopener">OpenLatch</a></span>
+    <span class="dot">·</span>
+    <a href="https://github.com/OpenLatch/saferskills">Source</a>
+    <span class="dot">·</span>
+    <a href="/methodology">Methodology</a>
+    <span class="dot">·</span>
+    <a href="/privacy">Privacy</a>
+    <span class="dot">·</span>
+    <a href="/terms">Terms</a>
+    <span class="spacer"></span>
+    <span>© {year} Apache 2.0</span>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: var(--border-width) solid rgb(var(--border));
+    padding: var(--space-6);
+    font-size: var(--type-sm);
+    color: rgb(var(--muted-fg));
+    background: rgb(var(--background));
+  }
+  .row {
+    max-width: 80ch;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+  .dot { color: rgb(var(--border)); }
+  .spacer { flex: 1; }
+  a {
+    color: rgb(var(--muted-fg));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  a:hover { color: rgb(var(--primary)); }
+</style>

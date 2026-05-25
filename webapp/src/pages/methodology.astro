@@ -1,0 +1,60 @@
+---
+import Base from '@/layouts/Base.astro';
+import Footer from '@ui/components/atoms/Footer.astro';
+---
+<Base title="Methodology — SaferSkills">
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-3xl prose">
+      <h1>Methodology</h1>
+      <p>
+        SaferSkills is a public, free, Apache-2.0 trust-scoring service. Every
+        detection rule is open; every score is reproducible; every verdict is
+        appealable.
+      </p>
+
+      <h2>Inputs</h2>
+      <p>A GitHub repository URL or, from W4, an <code>npx</code>-installable package name.</p>
+
+      <h2>Detection categories</h2>
+      <ul>
+        <li><strong>Identity</strong> — author signature, GitHub org age, signing keys.</li>
+        <li><strong>Integrity</strong> — file-hash drift, unsigned commits, content vs claimed version.</li>
+        <li><strong>Behavior</strong> — shell RCE, prompt injection, tool poisoning, MCP rug-pull, hooks that disable monitoring.</li>
+        <li><strong>Provenance</strong> — supply chain (dependencies, transitive risk), SBOM presence, build reproducibility.</li>
+      </ul>
+
+      <h2>Scoring model</h2>
+      <p>
+        <code>aggregate_score = 0.25 × identity + 0.25 × integrity + 0.30 × behavior + 0.20 × provenance</code>
+      </p>
+      <p>
+        Each sub-score is 0–100, computed from per-rule penalties documented in
+        each rule's RFC. Same input → same score. No model. No random seed. No
+        temperature.
+      </p>
+
+      <h2>Reproducibility</h2>
+      <p>
+        Every report records <code>rubric_version</code> and
+        <code>engine_version</code> Git SHAs plus the artifact's
+        <code>inputs_hash</code>. Any vendor can re-derive any historical
+        verdict.
+      </p>
+
+      <h2>Limitations</h2>
+      <p>
+        Every rule's RFC includes a "What this rule cannot catch" section. The
+        rubric explicitly does not flag closed-source artifacts (they get a
+        "Provenance: unscoped" badge, not a score).
+      </p>
+
+      <h2>Full reference</h2>
+      <p>
+        Authoritative documents are in the <a href="https://github.com/OpenLatch/saferskills/blob/main/METHODOLOGY.md">METHODOLOGY.md</a>,
+        <a href="https://github.com/OpenLatch/saferskills/blob/main/RULES.md">RULES.md</a>, and the
+        <a href="https://github.com/OpenLatch/saferskills/tree/main/rubric">rubric/</a> directory.
+      </p>
+    </article>
+  </main>
+  <Footer />
+</Base>

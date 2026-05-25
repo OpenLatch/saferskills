@@ -1,0 +1,42 @@
+---
+interface Props {
+  size?: 'hero' | 'lg' | 'md' | 'sm';
+  href?: string | null;
+}
+const { size = 'md', href = '/' } = Astro.props;
+
+const fontSize = {
+  hero: 'var(--type-hero)',
+  lg: 'var(--type-3xl)',
+  md: 'var(--type-2xl)',
+  sm: 'var(--type-lg)',
+}[size];
+---
+{href ? (
+  <a
+    href={href}
+    class="wordmark"
+    style={`font-size: ${fontSize}`}
+    aria-label="SaferSkills home"
+  >
+    SaferSkills
+  </a>
+) : (
+  <span class="wordmark" style={`font-size: ${fontSize}`}>SaferSkills</span>
+)}
+
+<style>
+  .wordmark {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-weight: 700;
+    color: rgb(var(--primary));
+    letter-spacing: -0.02em;
+    line-height: 1;
+    text-decoration: none;
+    display: inline-block;
+  }
+  a.wordmark:hover {
+    text-decoration: none;
+    opacity: 0.85;
+  }
+</style>
