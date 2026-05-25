@@ -22,7 +22,9 @@ runs:
       with: { python-version: "3.14" }
 
     - uses: astral-sh/setup-uv@v3
-      with: { enable-cache: true }
+      # `enable-cache: true` requires a committed uv.lock — re-enable once
+      # services/api/uv.lock lands. Until then setup-uv hard-errors on
+      # missing lockfile and kills every job that depends on Python.
 
     - name: Install JS deps
       shell: bash
