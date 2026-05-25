@@ -222,7 +222,9 @@ jobs:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
       - uses: actions/download-artifact@v4
-        with: { name: image-${{ matrix.service }}, path: /tmp }
+        with:
+          name: image-${{ matrix.service }}
+          path: /tmp
       - run: docker load -i /tmp/${{ matrix.service }}.tar
       - uses: aquasecurity/trivy-action@0.28.0
         with:
