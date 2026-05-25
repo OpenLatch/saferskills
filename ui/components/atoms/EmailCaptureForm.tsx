@@ -7,17 +7,18 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * Minimal email-capture island for the W1 placeholder homepage.
  *
- * The W1 wire posts to the Resend audiences API directly from the browser.
- * The audience ID is exposed via `PUBLIC_RESEND_AUDIENCE_ID` (a public token —
- * never put a real secret behind a PUBLIC_ key). When the audience id is
- * unset (local dev), the submission resolves to a no-op with the "ok" UI so
- * the form is exercisable without external services.
+ * Posts to `${PUBLIC_API_URL}/api/v1/subscribers`. The backend endpoint
+ * lands with the Track E email surface in W5 (Initiative I-06); until
+ * then the API responds 404 / 501 and the form falls back to the "ok"
+ * UI so the homepage is exercisable end-to-end without scaffolding the
+ * subscriber persistence first. The Resend API key (server-side, never
+ * a `PUBLIC_` env var) is wired into the backend at W5.
  */
 export default function EmailCaptureForm() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<Status>('idle');
 
-  const audienceId = import.meta.env.PUBLIC_RESEND_AUDIENCE_ID ?? '';
+  const apiUrl = import.meta.env.PUBLIC_API_URL ?? '';
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,20 +29,23 @@ export default function EmailCaptureForm() {
     setStatus('submitting');
 
     try {
-      if (!audienceId) {
-        // Dev mode — no-op success.
+      if (!apiUrl) {
+        // Dev mode with no API URL — no-op success.
         await new Promise((resolve) => setTimeout(resolve, 300));
         setStatus('ok');
         return;
       }
 
-      const response = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+      const response = await fetch(`${apiUrl}/api/v1/subscribers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, unsubscribed: false }),
+        body: JSON.stringify({ email }),
       });
 
-      if (response.ok) {
+      // 404 / 501 from W1 means the endpoint isn't shipped yet — UX
+      // intent is to acknowledge the submission; the user gets the same
+      // "we'll email you" treatment once the W5 endpoint persists it.
+      if (response.ok || response.status === 404 || response.status === 501) {
         setStatus('ok');
       } else {
         setStatus('error');

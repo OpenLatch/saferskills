@@ -15,7 +15,9 @@ async def init_observability(settings: Settings) -> None:
     if settings.sentry_dsn:
         try:
             import sentry_sdk  # type: ignore[import-not-found]
-            from sentry_sdk.integrations.fastapi import FastApiIntegration  # type: ignore[import-not-found]
+            from sentry_sdk.integrations.fastapi import (  # type: ignore[import-not-found]
+                FastApiIntegration,
+            )
 
             sentry_sdk.init(
                 dsn=settings.sentry_dsn,
@@ -25,7 +27,7 @@ async def init_observability(settings: Settings) -> None:
                 traces_sample_rate=0.0,  # bumped per-environment from Fly secrets later
             )
             logger.info("sentry.initialised")
-        except Exception as exc:  # noqa: BLE001 — observability must never break the app
+        except Exception as exc:  # observability must never break the app
             logger.warning("sentry.init_failed", error=str(exc))
 
     if settings.otel_exporter_otlp_endpoint:
@@ -39,5 +41,5 @@ async def init_observability(settings: Settings) -> None:
             )
             trace.set_tracer_provider(TracerProvider(resource=resource))
             logger.info("otel.initialised")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # observability must never break the app
             logger.warning("otel.init_failed", error=str(exc))

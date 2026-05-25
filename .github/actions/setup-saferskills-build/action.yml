@@ -1,25 +1,30 @@
 name: Setup SaferSkills build environment
-description: Installs Node 24, pnpm 10, Python 3.14, uv; restores pnpm + uv caches.
+description: |
+  Installs Node 24, pnpm 10, Python 3.14, uv; restores pnpm + uv caches.
+  Caller MUST run `actions/checkout` BEFORE this composite — GitHub can't
+  load a local composite action without the repo already on disk.
 
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v5
-      with: { fetch-depth: 1 }
-
     - uses: pnpm/action-setup@v4
-      with: { version: 10, run_install: false }
+      with: { run_install: false }
+      # pnpm version is read from package.json `packageManager` (pnpm@10.x)
 
     - uses: actions/setup-node@v4
       with:
         node-version: 24
-        cache: pnpm
+        # `cache: pnpm` requires a committed pnpm-lock.yaml — re-enable once
+        # the lockfile lands. Until then setup-node hard-errors on missing
+        # lockfile and kills every job.
 
     - uses: actions/setup-python@v5
       with: { python-version: "3.14" }
 
     - uses: astral-sh/setup-uv@v3
-      with: { enable-cache: true }
+      # `enable-cache: true` requires a committed uv.lock — re-enable once
+      # services/api/uv.lock lands. Until then setup-uv hard-errors on
+      # missing lockfile and kills every job that depends on Python.
 
     - name: Install JS deps
       shell: bash

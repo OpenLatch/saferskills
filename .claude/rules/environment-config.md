@@ -39,7 +39,6 @@ Frontend env vars MUST be prefixed `PUBLIC_*` (Astro convention) to be exposed a
 | `PUBLIC_POSTHOG_HOST` | no | `https://eu.posthog.com` | PostHog ingestion host (EU region default) |
 | `PUBLIC_SENTRY_DSN` | no | unset | Browser Sentry project |
 | `RESEND_API_KEY` | no | unset | Outbound email (Resend) — server-only, NOT `PUBLIC_*` |
-| `RESEND_AUDIENCE_ID` | no | unset | Resend audience identifier for transactional sends |
 
 ## `.env.example` discipline
 

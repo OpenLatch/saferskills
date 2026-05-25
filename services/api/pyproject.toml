@@ -1,6 +1,6 @@
 [project]
 name = "saferskills-api"
-version = "0.0.0-foundation"
+version = "0.0.0+foundation"
 description = "SaferSkills API — FastAPI backend for the public AI-agent trust-scoring catalog."
 readme = "README.md"
 requires-python = ">=3.14"
