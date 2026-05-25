@@ -234,7 +234,7 @@ jobs:
           name: image-${{ matrix.service }}
           path: /tmp
       - run: docker load -i /tmp/${{ matrix.service }}.tar
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: saferskills-${{ matrix.service }}:pr-${{ github.event.pull_request.number || github.sha }}
           format: sarif
