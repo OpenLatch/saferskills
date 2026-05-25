@@ -45,7 +45,7 @@ jobs:
             e2e:        [ 'tools/e2e/**' ]
 
   validate:
-    name: Codegen drift gate
+    name: PR - Codegen drift gate
     needs: detect-changes
     if: needs.detect-changes.outputs.schemas == 'true' || needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -62,7 +62,7 @@ jobs:
           fi
 
   lint-fe:
-    name: Biome (TS/JS/JSON)
+    name: PR - Biome (TS/JS/JSON)
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
@@ -73,7 +73,7 @@ jobs:
       - run: pnpm biome check .
 
   lint-be:
-    name: Ruff (Python)
+    name: PR - Ruff (Python)
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
@@ -85,7 +85,7 @@ jobs:
       - run: cd tools/e2e && uv sync && uv run ruff check . || true   # e2e tooling — not required to block
 
   typecheck-fe:
-    name: tsc --noEmit
+    name: PR - tsc --noEmit
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
@@ -96,7 +96,7 @@ jobs:
       - run: cd webapp && pnpm tsc --noEmit
 
   typecheck-be:
-    name: pyright
+    name: PR - pyright
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -107,7 +107,7 @@ jobs:
       - run: cd services/api && uv sync && uv run pyright
 
   test-fe:
-    name: Vitest
+    name: PR - Vitest
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
@@ -119,7 +119,7 @@ jobs:
       - run: cd webapp && pnpm test || true   # webapp has no W1 tests yet
 
   test-be:
-    name: pytest
+    name: PR - pytest
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -130,7 +130,7 @@ jobs:
       - run: cd services/api && uv sync && uv run pytest tests/ -x
 
   ladle-build:
-    name: Ladle story build
+    name: PR - Ladle story build
     needs: detect-changes
     if: needs.detect-changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
@@ -141,7 +141,7 @@ jobs:
       - run: cd ui && pnpm ladle:build
 
   docker-build:
-    name: Docker build (${{ matrix.service }})
+    name: PR - Docker build (${{ matrix.service }})
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
@@ -178,7 +178,7 @@ jobs:
           retention-days: 1
 
   docker-smoke:
-    name: Compose smoke
+    name: PR - Docker Compose smoke
     needs: [detect-changes, docker-build]
     if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
@@ -208,7 +208,7 @@ jobs:
           exit 1
 
   trivy-scan:
-    name: Trivy ${{ matrix.service }}
+    name: PR - Trivy ${{ matrix.service }}
     needs: docker-build
     if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
@@ -239,7 +239,7 @@ jobs:
           category: trivy-${{ matrix.service }}
 
   dep-scan:
-    name: bandit + pip-audit + pnpm-audit
+    name: PR - bandit + pip-audit + pnpm-audit
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -255,7 +255,7 @@ jobs:
         run: pnpm audit --audit-level=high || true
 
   dco-check:
-    name: DCO (Signed-off-by)
+    name: PR - DCO (Signed-off-by)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -281,7 +281,7 @@ jobs:
           echo "All commits carry DCO trailer."
 
   all-checks:
-    name: All checks
+    name: PR - All checks
     needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, dco-check]
     if: always()
     runs-on: ubuntu-latest
