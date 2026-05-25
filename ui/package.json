@@ -22,7 +22,7 @@
     "@types/react-dom": "^19.0.0",
     "jsdom": "^26.0.0",
     "vitest": "^4.1.0",
-    "vitest-axe": "^1.0.0",
+    "vitest-axe": "^0.1.0",
     "typescript": "^5.9.0"
   }
 }
