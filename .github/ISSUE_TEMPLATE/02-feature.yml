@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a new capability or surface change.
+labels: ["type/feature", "status/triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. For detection-rule proposals, use the **Rule proposal** template instead — it's a stricter RFC flow with a 7-day comment window.
+  - type: textarea
+    id: use-case
+    attributes:
+      label: The use case
+      description: What are you trying to accomplish? Who is the user?
+    validations: { required: true }
+  - type: textarea
+    id: proposed-ux
+    attributes:
+      label: Proposed UX
+      description: How would the user invoke / experience this? CLI flag, web button, API endpoint, etc.
+    validations: { required: true }
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you consider and why didn't it fit?
+  - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope (deliberately)
+      description: What you DON'T want this feature to do.
+  - type: textarea
+    id: links
+    attributes:
+      label: Related links / prior art

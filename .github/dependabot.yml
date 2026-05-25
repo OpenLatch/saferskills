@@ -1,0 +1,22 @@
+# Dependabot config — github-actions ONLY.
+# Code dependencies (npm + pip + cargo) are managed by Renovate
+# (renovate.json) because we need `minimumReleaseAge` for the supply-chain
+# compromise guard, which Dependabot does not support natively.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels: ["dependencies", "area/ci"]
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]

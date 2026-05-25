@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Q&A and ideas
+    url: https://github.com/OpenLatch/saferskills/discussions
+    about: For questions, sharing what you built, and product discussions. The Discussions tab is the public Q&A surface.
+  - name: Security vulnerability in SaferSkills itself
+    url: https://github.com/OpenLatch/saferskills/security/advisories/new
+    about: Privately report a vulnerability via GitHub Private Vulnerability Reporting. Do NOT open a public issue for security.
+  - name: Conduct concern
+    url: mailto:conduct@saferskills.ai
+    about: Reach the conduct response team. 72-hour acknowledgement SLA.

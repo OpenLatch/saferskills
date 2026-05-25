@@ -1,0 +1,7 @@
+# SaferSkills CODEOWNERS
+#
+# `* @lucdelsalle` at W1 — solo maintainer. Grows as the team grows.
+# CODEOWNERS review is enforced via the branch protection ruleset, which is
+# effectively a no-op while the maintainer set is one person.
+
+* @lucdelsalle

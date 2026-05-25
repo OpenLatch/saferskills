@@ -1,0 +1,60 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":automergeMinor",
+    ":automergePatch",
+    ":semanticCommitTypeAll(chore)",
+    "schedule:weekly"
+  ],
+  "minimumReleaseAge": "3 days",
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] },
+  "labels": ["dependencies"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "groupName": "react ecosystem",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"]
+    },
+    {
+      "groupName": "astro core",
+      "matchPackageNames": ["astro", "@astrojs/react", "@astrojs/tailwind"]
+    },
+    {
+      "groupName": "tailwind",
+      "matchPackagePatterns": ["^tailwindcss", "^@tailwindcss/"]
+    },
+    {
+      "groupName": "biome",
+      "matchPackagePatterns": ["^@biomejs/"]
+    },
+    {
+      "groupName": "fastapi + pydantic + sqlalchemy",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["fastapi", "pydantic", "pydantic-settings", "sqlalchemy", "alembic", "uvicorn"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["breaking-change"]
+    },
+    {
+      "matchPackageNames": ["python"],
+      "automerge": false
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "matchCategories": ["security"],
+      "groupName": null,
+      "labels": ["security"]
+    }
+  ],
+  "vulnerabilityAlerts": { "enabled": true, "labels": ["security"] }
+}

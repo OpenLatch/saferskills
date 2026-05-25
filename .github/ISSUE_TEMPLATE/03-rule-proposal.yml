@@ -1,0 +1,74 @@
+name: Rule proposal (RFC)
+description: Propose a new detection rule, modify an existing rule, or deprecate a rule. 7-day public comment window before a maintainer decision.
+labels: ["type/rfc", "rubric-change", "status/triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Rule-RFC contract
+
+        - The community + maintainers comment for **7 days** before a decision.
+        - Maintainer decisions are public and substantive.
+        - Approved RFCs land via a PR adding `rubric/<rule_id>.json` + a unit test + a positive fixture + a negative fixture.
+        - The "What this rule cannot catch" section is **required** — no black-box findings.
+
+        Full lifecycle: [`METHODOLOGY.md`](https://github.com/OpenLatch/saferskills/blob/main/METHODOLOGY.md) and [`.claude/rules/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/methodology.md).
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options: ["New rule", "Modify existing rule", "Deprecate existing rule"]
+    validations: { required: true }
+  - type: input
+    id: rule-id
+    attributes:
+      label: Proposed rule ID
+      description: Format `SS-<CATEGORY>-<NN>`. Maintainers will assign the final NN if NEW.
+      placeholder: "SS-MCP-POISON-NN"
+    validations: { required: true }
+  - type: textarea
+    id: trigger
+    attributes:
+      label: Trigger (concrete)
+      description: Pseudo-code or the exact regex / AST query you would use. Be specific enough that two reviewers would match the same set of artifacts.
+    validations: { required: true }
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity tier
+      options: ["Low", "Medium", "High", "Critical"]
+    validations: { required: true }
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Severity rationale
+      description: Why this tier? What is the worst-case real-world consequence?
+    validations: { required: true }
+  - type: textarea
+    id: positive
+    attributes:
+      label: Positive fixture
+      description: An artifact (URL, gist, or inline code block) that SHOULD fire this rule.
+    validations: { required: true }
+  - type: textarea
+    id: negative
+    attributes:
+      label: Negative fixture
+      description: An artifact that looks similar but should NOT fire — the false-positive guard.
+    validations: { required: true }
+  - type: textarea
+    id: limitations
+    attributes:
+      label: What this rule cannot catch
+      description: Required. The honest limitations section every rule must carry.
+    validations: { required: true }
+  - type: textarea
+    id: vendor-impact
+    attributes:
+      label: Vendor impact
+      description: How many existing catalog items do you anticipate this will flag? Any high-profile maintainers likely to be impacted?
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior art
+      description: Has another scanner (Snyk, Semgrep, GitHub Advanced Security, etc.) shipped an equivalent rule? Link the rule's docs / source.

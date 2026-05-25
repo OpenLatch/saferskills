@@ -1,0 +1,74 @@
+name: Bug report
+description: Something is broken in SaferSkills (catalog, CLI, scan report, API, codegen).
+labels: ["type/bug", "status/triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Fill out as much as you can — the more reproducible the report, the faster the fix.
+
+        **Not what you need?**
+        - Bad scan verdict on an item you maintain → file a [Vendor Appeal](https://github.com/OpenLatch/saferskills/issues/new?template=04-vendor-appeal.yml) instead.
+        - Security vulnerability in SaferSkills itself → use [Private Vulnerability Reporting](https://github.com/OpenLatch/saferskills/security/advisories/new).
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One- or two-sentence description of the bug.
+    validations: { required: true }
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `npx saferskills check …`
+        2. Open …
+        3. Observe …
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: SaferSkills version / commit SHA
+      placeholder: "v0.x or main@<sha>"
+    validations: { required: true }
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      multiple: true
+      options:
+        - "Web (saferskills.ai)"
+        - "CLI (npx saferskills)"
+        - "API (api.saferskills.ai)"
+        - "Self-hosted (docker compose)"
+        - "Codegen pipeline (pnpm run generate)"
+        - "Other"
+    validations: { required: true }
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        OS:
+        Node:
+        Python:
+        Browser:
+  - type: textarea
+    id: artifact
+    attributes:
+      label: Scanned artifact (if relevant)
+      description: GitHub URL or content hash you submitted when the bug surfaced.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs / screenshots / additional context

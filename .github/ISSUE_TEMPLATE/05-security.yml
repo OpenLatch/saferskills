@@ -1,0 +1,30 @@
+name: Security report (DO NOT USE — see redirect)
+description: This is not the right surface for security reports. Use Private Vulnerability Reporting instead.
+labels: ["security", "status/triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## STOP
+
+        **Do not file security reports as public issues.** This template is here only so people don't accidentally open one.
+
+        Use the private channel:
+
+        - **GitHub Private Vulnerability Reporting** — <https://github.com/OpenLatch/saferskills/security/advisories/new>
+        - **Email** — `security@saferskills.ai`
+
+        Our response SLA: ≤72h acknowledgement, ≤90 days fix or update (faster for Critical).
+
+        Full policy: [`SECURITY.md`](https://github.com/OpenLatch/saferskills/blob/main/SECURITY.md).
+
+        ---
+
+        Concerns about the verdict SaferSkills assigned to a scanned item? That is not a security issue in our code — it is a methodology dispute. Use the [vendor appeal](https://github.com/OpenLatch/saferskills/issues/new?template=04-vendor-appeal.yml) template instead.
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: I understand
+      options:
+        - label: I understand this surface is NOT for security reports and I will close this issue and use Private Vulnerability Reporting or `security@saferskills.ai`.
+          required: true

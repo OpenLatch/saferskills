@@ -1,0 +1,63 @@
+name: Vendor appeal (right-of-reply)
+description: You maintain an item SaferSkills has scanned and you believe the verdict is wrong, out of scope, or mis-applied.
+labels: ["vendor-appeal", "status/triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Right-of-reply contract
+
+        - We commit to a substantive public response within **1 hour** for verified maintainers (identity verification — see below).
+        - Every appeal becomes a public comment on the catalog item. Transparency over erasure.
+        - Verified appeals trigger an immediate re-scan; the updated verdict publishes within 1 hour.
+        - We never reject an appeal with "we already cover this" or "the rule is correct" — every appeal gets substantive engagement on the merits.
+
+        Full contract: [`.claude/rules/vendor-appeals.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/vendor-appeals.md).
+  - type: input
+    id: catalog-id
+    attributes:
+      label: Catalog item URL or ID
+      description: The `saferskills.ai/items/<slug>` URL (preferred) or the catalog item UUID.
+    validations: { required: true }
+  - type: textarea
+    id: dispute
+    attributes:
+      label: What's wrong with the verdict
+      description: Be specific. Rule ID, evidence location, why you think the rule mis-fired.
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Counter-evidence
+      description: Code references, documentation, prior security audits, anything that supports your case.
+    validations: { required: true }
+  - type: dropdown
+    id: verification
+    attributes:
+      label: Identity verification method
+      options:
+        - "I have added `.saferskills/verify.txt` containing my GitHub username to the scanned repo"
+        - "I will respond from an email matching a maintainer email in the repo's package metadata"
+        - "Other (explain)"
+    validations: { required: true }
+  - type: input
+    id: contact
+    attributes:
+      label: Contact email
+      description: We will reply here. This email is not displayed publicly.
+    validations: { required: true }
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: e.g. "Re-scan and clear the finding"; "Add a caveat to the report"; "Deprecate the rule"; "Acknowledge the false positive publicly".
+    validations: { required: true }
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I understand my appeal becomes a public comment on the catalog item, with my reply quoted verbatim.
+          required: true
+        - label: I understand the response SLA is 1 hour for a verified appeal, not for the resolution itself.
+          required: true

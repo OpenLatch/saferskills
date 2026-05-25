@@ -1,0 +1,189 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+  attestations: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY_GHCR: ghcr.io/openlatch
+  REGISTRY_FLY: registry.fly.io
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      webapp: ${{ steps.filter.outputs.webapp }}
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:    [ 'services/api/**', 'schemas/**' ]
+            webapp: [ 'webapp/**', 'ui/**' ]
+
+  build-and-push:
+    name: Build & push (${{ matrix.service }})
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            context: services/api
+            dockerfile: services/api/Dockerfile
+          - service: webapp
+            context: .
+            dockerfile: webapp/Dockerfile
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to registry.fly.io
+        uses: docker/login-action@v3
+        with:
+          registry: registry.fly.io
+          username: x
+          password: ${{ secrets.FLY_API_TOKEN }}
+
+      - id: meta
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=main-$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push dual-registry
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ env.REGISTRY_GHCR }}/saferskills-${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY_GHCR }}/saferskills-${{ matrix.service }}:latest
+            ${{ env.REGISTRY_FLY }}/saferskills-${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          build-args: |
+            GIT_SHA=${{ steps.meta.outputs.sha }}
+
+      - uses: sigstore/cosign-installer@v3
+      - name: Cosign keyless sign
+        run: |
+          cosign sign --yes ${{ env.REGISTRY_GHCR }}/saferskills-${{ matrix.service }}@${{ steps.build.outputs.digest }}
+
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY_GHCR }}/saferskills-${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+          format: cyclonedx-json
+          output-file: sbom-${{ matrix.service }}.cdx.json
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY_GHCR }}/saferskills-${{ matrix.service }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  deploy-staging-api:
+    name: Deploy staging API
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          cd services/api
+          flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
+          flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-api-staging "$mid" || true
+          done
+
+  deploy-staging-webapp:
+    name: Deploy staging webapp
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.webapp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          cd webapp
+          flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
+          flyctl machine list --app saferskills-webapp-staging --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-webapp-staging "$mid" || true
+          done
+
+  e2e-staging:
+    name: E2E smoke against staging
+    needs: [deploy-staging-api, deploy-staging-webapp]
+    if: always() && (needs.deploy-staging-api.result == 'success' || needs.deploy-staging-webapp.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.14" }
+      - uses: astral-sh/setup-uv@v3
+      - name: Run e2e doctor + smoke + homepage
+        env:
+          SAFERSKILLS_API_URL: https://saferskills-api-staging.fly.dev
+          SAFERSKILLS_BASE_URL: https://saferskills-webapp-staging.fly.dev
+        run: |
+          cd tools/e2e
+          uv sync
+          uv run playwright install chromium
+          uv run saferskills-e2e all
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Production deployment blocked at W1 — re-enabled end of W2 once Track
+  # A demo-deploys an actual catalog endpoint. The job below stays
+  # disabled via `if: false` so the workflow shape is in place but the
+  # remote action is never triggered.
+  # ─────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy production (gated, off at W1)
+    needs: [e2e-staging]
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Production deploys re-enabled W2+."

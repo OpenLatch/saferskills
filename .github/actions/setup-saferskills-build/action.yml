@@ -1,0 +1,26 @@
+name: Setup SaferSkills build environment
+description: Installs Node 24, pnpm 10, Python 3.14, uv; restores pnpm + uv caches.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 1 }
+
+    - uses: pnpm/action-setup@v4
+      with: { version: 10, run_install: false }
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - uses: actions/setup-python@v5
+      with: { python-version: "3.14" }
+
+    - uses: astral-sh/setup-uv@v3
+      with: { enable-cache: true }
+
+    - name: Install JS deps
+      shell: bash
+      run: pnpm install --frozen-lockfile || pnpm install
