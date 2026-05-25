@@ -1,0 +1,33 @@
+# Gitleaks configuration — extends the default ruleset with project-specific allowlists.
+# https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow synthetic test secrets in redaction unit-test fixtures."
+paths = [
+    # Redaction unit tests deliberately use AWS-doc example keys (AKIAIOSFODNN7EXAMPLE)
+    # and similar non-secret patterns to verify the redactor scrubs them.
+    '''services/api/tests/core/test_redaction_agent_actions\.py$''',
+    # Extractor + scoring tests use the same canonical test tokens to assert
+    # cross-row correlation prefixes match within an org.
+    '''services/api/tests/events/extractors/.*\.py$''',
+    '''services/api/tests/events/scoring/.*\.py$''',
+    # JSON Schema examples include AWS-doc example values for documentation.
+    '''schemas/agent-action-.*\.schema\.json$''',
+    '''schemas/risk-score\.schema\.json$''',
+    # Demo event generator sentinel registry — every synthetic secret
+    # contains the ASCII substring "openlatchdemo" by construction so
+    # third-party SIEMs can ignore. Published as canonical non-secrets
+    # in tools/data-seed/README.md.
+    '''tools/data-seed/.*''',
+    # Standard Webhooks v1 cross-impl test vectors. Byte-identical fixture
+    # shipped by openlatch-provider (Rust suite) + npm tool-sdk + PyPI
+    # tool-sdk; every implementation MUST agree on the (secret, id, ts,
+    # body) → expected-signature tuples or the wire format has drifted.
+    # Secrets are obvious test-only strings (`super-secret-key-bytes`,
+    # `rotation-key`, etc.) base64-encoded; gitleaks' generic-api-key +
+    # grafana-api-key heuristics false-positive on the high entropy.
+    '''services/api/tests/fixtures/standard_webhooks_test_vectors\.json$''',
+]

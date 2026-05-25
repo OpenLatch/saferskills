@@ -1,0 +1,35 @@
+{
+  "name": "saferskills",
+  "version": "0.0.0-foundation",
+  "private": true,
+  "description": "The VirusTotal of AI agents — free, public, open-source trust scoring for skills, MCP servers, hooks, and plugins.",
+  "homepage": "https://saferskills.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenLatch/saferskills.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenLatch/saferskills/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "OpenLatch, Inc. <hello@saferskills.ai>",
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "generate": "node scripts/_run-generators.cjs",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "pnpm -r --filter=./webapp --filter=./ui test",
+    "build": "pnpm -r --filter=./webapp --filter=./ui build",
+    "verify-build": "pnpm lint && pnpm tsc --noEmit && pnpm test",
+    "prepare": "pre-commit install || true"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.0",
+    "typescript": "^5.9.0",
+    "@types/node": "^24.0.0"
+  }
+}

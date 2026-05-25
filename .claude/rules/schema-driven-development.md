@@ -1,0 +1,67 @@
+---
+paths:
+  - "schemas/**"
+  - "scripts/generate-*.cjs"
+  - "services/api/app/schemas/**"
+  - "services/api/app/models/**"
+  - "webapp/src/generated/**"
+  - "services/api/openapi.json"
+---
+
+# Schema-Driven Development
+
+> **Paths**: `schemas/**`, `scripts/generate-*.cjs`, `services/api/app/schemas/**`, `services/api/app/models/**`, `webapp/src/generated/**`, `services/api/openapi.json`
+
+## Purpose
+
+Two sources of truth feed every wire / DB / type contract:
+
+1. **JSON Schemas** under `schemas/<name>.schema.json` — entity shapes (what an `Artifact`, `Finding`, `Rule` looks like).
+2. **FastAPI's `app.openapi()`** — endpoint DTOs (request / response shapes per route).
+
+Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod schemas, the Hey-API client — is **generated**. Generated code lives under any `generated/` directory and is **never edited manually**.
+
+## The 6 generators (ordered)
+
+`pnpm run generate` runs them in dependency order. Skipping a step risks drift; the CI `validate` lane catches a missed run.
+
+| # | Step | Input | Output | Owner script |
+|---|---|---|---|---|
+| 1 | **validate** | `schemas/*.schema.json` | (none — fail fast on invalid schema) | `scripts/validate-schemas.cjs` (ajv-cli) |
+| 2 | **pydantic** | `schemas/*.schema.json` | `services/api/app/schemas/generated/*.py` | `scripts/generate-pydantic.cjs` (datamodel-code-generator) |
+| 3 | **sqlalchemy** | `schemas/*.schema.json` (skip if `x-postgresql-skip: true`) | `services/api/app/models/generated/*.py` | `scripts/generate-sqlalchemy.cjs` |
+| 4 | **openapi.json** | FastAPI app | `services/api/openapi.json` | `scripts/export-openapi.cjs` (runs `app.openapi()`) |
+| 5 | **ts-types** | `services/api/openapi.json` + `schemas/*.schema.json` | `webapp/src/generated/openapi/types.gen.ts` + `webapp/src/generated/schemas/*.ts` | `scripts/generate-types.cjs` (snake_case conversion baked in) |
+| 6 | **zod** | `schemas/*.schema.json` | `webapp/src/generated/zod/*.ts` | `scripts/generate-zod.cjs` (snake_case conversion baked in) |
+
+## Adding a new schema
+
+1. Write `schemas/<name>.schema.json` — camelCase properties per the JSON Schema convention.
+2. Run `pnpm run generate`.
+3. Commit BOTH the schema source AND the generated files. The CI drift gate diffs after a fresh regenerate and fails on any delta.
+4. If the schema is a wire-only shape (never persisted), add `x-postgresql-skip: true` at the top level — the SQLAlchemy generator skips it.
+
+## Adding a new endpoint DTO
+
+1. Write the Pydantic request/response model in `services/api/app/schemas/` (hand-written models are allowed at this layer — they are non-generated wrappers around generated entity shapes).
+2. Mount the route on its router; the response_model points at the Pydantic class.
+3. Run `pnpm run generate` — steps 4 + 5 pick up the new endpoint and regenerate `openapi.json` + `types.gen.ts`.
+4. Commit the route + the regenerated outputs.
+
+## Hard rules
+
+1. **`generated/` is read-only to humans.** The pre-commit hook `block-generated.sh` rejects any commit that modifies a path matching `**/generated/**` without a corresponding generator-source change in the same commit.
+2. **The CI drift gate is non-negotiable.** PR `validate` lane runs `pnpm run generate && git diff --exit-code`; non-zero diff fails the check. This catches hardcoded enum values, stale generated models, and Python-vs-TS drift in one shot.
+3. **All Pydantic response models inherit `OrmBaseModel`** (cf. `naming-conventions.md`). Generated Pydantic classes already do; hand-written ones must.
+4. **Paginated responses use `data: list[T]`** — never `items`. The frontend's `listEnvelopeSchema()` and every hand-written response type expect `"data"`.
+5. **No camelCase in the wire.** The generators convert camelCase schema properties to snake_case for both backend and frontend. If a generated file shows camelCase keys, the conversion broke — fix the generator, never hand-edit.
+6. **Generators run in order.** `openapi.json` (step 4) depends on the Pydantic models (step 2); `ts-types` (step 5) depends on `openapi.json`. Running them out of order produces inconsistent outputs.
+
+## When to update this rule
+
+| Change | Updates here |
+|---|---|
+| New generator added / removed | "The 6 generators" table + `pnpm run generate` script |
+| New schema convention (e.g. another `x-postgresql-skip`-style extension) | "Adding a new schema" |
+| Generator output path changed | The table + `generated-code.md` |
+| New CI lane around codegen | `ci-cd.md` Pipeline lanes + the drift-gate description here |

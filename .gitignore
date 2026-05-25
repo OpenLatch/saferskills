@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.uv/
+.venv/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+*.pid
+*.sock
+
+# Secrets
+*.pem
+*.key
+!.gitkeep
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude personal overrides (never commit)
+CLAUDE.local.md
+/.claude/worktrees
+/.claude/*.local.json
+/.claude/scheduled_tasks*
+/.claude/state/
+.impeccable.md
+
+# Brainstorms (founder's local plan & design drafts)
+/.local/
+/.brainstorms/
+.worktreeinclude
+
+# Test artifacts
+.playwright-mcp/
+.playwright-cli/
+/webapp/.tanstack
+tools/e2e/**/artifacts/
+
+# Astro
+/webapp/.astro/
+/webapp/dist/
+
+# Local Docker overrides
+docker-compose.override.yml

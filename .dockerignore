@@ -1,0 +1,59 @@
+# Dependencies — always reinstalled during Docker build
+node_modules
+webapp/node_modules
+services/*/node_modules
+
+# pnpm store (content-addressable cache — massive, never needed in Docker)
+.pnpm-store
+**/.pnpm-store
+
+# Build artifacts
+services/*/dist
+webapp/dist
+
+# Python cache and virtual environments
+__pycache__
+*.pyc
+*.pyo
+.venv
+services/*/.venv
+
+# Test output and coverage
+coverage
+.nyc_output
+htmlcov
+.pytest_cache
+
+# Editor and OS artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Planning docs (not needed in containers)
+.planning
+.claude
+.claude/worktrees/
+
+# Ladle build artifacts and story source (not needed in prod images)
+ui/.ladle/
+ui/stories/
+ui/docs/
+
+# Test artifacts
+webapp/coverage/
+webapp/.vitest/
+
+# Playwright browser binaries
+.playwright-cli
+**/.playwright-cli
+
+# Local dev config
+.local
+
+# Logs
+*.log

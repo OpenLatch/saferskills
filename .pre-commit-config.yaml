@@ -1,0 +1,83 @@
+# Exclude generated / vendored files
+exclude: '^(node_modules|\.venv|dist|build|\.next)/'
+fail_fast: false
+default_language_version:
+  python: python3
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+
+  # ─── 🔒 Security ────────────────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # ─── 🧹 Repo Hygiene ────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # allow custom YAML tags
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  # ─── 📋 JSON Schema Validation ────────────────
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.36.1
+    hooks:
+      # Validate your schema files themselves
+      - id: check-metaschema
+        files: ^schemas/.*\.json$
+
+      # Validate GH Actions workflows
+      - id: check-github-workflows
+
+      # Validate Docker Compose files
+      - id: check-compose-spec
+
+      # Validate Dependabot config
+      - id: check-dependabot
+
+  # ─── 🐍 Python: Ruff ────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.2
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ─── ⚛️ React/TS: Biome ──────────────────────
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v0.6.1
+    hooks:
+      - id: biome-check
+        additional_dependencies: ["@biomejs/biome@2.4.11"]
+
+  # ── Conventional commits ─────────────────────────────────────
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - feat
+          - fix
+          - docs
+          - style
+          - refactor
+          - perf
+          - test
+          - build
+          - ci
+          - chore
+          - revert
