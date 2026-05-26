@@ -1,6 +1,10 @@
 <div align="center">
 
-![SaferSkills banner](./webapp/public/banner.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./webapp/public/banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="./webapp/public/banner.png">
+  <img alt="SaferSkills — every AI skill, independently scanned" src="./webapp/public/banner.png">
+</picture>
 
 # SaferSkills
 
