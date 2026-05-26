@@ -23,7 +23,7 @@ cd services/api && uv sync && uv run uvicorn app.main:app --reload
 cd webapp && pnpm install && pnpm dev
 
 # Codegen
-pnpm run generate                       # runs all 6 generators
+pnpm run generate                       # runs all 7 generators
 ```
 
 ---
@@ -44,7 +44,7 @@ uv run ruff check . --fix && uv run ruff format .   # Lint + format
 uv run pyright                          # Type check
 
 # Monorepo (root)
-pnpm run generate                       # 6 generators (Pydantic + SQLAlchemy + openapi.json + TS DTO + Zod + frontend DTOs)
+pnpm run generate                       # 7 generators (Pydantic + SQLAlchemy + openapi.json + TS DTO + Zod + methodology MDX from rubric/)
 pnpm run lint                           # Biome on all TS/JS/JSON
 ```
 

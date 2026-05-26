@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/fp-audit-report.schema.json",
+  "title": "FpAuditReport",
+  "description": "Output of `tools/fp-audit/` runner (D-21). Per-rule FP rate against the 100-item hand-labeled fixture (50 known-good + 50 known-bad). Promotion gate at 10% FP rate per rule. x-postgresql-skip: true — this is a tool report shape, not a persisted entity.",
+  "x-postgresql-skip": true,
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generatedAt", "rubricVersion", "totalFixtures", "perRule"],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rubricVersion": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{7,40}$",
+      "description": "Git SHA of rubric/ at audit time."
+    },
+    "engineVersion": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{7,40}$",
+      "description": "Engine SHA. Null when fp-audit runs without engine (Phase A stub)."
+    },
+    "totalFixtures": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of fixture items evaluated."
+    },
+    "perRule": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ruleId",
+          "fixturesEvaluated",
+          "truePositives",
+          "trueNegatives",
+          "falsePositives",
+          "falseNegatives",
+          "fpRate",
+          "decision"
+        ],
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$"
+          },
+          "fixturesEvaluated": {"type": "integer", "minimum": 0},
+          "truePositives": {"type": "integer", "minimum": 0},
+          "trueNegatives": {"type": "integer", "minimum": 0},
+          "falsePositives": {"type": "integer", "minimum": 0},
+          "falseNegatives": {"type": "integer", "minimum": 0},
+          "fpRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "falsePositives / (falsePositives + trueNegatives)."
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "promote_to_active",
+              "active_confirmed",
+              "shadow_extended",
+              "demote_to_shadow",
+              "deferred_engine_unavailable"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

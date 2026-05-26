@@ -12,6 +12,8 @@
       "!**/routeTree.gen.ts",
       "!**/.planning",
       "!**/.claude",
+      "!**/*.astro",
+      "!**/*.mdx",
       "!schemas",
       "!services/api/app/templates",
       "!ui"

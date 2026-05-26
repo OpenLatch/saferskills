@@ -1,14 +1,14 @@
 """GET /api/v1/health — liveness + version + git-sha echo."""
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.schemas.orm_base import OrmBaseModel
 
 router = APIRouter(tags=["meta"])
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(OrmBaseModel):
     status: str
     version: str
     git_sha: str

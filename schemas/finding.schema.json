@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/finding.schema.json",
+  "title": "Finding",
+  "description": "A single rule fire on a scanned artifact. Hashed-only evidence (matchedContentSha256) — never raw scanned content per .claude/rules/security.md § Scan-trace transparency. 5-tier severity (D-02); 5-axis sub_score (D-01); shadow/active status per rule lifecycle (D-14).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "scanId",
+    "ruleId",
+    "severity",
+    "subScore",
+    "penalty",
+    "statusAtScan",
+    "filePath",
+    "lineStart",
+    "matchedContentSha256",
+    "remediationLink",
+    "rubricVersion"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv7."
+    },
+    "scanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "FK to parent scan."
+    },
+    "ruleId": {
+      "type": "string",
+      "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$",
+      "description": "Format `SS-<CATEGORY>-<NAME>-NN` per naming-conventions.md."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"],
+      "description": "5-tier severity ladder (D-02). `info` carries weight 0."
+    },
+    "subScore": {
+      "type": "string",
+      "enum": ["security", "supply_chain", "maintenance", "transparency", "community"],
+      "description": "5-axis sub-score the rule contributes to (D-01)."
+    },
+    "penalty": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 40,
+      "description": "Penalty applied to the sub-score for this finding. 0 for shadow rules and info-severity rules (advisory)."
+    },
+    "statusAtScan": {
+      "type": "string",
+      "enum": ["shadow", "active"],
+      "description": "Rule status at the moment of scan (D-14). Shadow findings record in trace but do not affect score."
+    },
+    "filePath": {
+      "type": "string",
+      "maxLength": 1024,
+      "description": "Path within the scanned tarball (e.g. `tools/manifest.json`, `src/mcp/server.ts`)."
+    },
+    "lineStart": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-indexed line number of the match start."
+    },
+    "lineEnd": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "1-indexed line number of the match end. Null for single-line matches."
+    },
+    "matchedContentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the matched substring. Never the raw content (hash-only per security.md)."
+    },
+    "remediationLink": {
+      "type": "string",
+      "format": "uri",
+      "description": "Permalink to the rule's `rubric/<CATEGORY>/<NAME>-NN.md` at the rubricVersion SHA."
+    },
+    "rubricVersion": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{7,40}$",
+      "description": "Git SHA of rubric/ at scan time."
+    }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-aaaa-7000-8000-000000000001",
+      "scanId": "018e7c8b-9999-7000-8000-000000000001",
+      "ruleId": "SS-MCP-POISON-UNICODE-TAG-01",
+      "severity": "critical",
+      "subScore": "security",
+      "penalty": 35,
+      "statusAtScan": "active",
+      "filePath": "src/mcp/server.ts",
+      "lineStart": 42,
+      "lineEnd": 58,
+      "matchedContentSha256": "5d41402abc4b2a76b9719d911017c592e3b0c44298fc1c149afbf4c8996fb924",
+      "remediationLink": "https://github.com/OpenLatch/saferskills/blob/a1b2c3d/rubric/MCP/POISON-UNICODE-TAG-01.md",
+      "rubricVersion": "a1b2c3d"
+    }
+  ]
+}

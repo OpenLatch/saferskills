@@ -21,6 +21,7 @@ dependencies = [
   "opentelemetry-instrumentation-fastapi>=0.51b0",
   "structlog>=25.0",
   "httpx>=0.28",
+  "pyyaml>=6.0",
 ]
 
 [dependency-groups]
@@ -53,6 +54,19 @@ reportMissingTypeStubs = false
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-ra --cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+omit = [
+  "app/schemas/generated/*",
+  "app/models/generated/*",
+]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "pragma: no cover",
+]
 
 [build-system]
 requires = ["hatchling"]

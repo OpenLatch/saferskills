@@ -1,0 +1,310 @@
+# 50 known-good fixture entries.
+#
+# These are public artifacts known to be clean. The Phase A landing carries
+# manifest entries only; the actual fixture content is populated as Phase B
+# onboards each fixture (clone, anonymise, content-hash, commit).
+#
+# Sources documented in each entry's `notes`. License compliance noted where
+# the upstream is non-Apache-2.0; copy permission is fair-use research scope
+# (the fixture is content used only inside the FP-audit harness, never
+# redistributed).
+
+- path: anthropics--skills--secret-scanner
+  source_url: https://github.com/anthropics/skills
+  expected_score_range: [90, 100]
+  hash_at_capture: null
+  notes: "Anthropics public skill — secret-scanner sub-tree. Clean prompt-injection profile. Apache-2.0."
+
+- path: anthropics--skills--code-reviewer
+  source_url: https://github.com/anthropics/skills
+  expected_score_range: [90, 100]
+  hash_at_capture: null
+  notes: "Anthropics public skill — code-reviewer. Apache-2.0."
+
+- path: anthropics--skills--pdf-extractor
+  source_url: https://github.com/anthropics/skills
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Anthropics public skill — pdf-extractor. Apache-2.0."
+
+- path: anthropics--skills--git-helper
+  source_url: https://github.com/anthropics/skills
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Anthropics public skill — git-helper. Apache-2.0."
+
+- path: anthropics--skills--api-docs-generator
+  source_url: https://github.com/anthropics/skills
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Anthropics public skill — api-docs-generator. Apache-2.0."
+
+- path: modelcontextprotocol--servers--filesystem
+  source_url: https://github.com/modelcontextprotocol/servers
+  expected_score_range: [90, 100]
+  hash_at_capture: null
+  notes: "MCP reference server — filesystem. Well-documented capabilities. MIT."
+
+- path: modelcontextprotocol--servers--github
+  source_url: https://github.com/modelcontextprotocol/servers
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "MCP reference server — github integration. MIT."
+
+- path: modelcontextprotocol--servers--postgres
+  source_url: https://github.com/modelcontextprotocol/servers
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "MCP reference server — postgres read-only client. MIT."
+
+- path: modelcontextprotocol--servers--brave-search
+  source_url: https://github.com/modelcontextprotocol/servers
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "MCP reference server — brave-search. MIT."
+
+- path: modelcontextprotocol--servers--sqlite
+  source_url: https://github.com/modelcontextprotocol/servers
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "MCP reference server — sqlite. MIT."
+
+- path: synthetic--clean-skill-minimal
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: SKILL.md + README + LICENSE, plain English prompt, no Unicode tricks."
+
+- path: synthetic--clean-skill-with-examples
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean skill with fenced-code examples — should NOT trigger fenced-imperative rule."
+
+- path: synthetic--clean-skill-multilingual
+  source_url: local://synthetic
+  expected_score_range: [75, 95]
+  hash_at_capture: null
+  notes: "Synthetic clean skill with Greek + Cyrillic in legitimate i18n examples — should NOT trigger homoglyph."
+
+- path: synthetic--clean-mcp-server-minimal
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP: 3 tools, well-described, plain text, capability declarations correct."
+
+- path: synthetic--clean-hook-build-step
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: runs `npm run build` on SessionStart — no remote fetch, no shell-RCE."
+
+- path: synthetic--clean-rules-set-typescript
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean Cursor rules: TypeScript style guide, no imperative non-disclosure."
+
+- path: synthetic--clean-plugin-api-wrapper
+  source_url: local://synthetic
+  expected_score_range: [75, 95]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: reads API_TOKEN env var + posts to api.legitservice.com (explicit, documented)."
+
+- path: synthetic--clean-plugin-no-env-no-net
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: pure utility, no env access, no network."
+
+- path: synthetic--clean-skill-with-base64-test-fixture
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: contains a 100-char base64 test fixture (BELOW the 128-char threshold)."
+
+- path: synthetic--clean-skill-finished-library
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: stable library, 18 months since last commit (TRIGGERS commit-recency, by design)."
+
+- path: synthetic--clean-mcp-internal-tool
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP: legitimately uses _internal_ tool naming (TRIGGERS shadow-tool, by design — vendor-appeal path)."
+
+- path: synthetic--clean-hook-monitoring-nc
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: legitimately uses nc to ping internal monitoring socket (TRIGGERS RCE-NET-EGRESS, by design)."
+
+- path: synthetic--clean-hook-with-eval-static
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: contains `eval \"static string\"` (no dynamic content) — should NOT trigger eval rule."
+
+- path: synthetic--clean-plugin-aws-cli-wrapper
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: legitimate AWS CLI wrapper (TRIGGERS aws-files, by design — vendor-appeal path)."
+
+- path: synthetic--clean-skill-with-link-array
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: contains many emoji decorations (BELOW the 10-consecutive-emoji threshold)."
+
+- path: synthetic--clean-mcp-single-tool
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP: single tool with 300-char description (BELOW the 2000-char description-creep threshold)."
+
+- path: synthetic--clean-hook-static-rm
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: `rm -rf ./build` and `rm -rf node_modules` (static safe paths) — should NOT trigger rm-rf rule."
+
+- path: synthetic--clean-rules-confidentiality
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean rules: 'Always keep API keys out of logs' — legitimate confidentiality instruction."
+
+- path: synthetic--clean-plugin-slack-notifier
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: legitimate Slack-webhook notifier (TRIGGERS webhook rule, by design)."
+
+- path: synthetic--clean-skill-with-roleplay
+  source_url: local://synthetic
+  expected_score_range: [75, 95]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: roleplay-as-character skill (TRIGGERS INJECT-ROLE-01, by design — shadow window measures FP)."
+
+- path: synthetic--clean-skill-autonomous-mode
+  source_url: local://synthetic
+  expected_score_range: [75, 95]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: declares autonomous-mode opt-out 'Don't ask before running' (TRIGGERS DONT-ASK, by design)."
+
+- path: synthetic--clean-mcp-no-readme
+  source_url: local://synthetic
+  expected_score_range: [60, 85]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP missing README (TRIGGERS transparency-description, by design)."
+
+- path: synthetic--clean-plugin-jailbreak-research
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: jailbreak-research toolkit (TRIGGERS injection patterns, by design — academic context)."
+
+- path: synthetic--clean-skill-prompt-engineering-tutorial
+  source_url: local://synthetic
+  expected_score_range: [75, 95]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: prompt-engineering tutorial that legitimately contains 'ignore previous instructions' as didactic example."
+
+- path: synthetic--clean-mcp-multilingual-tools
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP: tool descriptions in Spanish + Japanese. Tests homoglyph FP."
+
+- path: synthetic--clean-hook-batch-job
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: batch-job runner, no shell-RCE patterns, no remote fetch."
+
+- path: synthetic--clean-rules-typescript-strict
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean Cursor rules: TypeScript-strict + a11y rules. No injection patterns."
+
+- path: synthetic--clean-plugin-monitoring-prometheus
+  source_url: local://synthetic
+  expected_score_range: [75, 95]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: Prometheus metrics exporter (env + net, but documented + scoped)."
+
+- path: synthetic--clean-skill-mature-stable
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: 24 months no commits, 0 open issues — stable mature. Tests maintenance-FP."
+
+- path: synthetic--clean-mcp-signed-release
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP with Sigstore-signed release. Should pass supply-chain-unsigned check."
+
+- path: synthetic--clean-hook-windows-powershell
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: PowerShell SessionStart hook, no curl-pipe, no eval."
+
+- path: synthetic--clean-plugin-ssh-key-rotation
+  source_url: local://synthetic
+  expected_score_range: [60, 85]
+  hash_at_capture: null
+  notes: "Synthetic clean plugin: legitimate SSH-key-rotation tool (TRIGGERS ssh-exfil by design — vendor-appeal path)."
+
+- path: synthetic--clean-skill-finished-experiment
+  source_url: local://synthetic
+  expected_score_range: [60, 85]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: completed research experiment, no recent activity, single contributor. Tests community-FP."
+
+- path: synthetic--clean-mcp-large-org-popular
+  source_url: local://synthetic
+  expected_score_range: [90, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP: well-known org, 1000+ stars, signed, fully documented. Baseline 'best case'."
+
+- path: synthetic--clean-hook-build-multistage
+  source_url: local://synthetic
+  expected_score_range: [85, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: multi-stage build hook, runs npm test + lint, no remote content."
+
+- path: synthetic--clean-rules-windsurf-team
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean Windsurf rules: team coding standards, no obfuscation."
+
+- path: synthetic--clean-plugin-discord-bot-public
+  source_url: local://synthetic
+  expected_score_range: [65, 85]
+  hash_at_capture: null
+  notes: "Synthetic clean Discord-bot plugin: legitimately uses discord.com webhooks (TRIGGERS webhook rule, by design)."
+
+- path: synthetic--clean-skill-prompt-injection-detector
+  source_url: local://synthetic
+  expected_score_range: [70, 90]
+  hash_at_capture: null
+  notes: "Synthetic clean skill: prompt-injection-detector skill. Contains 'ignore previous instructions' as detection corpus, NOT injection."
+
+- path: synthetic--clean-mcp-microservice-helper
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean MCP: microservice-helper tools. Standard naming, no shadow tools."
+
+- path: synthetic--clean-hook-cleanup-temp-dir
+  source_url: local://synthetic
+  expected_score_range: [80, 100]
+  hash_at_capture: null
+  notes: "Synthetic clean hook: SessionEnd cleanup hook, rm -rf only inside ./.tmp/ (static safe path)."

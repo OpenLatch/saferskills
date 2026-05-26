@@ -44,14 +44,30 @@ Linters can't enforce DB naming — these are project conventions:
 
 ## Rule IDs
 
-Scan rules use the format `SS-<CATEGORY>-<NAME>-<NN>`:
+Scan rules use the format `SS-<CATEGORY>-<NAME>-<NN>` (locked decision D-03):
 
 - `SS-` prefix is fixed (distinguishes SaferSkills rules from any imported third-party detector vocabulary).
 - `<CATEGORY>` is one of the closed set defined in `methodology.md` (`MCP`, `SKILL`, `RULES`, `HOOKS`, `PLUGIN`).
-- `<NAME>` is uppercase kebab — `POISON-UNICODE`, `INJECT-FENCED-RUN`.
-- `<NN>` is a two-digit zero-padded sequence, allocated in `rubric/<category>/<name>.md`.
+- `<NAME>` is uppercase kebab — `POISON-UNICODE-TAG`, `INJECT-FENCED-RUN`, `RCE-CURL-PIPE`.
+- `<NN>` is a two-digit zero-padded sequence, allocated in `rubric/<CATEGORY>/<NAME>-NN.md`.
 
-Examples: `SS-MCP-POISON-UNICODE-01`, `SS-SKILL-INJECT-FENCED-RUN-02`, `SS-HOOKS-RCE-01`.
+Examples: `SS-MCP-POISON-UNICODE-TAG-01`, `SS-SKILL-INJECT-FENCED-RUN-02`, `SS-HOOKS-RCE-CURL-PIPE-01`.
+
+The regex (validated in `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json`):
+
+```
+^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$
+```
+
+## Severity tiers
+
+Rules and findings use a 5-tier severity ladder (locked decision D-02):
+
+```
+info | low | medium | high | critical
+```
+
+`info` carries weight 0 — advisory only; surfaces in the scan trace but does not affect the score. See `.claude/rules/methodology.md` § Sub-scores and aggregate for the per-tier penalty ranges and critical-floor application.
 
 ## When to update this rule
 
@@ -59,5 +75,6 @@ Examples: `SS-MCP-POISON-UNICODE-01`, `SS-SKILL-INJECT-FENCED-RUN-02`, `SS-HOOKS
 |---|---|
 | New generator step that produces a serialized key | "API JSON Body Keys" table |
 | New paginated list envelope shape | "Hard rules" — never break the `data` key contract |
-| New `<CATEGORY>` for scan rules | "Rule IDs" + `methodology.md` |
+| New `<CATEGORY>` for scan rules | "Rule IDs" regex + `methodology.md` + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
+| New severity tier | "Severity tiers" + `methodology.md` § Sub-scores and aggregate + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | New DB-naming exception | "Database" |

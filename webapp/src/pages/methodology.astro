@@ -1,5 +1,6 @@
 ---
 import Footer from '@ui/components/atoms/Footer.astro'
+import Methodology from '@/generated/methodology/index.mdx'
 import Base from '@/layouts/Base.astro'
 ---
 <Base title="Methodology — SaferSkills">
@@ -15,46 +16,85 @@ import Base from '@/layouts/Base.astro'
       <h2>Inputs</h2>
       <p>A GitHub repository URL or, from W4, an <code>npx</code>-installable package name.</p>
 
-      <h2>Detection categories</h2>
+      <h2>Sub-score taxonomy &amp; weights</h2>
+      <p>The aggregate score is a closed-form weighted sum of five sub-scores (PRD §5.2):</p>
       <ul>
-        <li><strong>Identity</strong> — author signature, GitHub org age, signing keys.</li>
-        <li><strong>Integrity</strong> — file-hash drift, unsigned commits, content vs claimed version.</li>
-        <li><strong>Behavior</strong> — shell RCE, prompt injection, tool poisoning, MCP rug-pull, hooks that disable monitoring.</li>
-        <li><strong>Provenance</strong> — supply chain (dependencies, transitive risk), SBOM presence, build reproducibility.</li>
+        <li><strong>Security</strong> (35%) — prompt injection, obfuscation, dangerous shell, credential exfiltration.</li>
+        <li><strong>Supply Chain</strong> (20%) — typosquat, owner transfer, hash drift, signing posture.</li>
+        <li><strong>Maintenance</strong> (15%) — commit recency, commit frequency, issue response, CI health.</li>
+        <li><strong>Transparency</strong> (15%) — LICENSE / SKILL.md / README / CHANGELOG / SECURITY.md presence.</li>
+        <li><strong>Community</strong> (15%) — stars, contributors, cross-registry presence, fork health.</li>
       </ul>
 
       <h2>Scoring model</h2>
       <p>
-        <code>aggregate_score = 0.25 × identity + 0.25 × integrity + 0.30 × behavior + 0.20 × provenance</code>
+        <code>aggregate_score = round(0.35 × security + 0.20 × supply_chain + 0.15 × maintenance + 0.15 × transparency + 0.15 × community)</code>
       </p>
       <p>
-        Each sub-score is 0–100, computed from per-rule penalties documented in
-        each rule's RFC. Same input → same score. No model. No random seed. No
-        temperature.
+        Each sub-score starts at 100 and is reduced by per-finding penalties documented in the rule's frontmatter. <strong>Critical floor</strong>: if any finding in a sub-score has severity <code>critical</code>, the sub-score is capped at 40 — preventing one catastrophic finding from being averaged away by many minor passes.
       </p>
+
+      <h2>Severity ladder (5-tier)</h2>
+      <ul>
+        <li><code>critical</code> (−30 to −40) — triggers critical-floor cap.</li>
+        <li><code>high</code> (−20 to −30)</li>
+        <li><code>medium</code> (−10 to −20)</li>
+        <li><code>low</code> (−5 to −10)</li>
+        <li><code>info</code> (0) — advisory; surfaces in the trace, no score impact.</li>
+      </ul>
 
       <h2>Reproducibility</h2>
       <p>
-        Every report records <code>rubric_version</code> and
-        <code>engine_version</code> Git SHAs plus the artifact's
-        <code>inputs_hash</code>. Any vendor can re-derive any historical
-        verdict.
+        Every report records <code>rubric_version</code> (git SHA of <code>rubric/</code>) and
+        <code>engine_version</code> (git SHA of the scan engine) plus the artifact's
+        <code>ref_sha</code>. A vendor can re-derive any historical verdict by checking out those SHAs and re-scanning offline — no platform participation required.
+      </p>
+
+      <h2>Shadow rules &amp; promotion</h2>
+      <p>
+        New rules ship in <code>status: shadow</code> for 7 days. The detector fires and records findings in the public trace, but the rule's weight is 0 during the shadow window. After 7 days, the FP-audit harness (<a href="https://github.com/OpenLatch/saferskills/tree/main/tools/fp-audit">tools/fp-audit/</a>) gates promotion: false-positive rate &lt;10% on the 100-item fixture → <code>status: active</code>; ≥10% → <code>shadow_until</code> extended +7d with maintainer review.
+      </p>
+
+      <h2>Vendor right-of-reply</h2>
+      <p>
+        Every verdict is appealable. Verified vendors (a <code>.saferskills/verify.txt</code> token committed to the scanned repo, or a maintainer email match) get a substantive public response within 1 hour for an active appeal. Findings are never silently deleted — appealed findings carry the appeal outcome and rationale in the public record.
+        See the <a href="https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/vendor-appeals.md">right-of-reply contract</a>.
       </p>
 
       <h2>Limitations</h2>
       <p>
-        Every rule's RFC includes a "What this rule cannot catch" section. The
-        rubric explicitly does not flag closed-source artifacts (they get a
-        "Provenance: unscoped" badge, not a score).
+        Every detection rule has a <code>limitations</code> section that names what it cannot catch. The rubric explicitly does not catch:
+      </p>
+      <ul>
+        <li>Compromised authors — a long-standing trusted author shipping a poisoned update is caught by the rug-pull rule, not by attribution.</li>
+        <li>Behaviour at scan time vs install time — adversarial fetched content that varies per request is a runtime concern (OpenLatch Capability Control, not SaferSkills).</li>
+        <li>Logic bombs gated on date / runtime conditions — static analysis can flag the gate but not its trigger.</li>
+        <li>Closed-source artifacts — SaferSkills only scans public source. Closed-source artifacts get a "Provenance: unscoped" badge, not a score.</li>
+      </ul>
+      <p>
+        <strong>No black-box findings.</strong> If a rule fires, the rule_id plus the exact file path and line range is in the public report, reproducible from the rule's documented trigger.
       </p>
 
-      <h2>Full reference</h2>
+      <h2>First-batch rubric (auto-rendered)</h2>
       <p>
-        Authoritative documents are in the <a href="https://github.com/OpenLatch/saferskills/blob/main/docs/methodology.md">docs/methodology.md</a>,
-        <a href="https://github.com/OpenLatch/saferskills/blob/main/docs/rules.md">docs/rules.md</a>, and the
-        <a href="https://github.com/OpenLatch/saferskills/tree/main/rubric">rubric/</a> directory.
+        The rules below are auto-generated from <a href="https://github.com/OpenLatch/saferskills/tree/main/rubric"><code>rubric/</code></a> via codegen step #7 (<code>scripts/generate-methodology.cjs</code>). Each card links to the source file at the current <code>rubric_version</code>.
+      </p>
+
+      <div class="rule-list">
+        <Methodology />
+      </div>
+
+      <h2 id="legal-defense">Disclosure language</h2>
+      <p>
+        Methodology disclosure under counsel review (see <a href="https://github.com/OpenLatch/saferskills/blob/main/.local/.brainstorms/backend-core/outbox/03-counsel-methodology-coversheet.md">coversheet</a>). Final approved text deploys with the W10 public launch.
       </p>
     </article>
   </main>
   <Footer />
 </Base>
+
+<style>
+  .rule-list {
+    margin-block: var(--space-6);
+  }
+</style>

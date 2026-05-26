@@ -1,0 +1,40 @@
+---
+ruleId: SS-RULES-OBFUSCATION-HOMOGLYPH-01
+severity: medium
+subScore: security
+weight: 15
+status: shadow
+shadowUntil: 2026-W3-end
+appliesTo: [rules]
+trigger:
+  type: regex_match
+  pattern: '[\u{0400}-\u{04FF}\u{1D400}-\u{1D7FF}\u{0370}-\u{03FF}](?:[a-zA-Z]|[\u{0400}-\u{04FF}\u{1D400}-\u{1D7FF}\u{0370}-\u{03FF}]){4,}'
+  flags: u
+  scope:
+    paths: ['.cursorrules', '.cursor/rules/**', '.windsurfrules', '.windsurf/rules/**', '.continuerules', 'CONTINUE.md', '**/rules.md', '**/RULES.md']
+limitations:
+  - "FP risk on multilingual rules content (legitimate use of Greek / Cyrillic identifiers in technical documentation)."
+  - "Cannot detect single-character homoglyph swaps; only mixed-script words ≥5 chars long."
+  - "v2 will integrate UTS #39 confusables data."
+priorArt:
+  - https://www.unicode.org/reports/tr39/
+  - https://www.trojansource.codes/
+  - https://docs.cursor.com/context/rules-for-ai
+---
+
+# SS-RULES-OBFUSCATION-HOMOGLYPH-01 — Homoglyph confusable in rules file
+
+## Rationale
+
+Rules-files-specific instance of the homoglyph attack class (parallel to
+SS-SKILL-INJECT-HOMOGLYPH-01). Same trigger logic, same FP control
+strategy, same v2 plan to integrate UTS #39 confusables. Shadow lands for
+the same FP-control reasons.
+
+## False positive history
+
+(date-stamped log; updated by FP-audit harness and vendor-appeal outcomes)
+
+## Version history
+
+- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.

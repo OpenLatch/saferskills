@@ -21,7 +21,7 @@ Two sources of truth feed every wire / DB / type contract:
 
 Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod schemas, the Hey-API client — is **generated**. Generated code lives under any `generated/` directory and is **never edited manually**.
 
-## The 6 generators (ordered)
+## The 7 generators (ordered)
 
 `pnpm run generate` runs them in dependency order. Skipping a step risks drift; the CI `validate` lane catches a missed run.
 
@@ -30,9 +30,10 @@ Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod 
 | 1 | **validate** | `schemas/*.schema.json` | (none — fail fast on invalid schema) | `scripts/validate-schemas.cjs` (ajv-cli) |
 | 2 | **pydantic** | `schemas/*.schema.json` | `services/api/app/schemas/generated/*.py` | `scripts/generate-pydantic.cjs` (datamodel-code-generator) |
 | 3 | **sqlalchemy** | `schemas/*.schema.json` (skip if `x-postgresql-skip: true`) | `services/api/app/models/generated/*.py` | `scripts/generate-sqlalchemy.cjs` |
-| 4 | **openapi.json** | FastAPI app | `services/api/openapi.json` | `scripts/export-openapi.cjs` (runs `app.openapi()`) |
-| 5 | **ts-types** | `services/api/openapi.json` + `schemas/*.schema.json` | `webapp/src/generated/openapi/types.gen.ts` + `webapp/src/generated/schemas/*.ts` | `scripts/generate-types.cjs` (snake_case conversion baked in) |
+| 4 | **openapi.json** | FastAPI app | `services/api/openapi.json` | `scripts/generate-openapi.cjs` (runs `app.openapi()`) |
+| 5 | **ts-types** | `services/api/openapi.json` + `schemas/*.schema.json` | `webapp/src/generated/openapi/types.gen.ts` + `webapp/src/generated/schemas/*.ts` | `scripts/generate-ts-types.cjs` (snake_case conversion baked in) |
 | 6 | **zod** | `schemas/*.schema.json` | `webapp/src/generated/zod/*.ts` | `scripts/generate-zod.cjs` (snake_case conversion baked in) |
+| 7 | **methodology** | `rubric/<CATEGORY>/<NAME>-NN.md` (YAML frontmatter) | `webapp/src/generated/methodology/index.mdx` | `scripts/generate-methodology.cjs` (validates frontmatter against `schemas/rubric-rule.schema.json`; stamps rubricSha via `git log -n 1 -- rubric/`) |
 
 ## Adding a new schema
 
@@ -61,7 +62,7 @@ Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod 
 
 | Change | Updates here |
 |---|---|
-| New generator added / removed | "The 6 generators" table + `pnpm run generate` script |
+| New generator added / removed | "The 7 generators" table + `pnpm run generate` script + `scripts/_run-generators.cjs` |
 | New schema convention (e.g. another `x-postgresql-skip`-style extension) | "Adding a new schema" |
 | Generator output path changed | The table + `generated-code.md` |
 | New CI lane around codegen | `ci-cd.md` Pipeline lanes + the drift-gate description here |

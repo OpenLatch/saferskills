@@ -55,6 +55,9 @@ for (const file of schemas) {
   const inPath = path.join(SCHEMAS_DIR, file)
   const outPath = path.join(OUT_DIR, `${stem}.py`)
   console.log(`  ${file} → ${path.relative(ROOT, outPath)}`)
+  // datamodel-codegen's --target-python-version caps at 3.12; the runtime
+  // is 3.14 but the generator output uses Python-3.12-compatible syntax
+  // (standard collections + union operator), which is forward-compatible.
   const ok = dmcg([
     '--input',
     inPath,
@@ -68,7 +71,7 @@ for (const file of schemas) {
     '--use-double-quotes',
     '--use-schema-description',
     '--target-python-version',
-    '3.14',
+    '3.12',
     '--use-standard-collections',
     '--use-union-operator',
   ])
