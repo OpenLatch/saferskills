@@ -24,7 +24,7 @@ Public-tier data is **never** retroactively scrubbed except via the vendor-appea
 
 ## Secrets Management
 
-1. **Never commit secrets** — `detect-secrets` pre-commit hook enforced.
+1. **Never commit secrets** — `gitleaks` pre-commit hook enforced.
 2. **No secrets in env vars checked into VCS** — `.env.example` with placeholders only. See `environment-config.md`.
 3. **No secrets in Docker images** — use Fly secrets / Docker secrets / bind mounts.
 4. **No secrets in logs** — auto-redact at logger config level.
