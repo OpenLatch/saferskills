@@ -287,10 +287,23 @@ jobs:
         with: { fetch-depth: 0 }
       - name: Verify DCO trailer on every commit
         run: |
+          # Trusted bots are exempt from DCO. Their commits are mechanical
+          # (changelog, version bumps, dependency PRs) — DCO is a human
+          # attestation that doesn't meaningfully apply. The bot email
+          # suffix `[bot]@users.noreply.github.com` is what GitHub Apps
+          # (incl. `actions/create-github-app-token` for release-please) and
+          # Dependabot use; matching the suffix is the standard pattern.
+          # Human contributors using `[bot]` in their email get rejected by
+          # npm/GitHub at signup, so the exemption is safe.
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
           fail=0
           while read -r sha; do
+            author_email=$(git show -s --format='%ae' "$sha")
+            if [[ "$author_email" == *"[bot]@users.noreply.github.com" ]]; then
+              echo "skip (bot author): $sha — $author_email"
+              continue
+            fi
             if ! git show -s --format='%B' "$sha" | git interpret-trailers --parse | grep -q '^Signed-off-by:'; then
               echo "::error::Missing Signed-off-by: $sha — $(git log -1 --format='%s' "$sha")"
               fail=1
@@ -300,7 +313,7 @@ jobs:
             echo "Use \`git commit -s\` to auto-add the DCO trailer (see CONTRIBUTING.md)."
             exit 1
           fi
-          echo "All commits carry DCO trailer."
+          echo "All commits carry DCO trailer (or are exempt bots)."
 
   all-checks:
     name: PR - All checks
