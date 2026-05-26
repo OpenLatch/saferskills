@@ -40,6 +40,15 @@ jobs:
     name: Build & push (${{ matrix.service }})
     needs: detect-changes
     runs-on: ubuntu-latest
+    # Scoped to the `staging` GH Environment so the per-app Fly deploy tokens
+    # (`FLY_API_TOKEN_API`, `FLY_API_TOKEN_WEBAPP`) resolve here. Image bytes
+    # pushed at build time are identical for staging + production (mirror
+    # discipline: one image, deployed to both), so the staging env's tokens
+    # are sufficient — the push permission attached to a Fly deploy token is
+    # per-app, not per-env. Documented divergence from openlatch-platform,
+    # which uses an org-level `FLY_API_TOKEN` at the repo level.
+    environment:
+      name: staging
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +76,9 @@ jobs:
         with:
           registry: registry.fly.io
           username: x
-          password: ${{ secrets.FLY_API_TOKEN }}
+          # Per-matrix-entry token: the api token can push to
+          # `registry.fly.io/saferskills-api/*` and likewise for webapp.
+          password: ${{ matrix.service == 'api' && secrets.FLY_API_TOKEN_API || secrets.FLY_API_TOKEN_WEBAPP }}
 
       - id: meta
         run: |
