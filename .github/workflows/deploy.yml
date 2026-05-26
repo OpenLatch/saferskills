@@ -3,6 +3,14 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to deploy'
+        type: choice
+        required: true
+        default: 'both'
+        options: [both, api, webapp]
 
 permissions:
   contents: read
@@ -22,8 +30,8 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      api: ${{ steps.filter.outputs.api }}
-      webapp: ${{ steps.filter.outputs.webapp }}
+      api: ${{ steps.resolve.outputs.api }}
+      webapp: ${{ steps.resolve.outputs.webapp }}
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
@@ -31,10 +39,30 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: dorny/paths-filter@v3
         id: filter
+        if: github.event_name == 'push'
         with:
           filters: |
             api:    [ 'services/api/**', 'schemas/**' ]
             webapp: [ 'webapp/**', 'ui/**' ]
+      - id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          SERVICES: ${{ inputs.services }}
+          FILTER_API: ${{ steps.filter.outputs.api }}
+          FILTER_WEBAPP: ${{ steps.filter.outputs.webapp }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            case "$SERVICES" in
+              api)    api=true;  webapp=false ;;
+              webapp) api=false; webapp=true  ;;
+              *)      api=true;  webapp=true  ;;
+            esac
+          else
+            api="$FILTER_API"
+            webapp="$FILTER_WEBAPP"
+          fi
+          echo "api=$api"       >> "$GITHUB_OUTPUT"
+          echo "webapp=$webapp" >> "$GITHUB_OUTPUT"
 
   build-and-push:
     name: Build & push (${{ matrix.service }})

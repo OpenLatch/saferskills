@@ -40,7 +40,8 @@ src/
 └── generated/              # ← codegen output (never hand-edit)
     ├── openapi/types.gen.ts
     └── zod/index.ts
-public/                     # Favicon, social-preview banner, robots.txt
+public/                     # banner.png (light) + banner-dark.png — README hero
+                            # + OG/Twitter card; favicon.svg; robots.txt
 ```
 
 ## See also
