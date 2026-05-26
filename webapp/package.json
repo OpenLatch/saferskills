@@ -23,14 +23,13 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.3.0",
-    "zod": "^3.24.0"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.0.0",
-    "jsdom": "^26.0.0",
+    "jsdom": "^29.0.0",
     "vitest": "^4.1.0",
     "vitest-axe": "^0.1.0",
     "@biomejs/biome": "^2.4.0",
-    "typescript": "^5.9.0"
+    "typescript": "^6.0.0"
   }
 }

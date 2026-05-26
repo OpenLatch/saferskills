@@ -57,7 +57,7 @@ W1 is unhosted (preview deploys via Fly.io launch later in Track D). When deploy
 ## Dependency-bump policy
 
 - **Dependabot** drives every ecosystem (npm root + pip `services/api` + pip `tools/e2e` + docker + github-actions). Weekly Monday schedule, grouped PRs per ecosystem (`frontend-minor-patch`, `api-minor-patch`, etc.).
-- Every dep on its current latest major or latest stable minor; major bumps reviewed individually.
+- Every dep on its current latest major or latest stable minor. Both minor/patch and major bumps are grouped per ecosystem (`frontend-major`, `api-major`, etc.) to keep the PR queue small — see `.github/dependabot.yml`. Major-group PRs land as a single combined bump with a migration note in the PR body.
 
 ## Pre-Commit Hooks
 
