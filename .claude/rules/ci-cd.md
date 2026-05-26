@@ -61,12 +61,34 @@ W1 is unhosted (preview deploys via Fly.io launch later in Track D). When deploy
 
 ## Pre-Commit Hooks
 
-Installed via `pre-commit install` in repo root:
-- `ruff format` + `ruff check --fix` (Python)
-- `biome check --write` (TS/JS/JSON)
-- `ajv validate` (JSON Schema validation)
-- `detect-secrets-hook` (prevent credential commits)
-- `dco-signoff` (verify `Signed-off-by:` trailer)
+Installed via `pre-commit install` in repo root. Source of truth: `.pre-commit-config.yaml`.
+
+**Security**
+- `gitleaks` — block credential-shaped strings in staged files
+
+**Python (Ruff)**
+- `ruff-check --fix` — lint + autofix
+- `ruff-format` — format
+
+**TS / JS / JSON (Biome)**
+- `biome-check` — lint + format in one pass
+
+**JSON Schema validation (`check-jsonschema`)**
+- `check-metaschema` — validate `schemas/*.json` against the JSON Schema metaschema
+- `check-github-workflows` — validate `.github/workflows/*.yml`
+- `check-compose-spec` — validate `docker-compose*.yml`
+- `check-dependabot` — validate `.github/dependabot.yml`
+
+**Repo hygiene (`pre-commit-hooks`)**
+- `trailing-whitespace`, `end-of-file-fixer`
+- `check-yaml` (with `--unsafe` for custom tags), `check-json`
+- `check-added-large-files` (>1000 KB blocked)
+- `check-merge-conflict`, `check-case-conflict`
+
+**Commit message (commit-msg stage)**
+- `conventional-pre-commit` — enforce Conventional Commits format (allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert)
+
+**Not enforced at pre-commit:** DCO `Signed-off-by:` is verified in CI by the `dco-check` lane, not locally — use `git commit -s` to add the trailer.
 
 ## When to update this rule
 

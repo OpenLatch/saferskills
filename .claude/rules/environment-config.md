@@ -43,7 +43,7 @@ Frontend env vars MUST be prefixed `PUBLIC_*` (Astro convention) to be exposed a
 ## `.env.example` discipline
 
 - **Every required var is documented** in the matching `.env.example` with a placeholder (`<set-me>` or a public-safe default).
-- **No real secrets in `.env.example`** — `detect-secrets` pre-commit hook enforces.
+- **No real secrets in `.env.example`** — `gitleaks` pre-commit hook enforces.
 - **The example is the contract** — adding a runtime read of an undocumented var is rejected in review.
 
 ## Loading rules
