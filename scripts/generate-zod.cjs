@@ -36,5 +36,6 @@ for (const file of schemas) {
   out += `export type ${ConstName} = z.infer<typeof ${ConstName}Schema>;\n\n`
 }
 
-fs.writeFileSync(path.join(OUT_DIR, 'index.ts'), out)
+// Normalize trailing newlines: single \n at EOF (matches end-of-file-fixer).
+fs.writeFileSync(path.join(OUT_DIR, 'index.ts'), out.replace(/\n+$/, '\n'))
 console.log(`[zod] Wrote ${path.relative(ROOT, path.join(OUT_DIR, 'index.ts'))}.`)

@@ -245,7 +245,8 @@ function main() {
   const sha = rubricSha()
   const mdx = emitMdx(rules, sha)
   const outPath = path.join(OUT_DIR, 'index.mdx')
-  fs.writeFileSync(outPath, mdx)
+  // Normalize trailing newlines: single \n at EOF (matches end-of-file-fixer).
+  fs.writeFileSync(outPath, mdx.replace(/\n+$/, '\n'))
   console.log(`[methodology] Wrote ${path.relative(ROOT, outPath)} (rubricSha=${sha.slice(0, 7)}).`)
 }
 

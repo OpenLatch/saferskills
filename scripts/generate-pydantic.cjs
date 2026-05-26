@@ -74,6 +74,7 @@ for (const file of schemas) {
     '3.12',
     '--use-standard-collections',
     '--use-union-operator',
+    '--disable-timestamp',
   ])
   if (!ok) process.exit(1)
 }
