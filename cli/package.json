@@ -1,7 +1,7 @@
 {
   "name": "@openlatch/saferskills",
   "version": "0.0.1-placeholder",
-  "description": "The VirusTotal of AI agents — coming soon. See https://github.com/OpenLatch/saferskills.",
+  "description": "Every AI skill, independently scanned. Coming soon. See https://github.com/OpenLatch/saferskills.",
   "license": "Apache-2.0",
   "author": "OpenLatch, Inc. <hello@openlatch.ai>",
   "homepage": "https://saferskills.ai",
@@ -20,7 +20,7 @@
     "agent-security",
     "supply-chain-security",
     "security-scanner",
-    "virustotal",
+    "trust-score",
     "openlatch",
     "saferskills"
   ],
