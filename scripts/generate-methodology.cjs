@@ -76,8 +76,14 @@ function parseFrontmatter(rawContent, sourcePath) {
 }
 
 function rubricSha() {
+  // Use the git tree SHA of the rubric/ directory rather than the last-commit
+  // SHA: tree SHAs are content-addressable (two commits with identical
+  // rubric/ contents produce the same tree SHA), so the output is stable
+  // across local dev (which sees real commits) and CI (which checks out
+  // virtual merge commits like `pull/N/merge` with different commit SHAs
+  // but identical tree state).
   try {
-    const sha = execFileSync('git', ['log', '-n', '1', '--pretty=format:%H', '--', 'rubric/'], {
+    const sha = execFileSync('git', ['rev-parse', 'HEAD:rubric'], {
       cwd: ROOT,
       encoding: 'utf8',
     }).trim()

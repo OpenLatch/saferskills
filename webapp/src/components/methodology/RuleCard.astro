@@ -24,8 +24,11 @@ interface Props {
 }
 
 const props = Astro.props as Props
-const githubBase = 'https://github.com/OpenLatch/saferskills/blob'
-const sourceHref = `${githubBase}/${props.rubricSha}/${props.sourcePath}`
+// rubricSha is a content-addressable git TREE hash of rubric/ (stable across
+// local + CI; survives PR merge-commit SHA differences). It's the identity of
+// the rubric version; the GitHub /blob/<ref>/<path> URL however needs a
+// commit-ish ref, so the source link points at the main branch.
+const sourceHref = `https://github.com/OpenLatch/saferskills/blob/main/${props.sourcePath}`
 
 const severityClass = `sev-${props.severity}`
 const statusClass = `status-${props.status}`
