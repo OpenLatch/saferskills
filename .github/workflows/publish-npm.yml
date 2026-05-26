@@ -1,0 +1,94 @@
+name: Publish to npm
+
+# Publish `@openlatch/saferskills` to npm via npm Trusted Publishers (OIDC).
+# NO long-lived NPM_TOKEN secret. The `id-token: write` permission below mints
+# a short-lived OIDC token at publish time; Node 24's bundled npm 11+ detects
+# OIDC automatically. The matching Trusted Publisher binding lives on
+# https://www.npmjs.com/package/@openlatch/saferskills/access and MUST point
+# at THIS workflow filename (`publish-npm.yml`) — that's part of the verified
+# OIDC subject. Renaming the file without updating the binding silently
+# breaks the publish (the run looks fine; npm rejects the token).
+#
+# Hard rules (mirroring openlatch-client's `publish.yml`):
+#   1. `id-token: write` permission on the publishing job — required by OIDC.
+#   2. NO `registry-url:` in setup-node — it writes an `.npmrc` that expects
+#      `NODE_AUTH_TOKEN` and conflicts with OIDC auto-detection (causes
+#      404 / ENEEDAUTH errors).
+#   3. Node 24 (ships npm 11+ which supports OIDC Trusted Publishing).
+#   4. NO `--provenance` CLI flag here — `publishConfig.provenance: true` in
+#      `cli/package.json` is the single switch; setting both is redundant.
+#
+# At W1 the package is metadata-only. The workflow_dispatch path is the way
+# to manually republish after bumping the version. The release-tag path
+# wakes up automatically once Release Please starts cutting real CLI
+# releases W4+.
+
+on:
+  # Mirrors openlatch-client/publish.yml — tag push is the trigger of record.
+  # release-please's Version Bump workflow lands the tag when its release PR
+  # is merged. Tag push wakes this workflow immediately; the `release:
+  # published` event can lag a few seconds and isn't needed.
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run only (print tarball contents, do not publish)"
+        type: boolean
+        default: true
+
+# Restrictive default; the publishing job opts in to what it needs
+permissions: {}
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @openlatch/saferskills
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # REQUIRED for npm OIDC Trusted Publishing
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+
+      # Node 24 ships npm 11+ with OIDC Trusted Publishing support.
+      # Do NOT set `registry-url:` — it writes an `.npmrc` expecting
+      # `NODE_AUTH_TOKEN` and conflicts with OIDC auto-detection.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Verify Node + npm versions
+        run: |
+          echo "node: $(node --version)"
+          echo "npm: $(npm --version)"
+
+      - name: Sanity-check package metadata
+        working-directory: cli
+        run: |
+          set -euo pipefail
+          test -f package.json
+          test -f README.md
+          test -f LICENSE
+          # Trusted Publisher only authorises this exact name. Catch a
+          # rename here rather than blowing up the publish call.
+          name=$(node -p "require('./package.json').name")
+          if [ "$name" != "@openlatch/saferskills" ]; then
+            echo "::error::package.json name '$name' != '@openlatch/saferskills' (TP-locked)"
+            exit 1
+          fi
+
+      - name: Dry-run publish (workflow_dispatch with dry_run=true)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        working-directory: cli
+        run: npm publish --dry-run --access public
+
+      - name: Publish (workflow_dispatch with dry_run=false OR tag push)
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
+        working-directory: cli
+        run: npm publish --access public

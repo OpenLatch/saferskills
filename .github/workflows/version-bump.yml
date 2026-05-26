@@ -1,0 +1,55 @@
+# Version Bump — automated version bumping and changelog generation via release-please.
+#
+# Mirrors `OpenLatch/openlatch-client/.github/workflows/version-bump.yml` per
+# mirror discipline. Single package at W1 (`cli/`); add more under `packages`
+# in `release-please-config.json` when subsequent packages need versioning.
+#
+# On every push to main:
+#   1. release-please creates/updates a Release PR with bumped
+#      `cli/package.json`, `cli/CHANGELOG.md`, and
+#      `.release-please-manifest.json`.
+#   2. When the Release PR is merged, release-please creates a GitHub Release
+#      with a v*.*.* tag, which triggers `publish-npm.yml` (npm publish via
+#      Trusted Publisher OIDC).
+#
+# CRITICAL: this workflow MUST use a GitHub App token (not GITHUB_TOKEN).
+# Tags / releases created with GITHUB_TOKEN do NOT trigger downstream
+# workflows (GitHub Actions security feature — prevents recursive CI loops).
+# Without the app token, the `publish-npm.yml` chain breaks silently.
+
+name: Version Bump
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false  # Never cancel a release in progress
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
