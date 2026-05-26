@@ -1,6 +1,6 @@
 # CLAUDE.md — SaferSkills
 
-SaferSkills is **"The VirusTotal of AI agents"** — a public, free, Apache-2.0 trust-scoring service for skills, MCP servers, hooks, and plugins across every agent platform (Claude Code, Cursor, Windsurf, GitHub Copilot, Codex CLI, Gemini CLI, Cline, OpenClaw). Anyone submits a GitHub URL → 30-second deterministic scan → public Yuka-style report with full rule trace, vendor right-of-reply, and a permalink.
+SaferSkills is **"every AI skill, independently scanned"** — a public, free, Apache-2.0 trust-scoring service for skills, MCP servers, hooks, and plugins across every agent platform (Claude Code, Cursor, Windsurf, GitHub Copilot, Codex CLI, Gemini CLI, Cline, OpenClaw). Anyone submits a GitHub URL → 30-second deterministic scan → public Yuka-style report with full rule trace, vendor right-of-reply, and a permalink.
 
 **Architecture (post-W3, Track A/B/D shipped)**: catalog ingestion (`services/api/app/ingestion/`) → scan engine (`services/api/app/scan/` + detector rules under `rubric/`) → public report surface (`webapp/` Astro SSG, indexed by `saferskills.ai/items/<slug>`) → CLI gate (`cli/` npx). Until W3, this repo is the **foundation shell** — codegen pipeline, FastAPI `/health`, Astro placeholder homepage with email capture, design-system tokens.
 
