@@ -1,21 +1,29 @@
-# cli/ — `saferskills` command-line tool
+# `@openlatch/saferskills` — CLI
 
-The CLI scaffolds here from W4 (Initiative I-05 / Track C). The language is **TypeScript** (per locked decision D-09 in `.local/.brainstorms/foundation/plan/INDEX.md`) — Node 24 LTS plus either `@yao-pkg/pkg` or Node 24's stable single-executable-applications (SEA) workflow for the shipped binary.
+> The VirusTotal of AI agents — **coming soon, mid-2026**.
 
-## Planned commands (W4-8)
+SaferSkills is a public, free, Apache-2.0 trust-scoring service for AI-agent skills, MCP servers, hooks, and plugins. Once the first functional release lands you'll use the CLI to:
 
 ```bash
-saferskills check <github-url|npm-name>      # 30-second public scan; prints aggregate score + tier
-saferskills install <github-url|npm-name>    # gates install on configurable threshold (default: block Red)
-saferskills watchlist add <id>                # subscribe (auth lands W5)
+saferskills check <github-url|npm-name>     # 30-second public scan; prints aggregate score + tier
+saferskills install <github-url|npm-name>   # gates install on configurable threshold (default: block Red)
+saferskills watchlist add <id>              # subscribe (auth lands W5)
 saferskills watchlist list
-saferskills login                             # SSO / magic link (W5+)
+saferskills login                           # SSO / magic link (W5+)
 ```
 
-## Status
+For source, methodology, and progress: [github.com/OpenLatch/saferskills](https://github.com/OpenLatch/saferskills). For the public catalog (live mid-2026): [saferskills.ai](https://saferskills.ai).
 
-**W1: placeholder.** This directory exists so the repo skeleton is complete and Track C has somewhere to land its work day 1 of W4. Real package + entrypoint land then.
+---
 
-## Why TypeScript (D-09)
+## Status (W1)
 
-The PRD originally referenced Rust for the CLI. Build Plan W3 explicitly leaves the call open. SaferSkills' CLI is install-frequency-dominated (developers run it once when adding a skill), not install-time-dominated (the per-call latency budget is tens-of-ms not microseconds). TypeScript ramps faster, mirrors `@openlatch/client`'s distribution UX, and gives us shared TS types with the webapp via the `webapp/src/generated/openapi/types.gen.ts` contract. Acceptable trade: a ~30-40 MB binary vs Rust's ~5 MB; re-evaluate W5 if friction surfaces.
+**Placeholder.** This package is a name reservation — installing it currently does nothing functional. The first functional release lands W4–8 (Initiative I-05 / Track C of the SaferSkills build plan).
+
+## Language: TypeScript (decision D-09)
+
+Per locked decision D-09 in `.local/.brainstorms/foundation/plan/INDEX.md`, the CLI is TypeScript on Node 24 LTS, shipped as a single-executable-application (SEA) — not Rust. SaferSkills' CLI is install-frequency-dominated (developers run it once per skill they add), not per-call-latency-dominated, so TypeScript ramps the feature surface faster, mirrors `@openlatch/client`'s distribution UX, and shares TS types with the webapp via the generated `webapp/src/generated/openapi/types.gen.ts` contract. Trade-off accepted: a ~30–40 MB binary vs Rust's ~5 MB; re-evaluated W5 if friction surfaces.
+
+## Publishing
+
+This package is published via [npm Trusted Publishers (OIDC)](https://docs.npmjs.com/trusted-publishers) — no long-lived `NPM_TOKEN` secret in CI. The release path is `.github/workflows/publish-npm.yml`, bound to the `npm-publish` GH Environment. See that workflow's header comment for the binding contract.

@@ -1,0 +1,81 @@
+name: Publish to npm
+
+# Publish `@openlatch/saferskills` to npm via npm Trusted Publishers (OIDC).
+# NO long-lived NPM_TOKEN secret involved — the `id-token: write` permission
+# below + the `--provenance` flag combine to mint a short-lived OIDC token
+# at publish time. The matching Trusted Publisher binding lives on npmjs.com
+# at https://www.npmjs.com/package/@openlatch/saferskills/access (org admin
+# only) and MUST point at THIS workflow filename (`publish-npm.yml`) and
+# the `npm-publish` GH Environment below — both are part of the verified
+# OIDC subject. Renaming either side without updating the other breaks the
+# publish.
+#
+# At W1 the package is a metadata-only placeholder; the workflow_dispatch
+# path is the way to manually republish after bumping the version. The
+# release-tag path wakes up automatically once Release Please starts
+# cutting real CLI releases W4+.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run only (print tarball contents, do not publish)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write   # REQUIRED for npm Trusted Publisher / OIDC + --provenance
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @openlatch/saferskills
+    runs-on: ubuntu-latest
+    # Dedicated GH Environment so the npm Trusted Publisher binding can
+    # require it (defense-in-depth — a publish must originate from a job
+    # bound to this environment, not just from any workflow in the repo).
+    # Configure secrets/protection rules here if needed; no secrets are
+    # required for OIDC publishing itself.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@openlatch/saferskills
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org/"
+
+      - name: Sanity-check package metadata
+        working-directory: cli
+        run: |
+          set -euo pipefail
+          test -f package.json
+          test -f README.md
+          test -f LICENSE
+          # Trusted Publisher only authorises this exact name. Catch a
+          # rename here rather than blowing up the publish call.
+          name=$(node -p "require('./package.json').name")
+          if [ "$name" != "@openlatch/saferskills" ]; then
+            echo "::error::package.json name '$name' != '@openlatch/saferskills' (TP-locked)"
+            exit 1
+          fi
+
+      - name: Dry-run publish (workflow_dispatch with dry_run=true)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        working-directory: cli
+        run: npm publish --dry-run --provenance --access public
+
+      - name: Publish (workflow_dispatch with dry_run=false OR release tag)
+        if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
+        working-directory: cli
+        run: npm publish --provenance --access public

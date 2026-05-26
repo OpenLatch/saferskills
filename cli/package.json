@@ -1,0 +1,32 @@
+{
+  "name": "@openlatch/saferskills",
+  "version": "0.0.0-placeholder",
+  "description": "The VirusTotal of AI agents — coming soon. See https://github.com/OpenLatch/saferskills.",
+  "license": "Apache-2.0",
+  "author": "OpenLatch, Inc. <hello@openlatch.ai>",
+  "homepage": "https://saferskills.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenLatch/saferskills.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenLatch/saferskills/issues"
+  },
+  "keywords": [
+    "ai-agents",
+    "mcp",
+    "mcp-server",
+    "agent-security",
+    "supply-chain-security",
+    "security-scanner",
+    "virustotal",
+    "openlatch",
+    "saferskills"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  }
+}
