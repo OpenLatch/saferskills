@@ -8,8 +8,8 @@ This project adopts the [Contributor Covenant 3.0](./.github/CODE_OF_CONDUCT.md)
 
 ## Prerequisites
 
-- **Node.js 24 LTS** (`.nvmrc`)
-- **Python 3.14** (`.python-version`)
+- **Node.js 24 LTS** (enforced by `package.json#engines`)
+- **Python 3.14**
 - **pnpm 10**
 - **uv** (latest)
 - **Docker** + Docker Compose
