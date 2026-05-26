@@ -1,19 +1,27 @@
 name: Publish to npm
 
 # Publish `@openlatch/saferskills` to npm via npm Trusted Publishers (OIDC).
-# NO long-lived NPM_TOKEN secret involved — the `id-token: write` permission
-# below + the `--provenance` flag combine to mint a short-lived OIDC token
-# at publish time. The matching Trusted Publisher binding lives on npmjs.com
-# at https://www.npmjs.com/package/@openlatch/saferskills/access (org admin
-# only) and MUST point at THIS workflow filename (`publish-npm.yml`) and
-# the `npm-publish` GH Environment below — both are part of the verified
-# OIDC subject. Renaming either side without updating the other breaks the
-# publish.
+# NO long-lived NPM_TOKEN secret. The `id-token: write` permission below mints
+# a short-lived OIDC token at publish time; Node 24's bundled npm 11+ detects
+# OIDC automatically. The matching Trusted Publisher binding lives on
+# https://www.npmjs.com/package/@openlatch/saferskills/access and MUST point
+# at THIS workflow filename (`publish-npm.yml`) — that's part of the verified
+# OIDC subject. Renaming the file without updating the binding silently
+# breaks the publish (the run looks fine; npm rejects the token).
 #
-# At W1 the package is a metadata-only placeholder; the workflow_dispatch
-# path is the way to manually republish after bumping the version. The
-# release-tag path wakes up automatically once Release Please starts
-# cutting real CLI releases W4+.
+# Hard rules (mirroring openlatch-client's `publish.yml`):
+#   1. `id-token: write` permission on the publishing job — required by OIDC.
+#   2. NO `registry-url:` in setup-node — it writes an `.npmrc` that expects
+#      `NODE_AUTH_TOKEN` and conflicts with OIDC auto-detection (causes
+#      404 / ENEEDAUTH errors).
+#   3. Node 24 (ships npm 11+ which supports OIDC Trusted Publishing).
+#   4. NO `--provenance` CLI flag here — `publishConfig.provenance: true` in
+#      `cli/package.json` is the single switch; setting both is redundant.
+#
+# At W1 the package is metadata-only. The workflow_dispatch path is the way
+# to manually republish after bumping the version. The release-tag path
+# wakes up automatically once Release Please starts cutting real CLI
+# releases W4+.
 
 on:
   release:
@@ -25,9 +33,8 @@ on:
         type: boolean
         default: true
 
-permissions:
-  contents: read
-  id-token: write   # REQUIRED for npm Trusted Publisher / OIDC + --provenance
+# Restrictive default; the publishing job opts in to what it needs
+permissions: {}
 
 concurrency:
   group: publish-npm-${{ github.ref }}
@@ -37,23 +44,25 @@ jobs:
   publish:
     name: Publish @openlatch/saferskills
     runs-on: ubuntu-latest
-    # Dedicated GH Environment so the npm Trusted Publisher binding can
-    # require it (defense-in-depth — a publish must originate from a job
-    # bound to this environment, not just from any workflow in the repo).
-    # Configure secrets/protection rules here if needed; no secrets are
-    # required for OIDC publishing itself.
-    environment:
-      name: npm-publish
-      url: https://www.npmjs.com/package/@openlatch/saferskills
+    permissions:
+      contents: read
+      id-token: write   # REQUIRED for npm OIDC Trusted Publishing
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v5
+      # Node 24 ships npm 11+ with OIDC Trusted Publishing support.
+      # Do NOT set `registry-url:` — it writes an `.npmrc` expecting
+      # `NODE_AUTH_TOKEN` and conflicts with OIDC auto-detection.
+      - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org/"
+
+      - name: Verify Node + npm versions
+        run: |
+          echo "node: $(node --version)"
+          echo "npm: $(npm --version)"
 
       - name: Sanity-check package metadata
         working-directory: cli
@@ -73,9 +82,9 @@ jobs:
       - name: Dry-run publish (workflow_dispatch with dry_run=true)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         working-directory: cli
-        run: npm publish --dry-run --provenance --access public
+        run: npm publish --dry-run --access public
 
       - name: Publish (workflow_dispatch with dry_run=false OR release tag)
         if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
         working-directory: cli
-        run: npm publish --provenance --access public
+        run: npm publish --access public
