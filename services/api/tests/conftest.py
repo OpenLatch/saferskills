@@ -16,13 +16,13 @@ no-postgres case (CI lane defaulting to test_health-only) still passes.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest_asyncio
-from alembic import command
-from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -55,15 +55,28 @@ def _test_database_url() -> str:
 
 @pytest_asyncio.fixture(scope="session")
 async def db_engine() -> AsyncIterator[object]:
-    """Session-scoped async engine. Runs `alembic upgrade head` once."""
+    """Session-scoped async engine. Runs `alembic upgrade head` once.
+
+    Migrations run in a subprocess so alembic gets its own event loop —
+    calling `alembic.command.upgrade()` directly from inside a pytest-asyncio
+    fixture collides with the running loop (`asyncio.run() cannot be called
+    from a running event loop`).
+    """
     url = _test_database_url()
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "alembic",
+        "upgrade",
+        "head",
+        cwd=_API_ROOT,
+        env={**os.environ, "DATABASE_URL": url},
+    )
+    returncode = await proc.wait()
+    if returncode != 0:
+        raise RuntimeError(f"alembic upgrade head failed with exit code {returncode}")
+
     engine = create_async_engine(url, pool_pre_ping=True)
-
-    # Run migrations against this DB. Alembic config is sync — pass via env var.
-    cfg = Config(str(_ALEMBIC_INI))
-    cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "head")
-
     yield engine
     await engine.dispose()
 
