@@ -86,9 +86,20 @@ jobs:
       - name: Dry-run publish (workflow_dispatch with dry_run=true)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         working-directory: cli
-        run: npm publish --dry-run --access public
+        run: npm publish --dry-run --access public --tag latest
 
       - name: Publish (workflow_dispatch with dry_run=false OR tag push)
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
         working-directory: cli
-        run: npm publish --access public
+        # `--tag latest` is REQUIRED for pre-release versions on npm 11+
+        # (Node 24 bundle). The implicit `latest` dist-tag was removed for
+        # pre-releases because a `1.0.0-rc.1` accidentally becoming the
+        # default install target is a footgun. SaferSkills' W1 placeholder
+        # versions all carry the `-placeholder` pre-release identifier, so
+        # without an explicit `--tag` npm errors out with
+        # "You must specify a tag using --tag when publishing a prerelease".
+        # When the CLI graduates to clean semver (≥ 0.1.0 with no
+        # pre-release suffix) the `--tag latest` flag becomes a no-op (npm
+        # would default to it anyway) — leaving it explicit keeps the
+        # workflow forward-compatible.
+        run: npm publish --access public --tag latest
