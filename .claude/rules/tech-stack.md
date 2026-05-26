@@ -58,7 +58,7 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 
 - **Dependabot** is the only dep-bot. Weekly Monday across every ecosystem (npm root + pip `services/api` + pip `tools/e2e` + docker + github-actions).
 - Every dep on its current latest major or latest stable minor.
-- Major bumps land individually with a brief migration note in the PR body; minor/patch bumps group automatically per ecosystem (`frontend-minor-patch`, `api-minor-patch`, etc.).
+- Bumps are grouped per ecosystem to keep the PR queue small. Minor/patch bumps group under `frontend-minor-patch` / `api-minor-patch` / etc. Major bumps group under `frontend-major` / `api-major` — landed as a single PR per ecosystem per Monday with a combined migration note in the PR body. Source of truth: `.github/dependabot.yml`.
 
 ## When to update this rule
 
