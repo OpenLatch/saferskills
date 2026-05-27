@@ -21,6 +21,7 @@ dependencies = [
   "opentelemetry-instrumentation-fastapi>=0.51b0",
   "structlog>=25.0",
   "httpx>=0.28",
+  "pyyaml>=6.0",
 ]
 
 [dependency-groups]
@@ -52,7 +53,28 @@ reportMissingTypeStubs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Share one event loop across all async fixtures + tests so the session-scoped
+# db_engine fixture (which runs `alembic upgrade head` once) isn't torn down
+# between tests — otherwise pytest-asyncio 0.24+ binds the engine to a
+# function-scoped loop that closes after test 1, and subsequent tests see
+# "Future attached to a different loop". Test isolation still comes from
+# db_session's per-test SAVEPOINT/rollback in conftest.py.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 addopts = "-ra --cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+omit = [
+  "app/schemas/generated/*",
+  "app/models/generated/*",
+]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "pragma: no cover",
+]
 
 [build-system]
 requires = ["hatchling"]

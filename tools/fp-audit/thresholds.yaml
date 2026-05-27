@@ -1,0 +1,24 @@
+# FP-audit promotion thresholds.
+#
+# A rule with FP rate (false_positives / (false_positives + true_negatives))
+# strictly below `default_fp_rate_max` is eligible for promotion from
+# status: shadow to status: active. Per-rule overrides apply to noisy rules
+# where domain context justifies a higher threshold.
+
+default_fp_rate_max: 0.10
+
+per_rule_overrides:
+  # The "ignore previous instructions" pattern lives alongside legitimate
+  # prompt-engineering documentation; allow a 15% threshold per the
+  # methodology pre-audit.
+  SS-SKILL-INJECT-IGNORE-01:
+    fp_rate_max: 0.15
+  SS-SKILL-INJECT-DONT-ASK-01:
+    fp_rate_max: 0.15
+
+# Audit log thresholds:
+#
+# - `fp_rate_max` exceeded → decision: shadow_extended (extend shadow window
+#   by 7 days, request maintainer review).
+# - 3 consecutive shadow extensions → decision: demote_to_shadow (rule
+#   stays shadow indefinitely until a v2 RFC reworks the trigger).

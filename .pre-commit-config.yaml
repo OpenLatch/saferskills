@@ -46,6 +46,13 @@ repos:
       # Validate Dependabot config
       - id: check-dependabot
 
+  # Rubric rule frontmatter validation runs as part of the codegen pipeline
+  # (`pnpm run generate` → `scripts/generate-methodology.cjs` validates every
+  # `rubric/<CATEGORY>/<NAME>-NN.md` against `schemas/rubric-rule.schema.json`).
+  # The CI `validate` lane is the canonical gate; running it via pre-commit
+  # would require either a YAML-frontmatter transform that check-jsonschema
+  # doesn't ship, or a custom Python entry point. Defer until either lands.
+
   # ─── 🐍 Python: Ruff ────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.2

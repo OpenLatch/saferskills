@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/rubric-rule.schema.json",
+  "title": "RubricRule",
+  "description": "YAML-frontmatter contract for `rubric/<CATEGORY>/<NAME>-NN.md` files. Per-rule contract per .claude/rules/methodology.md § Per-rule contract. The detector engine (Phase B) loads rule files via this schema; the methodology codegen step (#7) emits webapp/src/generated/methodology/index.mdx from validated frontmatter. x-postgresql-skip: true because this is a file-format spec, not a persisted entity (the rule lives in git).",
+  "x-postgresql-skip": true,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ruleId",
+    "severity",
+    "subScore",
+    "weight",
+    "status",
+    "appliesTo",
+    "trigger",
+    "limitations",
+    "priorArt"
+  ],
+  "properties": {
+    "ruleId": {
+      "type": "string",
+      "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$",
+      "description": "Format `SS-<CATEGORY>-<NAME>-NN` (D-03)."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"],
+      "description": "5-tier ladder (D-02). `info` carries weight 0."
+    },
+    "subScore": {
+      "type": "string",
+      "enum": ["security", "supply_chain", "maintenance", "transparency", "community"],
+      "description": "5-axis sub-score (D-01)."
+    },
+    "weight": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 40,
+      "description": "Maximum penalty this rule contributes. 0 for advisory (`info`) and shadow rules."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["shadow", "active", "deprecated"],
+      "description": "Rule lifecycle state (D-14). New rules land `shadow` for 7 days; FP-audit gates promotion."
+    },
+    "shadowUntil": {
+      "type": ["string", "null"],
+      "description": "ISO 8601 date or week-marker (e.g. `2026-W3-end`) when the FP-audit harness re-evaluates promotion. Required iff status=shadow; null otherwise."
+    },
+    "appliesTo": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["skill", "mcp", "rules", "hooks", "plugin"]
+      },
+      "description": "Artifact types the rule fires against."
+    },
+    "trigger": {
+      "oneOf": [
+        {"$ref": "#/$defs/triggerRegexMatch"},
+        {"$ref": "#/$defs/triggerFileGlobPresent"},
+        {"$ref": "#/$defs/triggerFileGlobAbsent"},
+        {"$ref": "#/$defs/triggerCommitHistoryCheck"},
+        {"$ref": "#/$defs/triggerMetadataCheck"},
+        {"$ref": "#/$defs/triggerCompositeAndOr"}
+      ],
+      "description": "Closed set of 6 primitive trigger types. Adding a new primitive requires an RFC."
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "description": "What the rule cannot catch. MANDATORY — no rule ships without limitations."
+    },
+    "priorArt": {
+      "type": "array",
+      "items": {"type": "string", "format": "uri"},
+      "description": "URLs to CVEs / OWASP entries / research papers / vendor write-ups motivating the rule."
+    }
+  },
+  "$defs": {
+    "triggerRegexMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "pattern", "scope"],
+      "properties": {
+        "type": {"const": "regex_match"},
+        "pattern": {"type": "string", "minLength": 1},
+        "flags": {"type": "string", "pattern": "^[imsxu]*$"},
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["paths"],
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "requiresCount": {"type": "integer", "minimum": 1}
+      }
+    },
+    "triggerFileGlobPresent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "paths"],
+      "properties": {
+        "type": {"const": "file_glob_present"},
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string"}
+        },
+        "minSizeBytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "triggerFileGlobAbsent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "paths"],
+      "properties": {
+        "type": {"const": "file_glob_absent"},
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "triggerCommitHistoryCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "signal", "operator", "threshold"],
+      "properties": {
+        "type": {"const": "commit_history_check"},
+        "signal": {
+          "type": "string",
+          "enum": [
+            "last_commit_age_days",
+            "commit_freq_90d",
+            "contributor_count",
+            "issue_response_p50_hours",
+            "open_issue_ratio"
+          ]
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["gt", "lt", "gte", "lte", "eq"]
+        },
+        "threshold": {"type": "number"}
+      }
+    },
+    "triggerMetadataCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "field", "operator", "value"],
+      "properties": {
+        "type": {"const": "metadata_check"},
+        "field": {
+          "type": "string",
+          "enum": [
+            "stars",
+            "forks",
+            "license",
+            "has_readme",
+            "has_changelog",
+            "has_security_md",
+            "has_license_file",
+            "default_branch_protected",
+            "owner_age_days",
+            "fork_count",
+            "registry_listings_count"
+          ]
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["gt", "lt", "gte", "lte", "eq", "in", "not_in", "exists", "missing"]
+        },
+        "value": {
+          "description": "Number, string, or array depending on operator."
+        }
+      }
+    },
+    "triggerCompositeAndOr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "op", "children"],
+      "properties": {
+        "type": {"const": "composite_and_or"},
+        "op": {"type": "string", "enum": ["and", "or"]},
+        "children": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "oneOf": [
+              {"$ref": "#/$defs/triggerRegexMatch"},
+              {"$ref": "#/$defs/triggerFileGlobPresent"},
+              {"$ref": "#/$defs/triggerFileGlobAbsent"},
+              {"$ref": "#/$defs/triggerCommitHistoryCheck"},
+              {"$ref": "#/$defs/triggerMetadataCheck"}
+            ]
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "ruleId": "SS-SKILL-INJECT-UNICODE-TAG-01",
+      "severity": "critical",
+      "subScore": "security",
+      "weight": 35,
+      "status": "active",
+      "shadowUntil": null,
+      "appliesTo": ["skill", "mcp", "rules", "hooks", "plugin"],
+      "trigger": {
+        "type": "regex_match",
+        "pattern": "[\\u{E0000}-\\u{E007F}]",
+        "flags": "u",
+        "scope": {
+          "paths": ["**/*.md", "**/*.yaml", "**/*.yml", "**/*.json", "**/SKILL.md"]
+        }
+      },
+      "limitations": [
+        "Cannot detect tag-channel characters re-encoded as numeric entities (`&#xE0001;`); rule operates on decoded text only.",
+        "Cannot detect tag-channel chars hidden inside compressed payloads — those are scanned only post-decompression."
+      ],
+      "priorArt": [
+        "https://aws.amazon.com/blogs/security/defending-llm-applications-against-unicode-character-smuggling/",
+        "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
+      ]
+    }
+  ]
+}

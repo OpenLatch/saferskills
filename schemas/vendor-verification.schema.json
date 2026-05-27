@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/vendor-verification.schema.json",
+  "title": "VendorVerification",
+  "description": "Vendor maintainer-verification token lifecycle (D-05 / D-06 / D-07 / D-08). A maintainer claims a catalog item by committing the token to `.saferskills/verify.txt` on the repo default branch; the server fetches, constant-time-compares the sha256, marks verified, then weekly-polls for drift (does not revoke on drift).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "catalogItemId",
+    "tokenHashSha256",
+    "issuedAt",
+    "expiresAt",
+    "state"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv7."
+    },
+    "catalogItemId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "FK to the catalog item being claimed."
+    },
+    "tokenHashSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the issued 32-byte URL-safe random token. Server NEVER stores the raw token — constant-time compare against this hash on redemption."
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Pre-redemption expiry = issuedAt + 7 days (D-06). After redemption, verification persists indefinitely."
+    },
+    "redeemedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Set when the token file is first matched on the repo default branch. Null while pending."
+    },
+    "verifiedGithubUser": {
+      "type": ["string", "null"],
+      "maxLength": 100,
+      "description": "GitHub username that committed the verify.txt file (resolved at redemption time). Null while pending."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["pending", "verified", "expired", "revoked"],
+      "description": "State machine: pending → verified | expired; verified → revoked (rare, abuse cases only)."
+    },
+    "lastDriftCheckAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Most recent weekly drift-check. Verification persists even if the file is later removed (D-07 — Apple Pay / Google Search Console pattern)."
+    }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-bbbb-7000-8000-000000000001",
+      "catalogItemId": "018e7c8b-1234-7000-8000-000000000001",
+      "tokenHashSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "issuedAt": "2026-05-26T10:00:00Z",
+      "expiresAt": "2026-06-02T10:00:00Z",
+      "redeemedAt": "2026-05-26T11:30:00Z",
+      "verifiedGithubUser": "example-maintainer",
+      "state": "verified",
+      "lastDriftCheckAt": "2026-06-02T10:00:00Z"
+    }
+  ]
+}

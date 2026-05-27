@@ -61,6 +61,24 @@ jobs:
             echo "::error::Codegen drift — run \`pnpm run generate\` locally and commit the output."
             exit 1
           fi
+      - name: Assert W1-placeholder taxonomy purged
+        # Phase A locked-decision D-01 swapped the W1 placeholder 4-axis
+        # sub-score taxonomy (identity / integrity / behavior / provenance)
+        # for the PRD-locked 5-axis taxonomy (security / supply_chain /
+        # maintenance / transparency / community). Any reappearance of the
+        # W1 tokens in schemas/ or generated outputs is a regression.
+        # Scoped strictly to those dirs so legitimate English uses elsewhere
+        # ("data integrity", "behavior test", etc.) do not false-positive.
+        run: |
+          if grep -RnE '\b(identity|integrity|behavior|provenance)\b' \
+                schemas/ \
+                services/api/app/schemas/generated/ \
+                services/api/app/models/generated/ \
+                webapp/src/generated/ 2>/dev/null; then
+            echo "::error::W1 placeholder sub-score taxonomy detected in schemas/ or generated/. The PRD-locked 5-axis taxonomy is security / supply_chain / maintenance / transparency / community."
+            exit 1
+          fi
+          echo "Placeholder taxonomy purged ✓"
 
   lint-fe:
     name: PR - Biome (TS/JS/JSON)
@@ -129,6 +147,22 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: saferskills_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL_TEST: postgresql+asyncpg://postgres:ci@localhost:5432/saferskills_ci
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }

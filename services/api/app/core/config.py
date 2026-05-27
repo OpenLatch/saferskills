@@ -5,8 +5,9 @@ See `.claude/rules/environment-config.md`.
 """
 
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,10 +21,26 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
+    # ── Environment ────────────────────────────────────────────────────────
+    env: Literal["development", "staging", "production"] = Field(
+        default="development",
+        description="Environment tier — drives Sentry env tag, log format, migration auto-run.",
+    )
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO",
+        description="Python logging level.",
+    )
+
     # ── Database ───────────────────────────────────────────────────────────
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:dev@localhost:5432/saferskills_dev",
         description="Async PostgreSQL DSN consumed by SQLAlchemy.",
+    )
+
+    # ── HTTP ───────────────────────────────────────────────────────────────
+    cors_allowed_origins: list[str] = Field(
+        default=["http://localhost:4321", "http://localhost:5173"],
+        description="Comma-separated origin list. Source-of-truth for CORS middleware.",
     )
 
     # ── Observability (all optional at W1) ────────────────────────────────
@@ -33,11 +50,22 @@ class Settings(BaseSettings):
     )
 
     # ── Brand-independent project keys ────────────────────────────────────
-    posthog_project_key: str | None = Field(default=None, description="Backend PostHog key (optional).")
+    posthog_project_key: str | None = Field(
+        default=None, description="Backend PostHog key (optional)."
+    )
 
     # ── Build identity ────────────────────────────────────────────────────
-    git_sha: str = Field(default="unknown", description="Source commit SHA, injected at build time.")
+    git_sha: str = Field(
+        default="unknown", description="Source commit SHA, injected at build time."
+    )
     version: str = Field(default="0.0.0-foundation")
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
 
 @lru_cache(maxsize=1)

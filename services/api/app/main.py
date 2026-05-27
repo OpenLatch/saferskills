@@ -25,8 +25,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(
     title="SaferSkills API",
     description=(
-        "The VirusTotal of AI agents — public, free, Apache-2.0 trust-scoring "
-        "for skills, MCP servers, hooks, and plugins."
+        "Every AI skill, independently scanned — public, free, Apache-2.0 "
+        "trust-scoring for skills, MCP servers, hooks, and plugins."
     ),
     version="0.0.0+foundation",
     lifespan=lifespan,
@@ -35,10 +35,12 @@ app = FastAPI(
     redoc_url=None,
 )
 
-# W1 CORS posture: open. Tightens to allow-list + auth when Track E lands.
+# CORS posture: origins from `settings.cors_allowed_origins` (env-driven).
+# Tightens to auth + per-route in Track E.
+_settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_settings.cors_allowed_origins,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,

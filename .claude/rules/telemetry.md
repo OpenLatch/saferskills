@@ -39,9 +39,32 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 
 Closed-enum + bucketed-numeric values only. **No PII, no source-content hashes in property values.**
 
-- Closed enums: `artifact_kind` ∈ {`mcp`, `skill`, `rules`, `hooks`, `plugin`}; `severity` ∈ {`low`, `medium`, `high`, `critical`}; `rubric_version` (semver string).
-- Bucketed numerics: score buckets `0-39 / 40-69 / 70-89 / 90-100`; counts bucketed to `0 / 1 / 2-5 / 6-20 / 21+`.
-- Forbidden: raw URLs, raw repo names, raw user input, raw rule IDs in property values (the rule ID is the EVENT NAME via `rule_<id>`, not a property — closed enum).
+- Closed enums: `artifact_kind` ∈ {`mcp`, `skill`, `rules`, `hooks`, `plugin`}; `severity` ∈ {`info`, `low`, `medium`, `high`, `critical`} (5-tier per locked decision D-02); `sub_score` ∈ {`security`, `supply_chain`, `maintenance`, `transparency`, `community`} (5-axis per D-01); `rubric_version` (git SHA string).
+- Bucketed numerics: score buckets `0-39 / 40-69 / 70-89 / 90-100`; counts bucketed to `0 / 1 / 2-5 / 6-20 / 21+`; latency_ms bucketed to `<10 / <60 / <300 / >=300`; backoff_seconds bucketed identically; installation_id hashed via `hash%16`.
+- Forbidden: raw URLs, raw repo names, raw user input in property values. **`rule_id` IS a permitted closed-enum property value** for `rule_*` events (the enum is the active rubric — bounded set), per the scan-engine event allowlist below.
+
+## Event allowlist — scan engine (W2+)
+
+The scan engine emits a closed enum of 14 events (per locked decision D-30). The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside that module are a regression.
+
+| # | Event | Properties (all bucketed / closed-enum) |
+|---|---|---|
+| 1 | `scan_submitted` | `source` ∈ {`submission`, `ingestion`, `rescan_drift`, `rescan_appeal`}; `idempotency_cache_hit` (bool) |
+| 2 | `scan_started` | `scan_id_bucket` (hash%16) |
+| 3 | `scan_completed` | `scan_id_bucket`; `tier` ∈ {`green`,`yellow`,`orange`,`red`,`unscoped`}; `latency_ms_bucket`; `findings_count_bucket` |
+| 4 | `scan_failed` | `scan_id_bucket`; `failure_class` ∈ {`fetch_timeout`,`tar_oversize`,`rule_panic`,`unknown`} |
+| 5 | `scan_timeout` | `scan_id_bucket`; `stage` ∈ {`fetch`,`extract`,`detect`,`aggregate`} |
+| 6 | `rule_fired` | `rule_id` (closed enum = active rubric); `severity`; `sub_score`; `status_at_scan` ∈ {`shadow`,`active`} |
+| 7 | `rule_skipped_timeout` | `rule_id` |
+| 8 | `rule_shadow_promoted` | `rule_id`; `fp_rate_bucket` ∈ {`0`,`<5%`,`5-10%`,`>10%`} |
+| 9 | `rule_shadow_demoted` | `rule_id`; `fp_rate_bucket` |
+| 10 | `github_rate_limit_hit` | `resource` ∈ {`core`,`search`,`code_search`,`integration_manifest`}; `kind` ∈ {`primary`,`secondary`}; `retry_attempt`; `backoff_seconds_bucket` |
+| 11 | `github_rate_limit_recovered` | `resource` |
+| 12 | `vendor_verification_succeeded` | `catalog_item_id_bucket` (hash%16) |
+| 13 | `vendor_response_submitted` | `catalog_item_id_bucket`; `body_length_bucket` ∈ {`<500`,`500-1000`,`1000-2000`} |
+| 14 | `rescan_triggered_drift` | `catalog_item_id_bucket`; `hash_delta_files_count_bucket` ∈ {`1`,`2-5`,`6-20`,`21+`} |
+
+No raw IPs, no emails, no URLs, no `matched_content` strings. Bucketing helpers (`hash_to_bucket`, `latency_bucket`, `count_bucket`) live alongside the emit-helpers in `services/api/app/observability/events.py`.
 
 ## Sentry
 
@@ -74,6 +97,7 @@ Closed-enum + bucketed-numeric values only. **No PII, no source-content hashes i
 | Change | Updates here |
 |---|---|
 | New event prefix added | "Closed-enum event names" table + `webapp/src/lib/analytics.ts` |
+| New scan-engine event | "Event allowlist — scan engine" table + `services/api/app/observability/events.py` typed helper |
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |
 | Sentry sample rate / scope change | "Sentry" |
 | New OTel exporter / endpoint | "OpenTelemetry" + `environment-config.md` |

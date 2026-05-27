@@ -2,11 +2,17 @@
 
 W1 posture: every initialiser is a no-op when its env var is unset, so
 `docker compose up` works against a fresh checkout without secrets.
+
+W2 Phase A adds the Sentry breadcrumb scrubber from `app.observability.events`
+(per `.claude/rules/telemetry.md` § Sentry). The scrubber drops any
+breadcrumb whose data references rubric/, schemas/, fp-audit fixtures, or any
+GitHub URL — prevents scanned-artifact content from leaking to Sentry.
 """
 
 import structlog
 
 from app.core.config import Settings
+from app.observability.events import scrub_sentry_breadcrumb
 
 logger = structlog.get_logger(__name__)
 
@@ -23,10 +29,12 @@ async def init_observability(settings: Settings) -> None:
                 dsn=settings.sentry_dsn,
                 integrations=[FastApiIntegration()],
                 release=f"saferskills-api@{settings.version}+{settings.git_sha[:7]}",
+                environment=settings.env,
                 send_default_pii=False,
                 traces_sample_rate=0.0,  # bumped per-environment from Fly secrets later
+                before_breadcrumb=scrub_sentry_breadcrumb,
             )
-            logger.info("sentry.initialised")
+            logger.info("sentry.initialised", env=settings.env)
         except Exception as exc:  # observability must never break the app
             logger.warning("sentry.init_failed", error=str(exc))
 
