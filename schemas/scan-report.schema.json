@@ -27,7 +27,7 @@
     "id": {
       "type": "string",
       "format": "uuid",
-      "description": "Server-assigned UUIDv7."
+      "description": "Server-assigned UUID (gen_random_uuid())."
     },
     "catalogItemId": {
       "type": "string",

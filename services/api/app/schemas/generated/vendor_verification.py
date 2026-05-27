@@ -28,7 +28,7 @@ class VendorVerification(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: UUID = Field(..., description="UUIDv7.")
+    id: UUID = Field(..., description="Server-assigned UUID (gen_random_uuid()).")
     catalog_item_id: UUID = Field(
         ..., alias="catalogItemId", description="FK to the catalog item being claimed."
     )

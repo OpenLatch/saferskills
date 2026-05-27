@@ -50,7 +50,7 @@ class Finding(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: UUID = Field(..., description="UUIDv7.")
+    id: UUID = Field(..., description="Server-assigned UUID (gen_random_uuid()).")
     scan_id: UUID = Field(..., alias="scanId", description="FK to parent scan.")
     rule_id: constr(
         pattern=r"^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$"

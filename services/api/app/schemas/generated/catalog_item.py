@@ -87,9 +87,7 @@ class CatalogItem(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: UUID = Field(
-        ..., description="Server-assigned UUIDv7 (time-ordered, sortable by creation)."
-    )
+    id: UUID = Field(..., description="Server-assigned UUID (gen_random_uuid()).")
     kind: Kind = Field(
         ...,
         description="Artifact taxonomy. `rules` covers Cursor / Windsurf-style rule files.",
