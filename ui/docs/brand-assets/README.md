@@ -28,7 +28,7 @@ Canonical SaferSkills logo + wordmark assets, modelled on the Firecrawl brand-as
 
 | File | Use |
 | ---- | --- |
-| `saferskills-logo-animated.mp4` | Animated logo loop (4s, 1:1 aspect, 1080p, silent). Use for primary hero, branded video intros. Do NOT use for favicon, README badge, or any inline context where motion distracts. Loops seamlessly. |
+| `saferskills-logo-animated.mp4` | Animated logo loop (4s, 1:1 aspect, 720p H.264 ~155 kbps, silent). Use for primary hero, branded video intros. Do NOT use for favicon, README badge, or any inline context where motion distracts. Loops seamlessly. |
 
 ## Canonical brand-system tokens
 
