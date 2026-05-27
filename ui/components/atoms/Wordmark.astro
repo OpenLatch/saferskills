@@ -5,38 +5,55 @@ interface Props {
 }
 const { size = 'md', href = '/' } = Astro.props;
 
-const fontSize = {
-  hero: 'var(--type-hero)',
-  lg: 'var(--type-3xl)',
-  md: 'var(--type-2xl)',
-  sm: 'var(--type-lg)',
+const sizes = {
+  sm:   { logo: 24, text: 16 },
+  md:   { logo: 40, text: 24 },
+  lg:   { logo: 56, text: 36 },
+  hero: { logo: 80, text: 52 },
 }[size];
+
+const styleVars = `--wm-logo: ${sizes.logo}px; --wm-text: ${sizes.text}px;`;
 ---
 {href ? (
-  <a
-    href={href}
-    class="wordmark"
-    style={`font-size: ${fontSize}`}
-    aria-label="SaferSkills home"
-  >
-    SaferSkills
+  <a href={href} class="wordmark" style={styleVars} aria-label="SaferSkills home">
+    <img src="/logos/saferskills-logo.svg" alt="" aria-hidden="true" class="wordmark-logo" />
+    <span class="wordmark-text">SaferSkills</span>
   </a>
 ) : (
-  <span class="wordmark" style={`font-size: ${fontSize}`}>SaferSkills</span>
+  <span class="wordmark" style={styleVars}>
+    <img src="/logos/saferskills-logo.svg" alt="" aria-hidden="true" class="wordmark-logo" />
+    <span class="wordmark-text">SaferSkills</span>
+  </span>
 )}
 
 <style>
   .wordmark {
-    font-family: 'Crimson Pro', Georgia, serif;
-    font-weight: 700;
-    color: rgb(var(--primary));
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: #0F172A;
+    line-height: 1;
+  }
+  .wordmark-logo {
+    height: var(--wm-logo);
+    width: auto;
+    display: block;
+    flex-shrink: 0;
+  }
+  .wordmark-text {
+    font-family: 'Onest', sans-serif;
+    font-weight: 600;
+    font-size: var(--wm-text);
     letter-spacing: -0.02em;
     line-height: 1;
-    text-decoration: none;
-    display: inline-block;
   }
   a.wordmark:hover {
     text-decoration: none;
     opacity: 0.85;
+  }
+  :global(.dark) .wordmark,
+  :global([data-theme="dark"]) .wordmark {
+    color: #FFFFFF;
   }
 </style>
