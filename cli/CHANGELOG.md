@@ -5,7 +5,7 @@
 
 ### Documentation
 
-* drop VirusTotal headline; adopt "every AI skill, independently scanned" ([#9](https://github.com/OpenLatch/saferskills/issues/9)) ([91fdd0b](https://github.com/OpenLatch/saferskills/commit/91fdd0bd3e47d88b5bf02f9d4a8128116c84b3a0))
+* adopt "every AI skill, independently scanned" headline ([#9](https://github.com/OpenLatch/saferskills/issues/9)) ([91fdd0b](https://github.com/OpenLatch/saferskills/commit/91fdd0bd3e47d88b5bf02f9d4a8128116c84b3a0))
 
 ## [0.0.1-placeholder](https://github.com/OpenLatch/saferskills/compare/v0.0.0-placeholder...v0.0.1-placeholder) (2026-05-26)
 

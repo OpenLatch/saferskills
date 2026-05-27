@@ -25,8 +25,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(
     title="SaferSkills API",
     description=(
-        "The VirusTotal of AI agents — public, free, Apache-2.0 trust-scoring "
-        "for skills, MCP servers, hooks, and plugins."
+        "Every AI skill, independently scanned — public, free, Apache-2.0 "
+        "trust-scoring for skills, MCP servers, hooks, and plugins."
     ),
     version="0.0.0+foundation",
     lifespan=lifespan,
