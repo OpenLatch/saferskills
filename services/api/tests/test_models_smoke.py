@@ -76,7 +76,7 @@ async def test_scan_round_trip(db_session: AsyncSession) -> None:
                     rubric_version, engine_version, latency_ms, source
                 ) VALUES (
                     :item_id, :idem, :url, :sha, 87, 'green',
-                    '{"security":100,"supply_chain":85,"maintenance":100,"transparency":80,"community":100}'::jsonb,
+                    :sub_scores ::jsonb,
                     '{}'::jsonb,
                     'a1b2c3d', 'def5678', 42000, 'submission'
                 )
@@ -88,6 +88,10 @@ async def test_scan_round_trip(db_session: AsyncSession) -> None:
                 "idem": "a" * 64,
                 "url": "https://github.com/org/scan-test",
                 "sha": "f" * 40,
+                "sub_scores": (
+                    '{"security":100,"supply_chain":85,"maintenance":100,'
+                    '"transparency":80,"community":100}'
+                ),
             },
         )
     ).scalar_one()
@@ -124,14 +128,22 @@ async def test_finding_round_trip(db_session: AsyncSession) -> None:
                 ) VALUES (
                     :item_id, :idem, 'https://github.com/org/finding-test', :sha,
                     50, 'orange',
-                    '{"security":50,"supply_chain":100,"maintenance":100,"transparency":100,"community":100}'::jsonb,
+                    :sub_scores ::jsonb,
                     '{}'::jsonb,
                     'a1b2c3d', 'def5678', 30000, 'submission'
                 )
                 RETURNING id
                 """
             ),
-            {"item_id": item_id, "idem": "b" * 64, "sha": "e" * 40},
+            {
+                "item_id": item_id,
+                "idem": "b" * 64,
+                "sha": "e" * 40,
+                "sub_scores": (
+                    '{"security":50,"supply_chain":100,"maintenance":100,'
+                    '"transparency":100,"community":100}'
+                ),
+            },
         )
     ).scalar_one()
 
