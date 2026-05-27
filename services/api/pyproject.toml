@@ -53,6 +53,14 @@ reportMissingTypeStubs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Share one event loop across all async fixtures + tests so the session-scoped
+# db_engine fixture (which runs `alembic upgrade head` once) isn't torn down
+# between tests — otherwise pytest-asyncio 0.24+ binds the engine to a
+# function-scoped loop that closes after test 1, and subsequent tests see
+# "Future attached to a different loop". Test isolation still comes from
+# db_session's per-test SAVEPOINT/rollback in conftest.py.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 addopts = "-ra --cov=app --cov-report=term-missing"
 
 [tool.coverage.run]
