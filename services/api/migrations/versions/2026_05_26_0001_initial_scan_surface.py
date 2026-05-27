@@ -9,7 +9,9 @@ tables that back the scan-engine + vendor-appeals surfaces. The 8th queue
 table (`scan_jobs`) is provisioned by `procrastinate.schema.apply()` in
 Phase B when the worker process group lands.
 
-All primary keys are UUIDv7 (PostgreSQL 17 `gen_uuid_v7()`, locked decision D-28).
+All primary keys are UUIDv4 (`gen_random_uuid()`, ships natively with PG17).
+D-28's time-orderable-ID intent is dropped at W1 for simplicity; revisit if a
+scan-listing query proves the ordering matters.
 All `created_at` / `updated_at` default to `now()`; `updated_at` is bumped at
 the application layer (SQLAlchemy event listener) when Phase B adds writes.
 
@@ -68,7 +70,7 @@ def upgrade() -> None:
     op.create_table(
         "catalog_items",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_uuid_v7()")
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
         ),
         sa.Column("kind", sa.String(20), nullable=False),
         sa.Column("slug", sa.String(255), nullable=False),
@@ -113,7 +115,7 @@ def upgrade() -> None:
     op.create_table(
         "scans",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_uuid_v7()")
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
         ),
         sa.Column(
             "catalog_item_id",
@@ -167,7 +169,7 @@ def upgrade() -> None:
     op.create_table(
         "findings",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_uuid_v7()")
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
         ),
         sa.Column(
             "scan_id",
@@ -211,7 +213,7 @@ def upgrade() -> None:
     op.create_table(
         "vendor_verifications",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_uuid_v7()")
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
         ),
         sa.Column(
             "catalog_item_id",
@@ -253,7 +255,7 @@ def upgrade() -> None:
     op.create_table(
         "vendor_responses",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_uuid_v7()")
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
         ),
         sa.Column(
             "catalog_item_id",
@@ -303,7 +305,7 @@ def upgrade() -> None:
     op.create_table(
         "item_sources",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_uuid_v7()")
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
         ),
         sa.Column(
             "catalog_item_id",
