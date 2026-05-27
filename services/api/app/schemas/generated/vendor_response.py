@@ -16,7 +16,7 @@ class VendorResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: UUID = Field(..., description="UUIDv7.")
+    id: UUID = Field(..., description="Server-assigned UUID (gen_random_uuid()).")
     catalog_item_id: UUID = Field(..., alias="catalogItemId")
     vendor_verification_id: UUID = Field(
         ...,

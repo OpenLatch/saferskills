@@ -24,7 +24,7 @@
     "id": {
       "type": "string",
       "format": "uuid",
-      "description": "Server-assigned UUIDv7 (time-ordered, sortable by creation)."
+      "description": "Server-assigned UUID (gen_random_uuid())."
     },
     "kind": {
       "type": "string",

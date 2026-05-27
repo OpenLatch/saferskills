@@ -182,7 +182,7 @@ class ScanReport(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: UUID = Field(..., description="Server-assigned UUIDv7.")
+    id: UUID = Field(..., description="Server-assigned UUID (gen_random_uuid()).")
     catalog_item_id: UUID = Field(..., alias="catalogItemId")
     idempotency_key: constr(pattern=r"^[a-f0-9]{64}$") = Field(
         ...,
