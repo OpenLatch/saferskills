@@ -51,5 +51,27 @@ services:
       timeout: 3s
       retries: 5
 
+  # Opt-in: docker compose --profile ladle up — http://localhost:61000
+  ladle:
+    profiles: [ladle]
+    image: node:24-alpine
+    container_name: saferskills-ladle
+    working_dir: /app/ui
+    # Pin pnpm 10 — pnpm 11 dropped reading `pnpm.onlyBuiltDependencies`
+    # from package.json (moved to pnpm-workspace.yaml only).
+    command: sh -c "corepack enable && corepack prepare pnpm@10.18.0 --activate && pnpm install --node-linker=hoisted && pnpm ladle:dev --host 0.0.0.0"
+    volumes:
+      - ./ui:/app/ui
+      - ./tsconfig.base.json:/app/tsconfig.base.json:ro
+      - ladle_node_modules:/app/ui/node_modules
+    ports: ["${LADLE_PORT:-61000}:61000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:61000/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
 volumes:
   pgdata:
+  ladle_node_modules:
