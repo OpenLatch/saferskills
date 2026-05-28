@@ -1,37 +1,302 @@
 ---
-import EmailCaptureForm from '@ui/components/atoms/EmailCaptureForm.tsx'
-import Footer from '@ui/components/atoms/Footer.astro'
-import Wordmark from '@ui/components/atoms/Wordmark.astro'
+export const prerender = true
+
 import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
+import Badge from '@ui/components/atoms/Badge.tsx'
+import RotatingHeadline from '@ui/components/atoms/RotatingHeadline.tsx'
+import ActionCard from '@ui/components/molecules/ActionCard.tsx'
+import Input from '@ui/components/atoms/Input.tsx'
+import RidgePixel from '@ui/components/atoms/RidgePixel.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import RidgeFlow from '@ui/components/atoms/RidgeFlow.tsx'
+import InstallTabs from '@ui/components/molecules/InstallTabs.tsx'
+import AgentMarquee from '@ui/components/molecules/AgentMarquee.tsx'
+import RecentScanCard from '@ui/components/molecules/RecentScanCard.astro'
+import TrendScanCard from '@ui/components/molecules/TrendScanCard.astro'
+import WhyRow from '@ui/components/molecules/WhyRow.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import { listRecentSubmissionScans, listTrendingScans } from '@/lib/api/scans'
+import {
+  SUPPORTED_AGENTS,
+  ATTACK_GRID,
+  INDEXED_COUNT,
+  REGISTRIES_COUNT,
+} from '@/data/homepage-constants'
+
+import '@/styles/page-home.css'
+
+const recentScans = await listRecentSubmissionScans({ limit: 3 }).catch(() => [])
+const trendingScans = await listTrendingScans({ limit: 3 }).catch(() => [])
 ---
-<Base title="SaferSkills — every AI skill, independently scanned">
-  <main class="flex-1 flex items-center justify-center px-6 py-16">
-    <div class="w-full max-w-2xl">
-      <Wordmark size="hero" />
+<Base title="SaferSkills — Every AI skill, independently audited.">
+  <NavBar client:idle ghCount={26908} />
 
-      <p class="mt-8 text-xl leading-relaxed text-foreground/80">
-        Every AI skill, independently scanned. Search, install, and verify skills,
-        MCP servers, hooks, and plugins across every agent platform. Free. Open
-        source. Apache 2.0.
-      </p>
+  {/* ─────────────────────────────────────────────────────────
+       BAND 1 — HERO (rotating noun + eyebrow + lede + 2 action cards)
+       ───────────────────────────────────────────────────────── */}
+  <section class="hero-band">
+    <div class="container">
+      <div class="hero-head">
+        <div class="hero-eyebrow-row">
+          <Badge variant="live">{INDEXED_COUNT.toLocaleString()} INDEXED · LIVE</Badge>
+          <span class="hero-eyebrow-text">— INDEPENDENTLY AUDITED, OPENLY METHODOLOGY'D —</span>
+        </div>
 
-      <p class="mt-10 text-sm uppercase tracking-wide text-foreground/60">
-        Launching publicly mid-2026. Get notified:
-      </p>
+        <RotatingHeadline
+          client:load
+          base="Every AI skill, independently audited against"
+          nouns={["Secrets Leaks", "Prompt Injection", "Supply-Chain Attacks", "Tool Poisoning"]}
+          cycleMs={4000}
+          fadeMs={300}
+        />
 
-      <EmailCaptureForm client:idle />
+        <p class="hero-lede">
+          Paste a public GitHub URL — get a transparent security report in thirty seconds.
+          One unified catalog. One install command across eight agents.
+        </p>
+      </div>
 
-      <p class="mt-10 text-sm text-foreground/60">
-        <a href="/methodology">Methodology</a>
-        <span class="mx-2">·</span>
-        <a href="https://github.com/OpenLatch/saferskills" rel="noopener">Source on GitHub</a>
-        <span class="mx-2">·</span>
-        <a href="/privacy">Privacy</a>
-        <span class="mx-2">·</span>
-        <a href="/terms">Terms</a>
+      <div class="hero-cards">
+        <ActionCard
+          client:visible
+          index="01"
+          kicker="FIND"
+          liveLabel="INDEXING"
+          title="Search the catalog."
+          lede={`${INDEXED_COUNT.toLocaleString()} skills, MCPs, and plugins indexed from ${REGISTRIES_COUNT}+ registries. One search instead of twelve.`}
+        >
+          <Input prefix="search" placeholder="ripgrep, supabase, linear..." aria-label="Search the catalog" />
+          <div class="ac-popular">
+            <Eyebrow withRule={false}>POPULAR</Eyebrow>
+            <a class="ac-chip" href="/items/anthropics--claude-pdf">claude-pdf · 95</a>
+            <a class="ac-chip" href="/items/acme--github-mcp">github-mcp · 87</a>
+            <a class="ac-chip" href="/items/alice--slack-bot">slack-bot · 71</a>
+            <a class="ac-chip" href="/items/linear--mcp">linear-mcp · 92</a>
+          </div>
+        </ActionCard>
+
+        <ActionCard
+          client:visible
+          index="02"
+          kicker="AUDIT"
+          liveLabel="RUNNING"
+          title="Scan a new skill."
+          lede="Paste a public GitHub URL. We return a full security report in ~30 seconds. Free. No account."
+        >
+          <Input prefix="https://" placeholder="github.com/anthropic/claude-mcp" aria-label="GitHub URL to scan" />
+          <div class="ac-pipeline">
+            <Eyebrow withRule={false}>AUDIT PIPELINE</Eyebrow>
+            <div class="ac-pipeline-bar" aria-hidden="true"></div>
+            <div class="ac-stages" role="list">
+              <span class="stage done" role="listitem">✓ Fetch</span>
+              <span class="stage done" role="listitem">✓ Lint</span>
+              <span class="stage running" role="listitem">› Score</span>
+              <span class="stage queued" role="listitem">· Sign</span>
+            </div>
+            <div class="ac-bar-meta"><b>3</b> / 4 STAGES</div>
+          </div>
+        </ActionCard>
+      </div>
+
+      <div class="hero-footer-row">
+        <a href="/catalog" class="hero-link">Browse catalog →</a>
+        <div class="hero-stats"><b>{INDEXED_COUNT.toLocaleString()}</b> INDEXED · <b>{REGISTRIES_COUNT}</b> REGISTRIES</div>
+        <a href="/scan" class="hero-link">Scan a skill →</a>
+        <div class="hero-stats">AVG <b>28S</b> · FREE · NO ACCOUNT</div>
+      </div>
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 2 — WORKS WITH (8-agent marquee)
+       ───────────────────────────────────────────────────────── */}
+  <section class="supported-band">
+    <div class="container">
+      <Eyebrow withRule>WORKS WITH</Eyebrow>
+      <AgentMarquee client:visible />
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 3 — INSTALL DEMO (dark terminal + agent tabs)
+       ───────────────────────────────────────────────────────── */}
+  <section class="install-band">
+    <div class="container">
+      <div class="install-head">
+        <div>
+          <Eyebrow>INSTALL · 03</Eyebrow>
+          <h2 class="h-2">
+            Install any skill, in any agent.
+            <span class="script">— one command</span>
+          </h2>
+        </div>
+        <p class="lede">
+          One binary across all eight agents, macOS, Windows, and Linux. The score is
+          re-verified at install time so you never install on a stale page.
+        </p>
+      </div>
+      <InstallTabs
+        client:visible
+        agents={SUPPORTED_AGENTS}
+        defaultAgent="claude-code"
+      />
+      <p class="install-cap">
+        ↑ Click any agent to rotate the command and preview · also try
+        <strong> [Copy command]</strong> in the terminal header.
       </p>
     </div>
-  </main>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 4 — RIDGE-PIXEL DIVIDER
+       ───────────────────────────────────────────────────────── */}
+  <RidgePixel label="— FEEDS · 04 —" />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 5 — FEEDS (recently scanned + trending + live-signal)
+       ───────────────────────────────────────────────────────── */}
+  <section class="feeds-band">
+    <div class="container">
+      <div class="feeds-grid">
+        <div class="feed">
+          <div class="feed-head">
+            <span class="feed-title">RECENTLY SCANNED</span>
+            <a class="feed-link" href="/catalog?sort=recent">View all →</a>
+          </div>
+          <div class="recent">
+            {recentScans.length === 0 ? (
+              <p class="empty">First scans coming soon. <a href="/scan">Scan one →</a></p>
+            ) : (
+              recentScans.map((scan) => (
+                <RecentScanCard
+                  slug={scan.slug}
+                  name={scan.title ?? scan.slug}
+                  author={scan.author ?? 'unknown'}
+                  kind="skill"
+                  score={scan.aggregate_score}
+                  tier={scan.tier === 'unscoped' ? 'red' : scan.tier}
+                  scannedAtRelative={scan.scanned_at}
+                  findingCount={scan.findings_count}
+                />
+              ))
+            )}
+          </div>
+        </div>
+        <div class="feed">
+          <div class="feed-head">
+            <span class="feed-title">TRENDING THIS WEEK</span>
+            <a class="feed-link" href="/catalog?sort=trending">View all →</a>
+          </div>
+          <div class="trend">
+            {trendingScans.length === 0 ? (
+              <p class="empty">Trending data builds with the catalog.</p>
+            ) : (
+              trendingScans.map((scan, i) => (
+                <TrendScanCard
+                  rank={i + 1}
+                  slug={scan.slug}
+                  name={scan.title ?? scan.slug}
+                  score={scan.aggregate_score}
+                  tier={scan.tier === 'unscoped' ? 'red' : scan.tier}
+                  installsLast7d={0}
+                  installsDelta={0}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div class="live-signal">
+        <Eyebrow withRule>LIVE SIGNAL · 04</Eyebrow>
+        <h3 class="h-3">What the data says.</h3>
+        <p class="lede">
+          Every scan above is a fresh independent audit. Score, finding count, and sources
+          surface in the same row. No editorial spin.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <RidgeFlow />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 6 — WHY ROWS
+       ───────────────────────────────────────────────────────── */}
+  <section class="why-band">
+    <div class="container">
+      <div class="why-head">
+        <Eyebrow>WHY · 05</Eyebrow>
+        <h2 class="h-2">Why SaferSkills.</h2>
+      </div>
+      <div class="why-list">
+        <WhyRow
+          client:visible
+          index="01"
+          tag="verify"
+          body="87 deterministic detection rules across five categories. Every finding cites a rule ID and an evidence line — not 'AI thinks it's bad'. 100% reproducible audits."
+          metaLines={["87 rules · monthly review", "github.com/OpenLatch/saferskills"]}
+        />
+        <WhyRow
+          client:visible
+          index="02"
+          tag="monitor"
+          body="Drift alerts when watched items change content. Risk alerts when scores degrade. Weekly trending digests of new items in your watched categories."
+          metaLines={["3 alert types · daily batch", "privacy policy · drift policy"]}
+        />
+        <WhyRow
+          client:visible
+          index="03"
+          tag="trust"
+          body="No browser fingerprinting. No cross-site tracking. Privacy policy reviewed by counsel. Aggregated IP→ASN intelligence only."
+          metaLines={["privacy policy · joint controller", "openlatch.ai/privacy"]}
+        />
+      </div>
+    </div>
+  </section>
+
+  <RidgeStars />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 7 — ATTACKS WE NAME (12-rule grid)
+       ───────────────────────────────────────────────────────── */}
+  <section class="attacks-band">
+    <div class="container">
+      <div class="attacks-head">
+        <Eyebrow>METHODOLOGY · 06</Eyebrow>
+        <h2 class="h-2">The attacks <span class="mark">we name</span>.</h2>
+        <p class="lede">
+          87 stinging, well-typed checks. AWS credential exfil. Hidden MCP tool drift.
+          Unicode tag-channel injection. Every rule documented · linked · reproducible.
+        </p>
+      </div>
+      <div class="attacks-grid">
+        {ATTACK_GRID.map((rule) => (
+          <a class="attack-cell" href={`/methodology#${rule.rule_id.toLowerCase()}`}>
+            <Eyebrow withRule={false}>{rule.category}</Eyebrow>
+            <span class="cell-title">{rule.title}</span>
+            <span class="cell-meta">{rule.rule_id} · {rule.severity}</span>
+          </a>
+        ))}
+      </div>
+      <a class="attacks-cta" href="/methodology">Read the methodology in full →</a>
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 8 — CTA-BAND
+       ───────────────────────────────────────────────────────── */}
+  <CtaBand
+    client:visible
+    title="Scan a repo. Read the report. Decide."
+    lead="~30 seconds. Free. No account. The report URL is bookmarkable and persists for 90 days."
+    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+  />
 
   <Footer />
 </Base>

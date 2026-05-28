@@ -1,100 +1,132 @@
 ---
-import Footer from '@ui/components/atoms/Footer.astro'
-import Methodology from '@/generated/methodology/index.mdx'
+export const prerender = true
+
 import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import MethodologyIndex from '@/generated/methodology/index.mdx'
+
+import '@/styles/page-methodology.css'
+
+const rubricShaFull = import.meta.env.PUBLIC_RUBRIC_SHA ?? 'main'
+const rubricShaShort = rubricShaFull === 'main' ? 'main' : rubricShaFull.slice(0, 7)
 ---
-<Base title="Methodology — SaferSkills">
-  <main class="flex-1 px-6 py-16">
-    <article class="mx-auto max-w-3xl prose">
-      <h1>Methodology</h1>
-      <p>
-        SaferSkills is a public, free, Apache-2.0 trust-scoring service. Every
-        detection rule is open; every score is reproducible; every verdict is
-        appealable.
-      </p>
+<Base
+  title="Methodology — SaferSkills"
+  description="The full SaferSkills detection methodology — 87 deterministic rules across 5 categories. Every claim ties to a specific rule, a rubric version, and a hashed evidence pointer. Reproducible by any third party offline."
+>
+  <NavBar client:idle />
 
-      <h2>Inputs</h2>
-      <p>A GitHub repository URL or, from W4, an <code>npx</code>-installable package name.</p>
+  <PageHead
+    eyebrow="METHODOLOGY · 05 · /METHODOLOGY"
+    title="What we check & how it's weighted."
+    lede="Every claim ties to a specific rule, a specific rubric version, and a specific finding's hashed evidence. Reproducible by any third party offline."
+    path="/methodology"
+    meta={[
+      { label: 'RUBRIC', value: rubricShaShort },
+      { label: 'RULES', value: '87' },
+      { label: 'LICENSE', value: 'Apache 2.0' },
+    ]}
+  />
 
-      <h2>Sub-score taxonomy &amp; weights</h2>
-      <p>The aggregate score is a closed-form weighted sum of five sub-scores (PRD §5.2):</p>
-      <ul>
-        <li><strong>Security</strong> (35%) — prompt injection, obfuscation, dangerous shell, credential exfiltration.</li>
-        <li><strong>Supply Chain</strong> (20%) — typosquat, owner transfer, hash drift, signing posture.</li>
-        <li><strong>Maintenance</strong> (15%) — commit recency, commit frequency, issue response, CI health.</li>
-        <li><strong>Transparency</strong> (15%) — LICENSE / SKILL.md / README / CHANGELOG / SECURITY.md presence.</li>
-        <li><strong>Community</strong> (15%) — stars, contributors, cross-registry presence, fork health.</li>
-      </ul>
+  <section class="methodology-band">
+    <div class="container">
+      <article class="methodology-prose">
 
-      <h2>Scoring model</h2>
-      <p>
-        <code>aggregate_score = round(0.35 × security + 0.20 × supply_chain + 0.15 × maintenance + 0.15 × transparency + 0.15 × community)</code>
-      </p>
-      <p>
-        Each sub-score starts at 100 and is reduced by per-finding penalties documented in the rule's frontmatter. <strong>Critical floor</strong>: if any finding in a sub-score has severity <code>critical</code>, the sub-score is capped at 40 — preventing one catastrophic finding from being averaged away by many minor passes.
-      </p>
+        {/* ─────────── §01 Scoring formula ─────────── */}
+        <section id="scoring-formula">
+          <Eyebrow withRule>FORMULA · 01</Eyebrow>
+          <h2>Scoring formula.</h2>
+          <p>
+            Aggregate score =
+            <code>round(0.35 × Security + 0.20 × Supply Chain + 0.15 × Maintenance + 0.15 × Transparency + 0.15 × Community)</code>.
+          </p>
+          <p>
+            Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. If any
+            finding in a sub-score is severity <code>critical</code>, the sub-score is
+            capped at 40 — the <strong>critical-floor</strong> rule that prevents a
+            catastrophic finding from being averaged away by minor passes.
+          </p>
+          <ul class="tier-list">
+            <li><span class="dot dot-g" aria-hidden="true"></span> Green ≥ 80 — safe to install.</li>
+            <li><span class="dot dot-y" aria-hidden="true"></span> Yellow 60-79 — caveats present.</li>
+            <li><span class="dot dot-o" aria-hidden="true"></span> Orange 40-59 — significant issues.</li>
+            <li><span class="dot dot-r" aria-hidden="true"></span> Red 0-39 — do not install.</li>
+          </ul>
+        </section>
 
-      <h2>Severity ladder (5-tier)</h2>
-      <ul>
-        <li><code>critical</code> (−30 to −40) — triggers critical-floor cap.</li>
-        <li><code>high</code> (−20 to −30)</li>
-        <li><code>medium</code> (−10 to −20)</li>
-        <li><code>low</code> (−5 to −10)</li>
-        <li><code>info</code> (0) — advisory; surfaces in the trace, no score impact.</li>
-      </ul>
+        <RidgeStars label="— RULES · 02 —" />
 
-      <h2>Reproducibility</h2>
-      <p>
-        Every report records <code>rubric_version</code> (git SHA of <code>rubric/</code>) and
-        <code>engine_version</code> (git SHA of the scan engine) plus the artifact's
-        <code>ref_sha</code>. A vendor can re-derive any historical verdict by checking out those SHAs and re-scanning offline — no platform participation required.
-      </p>
+        {/* ─────────── §02 Rules — auto-rendered from rubric/ ─────────── */}
+        <section id="rules">
+          <Eyebrow withRule>RULES · 02</Eyebrow>
+          <h2>The rules.</h2>
+          <p>
+            Each card below is rendered from the rule's YAML frontmatter under
+            <code>rubric/&lt;CATEGORY&gt;/&lt;NAME&gt;-NN.md</code>. The
+            <code>rule_id</code> links to the source file at the current
+            <code>rubricSha</code>. Severity, status, and weight follow the locked
+            5-tier × 3-status × 5-axis taxonomy.
+          </p>
+          <MethodologyIndex />
+        </section>
 
-      <h2>Shadow rules &amp; promotion</h2>
-      <p>
-        New rules ship in <code>status: shadow</code> for 7 days. The detector fires and records findings in the public trace, but the rule's weight is 0 during the shadow window. After 7 days, the FP-audit harness (<a href="https://github.com/OpenLatch/saferskills/tree/main/tools/fp-audit">tools/fp-audit/</a>) gates promotion: false-positive rate &lt;10% on the 100-item fixture → <code>status: active</code>; ≥10% → <code>shadow_until</code> extended +7d with maintainer review.
-      </p>
+        <RidgeStars label="— REPRODUCIBILITY · 03 —" />
 
-      <h2>Vendor right-of-reply</h2>
-      <p>
-        Every verdict is appealable. Verified vendors (a <code>.saferskills/verify.txt</code> token committed to the scanned repo, or a maintainer email match) get a substantive public response within 1 hour for an active appeal. Findings are never silently deleted — appealed findings carry the appeal outcome and rationale in the public record.
-        See the <a href="https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/vendor-appeals.md">right-of-reply contract</a>.
-      </p>
+        {/* ─────────── §03 Reproducibility ─────────── */}
+        <section id="reproducibility">
+          <Eyebrow withRule>REPRODUCIBILITY · 03</Eyebrow>
+          <h2>Reproducibility.</h2>
+          <p>
+            Every scan report records the rubric version (a git SHA of
+            <code>rubric/</code>) and the engine version. A vendor can re-derive any
+            verdict by checking out those versions and running the rule against the
+            artifact at <code>ref_sha</code>. No model, no random seed, no API key
+            required.
+          </p>
+          <p>
+            <strong>No black-box findings.</strong> If a rule fires, the rule_id plus
+            the exact file path and line range is in the public report — reproducible
+            from the rule's documented trigger.
+          </p>
+        </section>
 
-      <h2>Limitations</h2>
-      <p>
-        Every detection rule has a <code>limitations</code> section that names what it cannot catch. The rubric explicitly does not catch:
-      </p>
-      <ul>
-        <li>Compromised authors — a long-standing trusted author shipping a poisoned update is caught by the rug-pull rule, not by attribution.</li>
-        <li>Behaviour at scan time vs install time — adversarial fetched content that varies per request is a runtime concern (OpenLatch Capability Control, not SaferSkills).</li>
-        <li>Logic bombs gated on date / runtime conditions — static analysis can flag the gate but not its trigger.</li>
-        <li>Closed-source artifacts — SaferSkills only scans public source. Closed-source artifacts get a "Provenance: unscoped" badge, not a score.</li>
-      </ul>
-      <p>
-        <strong>No black-box findings.</strong> If a rule fires, the rule_id plus the exact file path and line range is in the public report, reproducible from the rule's documented trigger.
-      </p>
+        <RidgeStars label="— VENDOR APPEALS · 04 —" />
 
-      <h2>First-batch rubric (auto-rendered)</h2>
-      <p>
-        The rules below are auto-generated from <a href="https://github.com/OpenLatch/saferskills/tree/main/rubric"><code>rubric/</code></a> via codegen step #7 (<code>scripts/generate-methodology.cjs</code>). Each card links to the source file at the current <code>rubric_version</code>.
-      </p>
+        {/* ─────────── §04 Vendor right-of-reply ─────────── */}
+        <section id="vendor-appeals">
+          <Eyebrow withRule>VENDOR APPEALS · 04</Eyebrow>
+          <h2>Vendor right-of-reply.</h2>
+          <p>
+            Every public verdict is appealable. Maintainers commit a verification
+            token to <code>.saferskills/verify.txt</code> in their repo; once verified,
+            they can submit a public response that appears alongside their findings.
+            Re-scans triggered within 1 hour of any push.
+          </p>
+          <p>
+            The vendor right-of-reply form at
+            <code>/items/&lt;slug&gt;/respond</code> walks through the verification
+            flow. Findings are never silently deleted — appealed findings carry the
+            appeal outcome and rationale in the public record.
+          </p>
+        </section>
 
-      <div class="rule-list">
-        <Methodology />
-      </div>
+      </article>
+    </div>
+  </section>
 
-      <h2 id="legal-defense">Disclosure language</h2>
-      <p>
-        Methodology disclosure under counsel review (see <a href="https://github.com/OpenLatch/saferskills/blob/main/.local/.brainstorms/backend-core/outbox/03-counsel-methodology-coversheet.md">coversheet</a>). Final approved text deploys with the W10 public launch.
-      </p>
-    </article>
-  </main>
+  <CtaBand
+    client:visible
+    title="Scan a repo."
+    lead="Try the methodology on your own code — ~30 seconds, no account, full report at a permalink."
+    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+  />
+
   <Footer />
 </Base>
-
-<style>
-  .rule-list {
-    margin-block: var(--space-6);
-  }
-</style>

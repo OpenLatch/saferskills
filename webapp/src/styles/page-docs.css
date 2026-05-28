@@ -1,0 +1,100 @@
+/* Per-page CSS for /docs (D-FE-16).
+ *
+ * CLI-coming-soon stub with PageHead + 3 CTA cards. Replaced in I-05 (W7-W8) when
+ * the real CLI install docs ship.
+ */
+
+.docs-band {
+  padding: 80px 0;
+  background: var(--color-paper);
+}
+
+.docs-cta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--color-ink);
+  background: var(--color-line);
+}
+
+.docs-cta-card {
+  background: var(--color-paper);
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    transform var(--dur-xs) var(--ease-std);
+  min-height: 220px;
+}
+.docs-cta-card:hover {
+  background: var(--color-paper-deep);
+  transform: translateY(-1px);
+}
+.docs-cta-card .cta-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--brand-accent);
+  font-weight: 700;
+}
+.docs-cta-card .cta-title {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--fg-1);
+  margin: 0;
+  line-height: 1.15;
+}
+.docs-cta-card .cta-lede {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+  flex: 1;
+}
+.docs-cta-card .cta-action {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  margin-top: auto;
+}
+
+html.dark .docs-band {
+  background: var(--bg-page);
+}
+html.dark .docs-cta-grid {
+  background: var(--color-line);
+}
+html.dark .docs-cta-card {
+  background: var(--bg-page-alt);
+}
+html.dark .docs-cta-card:hover {
+  background: var(--bg-surface-mute);
+}
+
+@media (max-width: 1023px) {
+  .docs-cta-grid {
+    grid-template-columns: 1fr;
+    gap: 1px;
+  }
+  .docs-cta-card {
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 640px) {
+  .docs-band {
+    padding: 56px 0;
+  }
+  .docs-cta-card {
+    padding: 24px 22px;
+  }
+}

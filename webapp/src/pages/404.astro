@@ -1,0 +1,54 @@
+---
+export const prerender = true
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import Input from '@ui/components/atoms/Input.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import '@/styles/page-404.css'
+---
+<Base
+  title="Page not found — SaferSkills"
+  description="We can't find that skill, MCP, or page. Try a catalog search, scan a new GitHub URL, or take me home."
+>
+  <NavBar client:idle />
+
+  <main class="not-found">
+    <div class="container">
+      <span class="nf-eyebrow">404 · NOT FOUND</span>
+      <h1 class="nf-title">We can't find that skill, MCP, or page.</h1>
+      <p class="nf-lede">
+        Try a catalog search, scan a new GitHub URL, or take me home.
+      </p>
+
+      <div class="nf-actions">
+        <form class="nf-search" action="/catalog" method="GET" role="search">
+          <Input
+            client:idle
+            prefix="search"
+            name="q"
+            placeholder="Search the catalog..."
+            aria-label="Search the catalog"
+          />
+          <button type="submit" class="btn paper">Search →</button>
+        </form>
+
+        <form class="nf-scan" action="/scan" method="GET">
+          <Input
+            client:idle
+            prefix="https://"
+            name="url"
+            placeholder="github.com/owner/repo"
+            aria-label="GitHub repository URL to scan"
+          />
+          <button type="submit" class="btn primary">Scan →</button>
+        </form>
+
+        <a class="nf-home" href="/">Or take me home →</a>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Base>

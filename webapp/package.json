@@ -24,19 +24,20 @@
     "@fontsource/space-mono": "^5.2.0",
     "@sentry/browser": "^9.0.0",
     "@tailwindcss/vite": "^4.3.0",
-    "posthog-js": "^1.196.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "astro": "^6.3.0",
+    "posthog-js": "^1.196.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.3.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.9",
     "@biomejs/biome": "^2.4.0",
     "jsdom": "^29.0.0",
-    "typescript": "^6.0.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.0",
     "vitest-axe": "^0.1.0"
   }
