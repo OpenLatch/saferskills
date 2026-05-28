@@ -1489,6 +1489,11 @@ html.dark .kbd-chip {
    search input. Implementation: ui/components/molecules/
    SearchDropdown.tsx. Sits inside a .search-anchor wrapper so
    `position: absolute` tracks the input's own width.
+
+   Motion: open animation "unrolls" downward from the top edge
+   via clip-path (no JS height measurement, GPU-friendly, works
+   at any content height). 180ms ease-out-expo + a 6px translateY
+   drop for inertia. Reduced-motion collapses to a 100ms fade.
    ============================================================ */
 .search-anchor {
   position: relative;
@@ -1502,20 +1507,39 @@ html.dark .kbd-chip {
   z-index: 30;
   background: var(--color-paper);
   border: 1px solid var(--color-ink);
-  max-height: 440px;
+  /* JS publishes --search-dropdown-max-h based on the input's bottom edge
+     against the visual viewport, so the panel never runs off-screen or
+     under the marquee. Falls back to a static cap for SSR. */
+  max-height: var(--search-dropdown-max-h, 440px);
   overflow-y: auto;
   font-family: var(--font-sans);
-  opacity: 0;
-  animation: search-dropdown-fade 140ms var(--ease-std) forwards;
+  transform-origin: top;
+  will-change: clip-path, opacity, transform;
+  animation: search-dropdown-unroll 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-@keyframes search-dropdown-fade {
+@keyframes search-dropdown-unroll {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transform: translateY(-6px);
+  }
   to {
+    clip-path: inset(0 0 0 0);
     opacity: 1;
+    transform: translateY(0);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .search-dropdown {
-    animation-duration: 1ms;
+    animation: search-dropdown-fade-reduced 100ms ease-out forwards;
+  }
+  @keyframes search-dropdown-fade-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 html.dark .search-dropdown {
@@ -1530,19 +1554,10 @@ html.dark .search-dropdown {
 }
 
 .search-dropdown [cmdk-group-heading] {
-  padding: 10px 16px 6px;
+  padding: 12px 18px 4px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-
-.search-dropdown-group-label {
-  display: block;
-  padding: 10px 16px 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-weight: 500;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--fg-3);
@@ -1553,7 +1568,7 @@ html.dark .search-dropdown {
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 14px;
-  padding: 10px 16px;
+  padding: 10px 18px;
   font-family: var(--font-mono);
   cursor: pointer;
   border-left: 2px solid transparent;
@@ -1570,10 +1585,14 @@ html.dark .search-dropdown-item[data-selected='true'] {
   background: rgba(255, 255, 255, 0.05);
 }
 .search-dropdown-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
   color: var(--color-ink);
   letter-spacing: -0.005em;
+}
+.search-dropdown-item[data-selected='true'] .search-dropdown-name {
+  font-weight: 500;
 }
 .search-dropdown-editor {
   font-size: 11px;
@@ -1593,11 +1612,11 @@ html.dark .search-dropdown-item[data-selected='true'] {
 .search-dropdown-meta .sev-label {
   padding: 4px 8px;
   text-transform: lowercase;
-  font-weight: 600;
+  font-weight: 500;
 }
 .search-dropdown-meta .sev-score {
   padding: 4px 8px;
-  font-weight: 700;
+  font-weight: 600;
   background: var(--color-ink);
   color: var(--color-paper);
 }
@@ -1622,58 +1641,31 @@ html.dark .search-dropdown-item[data-selected='true'] {
   color: var(--color-ink);
 }
 
-.search-dropdown-zero,
-.search-dropdown-empty {
-  padding: 6px 16px 14px;
+/* ─── Loading skeleton ────────────────────────────────────────
+   Mirrors the real result layout: heading + 3 rows each with a
+   name strip, editor strip, and severity-pill strip. The shimmer
+   plays across all skel children together so the whole panel
+   reads as one pulse, not three independent ones. */
+.search-dropdown-skel-group {
+  padding: 6px 0 10px;
 }
-.search-dropdown-empty p {
-  margin: 8px 0 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--fg-2);
-  text-align: center;
-}
-.search-dropdown-empty .q {
-  color: var(--color-ink);
-  font-weight: 700;
-}
-.search-dropdown-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.search-dropdown-chip {
-  all: unset;
-  cursor: pointer;
-  padding: 5px 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-2);
-  background: var(--color-paper-deep);
-  border: 1px solid var(--color-line);
+.search-dropdown-skel-heading {
+  height: 10px;
+  width: 60px;
+  margin: 12px 18px 8px;
   border-radius: var(--radius-xs);
-  transition:
-    background var(--dur-xs) var(--ease-std),
-    color var(--dur-xs) var(--ease-std),
-    border-color var(--dur-xs) var(--ease-std);
+  background: var(--color-line-soft);
 }
-.search-dropdown-chip:hover {
-  background: var(--brand-primary);
-  color: #fff;
-  border-color: var(--brand-primary);
+.search-dropdown-skel-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
 }
-html.dark .search-dropdown-chip {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.search-dropdown-loading {
-  padding: 8px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.search-dropdown-skeleton {
-  height: 28px;
+.skel {
+  display: inline-block;
+  border-radius: var(--radius-xs);
   background: linear-gradient(
     90deg,
     var(--color-paper-deep) 0%,
@@ -1681,10 +1673,25 @@ html.dark .search-dropdown-chip {
     var(--color-paper-deep) 100%
   );
   background-size: 200% 100%;
-  animation: search-dropdown-shimmer 1.4s ease-in-out infinite;
-  border-radius: var(--radius-xs);
+  animation: search-dropdown-skel-shimmer 1.6s ease-in-out infinite;
 }
-@keyframes search-dropdown-shimmer {
+.skel-name {
+  height: 13px;
+  width: 140px;
+}
+.skel-name.skel-narrow {
+  width: 96px;
+}
+.skel-editor {
+  height: 11px;
+  width: 78px;
+  opacity: 0.7;
+}
+.skel-pill {
+  height: 20px;
+  width: 86px;
+}
+@keyframes search-dropdown-skel-shimmer {
   0% {
     background-position: 200% 0;
   }
@@ -1693,16 +1700,91 @@ html.dark .search-dropdown-chip {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .search-dropdown-skeleton {
+  .skel {
     animation: none;
+    background: var(--color-paper-deep);
   }
 }
+html.dark .skel {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+html.dark .search-dropdown-skel-heading {
+  background: rgba(255, 255, 255, 0.08);
+}
 
+/* ─── No-results ──────────────────────────────────────────────
+   Icon + headline + hint stacked horizontally, centred. The
+   trailing kbd-chip primes the user that ↵ falls back to a
+   full-catalog search. */
+.search-dropdown-noresult {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 22px;
+}
+.search-dropdown-noresult-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  color: var(--fg-3);
+  background: var(--color-paper-deep);
+}
+.search-dropdown-noresult-glyph svg {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.search-dropdown-noresult-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.search-dropdown-noresult-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.search-dropdown-noresult-title .q {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--fg-2);
+}
+.search-dropdown-noresult-hint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.search-dropdown-noresult-hint .kbd-chip {
+  height: 18px;
+  font-size: 10px;
+  padding: 0 5px;
+}
+
+/* ─── Error ────────────────────────────────────────────────── */
 .search-dropdown-error {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 12px 18px;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--status-danger);

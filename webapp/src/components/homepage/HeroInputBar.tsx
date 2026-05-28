@@ -1,8 +1,9 @@
 import Kbd from '@ui/components/atoms/Kbd'
-import { useEffect, useRef, useState } from 'react'
-import { useHeroShortcut } from '@/lib/use-hero-shortcut'
-import { formatShortcut, useIsMac } from '@/lib/use-platform-shortcut'
-import HeroSearchDropdown from './HeroSearchDropdown'
+import SearchDropdown, { type SearchGroup } from '@ui/components/molecules/SearchDropdown'
+import { useFocusShortcut } from '@ui/hooks/use-focus-shortcut'
+import { formatShortcut, useIsMac } from '@ui/hooks/use-platform-shortcut'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { groupByKind, KIND_LABELS, searchCatalog } from '@/lib/catalog-search'
 
 type Kind = 'find' | 'scan'
 
@@ -52,7 +53,7 @@ const ICONS: Record<Kind, React.ReactElement> = {
   ),
   scan: (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <title>Link</title>
+      <title>Scan</title>
       <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07l-1.5 1.5" />
       <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07l1.5-1.5" />
     </svg>
@@ -78,16 +79,10 @@ const PAUSED_POLL_MS = 400
  *     the field shows anything (typed value OR placeholder text).
  *   - `@keyframes p1-blink` — the 1.05s caret blink between words.
  *
- * Loop:
- *   1. Hold the initial placeholder for 3.5s (matches the mockup's `init`).
- *   2. Erase it char-by-char (28ms / char).
- *   3. Gap of 360ms — caret briefly visible and blinking.
- *   4. Type the next word (55ms / char + 0-26ms jitter to feel human).
- *   5. Hold 1600ms, then back to step 2.
- *
- * Focus pauses the loop and clears the placeholder; blur resumes it
- * (only if the user didn't leave a value behind). `prefers-reduced-motion`
- * short-circuits the effect so the field just shows the initial placeholder.
+ * For the `find` variant, the bar composes the DS-side `SearchDropdown`
+ * molecule (cmdk-driven listbox) anchored below the input. The dropdown is
+ * generic — we adapt our catalog-search lib via a memoised callback so the
+ * molecule has zero coupling to this page.
  */
 export default function HeroInputBar({
   kind,
@@ -102,9 +97,19 @@ export default function HeroInputBar({
   const valueRef = useRef(value)
   valueRef.current = value
   const inputRef = useRef<HTMLInputElement>(null)
+  // The marquee band sits at the bottom of the hero and is rendered by
+  // Astro outside this React island. We discover it via DOM query at
+  // mount time so the dropdown can clamp its height against the
+  // marquee's top edge instead of the viewport bottom.
+  const bottomBoundaryRef = useRef<HTMLElement | null>(null)
   const isMac = useIsMac()
 
-  useHeroShortcut({ key: shortcutKey ?? '', ref: inputRef })
+  useFocusShortcut({ key: shortcutKey ?? '', ref: inputRef })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    bottomBoundaryRef.current = document.querySelector<HTMLElement>('.supported-band')
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -159,9 +164,18 @@ export default function HeroInputBar({
   const hasValue = !!value || !!placeholder
   const showDropdown = kind === 'find'
 
-  function handleSelect(slug: string) {
-    window.location.assign(`/items/${slug}`)
-  }
+  const search = useCallback(async (q: string, signal?: AbortSignal): Promise<SearchGroup[]> => {
+    const hits = await searchCatalog(q, signal)
+    return groupByKind(hits).map((g) => ({
+      kind: g.kind,
+      label: KIND_LABELS[g.kind],
+      hits: g.hits,
+    }))
+  }, [])
+
+  const handleSelect = useCallback((hit: { slug: string }) => {
+    window.location.assign(`/items/${hit.slug}`)
+  }, [])
 
   const inputBar = (
     <div className={`p1-input${hasValue ? ' has-value' : ''}`}>
@@ -187,13 +201,19 @@ export default function HeroInputBar({
           }}
         />
       </label>
-      {shortcutKey && (
-        <span className="p1-kbd-host" aria-hidden="true">
+      <button
+        type="button"
+        className="p1-submit"
+        aria-label={submitAriaLabel}
+        onClick={() => inputRef.current?.focus()}
+      >
+        {shortcutKey ? (
           <Kbd>{formatShortcut(shortcutKey, isMac)}</Kbd>
-        </span>
-      )}
-      <button className="p1-enter" type="button" aria-label={submitAriaLabel}>
-        <span className="key">↵</span>
+        ) : (
+          <span className="p1-submit-ret" aria-hidden="true">
+            ↵
+          </span>
+        )}
       </button>
     </div>
   )
@@ -201,9 +221,16 @@ export default function HeroInputBar({
   if (!showDropdown) return inputBar
 
   return (
-    <div className="p1-search">
+    <div className="search-anchor">
       {inputBar}
-      <HeroSearchDropdown query={value} inputRef={inputRef} onSelect={handleSelect} />
+      <SearchDropdown
+        query={value}
+        inputRef={inputRef}
+        search={search}
+        onSelect={handleSelect}
+        bottomBoundaryRef={bottomBoundaryRef}
+        fallbackHref={(q) => `/catalog?q=${encodeURIComponent(q)}`}
+      />
     </div>
   )
 }

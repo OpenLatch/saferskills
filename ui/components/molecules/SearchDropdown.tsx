@@ -1,5 +1,5 @@
 import { Command } from 'cmdk'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import SearchDropdownItem, { type SearchHit } from './SearchDropdownItem'
 
@@ -9,19 +9,35 @@ export interface SearchGroup {
   hits: SearchHit[]
 }
 
+/** Hard ceiling on the dropdown's height. Below this the dropdown
+ *  scrolls internally; we never let it grow above this even on
+ *  large viewports. */
+const HARD_MAX_HEIGHT_PX = 440
+
+/** Safety margin between the dropdown and the viewport bottom —
+ *  keeps the list from sliding under a marquee, footer, or fold. */
+const BOTTOM_GUTTER_PX = 24
+
+/** Minimum the dropdown will ever shrink to. On very short viewports
+ *  we'd rather show a scrollable mini-list than nothing. */
+const MIN_HEIGHT_PX = 200
+
 interface Props {
   /** Live query string from the host input. */
   query: string
-  /** Ref to the host input — used for focus restoration, ARIA wiring, and outside-click detection. */
+  /** Ref to the host input — used for ARIA wiring + outside-click detection. */
   inputRef: RefObject<HTMLInputElement | null>
   /** Async search; must return groups already filtered + sorted. AbortController fires on rapid retype. */
   search: (query: string, signal?: AbortSignal) => Promise<SearchGroup[]>
   /** Activated when the user picks a row (mouse or Enter). */
   onSelect: (hit: SearchHit) => void
-  /** Slugs to render as suggestion chips when the input is focused but empty. */
-  zeroStateSuggestions?: readonly string[]
   /** Where to send the user when they hit Enter with no row selected. */
   fallbackHref?: (query: string) => string
+  /** Optional element whose TOP edge acts as the dropdown's floor.
+   *  When set, the dropdown's max-height stops at this boundary (minus a
+   *  small gutter) instead of running to the viewport bottom. Use this to
+   *  keep the panel above a marquee, footer band, or fold. */
+  bottomBoundaryRef?: RefObject<HTMLElement | null>
 }
 
 const DEBOUNCE_MS = 300
@@ -33,51 +49,89 @@ type LoadState =
   | { phase: 'error' }
 
 /**
- * Inline command-palette dropdown anchored below an input. Generic over the
- * search source — the consumer passes a `search` callback so the molecule
- * has no opinion about how results are fetched (mock JSON at W1, HTTP at
- * W2 once `/api/v1/catalog/search` ships).
+ * Inline command-palette dropdown anchored below a search input.
  *
- * Owns:
- *   - open/close state driven by focus + query
+ * Generic over the data source — the consumer passes a `search` callback
+ * so the molecule has no coupling to the catalog repository (mock JSON at
+ * W1, HTTP at W2 once `/api/v1/catalog/search` ships).
+ *
+ * Behaviour
+ * ─────────────────────────────────────────────────────────────────────
+ * The dropdown is closed until the query has at least one character —
+ * focus alone does not open it. This keeps the hero clean and matches
+ * the muscle memory of Linear / Vercel / Algolia DocSearch, where
+ * suggestions are reserved for typed intent.
+ *
+ * Animations
+ * ─────────────────────────────────────────────────────────────────────
+ * Open: `clip-path` reveal + 6px translateY drop + opacity, 180ms,
+ * `ease-out-expo`. Pure CSS — no JS height measurement. Reduced-motion
+ * collapses to a 100ms opacity fade. See ui/styles/components.css.
+ *
+ * Owns
+ * ─────────────────────────────────────────────────────────────────────
  *   - debounced fetch with AbortController
  *   - cmdk listbox semantics (ArrowDown/Up, Enter, Escape)
  *   - aria-activedescendant wiring back onto the host input
- *   - zero / loading / ready / no-results / error UI states
+ *   - loading / ready / no-results / error UI states
  */
 export default function SearchDropdown({
   query,
   inputRef,
   search,
   onSelect,
-  zeroStateSuggestions = [],
   fallbackHref,
+  bottomBoundaryRef,
 }: Props) {
   const listboxId = useId()
-  const [focused, setFocused] = useState(false)
   const [state, setState] = useState<LoadState>({ phase: 'idle' })
   const [activeValue, setActiveValue] = useState<string>('')
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const open = focused || query.trim().length > 0
+  const q = query.trim()
+  const open = q.length > 0
 
-  useEffect(() => {
+  // Clamp max-height against either the explicit bottom boundary (e.g. a
+  // marquee band) or the visual viewport — whichever is closer. The
+  // result is published as a CSS custom property so the styling stays
+  // in ui/styles/components.css.
+  useLayoutEffect(() => {
+    if (!open) return
+    const wrapper = wrapperRef.current
     const input = inputRef.current
-    if (!input) return
-    const onFocus = () => setFocused(true)
-    const onBlur = (e: FocusEvent) => {
-      const next = e.relatedTarget as Node | null
-      if (next && wrapperRef.current?.contains(next)) return
-      setFocused(false)
-    }
-    input.addEventListener('focus', onFocus)
-    input.addEventListener('blur', onBlur)
-    return () => {
-      input.removeEventListener('focus', onFocus)
-      input.removeEventListener('blur', onBlur)
-    }
-  }, [inputRef])
+    if (!wrapper || !input) return
 
+    function recompute() {
+      if (!wrapper || !input) return
+      const inputRect = input.getBoundingClientRect()
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+      // Floor = either the boundary's top edge, or the viewport bottom.
+      // Take the lower of the two — whichever the dropdown would hit first.
+      const boundary = bottomBoundaryRef?.current
+      const floor = boundary
+        ? Math.min(boundary.getBoundingClientRect().top, viewportHeight)
+        : viewportHeight
+      // 6px = the visual gap we leave between input bottom and dropdown top.
+      const available = floor - inputRect.bottom - 6 - BOTTOM_GUTTER_PX
+      const clamped = Math.max(
+        MIN_HEIGHT_PX,
+        Math.min(HARD_MAX_HEIGHT_PX, available),
+      )
+      wrapper.style.setProperty('--search-dropdown-max-h', `${clamped}px`)
+    }
+
+    recompute()
+    window.addEventListener('resize', recompute)
+    window.addEventListener('scroll', recompute, { passive: true })
+    window.visualViewport?.addEventListener('resize', recompute)
+    return () => {
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('scroll', recompute)
+      window.visualViewport?.removeEventListener('resize', recompute)
+    }
+  }, [open, inputRef, bottomBoundaryRef])
+
+  // Outside-click closes by blurring the host input
   useEffect(() => {
     if (!open) return
     const onPointerDown = (e: PointerEvent) => {
@@ -85,42 +139,42 @@ export default function SearchDropdown({
       if (!target) return
       if (wrapperRef.current?.contains(target)) return
       if (inputRef.current?.contains(target)) return
-      setFocused(false)
       inputRef.current?.blur()
     }
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open, inputRef])
 
+  // Escape blurs the input + restores typewriter loop
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.preventDefault()
-      setFocused(false)
       inputRef.current?.blur()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, inputRef])
 
+  // Enter without an active row → fallback navigation
   useEffect(() => {
     const input = inputRef.current
     if (!input || !fallbackHref) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return
-      const q = query.trim()
-      if (!q) return
+      const trimmed = query.trim()
+      if (!trimmed) return
       if (activeValue) return
       e.preventDefault()
-      window.location.assign(fallbackHref(q))
+      window.location.assign(fallbackHref(trimmed))
     }
     input.addEventListener('keydown', onKey)
     return () => input.removeEventListener('keydown', onKey)
   }, [query, activeValue, inputRef, fallbackHref])
 
+  // Debounced fetch
   useEffect(() => {
-    const q = query.trim()
     if (!q) {
       setState({ phase: 'idle' })
       return
@@ -141,8 +195,9 @@ export default function SearchDropdown({
       ctrl.abort()
       clearTimeout(timer)
     }
-  }, [query, search])
+  }, [q, search])
 
+  // ARIA wiring on the host input
   useEffect(() => {
     const input = inputRef.current
     if (!input) return
@@ -164,23 +219,11 @@ export default function SearchDropdown({
 
   if (!open) return null
 
-  const q = query.trim()
   const groups = state.phase === 'ready' ? state.groups : []
   const hitCount = groups.reduce((sum, g) => sum + g.hits.length, 0)
 
-  function pickSuggestion(slug: string) {
-    onSelect({
-      kind: 'unknown',
-      slug,
-      display_name: slug,
-      editor: '',
-      scan_score: 0,
-      severity: 'info',
-    })
-  }
-
   return (
-    <div ref={wrapperRef} className="search-dropdown" role="presentation">
+    <div ref={wrapperRef} className="search-dropdown" role="presentation" data-state="open">
       <Command
         shouldFilter={false}
         value={activeValue}
@@ -188,53 +231,19 @@ export default function SearchDropdown({
         loop
         label="Catalog search"
       >
-        <Command.List id={listboxId} role="listbox">
-          {!q && zeroStateSuggestions.length > 0 && (
-            <div className="search-dropdown-zero">
-              <span className="search-dropdown-group-label">Try</span>
-              <div className="search-dropdown-chips">
-                {zeroStateSuggestions.map((slug) => (
-                  <button
-                    key={slug}
-                    type="button"
-                    className="search-dropdown-chip"
-                    onClick={() => pickSuggestion(slug)}
-                  >
-                    {slug}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <Command.List id={listboxId}>
+          {state.phase === 'loading' && <LoadingSkeleton />}
+          {state.phase === 'error' && (
+            <ErrorState
+              onRetry={() => {
+                setState({ phase: 'loading' })
+                search(q)
+                  .then((groups) => setState({ phase: 'ready', groups }))
+                  .catch(() => setState({ phase: 'error' }))
+              }}
+            />
           )}
-
-          {q && state.phase === 'loading' && (
-            <div className="search-dropdown-loading" aria-busy="true">
-              <div className="search-dropdown-skeleton" />
-              <div className="search-dropdown-skeleton" />
-              <div className="search-dropdown-skeleton" />
-            </div>
-          )}
-
-          {q && state.phase === 'error' && (
-            <div className="search-dropdown-error">
-              <span>Search failed.</span>
-              <button
-                type="button"
-                className="search-dropdown-retry"
-                onClick={() => {
-                  setState({ phase: 'loading' })
-                  search(q)
-                    .then((groups) => setState({ phase: 'ready', groups }))
-                    .catch(() => setState({ phase: 'error' }))
-                }}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {q &&
-            state.phase === 'ready' &&
+          {state.phase === 'ready' &&
             groups.map((group) => (
               <Command.Group
                 key={group.kind}
@@ -251,30 +260,69 @@ export default function SearchDropdown({
                 ))}
               </Command.Group>
             ))}
-
-          {q && state.phase === 'ready' && hitCount === 0 && (
-            <div className="search-dropdown-empty">
-              <p>
-                No results for <span className="q">&ldquo;{q}&rdquo;</span>
-              </p>
-              {zeroStateSuggestions.length > 0 && (
-                <div className="search-dropdown-chips">
-                  {zeroStateSuggestions.map((slug) => (
-                    <button
-                      key={slug}
-                      type="button"
-                      className="search-dropdown-chip"
-                      onClick={() => pickSuggestion(slug)}
-                    >
-                      {slug}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {state.phase === 'ready' && hitCount === 0 && <NoResults query={q} />}
         </Command.List>
       </Command>
+    </div>
+  )
+}
+
+/** Skeleton rows that mirror the real result layout — name block,
+ *  editor block, severity-pill block. Shimmer is cross-fade only,
+ *  reduced-motion disables the animation in CSS. */
+function LoadingSkeleton() {
+  return (
+    <div className="search-dropdown-skel-group" aria-busy="true" aria-live="polite">
+      <div className="search-dropdown-skel-heading" />
+      <div className="search-dropdown-skel-row">
+        <span className="skel skel-name" />
+        <span className="skel skel-editor" />
+        <span className="skel skel-pill" />
+      </div>
+      <div className="search-dropdown-skel-row">
+        <span className="skel skel-name skel-narrow" />
+        <span className="skel skel-editor" />
+        <span className="skel skel-pill" />
+      </div>
+      <div className="search-dropdown-skel-row">
+        <span className="skel skel-name" />
+        <span className="skel skel-editor" />
+        <span className="skel skel-pill" />
+      </div>
+    </div>
+  )
+}
+
+function NoResults({ query }: { query: string }) {
+  return (
+    <div className="search-dropdown-noresult" role="status">
+      <span className="search-dropdown-noresult-glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22">
+          <title>No results</title>
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+          <path d="M8 14l6-6M14 14l-6-6" />
+        </svg>
+      </span>
+      <div className="search-dropdown-noresult-body">
+        <p className="search-dropdown-noresult-title">
+          No matches for <span className="q">&ldquo;{query}&rdquo;</span>
+        </p>
+        <p className="search-dropdown-noresult-hint">
+          Press <kbd className="kbd-chip">↵</kbd> to search the full catalog.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="search-dropdown-error" role="alert">
+      <span>Search failed.</span>
+      <button type="button" className="search-dropdown-retry" onClick={onRetry}>
+        Retry
+      </button>
     </div>
   )
 }
