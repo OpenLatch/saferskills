@@ -17,11 +17,14 @@ interface Props {
 }
 const { size = 'md', href = '/', ariaLabel = 'SaferSkills home' } = Astro.props
 
+// Logo height tracks the text cap-height (~0.71 × font-size for Onest 600)
+// with a small optical buffer so the S-monogram reads as a visual peer of the
+// wordmark rather than an oversized prefix. Ratio ≈ 0.8 × text size.
 const sizing = {
-  sm:   { logo: 24, text: 16, gap: 8 },
-  md:   { logo: 40, text: 24, gap: 12 },
-  lg:   { logo: 56, text: 36, gap: 14 },
-  hero: { logo: 80, text: 52, gap: 16 },
+  sm:   { logo: 14, text: 16, gap: 8 },
+  md:   { logo: 20, text: 24, gap: 10 },
+  lg:   { logo: 30, text: 36, gap: 12 },
+  hero: { logo: 42, text: 52, gap: 14 },
 }[size]
 const inlineVars = `--wm-logo:${sizing.logo}px;--wm-text:${sizing.text}px;--wm-gap:${sizing.gap}px;`
 ---
