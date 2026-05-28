@@ -1,0 +1,99 @@
+# SaferSkills fixture catalog corpus.
+#
+# D-FE-14: ~50 real-named items spanning all 5 PRD categories
+# (skill / mcp_server / hooks / plugin / rules). Score distribution targets
+# ~25 green ≥80, ~15 yellow 60-79, ~7 orange 40-59, ~3 red <40 so every band
+# is visible on /catalog. Use `saferskills-data-seed catalog publish` to
+# POST one scan per entry.
+#
+# A1 ships with 8 representative entries to prove the structure. The full
+# 50-entry corpus lands in a follow-up PR (separate from the I-03 design-system
+# foundation — keeps A1 reviewable).
+
+items:
+  # ---- skill ----
+  - slug: anthropics--claude-pdf
+    kind: skill
+    display_name: claude-pdf
+    github_url: https://github.com/anthropics/skills/tree/main/pdf
+    description: Read and extract structured content from PDFs.
+    expected_score: 95
+    listed_on: [anthropics-skills, mcp.so]
+    vendor_response: null
+
+  - slug: anthropics--claude-figma
+    kind: skill
+    display_name: claude-figma
+    github_url: https://github.com/anthropics/skills/tree/main/figma
+    description: Read and apply changes to Figma designs.
+    expected_score: 89
+    listed_on: [anthropics-skills]
+    vendor_response: null
+
+  # ---- mcp_server ----
+  - slug: modelcontextprotocol--github-mcp
+    kind: mcp_server
+    display_name: github-mcp
+    github_url: https://github.com/modelcontextprotocol/servers/tree/main/src/github
+    description: GitHub integration for AI agents — repo browse, issue mgmt, PR ops.
+    expected_score: 87
+    listed_on: [mcp.so, smithery, npm]
+    vendor_response:
+      author: github-mcp-team
+      body_markdown: >-
+        Thanks for the scan. The CHANGELOG and SECURITY.md findings are tracked
+        in issue #142 and will land in our next release.
+      submitted_at: '2026-05-12'
+
+  - slug: modelcontextprotocol--postgres-mcp
+    kind: mcp_server
+    display_name: postgres-mcp
+    github_url: https://github.com/modelcontextprotocol/servers/tree/main/src/postgres
+    description: Connect AI agents to PostgreSQL — query, inspect schema, run migrations.
+    expected_score: 82
+    listed_on: [mcp.so, smithery, npm]
+    vendor_response: null
+
+  - slug: modelcontextprotocol--slack-mcp
+    kind: mcp_server
+    display_name: slack-mcp
+    github_url: https://github.com/modelcontextprotocol/servers/tree/main/src/slack
+    description: Read and post to Slack workspaces from an AI agent.
+    expected_score: 73
+    listed_on: [mcp.so, smithery]
+    vendor_response: null
+
+  # ---- hooks ----
+  - slug: example--pre-commit-secrets
+    kind: hooks
+    display_name: pre-commit-secrets
+    github_url: https://github.com/example-vendor/pre-commit-secrets
+    description: Pre-commit hook that blocks committed secrets.
+    expected_score: 58
+    listed_on: [pre-commit-hooks]
+    vendor_response: null
+
+  # ---- plugin ----
+  - slug: example--claude-statusline
+    kind: plugin
+    display_name: claude-statusline
+    github_url: https://github.com/example-vendor/claude-statusline
+    description: Custom statusline integration for Claude Code.
+    expected_score: 65
+    listed_on: [claude-code-plugins]
+    vendor_response: null
+
+  # ---- rules ----
+  - slug: example--dodgy-skill
+    kind: rules
+    display_name: dodgy-skill-rules
+    github_url: https://github.com/example-vendor/dodgy-skill
+    description: Rules pack — flagged for prompt-injection in v1.x.
+    expected_score: 32
+    listed_on: [clawhub]
+    vendor_response:
+      author: alice
+      body_markdown: >-
+        The prompt-injection finding was a false positive in our example. We've
+        removed the offending phrasing in v1.2.3 — please re-scan.
+      submitted_at: '2026-05-22'

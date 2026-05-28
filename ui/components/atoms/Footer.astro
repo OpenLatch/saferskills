@@ -1,44 +1,94 @@
 ---
-const year = new Date().getFullYear();
+/**
+ * SaferSkills footer.
+ *
+ * Dark slate + diag-hatching texture (D-FE-05 / D-FE-36). 5-column grid:
+ * brand col (44px wordmark + lead + ft-meta + ThemeToggle) + 4 link cols
+ * (SCORES / AGENTS / DOCS / PROJECT, labels per D-FE-27).
+ *
+ * Footer attribution to OpenLatch is the ONLY catalog surface that names
+ * OpenLatch (anti-recommendation rule — see .claude/rules/design-system.md).
+ */
+import ThemeToggle from './ThemeToggle.tsx'
+
+const year = new Date().getFullYear()
+
+const cols = [
+  {
+    label: 'SCORES',
+    links: [
+      { label: 'Catalog', href: '/catalog' },
+      { label: 'Methodology', href: '/methodology' },
+      { label: 'Rule index', href: '/methodology#rules' },
+    ],
+  },
+  {
+    label: 'AGENTS',
+    links: [
+      { label: 'Claude Code', href: '/agents/claude-code' },
+      { label: 'Cursor', href: '/agents/cursor' },
+      { label: 'Codex CLI', href: '/agents/codex-cli' },
+      { label: 'All 8 agents', href: '/agents' },
+    ],
+  },
+  {
+    label: 'DOCS',
+    links: [
+      { label: 'CLI install', href: '/docs' },
+      { label: 'API', href: '/docs/api' },
+      { label: 'About', href: '/about' },
+    ],
+  },
+  {
+    label: 'PROJECT',
+    links: [
+      { label: 'GitHub', href: 'https://github.com/OpenLatch/saferskills', external: true },
+      { label: 'Status', href: 'https://status.saferskills.ai', external: true },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
+    ],
+  },
+]
 ---
-<footer class="site-footer">
-  <div class="row">
-    <span>Stewarded by <a href="https://openlatch.ai" rel="noopener">OpenLatch</a></span>
-    <span class="dot">·</span>
-    <a href="https://github.com/OpenLatch/saferskills">Source</a>
-    <span class="dot">·</span>
-    <a href="/methodology">Methodology</a>
-    <span class="dot">·</span>
-    <a href="/privacy">Privacy</a>
-    <span class="dot">·</span>
-    <a href="/terms">Terms</a>
-    <span class="spacer"></span>
-    <span>© {year} Apache 2.0</span>
+<footer class="footer">
+  <div class="container">
+    <div class="ft-top">
+      <div class="ft-brand">
+        <span class="word">
+          <span class="mk" aria-hidden="true"></span>
+          SaferSkills
+        </span>
+        <p>
+          Every AI skill, independently audited. Public, open-source trust
+          scoring for skills, MCP servers, hooks, plugins, and rules across
+          every agent platform. Free. Apache 2.0.
+        </p>
+        <p class="ft-meta">
+          <span class="live">●</span> 12,847 indexed · methodology open source<br />
+          stewarded by <a href="https://openlatch.ai" rel="noopener">OpenLatch</a>
+        </p>
+        <ThemeToggle client:idle />
+      </div>
+      {cols.map((col) => (
+        <div class="ft-col">
+          <h6>{col.label}</h6>
+          <ul>
+            {col.links.map((link) => (
+              <li>
+                <a
+                  href={link.href}
+                  rel={link.external ? 'noopener' : undefined}
+                  target={link.external ? '_blank' : undefined}
+                >{link.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+    <div class="ft-bottom">
+      <span>OSS · APACHE 2.0 · © {year}</span>
+      <span><a href="https://openlatch.ai" rel="noopener">An OpenLatch project</a></span>
+    </div>
   </div>
 </footer>
-
-<style>
-  .site-footer {
-    border-top: var(--border-width) solid rgb(var(--border));
-    padding: var(--space-6);
-    font-size: var(--type-sm);
-    color: rgb(var(--muted-fg));
-    background: rgb(var(--background));
-  }
-  .row {
-    max-width: 80ch;
-    margin: 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 8px;
-  }
-  .dot { color: rgb(var(--border)); }
-  .spacer { flex: 1; }
-  a {
-    color: rgb(var(--muted-fg));
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-  a:hover { color: rgb(var(--primary)); }
-</style>

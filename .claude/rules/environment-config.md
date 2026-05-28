@@ -38,7 +38,7 @@ Frontend env vars MUST be prefixed `PUBLIC_*` (Astro convention) to be exposed a
 | `PUBLIC_POSTHOG_KEY` | no | unset | Client-side PostHog project key |
 | `PUBLIC_POSTHOG_HOST` | no | `https://eu.posthog.com` | PostHog ingestion host (EU region default) |
 | `PUBLIC_SENTRY_DSN` | no | unset | Browser Sentry project |
-| `RESEND_API_KEY` | no | unset | Outbound email (Resend) — server-only, NOT `PUBLIC_*` |
+| `RESEND_API_KEY` | no | unset | Outbound email (Resend) — server-only, NOT `PUBLIC_*`. Single verified sending domain `notifications.openlatch.ai` (shared with OpenLatch, cost decision 2026-05-28). Hardcoded `From:` in the send-call: `SaferSkills <<purpose>@notifications.openlatch.ai>`. Reply-to is a `@openlatch.ai` mailbox. |
 
 ## `.env.example` discipline
 

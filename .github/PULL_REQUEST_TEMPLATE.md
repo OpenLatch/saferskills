@@ -1,5 +1,5 @@
 <!--
-Thanks for opening a PR! Conventional Commits + DCO are required.
+Thanks for opening a PR! Conventional Commits are required.
 See CONTRIBUTING.md for the full contract.
 -->
 

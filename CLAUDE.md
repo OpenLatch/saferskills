@@ -108,7 +108,7 @@ For new detection rules: open a `.github/ISSUE_TEMPLATE/03-rule-proposal.yml` RF
 
 ## Conventions
 
-- **Commits**: Conventional Commits — `type(scope): description` + DCO `Signed-off-by:` (use `git commit -s`).
+- **Commits**: Conventional Commits — `type(scope): description`.
 - **Package managers**: `pnpm` (frontend/TS), `uv` (backend/Python) — never mix.
 - **Naming**: API JSON snake_case, response models inherit `OrmBaseModel`, paginated responses use `data` (not `items`). Rule IDs `SS-<CATEGORY>-<NUMBER>`. Full rules: `.claude/rules/naming-conventions.md`.
 
@@ -116,11 +116,13 @@ For new detection rules: open a `.github/ISSUE_TEMPLATE/03-rule-proposal.yml` RF
 
 ## Brand independence (Non-Negotiable)
 
-SaferSkills and OpenLatch share stewardship but are visually + editorially independent:
-- SaferSkills primary color: cobalt `#1E40AF`. OpenLatch: emerald-teal. Never bleed.
+SaferSkills and OpenLatch share stewardship and (deliberately) share teal — distinction-by-shape, not by color:
+- SaferSkills primary: emerald teal `#0D9488` — **kinship-by-color** with the OpenLatch master palette per Wordmark Spec lock 2026-05-27. The original cobalt-primary direction is superseded.
+- Distinction-by-shape: chamfered hex-cap button vocabulary, page-head + ridge dividers, DM Sans / Space Mono / Anybody / Nanum Pen Script type stack, monochrome Onest 600 wordmark — none of which OpenLatch uses.
 - SaferSkills voice: methodology-over-opinion, anti-recommendation, never cross-promotes.
-- Footer attribution ("Stewarded by OpenLatch") is the only OpenLatch mention allowed on SaferSkills surfaces.
-- This is enforced in PR review on every README / homepage / catalog-copy change. See `.claude/rules/design-system.md`.
+- Footer attribution ("An OpenLatch project") is the only OpenLatch mention allowed on SaferSkills surfaces.
+- Outbound system email ships from `notifications.openlatch.ai` — a single Resend verified sending domain shared with OpenLatch (cost decision 2026-05-28). Display name stays `SaferSkills`; reply-to is always a `@openlatch.ai` mailbox. Disclosed on `/about`.
+- Enforced in PR review on every README / homepage / catalog-copy change. See `.claude/rules/design-system.md`.
 
 ---
 

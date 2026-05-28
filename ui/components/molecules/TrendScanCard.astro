@@ -1,0 +1,74 @@
+---
+/**
+ * Card in the homepage's "Trending this week" feed.
+ *
+ * Static markup — no React hydration. 48px rank column on the left,
+ * content right. Featured rank #1 gets `featured` modifier with the teal-tint bg.
+ * See `webapp/src/styles/components.css::.trend-card`.
+ */
+type Tier = 'green' | 'yellow' | 'orange' | 'red'
+
+interface Props {
+  rank: number
+  slug: string
+  name: string
+  score: number
+  tier: Tier
+  installsLast7d: number
+  installsDelta: number
+  sparkBlocks?: string
+}
+
+const {
+  rank,
+  slug,
+  name,
+  score,
+  tier,
+  installsLast7d,
+  installsDelta,
+  sparkBlocks = '▮▮▮▮▮▮',
+} = Astro.props
+
+const tierToVariant: Record<Tier, 'g' | 'y' | 'o' | 'r'> = {
+  green: 'g', yellow: 'y', orange: 'o', red: 'r',
+}
+const tierVar = tierToVariant[tier]
+const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
+const empty = 10 - filled
+const formatInstalls = (n: number): string => n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n)
+const deltaPrefix = installsDelta >= 0 ? '+' : ''
+---
+<a
+  class={`trend-card ${rank === 1 ? 'featured' : ''}`.trim()}
+  href={`/items/${slug}`}
+  aria-label={`#${rank} ${name} — score ${score}`}
+>
+  <div class="rank-col">
+    <span class="hash">RANK</span>
+    <span class="n">#{rank}</span>
+  </div>
+  <div class="name">{name}</div>
+  <span class="score-num">{score}<span class="slash">/100</span></span>
+  <div class="dotline">
+    <span class="dotstrip" role="img" aria-label={`Score ${score} of 100`}>
+      <span class={`dot-${tierVar}`} aria-hidden="true">{'●'.repeat(filled)}</span>
+      <span class="dot-off" aria-hidden="true">{'○'.repeat(empty)}</span>
+    </span>
+    <span class={`band-pill ${tierVar}`}>
+      <span class={`swatch sw-${tierVar}`} aria-hidden="true"></span>
+      {tier.toUpperCase()}
+    </span>
+  </div>
+  <div class="installs">
+    <span>
+      <span class="num">{formatInstalls(installsLast7d)}</span>
+      <span class="lbl">installs · 7d</span>
+    </span>
+    <span class="delta">{deltaPrefix}{installsDelta}</span>
+  </div>
+  <div class="spark">
+    <span class="blocks" aria-hidden="true">{sparkBlocks}</span>
+    <span class="lbl">trend</span>
+  </div>
+</a>

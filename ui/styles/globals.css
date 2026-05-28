@@ -1,0 +1,170 @@
+/* SaferSkills design-system entrypoint.
+ *
+ * Load order is significant:
+ *   1. Tailwind v4 (registers @theme + utility surface)
+ *   2. tokens.css (extends @theme + declares CSS vars + dark-mode block)
+ *   3. fontsource @imports (DM Sans, Space Mono, Onest)
+ *   4. @font-face for the subsetted woff2 (Anybody, Nanum Pen Script)
+ *   5. @layer base — body defaults
+ *   6. Typography utility classes (.t-display ... .t-mark)
+ *
+ * See .claude/rules/design-system.md.
+ */
+
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./components.css";
+
+/* ── Self-hosted @fontsource packages ─────────────────────────── */
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/600.css";
+@import "@fontsource/dm-sans/700.css";
+@import "@fontsource/dm-sans/800.css";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
+@import "@fontsource/onest/600.css";
+
+/* Variable-axis fonts — `Anybody` (wdth=125, wght=800 for loud numbers) */
+@import "@fontsource-variable/anybody";
+
+/* Script accent — `Nanum Pen Script` (orange hand-written annotations) */
+@import "@fontsource/nanum-pen-script";
+
+/* ── Base layer — body defaults ───────────────────────────────── */
+@layer base {
+  html, body {
+    font-family: var(--font-sans);
+    font-size: var(--fs-16);
+    line-height: 24px;
+    letter-spacing: 0;
+    color: var(--fg-1);
+    background: var(--bg-page);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/* ============================================================================
+   TYPOGRAPHY UTILITY CLASSES — `.t-*`
+   Ported verbatim from mockups/hifi/tokens.css lines 271-387.
+   ============================================================================ */
+
+.t-display {
+  font-family: var(--font-sans);
+  font-size: clamp(64px, 8vw, 96px);
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.025em;
+  color: var(--fg-1);
+}
+
+.t-h1 {
+  font-family: var(--font-sans);
+  font-size: clamp(40px, 5vw, 48px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--fg-1);
+}
+
+.t-h2 {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  color: var(--fg-1);
+}
+
+.t-h3 {
+  font-family: var(--font-sans);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  color: var(--fg-1);
+}
+
+.t-h4 {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.33;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+}
+
+.t-lead {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--fg-3);
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
+.t-body-sm {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--fg-2);
+}
+
+.t-meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.33;
+  letter-spacing: 0.05em;
+  color: var(--fg-3);
+}
+
+.t-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.t-code,
+code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  background: var(--color-line-soft);
+  color: var(--color-ink-soft);
+  padding: 1px 6px;
+  border-radius: 0;
+}
+
+.t-loud {
+  font-family: var(--font-loud);
+  font-weight: 800;
+  font-stretch: 125%;
+  letter-spacing: -0.02em;
+}
+
+.t-script {
+  font-family: var(--font-script);
+  font-weight: 400;
+  color: var(--brand-accent);
+}
+
+/* Inline highlight (teal-tint underline-block — brand's hand-marked emphasis) */
+.t-mark {
+  background-image: linear-gradient(transparent 60%, var(--brand-highlight) 60%);
+  padding: 0 2px;
+}

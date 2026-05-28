@@ -1,52 +1,12 @@
-/* SaferSkills global stylesheet — Tailwind v4 entry point. */
-@import "tailwindcss";
-@import "@ui/styles/tokens.css";
+/* SaferSkills webapp — global stylesheet entry.
+ *
+ * Load order:
+ *   1. @ui/styles/globals.css  — Tailwind v4 + tokens + fonts + .t-* typography
+ *   2. ./reset.css             — webapp-specific base resets
+ *   3. ./components.css        — page-vocabulary CSS (hex masks, page-head, ridges, nav-pill, etc.)
+ *
+ * See .claude/rules/design-system.md.
+ */
 
-/* Self-hosted fonts (privacy + perf). */
-@import "@fontsource/crimson-pro/400.css";
-@import "@fontsource/crimson-pro/700.css";
-@import "@fontsource/manrope/400.css";
-@import "@fontsource/manrope/500.css";
-@import "@fontsource/manrope/700.css";
-@import "@fontsource/jetbrains-mono/400.css";
-
-/* SaferSkills editorial-precision base.
- * 0px radius, 1px hairline borders, no shadows.
- * See .claude/rules/design-system.md. */
-:root {
-  color-scheme: light dark;
-}
-
-html {
-  font-family: "Manrope", system-ui, sans-serif;
-  font-feature-settings: "cv11", "ss01";
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--background);
-  color: var(--foreground);
-}
-
-h1,
-h2,
-h3,
-h4 {
-  font-family: "Crimson Pro", Georgia, serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-code,
-pre,
-kbd {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-}
-
-a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-a:hover {
-  text-decoration-thickness: 2px;
-}
+@import "@ui/styles/globals.css";
+@import "./reset.css";

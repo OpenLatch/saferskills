@@ -21,7 +21,8 @@ webapp/src/pages/
 └── appeal.astro           → /appeal       (W6)
 ```
 
-- **No client-side router** at W1. Astro handles every route as a server render → static HTML → React island hydration.
+- **No client-side router.** Astro handles every route as a server render → HTML → React island hydration.
+- **Astro `output: 'server'`** (`@astrojs/node` standalone adapter; per-page `export const prerender = true` opts INTO SSG). Marketing pages stay statically prerendered at build time; dynamic surfaces (catalog with URL filters, `/scans/[id]`, `/items/[slug]`, badge/OG endpoints) stay SSR.
 - **Dynamic segments** use `[param].astro` (single) or `[...slug].astro` (catch-all).
 - **Layouts** live in `webapp/src/layouts/` and are imported per page; never hidden via global config.
 
@@ -77,7 +78,10 @@ export async function listArtifacts(): Promise<ArtifactList> {
 ## Tailwind v4
 
 - **No `tailwind.config.js`.** Tokens live in `ui/styles/tokens.css` via the `@theme` directive (cf. `design-system.md`).
-- Class names use Tailwind primitives + token-aliased custom utilities (e.g. `bg-primary`, `border-hairline`, `rounded-none`).
+- **Integration is `@tailwindcss/vite`** registered in `webapp/astro.config.mjs::vite.plugins`. The legacy `@astrojs/tailwind` integration is NOT used.
+- The `@import "tailwindcss"` entrypoint lives in `ui/styles/globals.css`; webapp imports it transitively via `webapp/src/styles/global.css`.
+- **Dark mode** uses `@custom-variant dark (&:where(.dark, .dark *));`. Apply `<html class="dark">` (FOUC-prevention script in `Base.astro` handles initial state) — never `data-theme` or descendant variants.
+- Class names use Tailwind primitives + token-aliased custom utilities (e.g. `bg-brand-primary`, `text-fg-1`, `border-line`, `rounded-none`).
 - **No `@apply` in feature code** — keep utility classes in JSX. `@apply` is allowed only in `ui/styles/globals.css` for resets.
 
 ## Component composition

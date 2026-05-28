@@ -7,9 +7,8 @@ Then read the path-scoped rules under `.claude/rules/`. Each rule's blockquote h
 ## Hard rules
 
 1. **Schema-driven everything.** Never edit files under `**/generated/`. Run `pnpm run generate` after editing any `schemas/*.schema.json`.
-2. **DCO required on every commit.** `git commit -s` adds the `Signed-off-by:` trailer. PRs without it fail CI.
-3. **Conventional Commits.** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `build:`, `ci:`. PR titles too — enforced by `pr-title-lint.yml`.
-4. **No vendored copies of OpenLatch code.** SaferSkills is an independent Apache-2.0 project. If a SaferSkills primitive needs to land in OpenLatch (or vice-versa), it goes through the public release channel — not a hand-port.
+2. **Conventional Commits.** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `build:`, `ci:`. PR titles too — enforced by `pr-title-lint.yml`.
+3. **No vendored copies of OpenLatch code.** SaferSkills is an independent Apache-2.0 project. If a SaferSkills primitive needs to land in OpenLatch (or vice-versa), it goes through the public release channel — not a hand-port.
 
 ## Further guidance
 

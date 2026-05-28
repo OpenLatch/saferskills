@@ -1,0 +1,67 @@
+---
+/**
+ * Card in the homepage's "Recently scanned" feed.
+ *
+ * Renders as static HTML — no React hydration, no island cost. The CSS class
+ * vocabulary in `webapp/src/styles/components.css::.recent-card` drives the
+ * full visual contract (border, hover lift, layout).
+ */
+type Kind = 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
+type Tier = 'green' | 'yellow' | 'orange' | 'red'
+
+interface Props {
+  slug: string
+  name: string
+  author: string
+  kind: Kind
+  score: number
+  tier: Tier
+  scannedAtRelative: string
+  findingCount?: number
+}
+
+const {
+  slug,
+  name,
+  author,
+  kind,
+  score,
+  tier,
+  scannedAtRelative,
+  findingCount,
+} = Astro.props
+
+const tierToVariant: Record<Tier, 'g' | 'y' | 'o' | 'r'> = {
+  green: 'g', yellow: 'y', orange: 'o', red: 'r',
+}
+const tierVar = tierToVariant[tier]
+const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
+const empty = 10 - filled
+const filledDots = '●'.repeat(filled)
+const emptyDots = '○'.repeat(empty)
+---
+<a class="recent-card" href={`/items/${slug}`} aria-label={`${name} — score ${score} of 100`}>
+  <div>
+    <div class="meta">SCAN · {scannedAtRelative}</div>
+    <div class="name">{name}</div>
+    <div class="meta">
+      {author} · {kind.replace('_', ' ')}
+      {typeof findingCount === 'number' && findingCount > 0 ? (
+        <span class="warn"> · {findingCount} finding{findingCount === 1 ? '' : 's'}</span>
+      ) : null}
+    </div>
+  </div>
+  <div class="score-block">
+    <span class="score-num">{score}<span class="slash">/100</span></span>
+  </div>
+  <div class="dotline">
+    <span class="dotstrip" role="img" aria-label={`Score ${score} of 100`}>
+      <span class={`dot-${tierVar}`} aria-hidden="true">{filledDots}</span>
+      <span class="dot-off" aria-hidden="true">{emptyDots}</span>
+    </span>
+    <span class={`band-pill ${tierVar}`}>
+      <span class={`swatch sw-${tierVar}`} aria-hidden="true"></span>
+      {tier.toUpperCase()}
+    </span>
+  </div>
+</a>
