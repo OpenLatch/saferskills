@@ -19,6 +19,10 @@ export type FpAuditReport = z.infer<typeof FpAuditReportSchema>;
 export const RubricRuleSchema = z.unknown();
 export type RubricRule = z.infer<typeof RubricRuleSchema>;
 
+// scan-report-summary.schema.json
+export const ScanReportSummarySchema = z.unknown();
+export type ScanReportSummary = z.infer<typeof ScanReportSummarySchema>;
+
 // scan-report.schema.json
 export const ScanReportSchema = z.unknown();
 export type ScanReport = z.infer<typeof ScanReportSchema>;

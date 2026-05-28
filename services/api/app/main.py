@@ -4,22 +4,38 @@ W1 surface: /api/v1/health only. The scan engine, ingestion adapters, and
 catalog/report endpoints land via Initiatives I-02 / I-03 / I-04 starting W2.
 """
 
+import contextlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Side-effect import: registers every ORM model against Base.metadata.
+import app.models  # pyright: ignore[reportUnusedImport]
 from app.core.config import get_settings
+from app.core.db_pool import close_pool, init_pool
 from app.core.observability import init_observability
-from app.routers import health, scans_stub
+from app.routers import health, items, scans
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     await init_observability(settings)
-    yield
+    # Pool init failures are non-fatal at boot — health endpoint still serves;
+    # any route that needs the pool will raise on its own. Same for the
+    # stale-scan recovery sweep: missing DB at boot shouldn't keep /health red.
+    with contextlib.suppress(Exception):
+        await init_pool()
+    with contextlib.suppress(Exception):
+        from app.queue.scan_runner import recover_stale_scans
+
+        await recover_stale_scans()
+    try:
+        yield
+    finally:
+        await close_pool()
 
 
 app = FastAPI(
@@ -47,4 +63,5 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api/v1")
-app.include_router(scans_stub.router, prefix="/api/v1")
+app.include_router(scans.router, prefix="/api/v1")
+app.include_router(items.router, prefix="/api/v1")

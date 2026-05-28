@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/scan-report-summary.schema.json",
+  "title": "ScanReportSummary",
+  "description": "Slim projection of a Scan + CatalogItem join — what the homepage `RECENTLY SCANNED` feed and the catalog list page render per row. Full report at /api/v1/scans/<id>. Wire-only (never persisted as its own table).",
+  "x-postgresql-skip": true,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "githubUrl",
+    "slug",
+    "aggregateScore",
+    "tier",
+    "scannedAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Server-assigned scan UUID. The catalog stub may project the slug-as-id while the data-seed CLI has not run — clients treat this as an opaque string."
+    },
+    "githubUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical GitHub URL scanned."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*--[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "CatalogItem slug — `<org>--<repo>` (URL-safe `--` separator per I-02 D-15)."
+    },
+    "aggregateScore": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Weighted aggregate per PRD §5.2 (closed-form deterministic per scan-report.schema.json)."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["green", "yellow", "orange", "red", "unscoped"],
+      "description": "5-tier trust badge."
+    },
+    "scannedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the scan completed (UTC ISO-8601)."
+    },
+    "findingsCount": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Total findings for this scan (across all sub-scores). Includes findings of every severity tier."
+    },
+    "author": {
+      "type": ["string", "null"],
+      "description": "Display author (the `<org>` half of the slug, fallback `\"unknown\"`)."
+    },
+    "title": {
+      "type": ["string", "null"],
+      "description": "Display name of the catalog item — typically the repo name with spaces (`display_name` on catalog_items)."
+    }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-9999-7000-8000-000000000001",
+      "githubUrl": "https://github.com/anthropics/skills",
+      "slug": "anthropics--skills",
+      "aggregateScore": 87,
+      "tier": "green",
+      "scannedAt": "2026-05-28T10:30:00Z",
+      "findingsCount": 2,
+      "author": "anthropics",
+      "title": "Claude Skills"
+    }
+  ]
+}

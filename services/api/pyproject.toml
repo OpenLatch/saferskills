@@ -22,6 +22,8 @@ dependencies = [
   "structlog>=25.0",
   "httpx>=0.28",
   "pyyaml>=6.0",
+  "sse-starlette>=2.4",
+  "aiofiles>=24.1",
 ]
 
 [dependency-groups]
@@ -42,6 +44,10 @@ extend-exclude = ["app/schemas/generated", "app/models/generated"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI mandates Depends() / Query() / Body() / Path() in argument defaults.
+"app/routers/**" = ["B008"]
 
 [tool.pyright]
 include = ["app", "tests"]

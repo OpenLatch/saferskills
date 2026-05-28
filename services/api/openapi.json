@@ -1,6 +1,472 @@
 {
   "components": {
     "schemas": {
+      "CatalogFacets": {
+        "description": "Per-filter-option counts for the catalog filter sidebar.",
+        "properties": {
+          "kind": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Kind",
+            "type": "object"
+          },
+          "popularity_tier": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Popularity Tier",
+            "type": "object"
+          },
+          "registry": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Registry",
+            "type": "object"
+          },
+          "tier": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Tier",
+            "type": "object"
+          },
+          "total": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "CatalogFacets",
+        "type": "object"
+      },
+      "CatalogItemDetail": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "findings_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Findings Count",
+            "type": "integer"
+          },
+          "github_org": {
+            "title": "Github Org",
+            "type": "string"
+          },
+          "github_repo": {
+            "title": "Github Repo",
+            "type": "string"
+          },
+          "github_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Url"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Metadata"
+          },
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "latest_scan_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Scan At"
+          },
+          "latest_scan_score": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Scan Score"
+          },
+          "latest_scan_tier": {
+            "anyOf": [
+              {
+                "enum": [
+                  "green",
+                  "yellow",
+                  "orange",
+                  "red",
+                  "unscoped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Scan Tier"
+          },
+          "popularity_score": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Popularity Score",
+            "type": "integer"
+          },
+          "popularity_tier": {
+            "title": "Popularity Tier",
+            "type": "string"
+          },
+          "registries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Registries",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "kind",
+          "display_name",
+          "github_org",
+          "github_repo",
+          "popularity_tier",
+          "updated_at"
+        ],
+        "title": "CatalogItemDetail",
+        "type": "object"
+      },
+      "CatalogItemSummary": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "findings_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Findings Count",
+            "type": "integer"
+          },
+          "github_org": {
+            "title": "Github Org",
+            "type": "string"
+          },
+          "github_repo": {
+            "title": "Github Repo",
+            "type": "string"
+          },
+          "github_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Url"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "latest_scan_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Scan At"
+          },
+          "latest_scan_score": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Scan Score"
+          },
+          "latest_scan_tier": {
+            "anyOf": [
+              {
+                "enum": [
+                  "green",
+                  "yellow",
+                  "orange",
+                  "red",
+                  "unscoped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Scan Tier"
+          },
+          "popularity_score": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Popularity Score",
+            "type": "integer"
+          },
+          "popularity_tier": {
+            "title": "Popularity Tier",
+            "type": "string"
+          },
+          "registries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Registries",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "kind",
+          "display_name",
+          "github_org",
+          "github_repo",
+          "popularity_tier",
+          "updated_at"
+        ],
+        "title": "CatalogItemSummary",
+        "type": "object"
+      },
+      "CatalogListEnvelope": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogItemSummary"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "CatalogListEnvelope",
+        "type": "object"
+      },
+      "FindingResponse": {
+        "properties": {
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "line_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line End"
+          },
+          "line_start": {
+            "title": "Line Start",
+            "type": "integer"
+          },
+          "matched_content_sha256": {
+            "title": "Matched Content Sha256",
+            "type": "string"
+          },
+          "penalty": {
+            "title": "Penalty",
+            "type": "integer"
+          },
+          "remediation_link": {
+            "title": "Remediation Link",
+            "type": "string"
+          },
+          "rubric_version": {
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status_at_scan": {
+            "enum": [
+              "shadow",
+              "active"
+            ],
+            "title": "Status At Scan",
+            "type": "string"
+          },
+          "sub_score": {
+            "enum": [
+              "security",
+              "supply_chain",
+              "maintenance",
+              "transparency",
+              "community"
+            ],
+            "title": "Sub Score",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "rule_id",
+          "severity",
+          "sub_score",
+          "penalty",
+          "status_at_scan",
+          "file_path",
+          "line_start",
+          "matched_content_sha256",
+          "remediation_link",
+          "rubric_version"
+        ],
+        "title": "FindingResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -56,6 +522,12 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "total_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -64,9 +536,122 @@
         "title": "ListEnvelope",
         "type": "object"
       },
+      "ScanReportDetail": {
+        "properties": {
+          "aggregate_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Aggregate Score",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "github_url": {
+            "title": "Github Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "ref_sha": {
+            "title": "Ref Sha",
+            "type": "string"
+          },
+          "rubric_version": {
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "scanned_at": {
+            "format": "date-time",
+            "title": "Scanned At",
+            "type": "string"
+          },
+          "score_breakdown": {
+            "additionalProperties": true,
+            "title": "Score Breakdown",
+            "type": "object"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "default": "completed",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "sub_scores": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sub Scores",
+            "type": "object"
+          },
+          "tier": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "github_url",
+          "slug",
+          "display_name",
+          "aggregate_score",
+          "tier",
+          "sub_scores",
+          "score_breakdown",
+          "findings",
+          "scanned_at",
+          "rubric_version",
+          "engine_version",
+          "latency_ms",
+          "source",
+          "ref_sha"
+        ],
+        "title": "ScanReportDetail",
+        "type": "object"
+      },
       "ScanReportSummary": {
         "properties": {
           "aggregate_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
             "title": "Aggregate Score",
             "type": "integer"
           },
@@ -83,6 +668,7 @@
           },
           "findings_count": {
             "default": 0,
+            "minimum": 0.0,
             "title": "Findings Count",
             "type": "integer"
           },
@@ -91,10 +677,12 @@
             "type": "string"
           },
           "id": {
+            "description": "Scan UUID rendered as string.",
             "title": "Id",
             "type": "string"
           },
           "scanned_at": {
+            "format": "date-time",
             "title": "Scanned At",
             "type": "string"
           },
@@ -134,6 +722,66 @@
           "scanned_at"
         ],
         "title": "ScanReportSummary",
+        "type": "object"
+      },
+      "ScanSubmitRequest": {
+        "properties": {
+          "github_url": {
+            "description": "Public github.com repository URL.",
+            "title": "Github Url",
+            "type": "string"
+          },
+          "rescan": {
+            "default": false,
+            "description": "If true, bypass idempotency cache and queue a new scan.",
+            "title": "Rescan",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "github_url"
+        ],
+        "title": "ScanSubmitRequest",
+        "type": "object"
+      },
+      "ScanSubmitResponse": {
+        "properties": {
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "rubric_version",
+          "submitted_at"
+        ],
+        "title": "ScanSubmitResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -206,8 +854,230 @@
         ]
       }
     },
+    "/api/v1/items": {
+      "get": {
+        "description": "Catalog list with the per-row latest-scan join + filters.",
+        "operationId": "list_items_api_v1_items_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "score_min",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Score Min",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "score_max",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Score Max",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scan_tier",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scan Tier"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "most_installed",
+              "enum": [
+                "most_installed",
+                "recent",
+                "highest_score",
+                "lowest_score",
+                "most_starred"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogListEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Items",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/facets": {
+      "get": {
+        "operationId": "get_facets_api_v1_items_facets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogFacets"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Facets",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}": {
+      "get": {
+        "operationId": "get_item_api_v1_items__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItemDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Item",
+        "tags": [
+          "items"
+        ]
+      }
+    },
     "/api/v1/scans": {
       "get": {
+        "description": "Slim summary list \u2014 JOINs scans + catalog_items, projects ScanReportSummary.",
         "operationId": "list_scans_api_v1_scans_get",
         "parameters": [
           {
@@ -217,6 +1087,12 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "submission",
+                    "ingestion",
+                    "rescan_drift",
+                    "rescan_appeal"
+                  ],
                   "type": "string"
                 },
                 {
@@ -228,11 +1104,34 @@
           },
           {
             "in": "query",
+            "name": "tier",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "green",
+                    "yellow",
+                    "orange",
+                    "red",
+                    "unscoped"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tier"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 10,
-              "maximum": 50,
+              "default": 20,
+              "maximum": 100,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -243,6 +1142,22 @@
             "name": "order",
             "required": false,
             "schema": {
+              "default": "created_at_desc",
+              "enum": [
+                "created_at_desc",
+                "created_at_asc",
+                "score_desc",
+                "score_asc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
               "anyOf": [
                 {
                   "type": "string"
@@ -251,7 +1166,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Order"
+              "title": "Cursor"
             }
           }
         ],
@@ -277,9 +1192,133 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List recent scans (Phase A2 placeholder)",
+        "summary": "List recent scans.",
         "tags": [
-          "scans-stub"
+          "scans"
+        ]
+      },
+      "post": {
+        "operationId": "submit_scan_api_v1_scans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanSubmitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit a public GitHub URL for scanning.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/{scan_id}": {
+      "get": {
+        "operationId": "get_scan_api_v1_scans__scan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read the full scan report for a given scan ID.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/{scan_id}/events": {
+      "get": {
+        "description": "Server-Sent Events stream of scan progress.\n\nWire format: each event is `{event_seq, stage, completion_pct, status,\npayload, timestamp}` JSON. Clients pass `Last-Event-ID: <scan_id>-<seq>`\nto resume \u2014 we replay rows from `scan_events` whose `event_seq > seq`,\nthen subscribe to LISTEN for live deltas.",
+        "operationId": "scan_events_api_v1_scans__scan_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "SSE progress stream for a scan.",
+        "tags": [
+          "scans"
         ]
       }
     }

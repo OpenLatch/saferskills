@@ -1,0 +1,67 @@
+---
+const SUB_SCORES = [
+  {
+    label: 'Security',
+    key: 'security',
+    weight: 35,
+    examples: ['SS-MCP-POISON-UNICODE-TAG-01', 'SS-HOOKS-RCE-CURL-PIPE-01'],
+    blurb: 'Prompt-injection, RCE, hook tampering, secret-exfiltration.',
+  },
+  {
+    label: 'Supply chain',
+    key: 'supply_chain',
+    weight: 20,
+    examples: ['SS-MCP-SUPPLY-CHAIN-TYPOSQUAT-01', 'SS-MCP-SUPPLY-CHAIN-HASH-DRIFT-01'],
+    blurb: 'Typosquats, drift, unsigned bundles, owner transfers.',
+  },
+  {
+    label: 'Maintenance',
+    key: 'maintenance',
+    weight: 15,
+    examples: ['SS-SKILL-MAINTENANCE-COMMIT-RECENCY-01', 'SS-SKILL-MAINTENANCE-CI-BROKEN-01'],
+    blurb: 'Recent commits, healthy CI, responsive issues.',
+  },
+  {
+    label: 'Transparency',
+    key: 'transparency',
+    weight: 15,
+    examples: ['SS-RULES-TRANSPARENCY-MANIFEST-01'],
+    blurb: 'Manifest fields, capability declarations, sources of truth.',
+  },
+  {
+    label: 'Community',
+    key: 'community',
+    weight: 15,
+    examples: ['SS-SKILL-COMMUNITY-STARS-01', 'SS-SKILL-COMMUNITY-CONTRIBUTORS-01'],
+    blurb: 'Stars, contributors, cross-registry presence.',
+  },
+] as const
+---
+
+<div class="scan-methodology-preview">
+  <span class="eyebrow eyebrow-rule">METHODOLOGY · 02</span>
+  <h2 class="scan-methodology-preview-title">What we check & how it's weighted</h2>
+
+  <ul class="scan-methodology-preview-list" role="list">
+    {SUB_SCORES.map(({ label, key, weight, examples, blurb }) => (
+      <li class="scan-methodology-preview-row" role="listitem">
+        <div class="scan-methodology-preview-row-meta">
+          <h3 class="scan-methodology-preview-row-label">{label}</h3>
+          <p class="scan-methodology-preview-row-blurb">{blurb}</p>
+          <ul class="scan-methodology-preview-row-rules">
+            {examples.map((ruleId) => (
+              <li><a href={`/methodology#${ruleId}`}><code>{ruleId}</code></a></li>
+            ))}
+          </ul>
+        </div>
+        <div class="scan-methodology-preview-row-weight">
+          <span class="scan-methodology-preview-row-weight-num">{weight}</span>
+          <span class="scan-methodology-preview-row-weight-unit">%</span>
+        </div>
+        <div class="scan-methodology-preview-row-bar" data-key={key}>
+          <span class="scan-methodology-preview-row-fill" style={`width: ${weight * 2}%`} aria-hidden="true"></span>
+        </div>
+      </li>
+    ))}
+  </ul>
+</div>

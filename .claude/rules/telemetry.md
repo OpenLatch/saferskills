@@ -30,7 +30,9 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 | Event prefix | When it fires |
 |---|---|
 | `homepage_*` | Homepage CTA + hero clicks |
-| `catalog_*` | Catalog browse + filter + search |
+| `catalog_*` | Catalog browse + filter + search — landed Phase B |
+| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy, embed badge copy) — landed Phase B |
+| `item_detail_*` | Item-detail page interactions (chart hover/click) — lands Phase C |
 | `artifact_*` | Artifact detail page interactions |
 | `rule_*` | Rubric / methodology page interactions |
 | `appeal_*` | Vendor-appeal form interactions (W5+ when the web form ships) |

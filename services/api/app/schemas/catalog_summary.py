@@ -1,0 +1,53 @@
+"""Wire types for GET /api/v1/items + GET /api/v1/items/<slug> + GET /facets."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import Field
+
+from app.schemas.orm_base import OrmBaseModel
+from app.schemas.scan_report_summary import ScanTier
+
+CatalogKind = Literal["skill", "mcp_server", "hook", "plugin", "rules"]
+
+
+class CatalogItemSummary(OrmBaseModel):
+    id: str
+    slug: str
+    kind: CatalogKind
+    display_name: str
+    description: str | None = None
+    github_url: str | None = None
+    github_org: str
+    github_repo: str
+    popularity_tier: str
+    popularity_score: int = Field(default=0, ge=0)
+    latest_scan_score: int | None = Field(default=None, ge=0, le=100)
+    latest_scan_tier: ScanTier | None = None
+    latest_scan_at: datetime | None = None
+    findings_count: int = Field(default=0, ge=0)
+    registries: list[str] = Field(default_factory=list)
+    updated_at: datetime
+
+
+class CatalogItemDetail(CatalogItemSummary):
+    sources: list[dict[str, Any]] = Field(default_factory=list)  # type: ignore[arg-type]
+    item_metadata: dict[str, Any] | None = None
+
+
+class CatalogListEnvelope(OrmBaseModel):
+    data: list[CatalogItemSummary]
+    next_cursor: str | None = Field(default=None)
+    total_count: int = Field(default=0, ge=0)
+
+
+class CatalogFacets(OrmBaseModel):
+    """Per-filter-option counts for the catalog filter sidebar."""
+
+    kind: dict[str, int] = Field(default_factory=dict)
+    popularity_tier: dict[str, int] = Field(default_factory=dict)
+    tier: dict[str, int] = Field(default_factory=dict)
+    registry: dict[str, int] = Field(default_factory=dict)
+    total: int = Field(default=0, ge=0)
