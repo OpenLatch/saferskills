@@ -39,17 +39,13 @@ open http://localhost:5173                 # → placeholder homepage
 
 ## Commits
 
-**Conventional Commits + DCO required.**
+**Conventional Commits required.**
 
 ```
 <type>(<optional scope>): <short imperative summary>
 
 <optional longer body>
-
-Signed-off-by: Your Name <your@email>
 ```
-
-Use `git commit -s` to auto-add the DCO trailer. CI's `dco-check` job blocks PRs that miss it on any commit.
 
 Allowed `<type>`: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `build`, `ci`, `perf`, `style`. PR titles enforce the same set (`pr-title-lint.yml`).
 

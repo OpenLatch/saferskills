@@ -2,9 +2,9 @@
 
 All checks must pass before merge. Every third-party action is **SHA-pinned** (never floating tags); the first step of every workflow is `step-security/harden-runner`; every workflow declares `permissions: contents: read` at the top and elevates per-job only when needed.
 
-## Pipeline lanes (W1: 14 + `all-checks` aggregation)
+## Pipeline lanes (W1: 13 + `all-checks` aggregation)
 
-`pr-checks.yml` runs 14 lanes plus the aggregator. Tools are SHA-pinned in `.github/actions/` reusable composites.
+`pr-checks.yml` runs 13 lanes plus the aggregator. Tools are SHA-pinned in `.github/actions/` reusable composites.
 
 | # | Lane | What it does |
 |---|---|---|
@@ -21,8 +21,7 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 | 11 | `trivy-scan` | Trivy vulnerability scanner (CRITICAL/HIGH) with SARIF upload to GitHub Security tab |
 | 12 | `dep-scan` | `pip-audit` (`uv pip compile`) + `pnpm audit --audit-level=high` |
 | 13 | `pr-title-lint` | Conventional Commits format check |
-| 14 | `dco-check` | Every commit signed-off (`Signed-off-by:` trailer) per DCO |
-| – | `all-checks` | Aggregation job — gates merge; depends on all 14 |
+| – | `all-checks` | Aggregation job — gates merge; depends on all 13 |
 
 Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
 
@@ -87,8 +86,6 @@ Installed via `pre-commit install` in repo root. Source of truth: `.pre-commit-c
 
 **Commit message (commit-msg stage)**
 - `conventional-pre-commit` — enforce Conventional Commits format (allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert)
-
-**Not enforced at pre-commit:** DCO `Signed-off-by:` is verified in CI by the `dco-check` lane, not locally — use `git commit -s` to add the trailer.
 
 ## When to update this rule
 

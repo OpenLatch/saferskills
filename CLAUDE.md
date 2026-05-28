@@ -108,7 +108,7 @@ For new detection rules: open a `.github/ISSUE_TEMPLATE/03-rule-proposal.yml` RF
 
 ## Conventions
 
-- **Commits**: Conventional Commits — `type(scope): description` + DCO `Signed-off-by:` (use `git commit -s`).
+- **Commits**: Conventional Commits — `type(scope): description`.
 - **Package managers**: `pnpm` (frontend/TS), `uv` (backend/Python) — never mix.
 - **Naming**: API JSON snake_case, response models inherit `OrmBaseModel`, paginated responses use `data` (not `items`). Rule IDs `SS-<CATEGORY>-<NUMBER>`. Full rules: `.claude/rules/naming-conventions.md`.
 
