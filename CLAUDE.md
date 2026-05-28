@@ -121,6 +121,7 @@ SaferSkills and OpenLatch share stewardship and (deliberately) share teal — di
 - Distinction-by-shape: chamfered hex-cap button vocabulary, page-head + ridge dividers, DM Sans / Space Mono / Anybody / Nanum Pen Script type stack, monochrome Onest 600 wordmark — none of which OpenLatch uses.
 - SaferSkills voice: methodology-over-opinion, anti-recommendation, never cross-promotes.
 - Footer attribution ("An OpenLatch project") is the only OpenLatch mention allowed on SaferSkills surfaces.
+- Outbound system email ships from `notifications.openlatch.ai` — a single Resend verified sending domain shared with OpenLatch (cost decision 2026-05-28). Display name stays `SaferSkills`; reply-to is always a `@openlatch.ai` mailbox. Disclosed on `/about`.
 - Enforced in PR review on every README / homepage / catalog-copy change. See `.claude/rules/design-system.md`.
 
 ---

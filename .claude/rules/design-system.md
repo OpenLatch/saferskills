@@ -126,6 +126,7 @@ SaferSkills is an **independent public service**. Catalog content — scan-resul
 - About-page disclosure: the only SaferSkills-domain page that names OpenLatch as steward.
 - Catalog item pages, methodology page, rule pages, scan-report pages MUST NOT cross-link to OpenLatch products.
 - Email risk-alerts (I-06) get a single closing line about OpenLatch's runtime enforcement — the lone exception.
+- **Outbound email From: `notifications.openlatch.ai`** — single Resend verified sending domain shared with OpenLatch (cost decision 2026-05-28). Display name is `SaferSkills`; reply-to is `@openlatch.ai`. Disclosed on `/about` and `/privacy`. This is the third disclosed shared-stewardship surface (alongside footer + About-page disclosure).
 
 Enforced in code review on every PR that adds catalog content. Violations are a brand-policy regression, not a style suggestion.
 

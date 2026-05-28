@@ -30,7 +30,7 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 | **Container** | Docker + Compose | Local-dev orchestrator; Fly.io for prod (Track D, W2-W3). |
 | **CI** | GitHub Actions | All actions SHA-pinned; `harden-runner` first step. |
 | **Observability** | Sentry (errors) + PostHog (product analytics) + OpenTelemetry (traces/metrics) | Sentry + PostHog projects are SaferSkills-specific — separate from any OpenLatch projects per `telemetry.md`. |
-| **Email** | Resend | Outbound only at W1. |
+| **Email** | Resend | Outbound only at W1. Single verified sending domain `notifications.openlatch.ai` shared with OpenLatch (cost decision 2026-05-28); `From: SaferSkills <…@notifications.openlatch.ai>`, reply-to on `@openlatch.ai` mailboxes. Disclosed on `/about`. |
 
 ## Mandates
 
