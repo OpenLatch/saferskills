@@ -45,16 +45,31 @@ class ListEnvelope(OrmBaseModel):
     next_cursor: str | None = Field(default=None)
 
 
-_CATALOG_PATH = (
-    Path(__file__).resolve().parents[4]
-    / "tools"
-    / "data-seed"
-    / "saferskills_data_seed"
-    / "domains"
-    / "catalog"
-    / "files"
-    / "catalog.yaml"
-)
+def _catalog_path() -> Path | None:
+    """Locate the data-seed catalog.yaml fixture.
+
+    In source-checkout layout the file sits 4 parents above this module
+    (services/api/app/routers/scans_stub.py -> repo root -> tools/...). In the
+    production Docker image the source tree is flattened to /app, so the
+    4-parent walk is invalid. The path is therefore resolved lazily and
+    defensively: if either the walk overshoots or the file doesn't exist,
+    we return None and the stub yields an empty data envelope.
+    """
+    try:
+        repo_root = Path(__file__).resolve().parents[4]
+    except IndexError:
+        return None
+    candidate = (
+        repo_root
+        / "tools"
+        / "data-seed"
+        / "saferskills_data_seed"
+        / "domains"
+        / "catalog"
+        / "files"
+        / "catalog.yaml"
+    )
+    return candidate if candidate.exists() else None
 
 
 def _tier_for(score: int) -> ScanTier:
@@ -75,10 +90,11 @@ CatalogItem = dict[str, Any]
 
 
 def _load_catalog() -> list[CatalogItem]:
-    if not _CATALOG_PATH.exists():
+    catalog_path = _catalog_path()
+    if catalog_path is None:
         return []
     try:
-        with _CATALOG_PATH.open("r", encoding="utf-8") as fh:
+        with catalog_path.open("r", encoding="utf-8") as fh:
             doc = cast(dict[str, Any], yaml.safe_load(fh) or {})
     except OSError, yaml.YAMLError:
         return []
