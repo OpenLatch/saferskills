@@ -11,6 +11,11 @@ dependencies = [
     "pydantic >= 2.10",
 ]
 
+[dependency-groups]
+dev = [
+    "ruff >= 0.7.0",
+]
+
 [project.scripts]
 saferskills-data-seed = "saferskills_data_seed.cli:app"
 
