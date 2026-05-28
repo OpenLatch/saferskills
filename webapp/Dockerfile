@@ -27,10 +27,18 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=5173
 
-COPY --from=builder /repo/webapp/dist ./dist
+# Install production dependencies into a flat node_modules tree the runtime
+# can resolve from /app. Going through `npm install --omit=dev` instead of
+# carrying pnpm's workspace-symlinked node_modules across stages avoids the
+# resolution gap that crashed staging on 2026-05-28 (ERR_MODULE_NOT_FOUND
+# for `zod`): pnpm hoists into webapp/node_modules and node_modules/.pnpm,
+# and only the latter was carried over, leaving the bundle's runtime imports
+# unresolvable.
+RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY --from=builder /repo/webapp/package.json ./package.json
-COPY --from=builder /repo/node_modules ./node_modules
-COPY --from=builder /repo/ui ./ui
+RUN npm install --omit=dev --omit=peer --no-audit --no-fund --prefer-offline
+
+COPY --from=builder /repo/webapp/dist ./dist
 
 EXPOSE 5173
 
