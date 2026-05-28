@@ -20,7 +20,9 @@ const cell = (logoPx: number, textPx: number, gap: number) => (
   </span>
 )
 
-export const Hero: Story = () => cell(80, 52, 16)
-export const Large: Story = () => cell(56, 36, 14)
-export const Medium: Story = () => cell(40, 24, 12)
-export const Small: Story = () => cell(24, 16, 8)
+// Logo:text ratio ≈ 0.8 — logo height tracks the wordmark's cap-height plus
+// a small optical buffer. Matches the production Wordmark.astro sizing table.
+export const Hero: Story = () => cell(42, 52, 14)
+export const Large: Story = () => cell(30, 36, 12)
+export const Medium: Story = () => cell(20, 24, 10)
+export const Small: Story = () => cell(14, 16, 8)

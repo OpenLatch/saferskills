@@ -57,7 +57,7 @@ export default function EmailCaptureForm() {
 
   if (status === 'ok') {
     return (
-      <p className="mt-6 text-base" style={{ color: 'rgb(var(--score-green))' }}>
+      <p className="mt-6 text-base" style={{ color: 'var(--score-green)' }}>
         Thanks — we'll email you at launch. No noise in between.
       </p>
     );
@@ -78,12 +78,12 @@ export default function EmailCaptureForm() {
         autoComplete="email"
         inputMode="email"
         style={{
-          border: 'var(--border-width) solid rgb(var(--border))',
-          background: 'rgb(var(--background))',
-          color: 'rgb(var(--foreground))',
+          border: '1px solid var(--border-1)',
+          background: 'var(--bg-surface)',
+          color: 'var(--fg-1)',
           padding: '12px 14px',
           fontFamily: 'inherit',
-          fontSize: 'var(--type-base)',
+          fontSize: 'var(--fs-16)',
           borderRadius: 0,
           flex: 1,
           outline: 'none',
@@ -94,12 +94,12 @@ export default function EmailCaptureForm() {
         type="submit"
         disabled={status === 'submitting'}
         style={{
-          background: 'rgb(var(--primary))',
-          color: 'rgb(var(--primary-fg))',
+          background: 'var(--brand-primary)',
+          color: 'var(--brand-cta-fg)',
           padding: '12px 24px',
           fontFamily: 'inherit',
           fontWeight: 600,
-          fontSize: 'var(--type-base)',
+          fontSize: 'var(--fs-16)',
           border: 0,
           borderRadius: 0,
           cursor: status === 'submitting' ? 'wait' : 'pointer',
@@ -109,12 +109,12 @@ export default function EmailCaptureForm() {
         {status === 'submitting' ? 'Subscribing…' : 'Notify me'}
       </button>
       {status === 'invalid' && (
-        <p className="text-sm w-full sm:w-auto" style={{ color: 'rgb(var(--score-red))' }}>
+        <p className="text-sm w-full sm:w-auto" style={{ color: 'var(--score-red)' }}>
           Enter a real email.
         </p>
       )}
       {status === 'error' && (
-        <p className="text-sm w-full sm:w-auto" style={{ color: 'rgb(var(--score-red))' }}>
+        <p className="text-sm w-full sm:w-auto" style={{ color: 'var(--score-red)' }}>
           Something went wrong. Try again later or email us at hello@openlatch.ai.
         </p>
       )}

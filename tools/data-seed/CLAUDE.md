@@ -34,11 +34,19 @@ A1 ships before Phase B (scan backend) and Phase C (vendor right-of-reply). Endp
 
 ## CI
 
-`.github/workflows/data-seed.yml` runs on every PR touching `tools/data-seed/`:
+No dedicated CI lane — this CLI is dev tooling, not production code, so it
+runs locally on demand and isn't gated. Linting + smoke happen as part of the
+normal local workflow:
 
-1. `uv sync`
-2. `uv run ruff check .`
-3. `uv run ruff format --check .`
-4. `uv run saferskills-data-seed --help` (smoke)
+```bash
+cd tools/data-seed
+uv sync
+uv run ruff check .
+uv run ruff format --check .
+uv run saferskills-data-seed --help
+uv run saferskills-data-seed catalog list
+```
 
-Coverage gate isn't enforced — the CLI is dev tooling, not production code.
+If a regression slips through, the next time the founder reaches for the CLI
+they'll see it. That tradeoff is intentional — paying for a CI lane on a
+tool that runs maybe once a week wasn't worth the overhead.
