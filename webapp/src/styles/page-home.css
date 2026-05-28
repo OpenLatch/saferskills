@@ -334,8 +334,8 @@ body.va .nav.scrolled .brand {
   font-size: 20px;
 }
 body.va .nav.scrolled .brand .mk {
-  width: 16px;
-  height: 16px;
+  width: auto;
+  height: 22px;
 }
 
 /* on small screens, let the pill breathe */
@@ -392,17 +392,6 @@ html.dark body.va .nav-links a.active:hover {
   flex-direction: column;
   min-height: calc(100svh - 72px);
 }
-.hero-band::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* smaller crosshair glyphs (6px arms instead of 10px) — keeps the
-       graph-paper texture but lets it recede behind the headline. */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
-  background-size: 40px 40px;
-  opacity: 0.9;
-  pointer-events: none;
-}
 .hero-band > .container {
   position: relative;
   z-index: 1;
@@ -411,40 +400,34 @@ html.dark body.va .nav-links a.active:hover {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: 32px;
-  padding-bottom: 48px;
-  gap: 26px;
+  padding-top: 16px;
+  padding-bottom: 20px;
+  gap: 14px;
   justify-content: center;
 }
 
-/* meta row above headline */
+/* Empty spacer where the eyebrow row used to sit — preserves the
+   headline's vertical position. 28px matches the removed Badge height. */
 .hero-top {
-  display: inline-flex;
-  align-items: center;
-  gap: 18px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-.hero-top .hero-tag {
-  color: var(--fg-3);
-  letter-spacing: 0.18em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  height: 28px;
 }
 
 /* headline + animated rotator */
 .hero-band h1 {
-  font-size: clamp(40px, 4.6vw, 72px);
+  font-size: clamp(36px, 4.1vw, 64px);
   font-weight: 800;
-  line-height: 1;
+  line-height: 0.98;
   letter-spacing: -0.045em;
   margin: 0;
   max-width: 1100px;
   text-wrap: balance;
+}
+/* Force the rotating noun + trailing punctuation onto its own line so the
+   headline always reserves the same number of lines regardless of which
+   noun is currently visible — eliminates the layout flicker between
+   short ("Tool Poisoning") and long ("Supply Chain Attacks") nouns. */
+.rotator-line {
+  display: block;
 }
 .rotator {
   display: inline-block;
@@ -459,6 +442,24 @@ html.dark body.va .nav-links a.active:hover {
     transparent 94%
   );
   padding: 0 10px;
+  /* The JS measures pure text width; without content-box the 10px side
+     padding would eat into that width (Tailwind's default border-box) and
+     clip the trailing letter of longer nouns. */
+  box-sizing: content-box;
+  /* Width is set inline from the JS-measured noun widths. Transitioning it
+     makes the citron underline grow/shrink smoothly when the noun swaps
+     instead of snapping to the new word's intrinsic width. */
+  transition: width 320ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+.rotator-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+  font: inherit;
+  letter-spacing: inherit;
 }
 .rotator-word {
   display: inline-block;
@@ -497,7 +498,10 @@ html.dark body.va .nav-links a.active:hover {
   grid-template-columns: 1fr 1fr;
   gap: 28px;
   text-align: left;
-  margin-top: 6px;
+  /* Push the cards downward so the centered title + lede sit in their own
+     vertical band; widens the breathing room between the headline pair and
+     the Find/Audit cards. */
+  margin-top: 88px;
 }
 .hero-card {
   background: var(--color-paper);
@@ -827,10 +831,10 @@ html.dark body.va .nav-links a.active:hover {
 
 /* body */
 .p1-card .p1-body {
-  padding: 26px 28px 24px;
+  padding: 18px 28px 16px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 .p1-card .p1-title {
   margin: 0;
@@ -923,6 +927,13 @@ html.dark body.va .nav-links a.active:hover {
 }
 .p1-input.has-value .caret {
   display: none;
+}
+/* While the custom block caret is the one in play (empty field, no typewriter
+   text), suppress the native text cursor so users don't see two carets
+   blinking out of phase. Once the user types anything, .has-value flips on,
+   the custom caret hides, and the native cursor takes over. */
+.p1-input:not(.has-value) input {
+  caret-color: transparent;
 }
 .p1-input input {
   flex: 1;
@@ -1153,8 +1164,8 @@ html.dark body.va .nav-links a.active:hover {
   align-items: baseline;
   justify-content: space-between;
   border-top: 1px solid var(--color-ink);
-  padding: 14px 28px;
-  margin-top: 4px;
+  padding: 10px 28px;
+  margin-top: 0;
 }
 .p1-card .p1-cta {
   font-family: var(--font-sans);
@@ -1327,9 +1338,6 @@ html.dark body.va .p1-progress .row b {
   .hero-band h1 {
     font-size: clamp(38px, 7.4vw, 56px);
   }
-  .hero-top .hero-tag {
-    display: none;
-  }
 }
 
 /* ----- SUPPORTED LOGO CLOUD (lives at the bottom of the hero) ----- */
@@ -1342,18 +1350,30 @@ html.dark body.va .p1-progress .row b {
   background-image: var(--bg-diag-slate);
   background-blend-mode: multiply;
 }
+/* In dark mode --color-ink flips to slate-50, which renders as a near-white
+   hard rule across the bottom of the hero — too loud. Use the softer line
+   token so the divider sits with the rest of the dark-mode chrome. */
+html.dark .hero-band .supported-band {
+  border-top-color: var(--color-line);
+}
 .hero-band .supported-band::before {
-  content: "SUPPORTED ACROSS";
+  content: "SUPPORTED AI AGENTS";
   position: absolute;
-  top: 14px;
+  top: 10px;
   left: 32px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.3em;
   color: var(--fg-3);
+  z-index: 1;
 }
 .hero-band .supported-band .marquee {
-  padding: 36px 0 22px;
+  /* Top padding (32px) makes room for the absolute label (y=10→22) plus
+     a 10px gap before the logos start at y=32. Bottom padding mirrors
+     just that 10–14px label-to-logo gap so the strip feels visually
+     balanced — equal numeric padding would leave the bottom looking
+     empty since the top half is anchored by the label. */
+  padding: 32px 0 14px;
 }
 
 /* ----- TOPOGRAPHIC RIDGE DIVIDER ----- */
@@ -3185,4 +3205,271 @@ html.dark body.va .ridge-pixel .ridge-label {
   .dt-tile {
     flex-basis: 208px;
   }
+}
+
+/* ============================================================
+   HERO COMMAND-PALETTE DROPDOWN
+   ------------------------------------------------------------
+   .p1-search wraps the existing .p1-input so the dropdown can
+   position: absolute against the input's own width. Keyboard
+   chip (⌘K / ⌘J) sits inline at the right edge of the input,
+   hidden under 980px to keep the mobile bar uncluttered.
+   ============================================================ */
+.p1-search {
+  position: relative;
+}
+
+/* keyboard chip slot — sits between the input field and the Enter button */
+.p1-input .p1-kbd-host {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px 0 4px;
+  flex-shrink: 0;
+}
+@media (max-width: 980px) {
+  .p1-input .p1-kbd-host {
+    display: none;
+  }
+}
+
+/* the dropdown surface — paper bg + hairline ink border, sits flush
+   under the input. Anchored to .p1-search so its width tracks the
+   input even when the hero grid resizes. */
+.p1-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  max-height: 440px;
+  overflow-y: auto;
+  font-family: var(--font-sans);
+  opacity: 0;
+  animation: p1-dropdown-fade 140ms var(--ease-std) forwards;
+}
+@keyframes p1-dropdown-fade {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p1-dropdown {
+    animation-duration: 1ms;
+  }
+}
+html.dark body.va .p1-dropdown {
+  background: var(--color-paper-deep);
+  border-color: var(--color-line);
+}
+
+/* cmdk's [cmdk-list] wraps the rows; reset it. */
+.p1-dropdown [cmdk-list] {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+/* group headings */
+.p1-dropdown [cmdk-group-heading] {
+  padding: 10px 16px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.p1-dropdown-group-label {
+  display: block;
+  padding: 10px 16px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* a single result row */
+.p1-dropdown-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+.p1-dropdown-item[data-selected="true"] {
+  background: var(--color-paper-deep);
+  border-left-color: var(--brand-primary);
+}
+html.dark body.va .p1-dropdown-item[data-selected="true"] {
+  background: rgba(255, 255, 255, 0.05);
+}
+.p1-dropdown-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+}
+.p1-dropdown-editor {
+  font-size: 11px;
+  color: var(--fg-3);
+  text-transform: lowercase;
+}
+
+/* severity-tinted score pill */
+.p1-dropdown-meta {
+  display: inline-flex;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.p1-dropdown-meta .sev-label {
+  padding: 4px 8px;
+  text-transform: lowercase;
+  font-weight: 600;
+}
+.p1-dropdown-meta .sev-score {
+  padding: 4px 8px;
+  font-weight: 700;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+/* severity → pill color mapping — re-uses score-band tokens to keep
+   the palette in lockstep with the catalog cards. */
+.p1-dropdown-meta.sev-critical .sev-label {
+  background: var(--score-red);
+  color: #fff;
+}
+.p1-dropdown-meta.sev-high .sev-label {
+  background: var(--score-orange);
+  color: #fff;
+}
+.p1-dropdown-meta.sev-medium .sev-label {
+  background: var(--score-yellow);
+  color: var(--color-ink);
+}
+.p1-dropdown-meta.sev-low .sev-label {
+  background: var(--score-green);
+  color: #fff;
+}
+.p1-dropdown-meta.sev-info .sev-label {
+  background: var(--ol-slate-400);
+  color: var(--color-ink);
+}
+
+/* zero-state + no-results suggestion chips */
+.p1-dropdown-zero,
+.p1-dropdown-empty {
+  padding: 6px 16px 14px;
+}
+.p1-dropdown-empty p {
+  margin: 8px 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+  text-align: center;
+}
+.p1-dropdown-empty .q {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+.p1-dropdown-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.p1-dropdown-chip {
+  all: unset;
+  cursor: pointer;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+.p1-dropdown-chip:hover {
+  background: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
+}
+html.dark body.va .p1-dropdown-chip {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* loading skeleton rows */
+.p1-dropdown-loading {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.p1-dropdown-skeleton {
+  height: 28px;
+  background: linear-gradient(
+    90deg,
+    var(--color-paper-deep) 0%,
+    var(--color-line-soft) 50%,
+    var(--color-paper-deep) 100%
+  );
+  background-size: 200% 100%;
+  animation: p1-dropdown-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-xs);
+}
+@keyframes p1-dropdown-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p1-dropdown-skeleton {
+    animation: none;
+  }
+}
+
+/* error row */
+.p1-dropdown-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--status-danger);
+}
+.p1-dropdown-retry {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-xs);
+}
+.p1-dropdown-retry:hover {
+  background: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
 }
