@@ -3208,18 +3208,11 @@ html.dark body.va .ridge-pixel .ridge-label {
 }
 
 /* ============================================================
-   HERO COMMAND-PALETTE DROPDOWN
-   ------------------------------------------------------------
-   .p1-search wraps the existing .p1-input so the dropdown can
-   position: absolute against the input's own width. Keyboard
-   chip (⌘K / ⌘J) sits inline at the right edge of the input,
-   hidden under 980px to keep the mobile bar uncluttered.
+   HERO KEYBOARD-CHIP SLOT — page-specific positioning of the
+   shared Kbd atom inside the .p1-input bar. The dropdown surface
+   itself + its anchor live in the design system — see
+   ui/styles/components.css :: SEARCH-DROPDOWN.
    ============================================================ */
-.p1-search {
-  position: relative;
-}
-
-/* keyboard chip slot — sits between the input field and the Enter button */
 .p1-input .p1-kbd-host {
   display: inline-flex;
   align-items: center;
