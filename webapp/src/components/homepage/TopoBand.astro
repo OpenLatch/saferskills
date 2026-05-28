@@ -1,0 +1,58 @@
+---
+/**
+ * Topographic ridge divider — Phase A2.
+ *
+ * Sits between the hero and the install band. Multi-layer SVG ridge: a back
+ * teal-tinted contour, a middle warm-orange contour, and a front ink contour
+ * (boldest); decorated with floating `+` plus markers in alternating
+ * ink + orange. Styling owned by `page-home.css::.topo-band`.
+ */
+interface Props {
+  label?: string
+}
+const { label = '— HORIZON —' } = Astro.props
+---
+<div class="topo-band" aria-hidden="true">
+  <span class="topo-label">{label}</span>
+  <svg viewBox="0 0 1280 96" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    {/* back ridge, teal-tinted */}
+    <path
+      d="M0,78 L70,62 L140,70 L220,50 L300,64 L380,42 L460,58 L540,40 L620,60 L700,38 L780,60 L860,46 L940,66 L1020,50 L1100,58 L1180,40 L1280,62"
+      fill="none"
+      stroke="#0D9488"
+      stroke-width="1"
+      opacity="0.55"
+    />
+    {/* middle ridge, orange */}
+    <path
+      d="M0,86 L60,76 L130,80 L210,66 L290,76 L370,58 L450,72 L530,60 L610,76 L690,54 L770,72 L850,62 L930,76 L1010,60 L1090,74 L1170,66 L1250,62 L1280,72"
+      fill="none"
+      stroke="#F97316"
+      stroke-width="1.1"
+      opacity="0.55"
+    />
+    {/* front ridge, ink (boldest) */}
+    <path
+      d="M0,92 L50,84 L120,86 L190,76 L260,82 L340,70 L420,80 L500,74 L580,82 L660,66 L740,80 L820,72 L900,82 L980,72 L1060,82 L1140,76 L1220,72 L1280,80"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.4"
+      opacity="0.90"
+    />
+    {/* floating plus markers (sky birds) — mix of ink + orange */}
+    <g stroke-width="0.9" stroke-linecap="square">
+      <g stroke="currentColor" opacity="0.55">
+        <line x1="180" y1="20" x2="180" y2="30" />
+        <line x1="175" y1="25" x2="185" y2="25" />
+        <line x1="760" y1="26" x2="760" y2="34" />
+        <line x1="756" y1="30" x2="764" y2="30" />
+      </g>
+      <g stroke="#F97316" opacity="0.85">
+        <line x1="440" y1="14" x2="440" y2="22" />
+        <line x1="436" y1="18" x2="444" y2="18" />
+        <line x1="1050" y1="16" x2="1050" y2="24" />
+        <line x1="1046" y1="20" x2="1054" y2="20" />
+      </g>
+    </g>
+  </svg>
+</div>

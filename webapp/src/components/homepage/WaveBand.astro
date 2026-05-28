@@ -1,0 +1,33 @@
+---
+/**
+ * Wavy contour strip — Phase A2.
+ *
+ * Sits between the detection band and the CTA band; dark-slate background.
+ * Layered SVG: two paper waves + a teal accent + an orange accent (boldest,
+ * front), with `+` plus markers scattered above. Styling owned by
+ * `page-home.css::.wave-band`.
+ */
+---
+<div class="wave-band" aria-hidden="true">
+  <svg viewBox="0 0 1280 96" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <g fill="none" stroke-width="1">
+      {/* paper waves (kept, lighter opacity) */}
+      <path d="M0,18 C160,4 320,32 480,18 C640,4 800,32 960,18 C1120,4 1240,28 1280,18" stroke="#F8FAFC" stroke-opacity="0.30" />
+      <path d="M0,32 C160,18 320,46 480,32 C640,18 800,46 960,32 C1120,18 1240,42 1280,32" stroke="#F8FAFC" stroke-opacity="0.45" />
+      {/* teal accent */}
+      <path d="M0,46 C160,32 320,60 480,46 C640,32 800,60 960,46 C1120,32 1240,56 1280,46" stroke="#0D9488" stroke-opacity="0.80" stroke-width="1.4" />
+      <path d="M0,60 C160,46 320,74 480,60 C640,46 800,74 960,60 C1120,46 1240,70 1280,60" stroke="#F8FAFC" stroke-opacity="0.55" />
+      {/* orange accent (boldest, front) */}
+      <path d="M0,74 C160,60 320,88 480,74 C640,60 800,88 960,74 C1120,60 1240,84 1280,74" stroke="#F97316" stroke-opacity="0.85" stroke-width="1.6" />
+    </g>
+    <g stroke-width="0.9" stroke-linecap="square">
+      <g stroke="#F8FAFC" stroke-opacity="0.55">
+        <line x1="220" y1="10" x2="220" y2="18" /><line x1="216" y1="14" x2="224" y2="14" />
+        <line x1="640" y1="6" x2="640" y2="14" /><line x1="636" y1="10" x2="644" y2="10" />
+      </g>
+      <g stroke="#F97316" stroke-opacity="0.90">
+        <line x1="1020" y1="12" x2="1020" y2="20" /><line x1="1016" y1="16" x2="1024" y2="16" />
+      </g>
+    </g>
+  </svg>
+</div>

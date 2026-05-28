@@ -4,37 +4,59 @@ import { axe } from 'vitest-axe'
 import ActionCard from '../../../components/molecules/ActionCard'
 
 describe('ActionCard', () => {
-  it('renders index + kicker + title + lede + children', () => {
-    render(
+  it('renders sequence + kicker + title + lede + children inside the p1-card head/body', () => {
+    const { container } = render(
       <ActionCard
         index="01"
-        kicker="FIND"
-        liveLabel="INDEXING"
+        kicker="Find"
+        liveLabel="Indexing"
         title="Search the catalog."
         lede="12,847 indexed."
+        variant="find"
       >
         <input aria-label="Catalog search" />
       </ActionCard>,
     )
-    expect(screen.getByText('01')).toBeInTheDocument()
-    expect(screen.getByText('FIND')).toBeInTheDocument()
-    expect(screen.getByText('INDEXING')).toBeInTheDocument()
+    expect(container.querySelector('.p1-card.find')).not.toBeNull()
+    expect(container.querySelector('.p1-head .seq')?.textContent).toBe('01')
+    expect(screen.getByText('Find')).toBeInTheDocument()
+    expect(screen.getByText('Indexing')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Search the catalog.')
     expect(screen.getByLabelText('Catalog search')).toBeInTheDocument()
   })
 
-  it('renders without live label', () => {
-    render(
-      <ActionCard index="02" kicker="AUDIT" title="Scan." lede="Free.">
+  it('omits the .pulse strip when no liveLabel is provided', () => {
+    const { container } = render(
+      <ActionCard index="02" kicker="Audit" title="Scan." lede="Free." variant="audit">
         <button type="button">Go</button>
       </ActionCard>,
     )
-    expect(screen.queryByText('INDEXING')).not.toBeInTheDocument()
+    expect(container.querySelector('.p1-head .pulse')).toBeNull()
+  })
+
+  it('renders the foot with a CTA link and meta strip when foot is provided', () => {
+    render(
+      <ActionCard
+        index="01"
+        kicker="Find"
+        title="Search."
+        lede="lede."
+        foot={{
+          cta: { label: 'Browse catalog →', href: '/catalog' },
+          meta: <><b>12,847</b> indexed</>,
+        }}
+      >
+        <input aria-label="X" />
+      </ActionCard>,
+    )
+    const link = screen.getByRole('link', { name: /Browse catalog/ })
+    expect(link).toHaveAttribute('href', '/catalog')
+    expect(screen.getByText('12,847')).toBeInTheDocument()
   })
 
   it('is accessible (vitest-axe)', async () => {
     const { container } = render(
-      <ActionCard index="01" kicker="FIND" title="Search the catalog." lede="lede.">
+      <ActionCard index="01" kicker="Find" title="Search the catalog." lede="lede.">
         <input aria-label="X" />
       </ActionCard>,
     )

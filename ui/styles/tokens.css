@@ -204,6 +204,15 @@
   --container-pad-mobile: 24px;
 
   /* ============================================================
+     HEX-CAP BUTTON GEOMETRY — shared by .btn / .gh-cta / .gh-star
+     ============================================================ */
+  --btn-h:    44px;   /* Default primary/paper/dark button height */
+  --btn-cut:  22px;   /* Mask-cap width (half the button height for symmetric chamfer) */
+  --cap-w:    24px;   /* Mask-cap viewBox width — keeps mask geometry stable across sizes */
+  --gh-h:     36px;   /* GitHub-star variant + nav-pill height (smaller pill) */
+  --gh-cap-w: 16px;   /* GhStar mask-cap width (smaller half-cap geometry) */
+
+  /* ============================================================
      SIGNATURE BACKGROUND TEXTURES
      Diagonal line-grid is the brand's strongest motif.
      ============================================================ */

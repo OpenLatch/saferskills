@@ -40,8 +40,14 @@ export async function listRecentSubmissionScans({
   })
 }
 
-export async function listTrendingScans(
-  _args: { limit?: number } = {}
-): Promise<ScanReportSummary[]> {
-  return []
+export async function listTrendingScans({
+  limit = 3,
+}: {
+  limit?: number
+} = {}): Promise<ScanReportSummary[]> {
+  return fetchScans({
+    source: 'trending',
+    limit: String(limit),
+    order: 'installs_desc',
+  })
 }

@@ -1,10 +1,11 @@
 ---
 /**
- * Card in the homepage's "Recently scanned" feed.
+ * Card in the homepage's feeds mosaic — `.scan-card.recent` per Phase A2.
  *
- * Renders as static HTML — no React hydration, no island cost. The CSS class
- * vocabulary in `webapp/src/styles/components.css::.recent-card` drives the
- * full visual contract (border, hover lift, layout).
+ * Rendered as static HTML; no React hydration. Layout owned by the homepage
+ * mosaic in `webapp/src/styles/page-home.css::.feeds-band .scan-card.recent`.
+ * Drops the dotstrip + band-pill from the W1/A1 design — the mockup mosaic
+ * keeps each cell visually quieter so the 3 × 3 grid breathes.
  */
 type Kind = 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
 type Tier = 'green' | 'yellow' | 'orange' | 'red'
@@ -31,37 +32,45 @@ const {
   findingCount,
 } = Astro.props
 
-const tierToVariant: Record<Tier, 'g' | 'y' | 'o' | 'r'> = {
-  green: 'g', yellow: 'y', orange: 'o', red: 'r',
+const tierToIconClass: Record<Tier, string> = {
+  green: '',          // default is green
+  yellow: 'yellow',
+  orange: 'orange',
+  red: 'orange',      // mockup uses 3 shades on the icon mark; map red → orange swatch
 }
-const tierVar = tierToVariant[tier]
-const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
-const empty = 10 - filled
-const filledDots = '●'.repeat(filled)
-const emptyDots = '○'.repeat(empty)
+const tierToBand: Record<Tier, string> = {
+  green: 'Green',
+  yellow: 'Yellow',
+  orange: 'Orange',
+  red: 'Red',
+}
+const tierToSw: Record<Tier, string> = {
+  green: 'green',
+  yellow: 'yellow',
+  orange: 'orange',
+  red: 'orange',
+}
+const iconMod = tierToIconClass[tier]
+const monoLetter = tier === 'red' || tier === 'orange'
+  ? 'O'
+  : tier === 'yellow' ? 'Y' : 'G'
 ---
-<a class="recent-card" href={`/items/${slug}`} aria-label={`${name} — score ${score} of 100`}>
-  <div>
-    <div class="meta">SCAN · {scannedAtRelative}</div>
-    <div class="name">{name}</div>
-    <div class="meta">
-      {author} · {kind.replace('_', ' ')}
-      {typeof findingCount === 'number' && findingCount > 0 ? (
-        <span class="warn"> · {findingCount} finding{findingCount === 1 ? '' : 's'}</span>
-      ) : null}
+<a class="scan-card recent" href={`/items/${slug}`} aria-label={`${name} — score ${score} of 100`}>
+  <div class="row">
+    <div class="body">
+      <div class="rank-pill">SCAN · {scannedAtRelative}</div>
+      <div class="name">{name}</div>
+      <div class="meta">
+        {author} · {kind.replace('_', ' ')}
+        {typeof findingCount === 'number' && findingCount > 0 ? (
+          <span class="warn"> · {findingCount} finding{findingCount === 1 ? '' : 's'}</span>
+        ) : null}
+      </div>
     </div>
+    <span class={`icon-mark ${iconMod}`.trim()}>{monoLetter}</span>
   </div>
-  <div class="score-block">
+  <div class="score-line">
     <span class="score-num">{score}<span class="slash">/100</span></span>
-  </div>
-  <div class="dotline">
-    <span class="dotstrip" role="img" aria-label={`Score ${score} of 100`}>
-      <span class={`dot-${tierVar}`} aria-hidden="true">{filledDots}</span>
-      <span class="dot-off" aria-hidden="true">{emptyDots}</span>
-    </span>
-    <span class={`band-pill ${tierVar}`}>
-      <span class={`swatch sw-${tierVar}`} aria-hidden="true"></span>
-      {tier.toUpperCase()}
-    </span>
+    <span class="band"><span class={`sw ${tierToSw[tier]}`}></span>{tierToBand[tier]}</span>
   </div>
 </a>
