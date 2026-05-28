@@ -8,7 +8,7 @@ dockerfile = "Dockerfile"
 strategy = "canary"
 
 [http_service]
-internal_port = 80
+internal_port = 5173
 force_https = true
 auto_stop_machines = "off"
 auto_start_machines = true
