@@ -13,6 +13,7 @@
 
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./components.css";
 
 /* ── Self-hosted @fontsource packages ─────────────────────────── */
 @import "@fontsource/dm-sans/400.css";

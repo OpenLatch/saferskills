@@ -57,6 +57,10 @@ services:
     image: node:24-alpine
     container_name: saferskills-ladle
     working_dir: /app/ui
+    environment:
+      # Gates `hmrHost: ''` in `.ladle/config.mjs` so Vite's HMR WS binds to 0.0.0.0
+      # (host port-forward needs this; on host runs the var is unset, HMR uses defaults).
+      LADLE_DOCKER: "1"
     # Pin pnpm 10 — pnpm 11 dropped reading `pnpm.onlyBuiltDependencies`
     # from package.json (moved to pnpm-workspace.yaml only).
     command: sh -c "corepack enable && corepack prepare pnpm@10.18.0 --activate && pnpm install --node-linker=hoisted && pnpm ladle:dev --host 0.0.0.0"
@@ -64,7 +68,8 @@ services:
       - ./ui:/app/ui
       - ./tsconfig.base.json:/app/tsconfig.base.json:ro
       - ladle_node_modules:/app/ui/node_modules
-    ports: ["${LADLE_PORT:-61000}:61000"]
+    # 61000 = Ladle dev server, 24678 = Vite HMR websocket.
+    ports: ["${LADLE_PORT:-61000}:61000", "24678:24678"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:61000/ >/dev/null 2>&1 || exit 1"]
       interval: 15s

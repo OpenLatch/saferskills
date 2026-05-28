@@ -26,6 +26,24 @@ importers:
 
   ui:
     dependencies:
+      '@fontsource-variable/anybody':
+        specifier: ^5.2.0
+        version: 5.2.7
+      '@fontsource/dm-sans':
+        specifier: ^5.2.0
+        version: 5.2.8
+      '@fontsource/nanum-pen-script':
+        specifier: ^5.2.0
+        version: 5.2.7
+      '@fontsource/onest':
+        specifier: ^5.2.0
+        version: 5.2.11
+      '@fontsource/space-mono':
+        specifier: ^5.2.0
+        version: 5.2.9
+      '@tailwindcss/vite':
+        specifier: ^4.3.0
+        version: 4.3.0(vite@6.4.2(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -35,6 +53,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
+      tailwindcss:
+        specifier: ^4.3.0
+        version: 4.3.0
     devDependencies:
       '@ladle/react':
         specifier: ^5.0.0
@@ -4884,6 +4905,13 @@ snapshots:
       '@tailwindcss/oxide-wasm32-wasi': 4.3.0
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.0
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.0
+
+  '@tailwindcss/vite@4.3.0(vite@6.4.2(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))':
+    dependencies:
+      '@tailwindcss/node': 4.3.0
+      '@tailwindcss/oxide': 4.3.0
+      tailwindcss: 4.3.0
+      vite: 6.4.2(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
 
   '@tailwindcss/vite@4.3.0(vite@7.3.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))':
     dependencies:

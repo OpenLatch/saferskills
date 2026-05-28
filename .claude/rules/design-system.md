@@ -55,10 +55,12 @@ ui/
 │   └── organisms/    # (composition shells if needed)
 ├── styles/
 │   ├── tokens.css    # Token SSOT + dark-mode block + Tailwind v4 @theme
-│   └── globals.css   # Tailwind v4 import + @fontsource imports + @layer base + .t-* typography
+│   ├── components.css  # Page-vocabulary CSS (hex masks, page-head, ridges, nav-pill, score language, footer chrome) — ported from mockup
+│   └── globals.css   # Tailwind v4 import + tokens + components + @fontsource imports + @layer base + .t-* typography
+├── .ladle/           # Ladle story-browser config + global Provider that imports globals.css + Vite Tailwind plugin
 └── stories/          # Ladle stories — one per component
 webapp/src/components/  # Page-specific compositions (consume ui/)
-webapp/src/styles/      # reset.css + components.css (page-vocabulary CSS, ported from mockup)
+webapp/src/styles/      # reset.css only (page-vocab CSS lives in ui/styles/components.css now)
 ```
 
 - **Reusable components → `ui/`.** If a component is used on more than one page, lift it.
