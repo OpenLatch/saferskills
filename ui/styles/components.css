@@ -1483,3 +1483,243 @@ html.dark .kbd-chip {
   border-color: var(--color-line);
   color: var(--fg-2);
 }
+
+/* ============================================================
+   SEARCH-DROPDOWN — command-palette dropdown anchored below a
+   search input. Implementation: ui/components/molecules/
+   SearchDropdown.tsx. Sits inside a .search-anchor wrapper so
+   `position: absolute` tracks the input's own width.
+   ============================================================ */
+.search-anchor {
+  position: relative;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  max-height: 440px;
+  overflow-y: auto;
+  font-family: var(--font-sans);
+  opacity: 0;
+  animation: search-dropdown-fade 140ms var(--ease-std) forwards;
+}
+@keyframes search-dropdown-fade {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-dropdown {
+    animation-duration: 1ms;
+  }
+}
+html.dark .search-dropdown {
+  background: var(--color-paper-deep);
+  border-color: var(--color-line);
+}
+
+.search-dropdown [cmdk-list] {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.search-dropdown [cmdk-group-heading] {
+  padding: 10px 16px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.search-dropdown-group-label {
+  display: block;
+  padding: 10px 16px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.search-dropdown-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+.search-dropdown-item[data-selected='true'] {
+  background: var(--color-paper-deep);
+  border-left-color: var(--brand-primary);
+}
+html.dark .search-dropdown-item[data-selected='true'] {
+  background: rgba(255, 255, 255, 0.05);
+}
+.search-dropdown-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+}
+.search-dropdown-editor {
+  font-size: 11px;
+  color: var(--fg-3);
+  text-transform: lowercase;
+}
+
+.search-dropdown-meta {
+  display: inline-flex;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.search-dropdown-meta .sev-label {
+  padding: 4px 8px;
+  text-transform: lowercase;
+  font-weight: 600;
+}
+.search-dropdown-meta .sev-score {
+  padding: 4px 8px;
+  font-weight: 700;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.search-dropdown-meta.sev-critical .sev-label {
+  background: var(--score-red);
+  color: #fff;
+}
+.search-dropdown-meta.sev-high .sev-label {
+  background: var(--score-orange);
+  color: #fff;
+}
+.search-dropdown-meta.sev-medium .sev-label {
+  background: var(--score-yellow);
+  color: var(--color-ink);
+}
+.search-dropdown-meta.sev-low .sev-label {
+  background: var(--score-green);
+  color: #fff;
+}
+.search-dropdown-meta.sev-info .sev-label {
+  background: var(--ol-slate-400);
+  color: var(--color-ink);
+}
+
+.search-dropdown-zero,
+.search-dropdown-empty {
+  padding: 6px 16px 14px;
+}
+.search-dropdown-empty p {
+  margin: 8px 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+  text-align: center;
+}
+.search-dropdown-empty .q {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+.search-dropdown-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.search-dropdown-chip {
+  all: unset;
+  cursor: pointer;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+.search-dropdown-chip:hover {
+  background: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
+}
+html.dark .search-dropdown-chip {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.search-dropdown-loading {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search-dropdown-skeleton {
+  height: 28px;
+  background: linear-gradient(
+    90deg,
+    var(--color-paper-deep) 0%,
+    var(--color-line-soft) 50%,
+    var(--color-paper-deep) 100%
+  );
+  background-size: 200% 100%;
+  animation: search-dropdown-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-xs);
+}
+@keyframes search-dropdown-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-dropdown-skeleton {
+    animation: none;
+  }
+}
+
+.search-dropdown-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--status-danger);
+}
+.search-dropdown-retry {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-xs);
+}
+.search-dropdown-retry:hover {
+  background: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
+}
