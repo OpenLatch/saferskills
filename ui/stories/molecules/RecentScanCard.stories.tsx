@@ -1,57 +1,65 @@
 import type { Story } from '@ladle/react'
 
-// RecentScanCard is an Astro component. Ladle renders a React mirror that
-// matches the static HTML output for visual review.
+/**
+ * RecentScanCard — Phase A2 `.scan-card.recent` vocabulary.
+ *
+ * The Astro shell is mirrored as plain React here so Ladle can render the
+ * static HTML structure for visual review. The CSS contract lives in
+ * `webapp/src/styles/page-home.css::.feeds-band .scan-card.recent`.
+ */
+const TIER_TO_BAND = { g: 'Green', y: 'Yellow', o: 'Orange', r: 'Red' } as const
+const TIER_TO_LETTER = { g: 'G', y: 'Y', o: 'O', r: 'O' } as const
 
 const Mirror = ({
-  name, author, kind, score, tier, scannedAtRelative, findingCount,
+  name,
+  author,
+  score,
+  tier,
+  scannedAtRelative,
+  findingCount,
 }: {
   name: string
   author: string
-  kind: 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
   score: number
-  tier: 'g' | 'y' | 'o' | 'r'
+  tier: keyof typeof TIER_TO_BAND
   scannedAtRelative: string
   findingCount?: number
 }) => {
-  const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
+  const iconMod = tier === 'g' ? '' : tier === 'y' ? 'yellow' : 'orange'
+  const swClass = tier === 'g' ? 'green' : tier === 'y' ? 'yellow' : 'orange'
   return (
-    <div className="recent-card">
-      <div>
-        <div className="meta">SCAN · {scannedAtRelative}</div>
-        <div className="name">{name}</div>
-        <div className="meta">
-          {author} · {kind.replace('_', ' ')}
-          {typeof findingCount === 'number' && findingCount > 0 && (
-            <span className="warn"> · {findingCount} finding{findingCount === 1 ? '' : 's'}</span>
-          )}
-        </div>
-      </div>
-      <div className="score-block">
-        <span className="score-num">{score}<span className="slash">/100</span></span>
-      </div>
-      <div className="dotline">
-        <span className="dotstrip">
-          <span className={`dot-${tier}`}>{'●'.repeat(filled)}</span>
-          <span className="dot-off">{'○'.repeat(10 - filled)}</span>
-        </span>
-        <span className={`band-pill ${tier}`}>
-          <span className={`swatch sw-${tier}`} aria-hidden="true" />
-          {(['g','y','o','r'].includes(tier) ? { g: 'GREEN', y: 'YELLOW', o: 'ORANGE', r: 'RED' }[tier] : '')}
-        </span>
+    <div className="feeds-band" style={{ maxWidth: 400 }}>
+      <div className="mosaic" style={{ display: 'block' }}>
+        <a className="scan-card recent" href="#" aria-label={`${name} — score ${score}`}>
+          <div className="row">
+            <div className="body">
+              <div className="rank-pill">SCAN · {scannedAtRelative}</div>
+              <div className="name">{name}</div>
+              <div className="meta">
+                {author} · skill
+                {typeof findingCount === 'number' && findingCount > 0 && (
+                  <span className="warn"> · {findingCount} finding{findingCount === 1 ? '' : 's'}</span>
+                )}
+              </div>
+            </div>
+            <span className={`icon-mark ${iconMod}`.trim()}>{TIER_TO_LETTER[tier]}</span>
+          </div>
+          <div className="score-line">
+            <span className="score-num">{score}<span className="slash">/100</span></span>
+            <span className="band"><span className={`sw ${swClass}`}></span>{TIER_TO_BAND[tier]}</span>
+          </div>
+        </a>
       </div>
     </div>
   )
 }
 
 export const Green: Story = () => (
-  <Mirror name="github-mcp" author="modelcontextprotocol" kind="mcp_server" score={87} tier="g" scannedAtRelative="2m ago" />
+  <Mirror name="github-mcp" author="acme" score={87} tier="g" scannedAtRelative="2m ago" />
 )
-
 export const Yellow: Story = () => (
-  <Mirror name="linear-mcp" author="acme" kind="mcp_server" score={72} tier="y" scannedAtRelative="18m ago" findingCount={3} />
+  <Mirror name="obsidian-mcp" author="tana" score={71} tier="y" scannedAtRelative="8m ago" findingCount={1} />
 )
-
-export const Red: Story = () => (
-  <Mirror name="dodgy-skill" author="alice" kind="skill" score={29} tier="r" scannedAtRelative="1h ago" findingCount={11} />
+export const Orange: Story = () => (
+  <Mirror name="slack-bot" author="alice" score={42} tier="o" scannedAtRelative="5m ago" findingCount={2} />
 )

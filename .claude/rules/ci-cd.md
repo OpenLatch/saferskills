@@ -37,9 +37,9 @@ Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` mat
 
 After completing a feature, fixing a bug, or refactoring — and before opening a PR — run `/verify-build`. It auto-detects changed layers and runs the appropriate quality gates (build, typecheck, lint, tests). A session that leaves broken checks is a failed session.
 
-## Deployment (when Track D ships W2-W3)
+## Deployment (Track D — staging live, prod gated until MVP)
 
-W1 is unhosted (preview deploys via Fly.io launch later in Track D). When deploy ships:
+Staging deploys on every push to `main` via `deploy.yml` (`deploy-staging-api` / `deploy-staging-webapp` → `saferskills-{api,webapp}-staging.fly.dev`) and is followed by `e2e-staging` Playwright smoke. Production deploys are **gated off until SaferSkills reaches MVP state**: the prod jobs only run when the repo variable `ENABLE_PRODUCTION_DEPLOYS` equals `"true"` (currently unset). In parallel, the prod Fly apps `saferskills-api` / `saferskills-webapp` are kept in `suspended` state with zero machines — flipping the variable alone is not sufficient, a maintainer must also `flyctl apps resume` before the first prod deploy lands. When that happens:
 
 - **Unified pipeline** (`deploy.yml`): push to `main` → build ALL images → deploy staging (path-filtered) → smoke → deploy production (canary, atomic image+secrets, 5-min soak, auto-rollback on failure).
 - **Production canary**: `fly.production.toml` uses `strategy = "canary"` — boots one Machine first, health-checks it, auto-aborts on failure.

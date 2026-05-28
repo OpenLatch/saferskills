@@ -1,0 +1,31 @@
+---
+/**
+ * Center prose cell in the feeds mosaic — Phase A2.
+ *
+ * "Live signal · 04 — What the network is touching, right now." prose +
+ * CTA, surrounded on all sides by either scan cards or wire-cells. Layout
+ * is owned by `page-home.css::.feeds-band .title-cell`.
+ */
+interface Props {
+  label?: string
+  heading?: string
+  lede?: string
+  ctaLabel?: string
+  ctaHref?: string
+}
+const {
+  label = 'Live signal · 04',
+  heading = 'What the network is touching, right now.',
+  lede = 'Recent scans and weekly install momentum, anonymized. No personal data — just the shape of community attention.',
+  ctaLabel = 'Open full feed →',
+  ctaHref = '/catalog?sort=recent',
+} = Astro.props
+---
+<div class="title-cell">
+  <div>
+    <div class="label">{label}</div>
+    <div class="heading">{heading}</div>
+    <p class="lede">{lede}</p>
+  </div>
+  <a class="cta" href={ctaHref}>{ctaLabel}</a>
+</div>

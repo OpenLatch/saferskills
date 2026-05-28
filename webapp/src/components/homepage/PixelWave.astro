@@ -1,0 +1,82 @@
+---
+/**
+ * Static SVG pixel-wave dissolve for the install-band bottom transition.
+ *
+ * The mockup builds this procedurally in JS at runtime; we compute the same
+ * composite-sine wave deterministically at SSR build time so it ships as a
+ * static SVG (no JS / no flash-of-empty / pre-rendered for SEO). Identical
+ * cell grid, identical composite-sine surface function as `buildPixelWave()`
+ * in the mockup HTML.
+ *
+ * Determinism note: the mockup adds sparse noise dots ABOVE the wave surface
+ * via Math.random() — we use a tiny hash-based PRNG seeded by the column so
+ * the output is reproducible across builds (no diffs between SSR + hydration,
+ * no flicker on view-transition).
+ */
+const COLS = 200
+const ROWS = 16
+const CELL = 8
+const W = COLS * CELL
+const H = ROWS * CELL
+
+const wave = (c: number): number => {
+  const t = c / COLS
+  const v =
+    Math.sin(t * Math.PI * 5) * 0.30 +
+    Math.sin(t * Math.PI * 11 + 1.1) * 0.16 +
+    Math.sin(t * Math.PI * 23 + 0.4) * 0.08 +
+    Math.sin(t * Math.PI * 41 + 2.0) * 0.04
+  return Math.max(0.05, Math.min(0.95, 0.52 + v))
+}
+
+// Tiny deterministic PRNG (Mulberry32). Same seed → same noise on every build.
+const seeded = (seed: number): (() => number) => {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+interface Rect {
+  x: number
+  y: number
+  o?: number
+}
+const rects: Rect[] = []
+const rng = seeded(424242)
+for (let c = 0; c < COLS; c++) {
+  const surface = wave(c)
+  const surfaceRow = surface * ROWS
+  const surfaceFromBottom = ROWS - surfaceRow
+  for (let r = 0; r < ROWS; r++) {
+    const fromBottom = ROWS - r
+    if (fromBottom <= surfaceFromBottom) {
+      rects.push({ x: c * CELL, y: r * CELL })
+    } else if (fromBottom - surfaceFromBottom < 1.4) {
+      if (rng() < 0.45) {
+        rects.push({ x: c * CELL, y: r * CELL, o: 0.65 })
+      }
+    }
+  }
+}
+---
+<svg
+  class="ib-wave"
+  viewBox={`0 0 ${W} ${H}`}
+  preserveAspectRatio="none"
+  aria-hidden="true"
+>
+  <g fill="#F8FAFC">
+    {rects.map((r) =>
+      r.o !== undefined ? (
+        <rect x={r.x} y={r.y} width={CELL - 1} height={CELL - 1} opacity={r.o} />
+      ) : (
+        <rect x={r.x} y={r.y} width={CELL - 1} height={CELL - 1} />
+      )
+    )}
+  </g>
+</svg>

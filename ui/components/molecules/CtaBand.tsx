@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 
 interface Action {
   label: string
@@ -7,17 +7,20 @@ interface Action {
 
 interface Props {
   title: ReactNode
+  titleLines?: string[]
   lead?: ReactNode
   primaryAction: Action
   secondaryAction?: Action
 }
 
 /**
- * Dark-slate CTA band (96px y-padding, diag-hatching texture, orange tick-ruler
- * top edge). Lives below content + above footer on most A2/B/C pages.
+ * Dark-slate CTA band. Pass `titleLines` for an explicit hard-wrapped title
+ * (preferred for hero CTA copy that must always break the same way) or
+ * `title` for a single ReactNode.
  */
 export default function CtaBand({
   title,
+  titleLines,
   lead,
   primaryAction,
   secondaryAction,
@@ -27,15 +30,24 @@ export default function CtaBand({
       <div className="container">
         <div className="cta-row">
           <div>
-            <h2>{title}</h2>
+            <h2>
+              {titleLines
+                ? titleLines.map((line, i) => (
+                    <Fragment key={i}>
+                      {line}
+                      {i < titleLines.length - 1 ? <br /> : null}
+                    </Fragment>
+                  ))
+                : title}
+            </h2>
             {lead && <p className="lead">{lead}</p>}
           </div>
-          <div style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
-            <a href={primaryAction.href} className="btn primary">
+          <div className="cta-actions btn-pair">
+            <a href={primaryAction.href} className="btn primary lg">
               {primaryAction.label}
             </a>
             {secondaryAction && (
-              <a href={secondaryAction.href} className="btn paper">
+              <a href={secondaryAction.href} className="btn paper lg">
                 {secondaryAction.label}
               </a>
             )}

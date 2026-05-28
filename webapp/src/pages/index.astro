@@ -1,37 +1,344 @@
 ---
-import EmailCaptureForm from '@ui/components/atoms/EmailCaptureForm.tsx'
-import Footer from '@ui/components/atoms/Footer.astro'
-import Wordmark from '@ui/components/atoms/Wordmark.astro'
+export const prerender = true
+
 import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import Badge from '@ui/components/atoms/Badge.tsx'
+import RotatingHeadline from '@ui/components/atoms/RotatingHeadline.tsx'
+import ActionCard from '@ui/components/molecules/ActionCard.tsx'
+import RidgePixel from '@ui/components/atoms/RidgePixel.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import RidgeFlow from '@ui/components/atoms/RidgeFlow.tsx'
+import InstallTabs from '@ui/components/molecules/InstallTabs.tsx'
+import AgentMarquee from '@ui/components/molecules/AgentMarquee.tsx'
+import WhyRow from '@ui/components/molecules/WhyRow.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import TopoBand from '@/components/homepage/TopoBand.astro'
+import WaveBand from '@/components/homepage/WaveBand.astro'
+import FeedsMosaic from '@/components/homepage/FeedsMosaic.astro'
+import DetectionBand from '@/components/homepage/DetectionBand.astro'
+import PixelWave from '@/components/homepage/PixelWave.astro'
+
+import { listRecentSubmissionScans, listTrendingScans } from '@/lib/api/scans'
+import {
+  SUPPORTED_AGENTS,
+  INDEXED_COUNT,
+  REGISTRIES_COUNT,
+} from '@/data/homepage-constants'
+
+import '@/styles/page-home.css'
+
+const recentScans = await listRecentSubmissionScans({ limit: 3 }).catch(() => [])
+const trendingScans = await listTrendingScans({ limit: 3 }).catch(() => [])
+
+// Hero action-card foot meta — passed as HTML strings (rendered via
+// dangerouslySetInnerHTML inside ActionCard) so the `<b>` emphasis ports
+// across the React-island serialization boundary without Astro's
+// JSX-shorthand parsing limits inside object literals.
+const findMetaHtml = `<b>${INDEXED_COUNT.toLocaleString()}</b> indexed · <b>${REGISTRIES_COUNT}</b> registries`
+const auditMetaHtml = 'avg <b>28s</b> · free · no account'
 ---
-<Base title="SaferSkills — every AI skill, independently scanned">
-  <main class="flex-1 flex items-center justify-center px-6 py-16">
-    <div class="w-full max-w-2xl">
-      <Wordmark size="hero" />
+<Base
+  title="SaferSkills — Every AI skill, independently audited."
+  bodyClass="va"
+>
+  <NavBar client:idle ghCount={26908} />
 
-      <p class="mt-8 text-xl leading-relaxed text-foreground/80">
-        Every AI skill, independently scanned. Search, install, and verify skills,
-        MCP servers, hooks, and plugins across every agent platform. Free. Open
-        source. Apache 2.0.
+  {/* ─────────────────────────────────────────────────────────
+       BAND 1 — HERO
+       ───────────────────────────────────────────────────────── */}
+  <section class="hero-band" data-screen-label="01 Hero">
+    <div class="container">
+
+      <div class="hero-top">
+        <Badge variant="live">{INDEXED_COUNT.toLocaleString()} indexed · live</Badge>
+        <span class="hero-tag">— independently audited, openly methodology'd —</span>
+      </div>
+
+      <RotatingHeadline
+        client:load
+        base="Every AI skill, independently audited against"
+        nouns={[
+          'Prompt Injection',
+          'PII Leaks',
+          'Secrets Leaks',
+          'Security Drift',
+          'Rogue Obfuscation',
+          'Tool Poisoning',
+          'Supply Chain Attacks',
+          'Destructive Commands',
+        ]}
+        trailing="."
+        cycleMs={2600}
+        fadeMs={320}
+      />
+
+      <p class="hero-lede">
+        Paste a public GitHub URL — get a transparent security report in thirty seconds.
+        One unified catalog. One install command across eight agents.
       </p>
 
-      <p class="mt-10 text-sm uppercase tracking-wide text-foreground/60">
-        Launching publicly mid-2026. Get notified:
-      </p>
+      <div class="hero-cards">
+        <ActionCard
+          client:visible
+          index="01"
+          kicker="Find"
+          liveLabel="Indexing"
+          title="Search the catalog."
+          lede={`${INDEXED_COUNT.toLocaleString()} skills, MCPs, and plugins indexed from ${REGISTRIES_COUNT}+ registries. One search instead of twelve.`}
+          variant="find"
+          foot={{
+            cta: { label: 'Browse catalog →', href: '/catalog' },
+            metaHtml: findMetaHtml,
+          }}
+        >
+          <div class="p1-input">
+            <span class="p1-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            </span>
+            <label class="p1-field">
+              <span class="caret" aria-hidden="true"></span>
+              <input type="text" placeholder="ripgrep, supabase, linear..." autocomplete="off" aria-label="Search the catalog" />
+            </label>
+            <button class="p1-enter" type="button" aria-label="Submit search">
+              <span class="key">↵</span>
+            </button>
+          </div>
+          <div class="p1-tabs">
+            <span class="lbl">Popular</span>
+            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">claude-pdf</span><span class="sc green">95</span></button>
+            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">github-mcp</span><span class="sc green">87</span></button>
+            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">slack-bot</span><span class="sc yellow">71</span></button>
+            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">linear-mcp</span><span class="sc green">92</span></button>
+          </div>
+        </ActionCard>
 
-      <EmailCaptureForm client:idle />
+        <ActionCard
+          client:visible
+          index="02"
+          kicker="Audit"
+          liveLabel="Running"
+          title="Scan a new skill."
+          lede="Paste a public GitHub URL. We return a full security report in ~30 seconds. Free. No account."
+          variant="audit"
+          foot={{
+            cta: { label: 'Scan a skill →', href: '/scan' },
+            metaHtml: auditMetaHtml,
+          }}
+        >
+          <div class="p1-input">
+            <span class="p1-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07l-1.5 1.5"></path><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07l1.5-1.5"></path></svg>
+            </span>
+            <label class="p1-field">
+              <span class="caret" aria-hidden="true"></span>
+              <input type="text" placeholder="github.com/anthropic/claude-mcp" autocomplete="off" aria-label="Paste a GitHub URL" />
+            </label>
+            <button class="p1-enter" type="button" aria-label="Submit scan">
+              <span class="key">↵</span>
+            </button>
+          </div>
+          <div class="p1-progress">
+            <div class="row"><span>Audit pipeline</span><span><b>3</b> / 4 stages</span></div>
+            <div class="bar"></div>
+            <div class="steps">
+              <span class="ok">Fetch</span>
+              <span class="ok">Lint</span>
+              <span class="cur">Score</span>
+              <span class="pen">Sign</span>
+            </div>
+          </div>
+        </ActionCard>
+      </div>
 
-      <p class="mt-10 text-sm text-foreground/60">
-        <a href="/methodology">Methodology</a>
-        <span class="mx-2">·</span>
-        <a href="https://github.com/OpenLatch/saferskills" rel="noopener">Source on GitHub</a>
-        <span class="mx-2">·</span>
-        <a href="/privacy">Privacy</a>
-        <span class="mx-2">·</span>
-        <a href="/terms">Terms</a>
-      </p>
+      <ul class="hero-stats" aria-label="Headline stats">
+        <li><b>{INDEXED_COUNT.toLocaleString()}</b> indexed</li>
+        <li><b>76</b>/100 median</li>
+        <li><b>87</b> detection rules</li>
+        <li><b>30s</b> p95 · free · no account</li>
+      </ul>
+
     </div>
-  </main>
+
+    {/* supported agents marquee — anchors the bottom of the hero */}
+    <div class="supported-band">
+      <AgentMarquee client:visible agents={SUPPORTED_AGENTS} />
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 2 — TOPOGRAPHIC RIDGE DIVIDER
+       ───────────────────────────────────────────────────────── */}
+  <TopoBand label="— HORIZON —" />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 3 — INSTALL DEMO (dark terminal + sidebar agent picker)
+       ───────────────────────────────────────────────────────── */}
+  <section class="section install-band">
+    <span class="ib-corner tl" aria-hidden="true"><span></span><span></span><span></span></span>
+    <span class="ib-corner tr" aria-hidden="true"><span></span><span></span><span></span></span>
+    <span class="ib-dashed" aria-hidden="true"></span>
+    <PixelWave />
+    <div class="container">
+      <div class="install-head">
+        <div>
+          <div class="eyebrow">Install · 03</div>
+          <h2>Install any skill, in any agent <span class="script">— one command</span></h2>
+        </div>
+        <div class="lede">
+          One binary across all eight agents. macOS, Windows, Linux. The score is
+          re-verified at install time so you never install on a stale page.
+        </div>
+      </div>
+
+      <div style="margin-top: 32px;">
+        <InstallTabs
+          client:visible
+          agents={SUPPORTED_AGENTS}
+          defaultAgent="claude-code"
+        />
+        <div class="install-cap">
+          ↑ Click any agent in the sidebar to rotate the command and output preview · also try
+          <kbd style="font-family:var(--font-mono); font-size:10px; border:1px solid var(--color-line); padding:2px 6px;">⧉ Copy command</kbd>
+          in the terminal header.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 4 — RIDGE-PIXEL DIVIDER (install → feeds)
+       ───────────────────────────────────────────────────────── */}
+  <RidgePixel label="— FEEDS · 04 —" />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 5 — FEEDS (Recently + Trending, 3×3 mosaic)
+       ───────────────────────────────────────────────────────── */}
+  <section class="section feeds-band">
+    <div class="container">
+      <FeedsMosaic recent={recentScans} trending={trendingScans} />
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 6 — RIDGE-STARS DIVIDER (feeds → docs/why)
+       ───────────────────────────────────────────────────────── */}
+  <RidgeStars label="— WHY · 05 —" />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 7 — WHY · 05 (man-page "Five reasons" docs-band)
+       ───────────────────────────────────────────────────────── */}
+  <section class="section docs-band">
+    <div class="container">
+      <div class="docs-head">
+        <div class="l">
+          <span>WHY(5)</span>
+          <span>SaferSkills — Five Reasons It Earns The URL</span>
+        </div>
+        <div class="r">v1.0 · Apache 2.0</div>
+      </div>
+      <div class="docs-body">
+        <div class="docs-side">
+          <div class="sec">Name</div>
+          <div class="name">Five reasons it earns the URL.</div>
+          <div class="blurb">
+            Find · Install · Verify · Monitor · Trust. Each pillar earns its row — and the
+            metrics underneath.
+          </div>
+          <a class="pill" href="/methodology">Read the methodology →</a>
+        </div>
+        <div class="reasons-list">
+          <WhyRow
+            client:visible
+            index="01"
+            tag="find"
+            bodyHtml="<b>Unified catalog across 12+ registries.</b><span>GitHub, npm, PyPI, MCP Registry, mcp.so, Smithery, Glama, PulseMCP, ClawHub, skillsmp, skills.sh, ClaudeSkills, SkillHub. One search instead of twelve.</span>"
+            metaLinesHtml={[
+              `<b>${INDEXED_COUNT.toLocaleString()}</b>indexed`,
+              `updated hourly`,
+            ]}
+            arrow={{ label: 'open methodology', href: '/methodology' }}
+          />
+          <WhyRow
+            client:visible
+            index="02"
+            tag="install"
+            bodyHtml="<b>One command across all eight agent platforms.</b><span>macOS, Windows, Linux — no agent-specific config to learn. The score is re-verified at install time so you never install based on a stale page.</span>"
+            metaLinesHtml={[
+              `<b>8 / 8</b>agents`,
+              `<b>3</b>OSes · one binary`,
+            ]}
+            arrow={{ label: 'npm package', href: 'https://www.npmjs.com/package/saferskills' }}
+          />
+          <WhyRow
+            client:visible
+            index="03"
+            tag="verify"
+            bodyHtml={'<b>Independent, transparent, open-source scoring.</b><span>87 deterministic detection rules across five categories. Every finding cites a rule ID and an evidence line — not &quot;AI thinks this is bad,&quot; only reproducible facts.</span>'}
+            metaLinesHtml={[
+              `<b>87</b>rules · Apache 2.0`,
+              `community PRs welcome`,
+            ]}
+            arrow={{ label: 'rule index', href: '/methodology' }}
+          />
+          <WhyRow
+            client:visible
+            index="04"
+            tag="monitor"
+            bodyHtml="<b>Watch any skill.</b><span>Drift alerts when content changes. Risk alerts when the score drops ≥10 points. Weekly digests of trending items in your watched categories. Throttled, GDPR-compliant, one-click unsubscribe.</span>"
+            metaLinesHtml={[
+              `email-gated`,
+              `<b>≤ 5</b>alerts / day`,
+            ]}
+            arrow={{ label: 'account self-deletion', href: '/docs#account' }}
+          />
+          <WhyRow
+            client:visible
+            index="05"
+            tag="trust"
+            bodyHtml="<b>No browser fingerprinting. No cross-site tracking.</b><span>Vendor right-of-reply with a 1-hour re-scan SLA. Privacy policy reviewed by external counsel; aggregated IP-ASN data only, fully disclosed.</span>"
+            metaLinesHtml={[
+              `privacy policy reviewed by counsel`,
+            ]}
+            arrow={{ label: 'privacy policy', href: '/privacy' }}
+          />
+        </div>
+      </div>
+      <div class="docs-foot">
+        <span>SEE ALSO · <a class="link" href="/methodology">scoring(7)</a> · <a class="link" href="/privacy">privacy(5)</a> · <a class="link" href="https://github.com/OpenLatch/saferskills">github.com/openlatch/saferskills</a></span>
+        <span><kbd>/</kbd> to search</span>
+      </div>
+    </div>
+  </section>
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 8 — RIDGE-FLOW DIVIDER (docs/why → detection)
+       ───────────────────────────────────────────────────────── */}
+  <RidgeFlow label="— DETECTION · 06 —" />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 9 — DETECTION (57 attacks marquee)
+       ───────────────────────────────────────────────────────── */}
+  <DetectionBand />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 10 — WAVE-BAND DIVIDER (detection → CTA)
+       ───────────────────────────────────────────────────────── */}
+  <WaveBand />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 11 — CTA-BAND
+       ───────────────────────────────────────────────────────── */}
+  <CtaBand
+    client:visible
+    title="Scan a repo. Read the report. Decide."
+    titleLines={['Scan a repo.', 'Read the report.', 'Decide.']}
+    lead="~30 seconds. Free. No account. The report URL is bookmarkable and persists for 90 days."
+    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+  />
 
   <Footer />
 </Base>

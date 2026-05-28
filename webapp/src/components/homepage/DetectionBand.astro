@@ -1,0 +1,92 @@
+---
+/**
+ * Detection band — Phase A2.
+ *
+ * Three full-bleed marquee rows of dt-tiles (19 per row × 2 duplicates for
+ * seamless scroll). Rows alternate direction and duration per the mockup:
+ *   row 1 : forward, 90s
+ *   row 2 : reverse, 110s
+ *   row 3 : forward, 130s
+ *
+ * The component is static SSR (no React hydration on the band shell —
+ * tiles are static `<a>` elements). Marquee animations are pure CSS
+ * (`@keyframes dt-scroll`), short-circuited by `prefers-reduced-motion: reduce`.
+ */
+import { DETECTION_TILES, DETECTION_TALLY } from '@/data/homepage-constants'
+import DetectionTile from './DetectionTile.tsx'
+
+// Split the 57 tiles into 3 chunks, 19 each. Mockup arrangement is
+// roughly category-mixed; we keep array order from homepage-constants.
+const ROW_SIZE = 19
+const row1 = DETECTION_TILES.slice(0, ROW_SIZE)
+const row2 = DETECTION_TILES.slice(ROW_SIZE, ROW_SIZE * 2)
+const row3 = DETECTION_TILES.slice(ROW_SIZE * 2)
+---
+<section class="detection-band" aria-label="Detection rules">
+  <div class="container">
+
+    <div class="dt-head">
+      <div class="dt-head-left">
+        <p class="eyebrow">Detection · 06</p>
+        <h2>The attacks <em>we name.</em></h2>
+      </div>
+      <div class="right">
+        <p class="lede">
+          BiDi smuggling. <code>curl</code> piped to <code>bash</code>. AWS credential exfil. Hidden MCP tools.
+          Fifty-seven deterministic detectors run on every scan — open rubric, reproducible, every finding cites the line of code that tripped it.
+        </p>
+      </div>
+    </div>
+
+    <div class="dt-tally" aria-label="Detector counts by severity band">
+      <span class="pip"><span class="sw sw-r"></span><b>{DETECTION_TALLY.red}</b> RED · execution &amp; exfil</span>
+      <span class="sep"></span>
+      <span class="pip"><span class="sw sw-o"></span><b>{DETECTION_TALLY.orange}</b> ORANGE · injection &amp; supply chain</span>
+      <span class="sep"></span>
+      <span class="pip"><span class="sw sw-y"></span><b>{DETECTION_TALLY.yellow}</b> YELLOW · hygiene &amp; transparency</span>
+      <span class="sep"></span>
+      <span class="pip">deterministic · Open Source · Apache 2.0</span>
+    </div>
+
+    <div class="dt-tracks" aria-label="All 57 detection rules, three scrolling tracks">
+      <div class="dt-row dt-row-1">
+        <div class="dt-track">
+          <div class="dt-set">
+            {row1.map((tile) => <DetectionTile tile={tile} />)}
+          </div>
+          <div class="dt-set" aria-hidden="true">
+            {row1.map((tile) => <DetectionTile tile={tile} />)}
+          </div>
+        </div>
+      </div>
+
+      <div class="dt-row dt-row-2">
+        <div class="dt-track">
+          <div class="dt-set">
+            {row2.map((tile) => <DetectionTile tile={tile} />)}
+          </div>
+          <div class="dt-set" aria-hidden="true">
+            {row2.map((tile) => <DetectionTile tile={tile} />)}
+          </div>
+        </div>
+      </div>
+
+      <div class="dt-row dt-row-3">
+        <div class="dt-track">
+          <div class="dt-set">
+            {row3.map((tile) => <DetectionTile tile={tile} />)}
+          </div>
+          <div class="dt-set" aria-hidden="true">
+            {row3.map((tile) => <DetectionTile tile={tile} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dt-foot-line">
+      <span class="prefix">SEE ALSO</span>
+      <a class="rubric-link" href="/methodology">Read the full rubric →</a>
+    </div>
+
+  </div>
+</section>

@@ -1,57 +1,67 @@
 import type { Story } from '@ladle/react'
 
+/**
+ * TrendScanCard — Phase A2 `.scan-card.trend` vocabulary.
+ *
+ * React mirror of the Astro shell for Ladle visual review. CSS contract
+ * lives in `webapp/src/styles/page-home.css::.feeds-band .scan-card.trend`.
+ */
+const TIER_TO_BAND = { g: 'Green', y: 'Yellow', o: 'Orange', r: 'Red' } as const
+
 const Mirror = ({
-  rank, name, score, tier, installs, delta, featured = false,
+  rank,
+  name,
+  score,
+  tier,
+  installs,
+  delta,
+  spark = '▁▂▂▃▅▇█',
 }: {
   rank: number
   name: string
   score: number
-  tier: 'g' | 'y' | 'o' | 'r'
+  tier: keyof typeof TIER_TO_BAND
   installs: string
   delta: string
-  featured?: boolean
+  spark?: string
 }) => {
-  const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
-  const tierLabel = { g: 'GREEN', y: 'YELLOW', o: 'ORANGE', r: 'RED' }[tier]
+  const iconMono = tier === 'g' ? 'G' : tier === 'y' ? 'Y' : 'O'
+  const iconMod = tier === 'g' ? '' : tier === 'y' ? 'yellow' : 'orange'
+  const swClass = tier === 'g' ? 'green' : tier === 'y' ? 'yellow' : 'orange'
   return (
-    <div className={`trend-card ${featured ? 'featured' : ''}`.trim()}>
-      <div className="rank-col">
-        <span className="hash">RANK</span>
-        <span className="n">#{rank}</span>
-      </div>
-      <div className="name">{name}</div>
-      <span className="score-num">{score}<span className="slash">/100</span></span>
-      <div className="dotline">
-        <span className="dotstrip">
-          <span className={`dot-${tier}`}>{'●'.repeat(filled)}</span>
-          <span className="dot-off">{'○'.repeat(10 - filled)}</span>
-        </span>
-        <span className={`band-pill ${tier}`}>
-          <span className={`swatch sw-${tier}`} aria-hidden="true" />
-          {tierLabel}
-        </span>
-      </div>
-      <div className="installs">
-        <span>
-          <span className="num">{installs}</span>
-          <span className="lbl">installs · 7d</span>
-        </span>
-        <span className="delta">{delta}</span>
-      </div>
-      <div className="spark">
-        <span className="blocks">▮▮▮▮▮▮</span>
-        <span className="lbl">trend</span>
+    <div className="feeds-band" style={{ maxWidth: 400 }}>
+      <div className="mosaic" style={{ display: 'block' }}>
+        <a className="scan-card trend" href="#" aria-label={`#${rank} ${name}`}>
+          <div className="row">
+            <div className="body">
+              <div className="rank-pill">TRENDING · <b>#{rank}</b></div>
+              <div className="name">{name}</div>
+              <div className="meta">{score}/100 · {TIER_TO_BAND[tier]} band</div>
+            </div>
+            <span className={`icon-mark ${iconMod}`.trim()}>{iconMono}</span>
+          </div>
+          <div className="trend-stats">
+            <div><span className="num">{installs}</span> installs / wk</div>
+            <div className="delta">{delta} ↑</div>
+          </div>
+          <div className="score-line">
+            <div className="trend-spark">{spark}</div>
+            <span className="band" style={{ marginLeft: 'auto' }}>
+              <span className={`sw ${swClass}`}></span>7-day
+            </span>
+          </div>
+        </a>
       </div>
     </div>
   )
 }
 
-export const Featured: Story = () => (
-  <Mirror rank={1} name="github-mcp" score={94} tier="g" installs="12.4k" delta="+47%" featured />
+export const Top1: Story = () => (
+  <Mirror rank={1} name="linear-mcp" score={96} tier="g" installs="1,247" delta="+312%" spark="▁▂▂▃▅▇█" />
 )
-export const TopTen: Story = () => (
-  <Mirror rank={2} name="linear-mcp" score={87} tier="g" installs="8.9k" delta="+32%" />
+export const Top2: Story = () => (
+  <Mirror rank={2} name="notion-mcp" score={88} tier="g" installs="873" delta="+94%" spark="▁▂▃▃▄▆▇" />
 )
-export const Mid: Story = () => (
-  <Mirror rank={7} name="postgres-mcp" score={72} tier="y" installs="2.1k" delta="+18%" />
+export const Top3: Story = () => (
+  <Mirror rank={3} name="neon-mcp" score={84} tier="g" installs="612" delta="+58%" spark="▁▁▂▃▄▅▆" />
 )

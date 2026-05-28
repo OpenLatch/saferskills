@@ -220,15 +220,24 @@ jobs:
           uv run saferskills-e2e all
 
   # ─────────────────────────────────────────────────────────────────────
-  # Production deployment blocked at W1 — re-enabled end of W2 once Track
-  # A demo-deploys an actual catalog endpoint. The job below stays
-  # disabled via `if: false` so the workflow shape is in place but the
-  # remote action is never triggered.
+  # Production deployment is BLOCKED until SaferSkills reaches MVP state.
+  # Gate: repo variable `ENABLE_PRODUCTION_DEPLOYS` must equal the literal
+  # string `"true"` (set under Settings → Secrets and variables → Actions
+  # → Variables). The variable is UNSET at W1, so the `if:` expression
+  # evaluates to false and the prod jobs never run — even on manual
+  # workflow_dispatch.
+  #
+  # In parallel, the prod Fly apps `saferskills-api` and `saferskills-webapp`
+  # are kept in `suspended` state with zero machines (`flyctl apps
+  # suspend`). Flipping the variable alone is not enough — a maintainer
+  # must also `flyctl apps resume` before the first prod deploy can land.
+  # Re-enable end of W2 once Track A demo-deploys an actual catalog
+  # endpoint and the MVP gate is signed off.
   # ─────────────────────────────────────────────────────────────────────
   deploy-production-api:
-    name: Deploy production API (gated, off at W1)
+    name: Deploy production API (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
     needs: [e2e-staging]
-    if: false
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -250,9 +259,9 @@ jobs:
           done
 
   deploy-production-webapp:
-    name: Deploy production webapp (gated, off at W1)
+    name: Deploy production webapp (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
     needs: [e2e-staging]
-    if: false
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production

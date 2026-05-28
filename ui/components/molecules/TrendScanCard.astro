@@ -1,10 +1,12 @@
 ---
 /**
- * Card in the homepage's "Trending this week" feed.
+ * Trending card in the feeds mosaic — `.scan-card.trend` per Phase A2.
  *
- * Static markup — no React hydration. 48px rank column on the left,
- * content right. Featured rank #1 gets `featured` modifier with the teal-tint bg.
- * See `webapp/src/styles/components.css::.trend-card`.
+ * Static markup. Visual contract owned by
+ * `webapp/src/styles/page-home.css::.feeds-band .scan-card.trend`. Renders
+ * a leading rank-pill (#1/#2/#3) over the title, then a `.trend-stats` row
+ * with weekly installs + delta, then a `.score-line` with the sparkline
+ * blocks and the band-tier mono label.
  */
 type Tier = 'green' | 'yellow' | 'orange' | 'red'
 
@@ -16,6 +18,7 @@ interface Props {
   tier: Tier
   installsLast7d: number
   installsDelta: number
+  /** Block-character sparkline (▁▂▃▄▅▆▇█); 7 chars look best. */
   sparkBlocks?: string
 }
 
@@ -27,48 +30,44 @@ const {
   tier,
   installsLast7d,
   installsDelta,
-  sparkBlocks = '▮▮▮▮▮▮',
+  sparkBlocks = '▁▂▂▃▅▇█',
 } = Astro.props
 
-const tierToVariant: Record<Tier, 'g' | 'y' | 'o' | 'r'> = {
-  green: 'g', yellow: 'y', orange: 'o', red: 'r',
+const tierToBand: Record<Tier, string> = {
+  green: 'Green',
+  yellow: 'Yellow',
+  orange: 'Orange',
+  red: 'Red',
 }
-const tierVar = tierToVariant[tier]
-const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
-const empty = 10 - filled
+const tierToSw: Record<Tier, string> = {
+  green: 'green',
+  yellow: 'yellow',
+  orange: 'orange',
+  red: 'orange',
+}
+const tierLabel = tierToBand[tier]
+const iconMono = tier === 'green' ? 'G' : tier === 'yellow' ? 'Y' : 'O'
+const iconMod = tier === 'yellow' ? 'yellow' : tier === 'green' ? '' : 'orange'
 const formatInstalls = (n: number): string => n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n)
 const deltaPrefix = installsDelta >= 0 ? '+' : ''
 ---
-<a
-  class={`trend-card ${rank === 1 ? 'featured' : ''}`.trim()}
-  href={`/items/${slug}`}
-  aria-label={`#${rank} ${name} — score ${score}`}
->
-  <div class="rank-col">
-    <span class="hash">RANK</span>
-    <span class="n">#{rank}</span>
+<a class="scan-card trend" href={`/items/${slug}`} aria-label={`#${rank} ${name} — score ${score}`}>
+  <div class="row">
+    <div class="body">
+      <div class="rank-pill">TRENDING · <b>#{rank}</b></div>
+      <div class="name">{name}</div>
+      <div class="meta">{score}/100 · {tierLabel} band</div>
+    </div>
+    <span class={`icon-mark ${iconMod}`.trim()}>{iconMono}</span>
   </div>
-  <div class="name">{name}</div>
-  <span class="score-num">{score}<span class="slash">/100</span></span>
-  <div class="dotline">
-    <span class="dotstrip" role="img" aria-label={`Score ${score} of 100`}>
-      <span class={`dot-${tierVar}`} aria-hidden="true">{'●'.repeat(filled)}</span>
-      <span class="dot-off" aria-hidden="true">{'○'.repeat(empty)}</span>
-    </span>
-    <span class={`band-pill ${tierVar}`}>
-      <span class={`swatch sw-${tierVar}`} aria-hidden="true"></span>
-      {tier.toUpperCase()}
-    </span>
+  <div class="trend-stats">
+    <div><span class="num">{formatInstalls(installsLast7d)}</span> installs / wk</div>
+    <div class="delta">{deltaPrefix}{installsDelta}% ↑</div>
   </div>
-  <div class="installs">
-    <span>
-      <span class="num">{formatInstalls(installsLast7d)}</span>
-      <span class="lbl">installs · 7d</span>
+  <div class="score-line">
+    <div class="trend-spark">{sparkBlocks}</div>
+    <span class="band" style="margin-left: auto;">
+      <span class={`sw ${tierToSw[tier]}`}></span>7-day
     </span>
-    <span class="delta">{deltaPrefix}{installsDelta}</span>
-  </div>
-  <div class="spark">
-    <span class="blocks" aria-hidden="true">{sparkBlocks}</span>
-    <span class="lbl">trend</span>
   </div>
 </a>

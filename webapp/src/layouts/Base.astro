@@ -3,11 +3,19 @@ interface Props {
   title: string
   description?: string
   ogImage?: string
+  /**
+   * Extra class(es) appended to `<body>`. Used by the homepage to opt INTO the
+   * `body.va` variant-A namespace (mockup naming) so the homepage page-vocabulary
+   * CSS in `webapp/src/styles/page-home.css` cascades, while other routes stay
+   * untouched. Pages that don't need the namespace omit this prop.
+   */
+  bodyClass?: string
 }
 const {
   title,
   description = 'Every AI skill, independently audited. Public, open-source trust scoring for skills, MCP servers, hooks, plugins, and rules across every agent platform.',
   ogImage,
+  bodyClass,
 } = Astro.props
 import '@/styles/global.css'
 const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
@@ -77,7 +85,7 @@ const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
       })
     </script>
   </head>
-  <body class="min-h-screen flex flex-col">
+  <body class:list={['min-h-screen', 'flex', 'flex-col', bodyClass]}>
     <slot />
 
     {/*

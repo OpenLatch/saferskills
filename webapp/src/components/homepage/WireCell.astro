@@ -1,0 +1,34 @@
+---
+/**
+ * Decorative wireframe placeholder cell in the feeds mosaic — Phase A2.
+ *
+ * Two variants: teal-front (default) and orange-front. Eight symmetric
+ * Bezier curves meet at the center point + two accent curves in the other
+ * brand color + cross-hair axes. Styled by `page-home.css::.feeds-band
+ * .wire-cell`.
+ */
+interface Props {
+  variant?: 'teal' | 'orange'
+}
+const { variant = 'teal' } = Astro.props
+const primary = variant === 'teal' ? '13,148,136' : '249,115,22'
+const accent  = variant === 'teal' ? '249,115,22' : '13,148,136'
+---
+<div class="wire-cell" aria-hidden="true">
+  <svg viewBox="0 0 400 280" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <g fill="none" stroke-width="1.1">
+      <path d={`M40 0 C 40 95, 200 95, 200 140 C 200 185, 40 185, 40 280`}  stroke={`rgba(${primary},0.55)`} />
+      <path d={`M80 0 C 80 105, 200 105, 200 140 C 200 175, 80 175, 80 280`}  stroke={`rgba(${primary},0.50)`} />
+      <path d={`M120 0 C 120 115, 200 115, 200 140 C 200 165, 120 165, 120 280`} stroke={`rgba(${primary},0.42)`} />
+      <path d={`M160 0 C 160 125, 200 125, 200 140 C 200 155, 160 155, 160 280`} stroke={`rgba(${primary},0.32)`} />
+      <path d={`M240 0 C 240 125, 200 125, 200 140 C 200 155, 240 155, 240 280`} stroke={`rgba(${primary},0.32)`} />
+      <path d={`M280 0 C 280 115, 200 115, 200 140 C 200 165, 280 165, 280 280`} stroke={`rgba(${primary},0.42)`} />
+      <path d={`M320 0 C 320 105, 200 105, 200 140 C 200 175, 320 175, 320 280`} stroke={`rgba(${primary},0.50)`} />
+      <path d={`M360 0 C 360 95, 200 95, 200 140 C 200 185, 360 185, 360 280`}  stroke={`rgba(${primary},0.55)`} />
+      <path d={`M60 0 C 60 100, 200 100, 200 140 C 200 180, 60 180, 60 280`}    stroke={`rgba(${accent},0.45)`} />
+      <path d={`M340 0 C 340 100, 200 100, 200 140 C 200 180, 340 180, 340 280`} stroke={`rgba(${accent},0.45)`} />
+      <line x1="0"   y1="140" x2="400" y2="140" stroke="rgba(15,23,42,0.18)" stroke-width="1" />
+      <line x1="200" y1="0"   x2="200" y2="280" stroke="rgba(15,23,42,0.18)" stroke-width="1" />
+    </g>
+  </svg>
+</div>

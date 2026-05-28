@@ -17,9 +17,11 @@ const cols = [
   {
     label: 'SCORES',
     links: [
-      { label: 'Catalog', href: '/catalog' },
-      { label: 'Methodology', href: '/methodology' },
-      { label: 'Rule index', href: '/methodology#rules' },
+      { label: 'All skills', href: '/catalog' },
+      { label: 'Trending', href: '/catalog?sort=trending' },
+      { label: 'Top-flagged', href: '/catalog?sort=flagged' },
+      { label: 'MCP servers', href: '/catalog?kind=mcp_server' },
+      { label: 'Skills', href: '/catalog?kind=skill' },
     ],
   },
   {
@@ -27,25 +29,29 @@ const cols = [
     links: [
       { label: 'Claude Code', href: '/agents/claude-code' },
       { label: 'Cursor', href: '/agents/cursor' },
-      { label: 'Codex CLI', href: '/agents/codex-cli' },
-      { label: 'All 8 agents', href: '/agents' },
+      { label: 'Codex', href: '/agents/codex-cli' },
+      { label: 'Copilot', href: '/agents/copilot' },
+      { label: 'Windsurf', href: '/agents/windsurf' },
     ],
   },
   {
     label: 'DOCS',
     links: [
-      { label: 'CLI install', href: '/docs' },
-      { label: 'API', href: '/docs/api' },
-      { label: 'About', href: '/about' },
+      { label: 'Overview', href: '/docs' },
+      { label: 'CLI', href: '/docs#cli' },
+      { label: 'API', href: '/docs#api' },
+      { label: 'Methodology', href: '/methodology' },
+      { label: 'Detection rules', href: '/methodology#rules' },
     ],
   },
   {
     label: 'PROJECT',
     links: [
-      { label: 'GitHub', href: 'https://github.com/OpenLatch/saferskills', external: true },
-      { label: 'Status', href: 'https://status.saferskills.ai', external: true },
+      { label: 'About', href: '/about' },
+      { label: 'Contact', href: '/about#reach-us' },
       { label: 'Privacy', href: '/privacy' },
-      { label: 'Terms', href: '/terms' },
+      { label: 'Cookie policy', href: '/privacy#cookies' },
+      { label: 'GitHub', href: 'https://github.com/OpenLatch/saferskills', external: true },
     ],
   },
 ]
@@ -59,9 +65,7 @@ const cols = [
           SaferSkills
         </span>
         <p>
-          Every AI skill, independently audited. Public, open-source trust
-          scoring for skills, MCP servers, hooks, plugins, and rules across
-          every agent platform. Free. Apache 2.0.
+          Independent, transparent, open-source scoring for AI skills, MCPs, and plugins.
         </p>
         <p class="ft-meta">
           <span class="live">●</span> 12,847 indexed · methodology open source<br />

@@ -1,0 +1,140 @@
+/* Per-page CSS for /methodology (D-FE-24).
+ *
+ * Page-head pattern + ridge dividers + section structure.
+ * RuleCard styling lives co-located in webapp/src/components/methodology/RuleCard.astro.
+ */
+
+.methodology-band {
+  padding: 64px 0;
+  background: var(--color-paper);
+}
+
+.methodology-prose {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.methodology-prose section {
+  margin-bottom: 48px;
+}
+.methodology-prose section:last-child {
+  margin-bottom: 0;
+}
+
+.methodology-prose .eyebrow {
+  display: inline-flex;
+  margin-bottom: 14px;
+}
+
+.methodology-prose h2 {
+  font-family: var(--font-sans);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  margin: 0 0 18px;
+  color: var(--fg-1);
+}
+
+.methodology-prose h2 .mark {
+  background-image: linear-gradient(
+    transparent 70%,
+    var(--brand-highlight) 70%,
+    var(--brand-highlight) 94%,
+    transparent 94%
+  );
+  padding: 0 8px;
+}
+
+.methodology-prose p {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  margin: 0 0 14px;
+  max-width: 760px;
+  text-wrap: pretty;
+}
+
+.methodology-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 1px 6px;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  color: var(--fg-1);
+}
+
+.methodology-prose a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.methodology-prose ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+}
+
+/* Tier list — 4 colored dots (green/yellow/orange/red) */
+.tier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper-deep);
+  padding: 16px 22px;
+  margin: 8px 0 18px;
+}
+.tier-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: var(--fg-1);
+  line-height: 1.45;
+}
+.tier-list .dot {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.tier-list .dot-g {
+  background: var(--score-green);
+}
+.tier-list .dot-y {
+  background: var(--score-yellow);
+}
+.tier-list .dot-o {
+  background: var(--score-orange);
+}
+.tier-list .dot-r {
+  background: var(--score-red);
+}
+
+/* MDX-rendered prose inside the article — neutralize the heading scale a bit */
+.methodology-prose article.rule-card {
+  margin-block: 18px;
+}
+
+html.dark .methodology-band {
+  background: var(--bg-page);
+}
+html.dark .tier-list {
+  background: var(--bg-page-alt);
+  border-color: var(--color-line);
+}
+html.dark .methodology-prose code {
+  background: var(--bg-page-alt);
+  border-color: var(--color-line);
+  color: var(--fg-1);
+}
+
+@media (max-width: 640px) {
+  .methodology-band {
+    padding: 48px 0;
+  }
+}

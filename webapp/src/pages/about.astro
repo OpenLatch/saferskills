@@ -1,0 +1,212 @@
+---
+export const prerender = true
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import '@/styles/page-about.css'
+---
+<Base
+  title="About — SaferSkills"
+  description="SaferSkills is the public, independent trust-scoring service for AI skills, MCP servers, hooks, and plugins. Stewarded by OpenLatch, open-source, methodology-driven."
+>
+  <NavBar client:idle />
+
+  <PageHead
+    eyebrow="ABOUT · 07 · /ABOUT"
+    title="About SaferSkills."
+    lede="A public, free, open-source trust-scoring service for AI skills, MCP servers, hooks, and plugins. We index them. We audit them. We publish the report."
+    path="/about"
+    meta={[
+      { label: 'STEWARD', value: 'OpenLatch' },
+      { label: 'LICENSE', value: 'Apache 2.0' },
+    ]}
+  />
+
+  {/* ─────────── Why we built this ─────────── */}
+  <section class="about-band">
+    <div class="container">
+      <h2>Why we built this.</h2>
+      <p>
+        AI agent skills, MCP servers, hooks, and plugins have exploded across eight
+        platforms in eighteen months. There is no shared audit, no shared methodology,
+        no shared trust signal. Every install is a leap of faith — and the data we have
+        suggests that faith is misplaced.
+      </p>
+
+      <div class="about-stats">
+        <div class="row headline">
+          <span class="stat-num">36%</span>
+          <div class="stat-body">
+            <b>of AI agent skills tested contain prompt-injection patterns.</b>
+            <cite>Snyk ToxicSkills · 2026</cite>
+          </div>
+        </div>
+        <div class="row prose">
+          <span class="stat-num">NO·1</span>
+          <div class="stat-body">
+            No public audit methodology existed for skills, MCPs, or hooks before
+            SaferSkills. Every registry trusted vendors to self-certify.
+          </div>
+        </div>
+        <div class="row prose">
+          <span class="stat-num">NO·2</span>
+          <div class="stat-body">
+            Existing registries (mcp.so, Smithery, ClawHub, etc.) don't disclose what
+            criteria — if any — they apply before listing a skill.
+          </div>
+        </div>
+        <div class="row prose">
+          <span class="stat-num">NO·3</span>
+          <div class="stat-body">
+            Verification of "works with my agent" is left entirely to the user. There is
+            no install-time gate, no version-locked review, no reproducible audit.
+          </div>
+        </div>
+      </div>
+
+      <p>
+        SaferSkills is the answer to that gap. Anyone submits a public GitHub URL; thirty
+        seconds later, a deterministic security report appears at a permalink. The rules
+        are open. The methodology is open. The findings cite a rule ID and a line of
+        evidence. Vendors get a right-of-reply on every public verdict.
+      </p>
+
+      <p>
+        Think VirusTotal, but for AI skills.
+      </p>
+    </div>
+  </section>
+
+  <RidgeStars label="— FOUNDER · 02 —" />
+
+  {/* ─────────── Founder ─────────── */}
+  <section class="about-band">
+    <div class="container">
+      <h2>Who's behind it.</h2>
+      <div class="founder-card">
+        <span class="avatar" aria-hidden="true">LD</span>
+        <div>
+          <div class="name-row">
+            <span class="name">Luc Delsalle</span>
+            <span class="role">Founder &amp; CEO</span>
+          </div>
+          <p class="bio">
+            20+ years in cybersecurity and enterprise infrastructure. Previously: CTO
+            Ailevate · VP of Engineering Tenable (NASDAQ: TENB) · Co-Founder + CTO
+            Alsid, identity security company acquired by Tenable. Deep background in
+            identity security, attack-path analysis, and runtime enforcement.
+          </p>
+          <div class="links">
+            <a href="https://github.com/ldelsalle" rel="noopener">github.com/ldelsalle</a>
+            <span aria-hidden="true">·</span>
+            <a href="https://linkedin.com/in/lucdelsalle" rel="noopener">linkedin.com/in/lucdelsalle</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <RidgeStars label="— OPENLATCH · 03 —" />
+
+  {/* ─────────── How we relate to OpenLatch ─────────── */}
+  <section class="about-band">
+    <div class="container">
+      <h2>How we relate to OpenLatch.</h2>
+      <p>
+        SaferSkills is operated by OpenLatch, a runtime security platform for AI agents.
+        We're transparent about it — it's in this page, in our footer, and in our
+        privacy policy. The two products are independent but adjacent:
+      </p>
+
+      <div class="ol-diagram" aria-label="SaferSkills and OpenLatch product relationship">
+        <div class="ol-box you">
+          <span class="label">YOU ARE HERE</span>
+          <span class="title">SaferSkills</span>
+          <span class="meta">
+            <b>Pre-install assessment</b><br />
+            Free · Open source<br />
+            Public catalog · Public reports
+          </span>
+        </div>
+        <div class="ol-arrow" aria-hidden="true">→</div>
+        <div class="ol-box">
+          <span class="label">SISTER PROJECT</span>
+          <span class="title">OpenLatch</span>
+          <span class="meta">
+            <b>Runtime enforcement</b><br />
+            Paid · Enterprise<br />
+            Policy plane · Detection plane
+          </span>
+        </div>
+      </div>
+
+      <p>
+        SaferSkills' UX, content, and recommendations never push OpenLatch. The
+        exception is risk-alert emails to users who watch skills that drop in score —
+        those include a single line about OpenLatch's runtime enforcement as relevant
+        context. That's it.
+      </p>
+      <p>
+        Our brand voice is independent on purpose. Our methodology is open source on
+        purpose. Our commercial relationship with OpenLatch is disclosed on purpose.
+        Trust requires transparency, not just technical merit.
+      </p>
+    </div>
+  </section>
+
+  <RidgeStars label="— REACH US · 04 —" />
+
+  {/* ─────────── Reach us ─────────── */}
+  <section class="about-band">
+    <div class="container">
+      <h2>How to reach us.</h2>
+      <p>
+        Email is the right channel for security disclosures, press, partnerships, and
+        methodology proposals. Each address routes to a real person, not a contact-form
+        queue.
+      </p>
+
+      <ul class="reach-list">
+        <li>
+          <span class="label">SECURITY</span>
+          <code>security@openlatch.ai</code>
+        </li>
+        <li>
+          <span class="label">PRESS</span>
+          <code>press@openlatch.ai</code>
+        </li>
+        <li>
+          <span class="label">GENERAL</span>
+          <code>hello@openlatch.ai</code>
+        </li>
+        <li>
+          <span class="label">METHODOLOGY</span>
+          <code>methodology@openlatch.ai</code>
+        </li>
+      </ul>
+
+      <p class="outbound-note">
+        Emails from SaferSkills arrive
+        <code>From: SaferSkills &lt;…@notifications.openlatch.ai&gt;</code>. We use a
+        single sending domain shared with OpenLatch to keep email infrastructure costs
+        at one verified-domain seat. Reply-to is always a <code>@openlatch.ai</code>
+        mailbox.
+      </p>
+    </div>
+  </section>
+
+  <CtaBand
+    client:visible
+    title="Try the scanner."
+    lead="~30 seconds. Free. No account. The report URL is bookmarkable and persists for 90 days."
+    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+  />
+
+  <Footer />
+</Base>

@@ -84,9 +84,9 @@ export default function NavBar({
           ))}
         </ul>
 
-        <div className="nav-right">
+        <div className="nav-right btn-pair">
           {ghCount > 0 && <GhStar count={ghCount} />}
-          <a href={scanHref} className="btn primary">
+          <a href={scanHref} className="btn primary sm">
             Scan a repo
           </a>
         </div>

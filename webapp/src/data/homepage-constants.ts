@@ -1,0 +1,639 @@
+export type SupportedAgent = {
+  id: string
+  name: string
+  glyph: string
+  installPath: string
+  configPath: string
+}
+
+export const SUPPORTED_AGENTS: SupportedAgent[] = [
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    glyph: 'CC',
+    installPath: '~/.claude/skills/',
+    configPath: '~/.claude/settings.json',
+  },
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    glyph: 'Cu',
+    installPath: '~/.cursor/mcp.json',
+    configPath: '~/.cursor/mcp.json',
+  },
+  {
+    id: 'codex-cli',
+    name: 'Codex CLI',
+    glyph: 'Cx',
+    installPath: '~/.codex/skills/',
+    configPath: '~/.codex/skills/',
+  },
+  {
+    id: 'copilot',
+    name: 'GH Copilot',
+    glyph: 'Co',
+    installPath: '~/.github/copilot/',
+    configPath: '~/.github/copilot/',
+  },
+  {
+    id: 'windsurf',
+    name: 'Windsurf',
+    glyph: 'Wd',
+    installPath: '~/.windsurf/',
+    configPath: '~/.windsurf/',
+  },
+  {
+    id: 'cline',
+    name: 'Cline',
+    glyph: 'Cl',
+    installPath: 'vscode://extensions/cline',
+    configPath: '(VS Code extension)',
+  },
+  {
+    id: 'gemini-cli',
+    name: 'Gemini CLI',
+    glyph: 'Gm',
+    installPath: '~/.gemini/config/',
+    configPath: '~/.gemini/config/',
+  },
+  {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    glyph: 'OC',
+    installPath: '~/.openclaw/skills/',
+    configPath: 'openclaw.json',
+  },
+]
+
+export const ATTACK_GRID = [
+  {
+    rule_id: 'SS-PLUGIN-SECRET-EXFIL-GH-TOKEN-01',
+    category: 'CREDENTIAL EXFIL',
+    title: 'GitHub PAT in source',
+    severity: 'critical',
+  },
+  {
+    rule_id: 'SS-MCP-POISON-UNICODE-TAG-01',
+    category: 'PROMPT INJECTION',
+    title: 'Unicode tag-channel injection',
+    severity: 'critical',
+  },
+  {
+    rule_id: 'SS-MCP-POISON-DESCRIPTION-CREEP-01',
+    category: 'TOOL POISONING',
+    title: 'MCP description creep',
+    severity: 'critical',
+  },
+  {
+    rule_id: 'SS-HOOKS-RCE-CURL-PIPE-01',
+    category: 'REMOTE CODE EXECUTION',
+    title: 'curl | bash in hook',
+    severity: 'critical',
+  },
+  {
+    rule_id: 'SS-MCP-SUPPLY-CHAIN-HASH-DRIFT-01',
+    category: 'SUPPLY CHAIN',
+    title: 'Hash drift (rug-pull)',
+    severity: 'high',
+  },
+  {
+    rule_id: 'SS-SKILL-TRANSPARENCY-LICENSE-01',
+    category: 'TRANSPARENCY',
+    title: 'Missing LICENSE',
+    severity: 'medium',
+  },
+  {
+    rule_id: 'SS-PLUGIN-SECRET-EXFIL-AWS-FILES-01',
+    category: 'CREDENTIAL EXFIL',
+    title: 'AWS credentials file read',
+    severity: 'critical',
+  },
+  {
+    rule_id: 'SS-MCP-POISON-SHADOW-TOOL-01',
+    category: 'TOOL POISONING',
+    title: 'MCP shadow tool',
+    severity: 'critical',
+  },
+  {
+    rule_id: 'SS-SKILL-INJECT-FENCED-RUN-01',
+    category: 'PROMPT INJECTION',
+    title: 'Fenced run-this imperative',
+    severity: 'high',
+  },
+  {
+    rule_id: 'SS-HOOKS-OBFUSCATION-B64-SHELL-01',
+    category: 'OBFUSCATION',
+    title: 'Base64-encoded shell payload',
+    severity: 'high',
+  },
+  {
+    rule_id: 'SS-MCP-SUPPLY-CHAIN-TYPOSQUAT-01',
+    category: 'SUPPLY CHAIN',
+    title: 'Typosquat candidate',
+    severity: 'high',
+  },
+  {
+    rule_id: 'SS-SKILL-MAINTENANCE-COMMIT-RECENCY-01',
+    category: 'MAINTENANCE',
+    title: 'Last commit > 180d',
+    severity: 'medium',
+  },
+] as const
+
+export type AttackGridEntry = (typeof ATTACK_GRID)[number]
+
+export const INDEXED_COUNT = 12_847
+export const REGISTRIES_COUNT = 12
+
+/**
+ * Detection-band tiles — Phase A2.
+ *
+ * 57 attack signatures hardcoded for the homepage marquee. We deliberately
+ * decouple this from `rubric/` so marketing copy doesn't churn every time
+ * the scan-engine taxonomy ships a new rule. `ruleId` is optional — when
+ * present (W2+ rubric coverage), tiles deep-link to /methodology#<rule_id>.
+ *
+ * Severity legend per the mockup:
+ *   - `r` : RED   — execution & exfil
+ *   - `o` : ORANGE — injection & supply chain
+ *   - `y` : YELLOW — hygiene & transparency
+ *   - `g` : GREEN  (unused at A2 — reserved for "verified safe" badges)
+ */
+export type DetectionTile = {
+  id: string
+  sev: 'r' | 'o' | 'y' | 'g'
+  cat: string
+  title: string
+  hint?: string
+  ruleId?: string
+}
+
+export const DETECTION_TILES: DetectionTile[] = [
+  {
+    id: 't01',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Invisible Unicode Injection',
+    hint: 'U+E0000–E007F',
+    ruleId: 'SS-SKILL-INJECT-UNICODE-TAG-01',
+  },
+  {
+    id: 't02',
+    sev: 'o',
+    cat: 'OBFUSCATION',
+    title: 'Base64-Encoded Payload',
+    hint: 'base64 ≥128 chars',
+    ruleId: 'SS-SKILL-INJECT-B64-PAYLOAD-01',
+  },
+  {
+    id: 't03',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Jailbreak / Role Override',
+    hint: '/you are now|act as/i',
+    ruleId: 'SS-SKILL-INJECT-ROLE-01',
+  },
+  {
+    id: 't04',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Homoglyph Confusable',
+    hint: 'Latin ↔ Cyrillic mix',
+    ruleId: 'SS-SKILL-INJECT-HOMOGLYPH-01',
+  },
+  {
+    id: 't05',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: "Autonomy Override (“don't ask”)",
+    hint: "/don'?t\\s+(ask|confirm|wait)/i",
+    ruleId: 'SS-SKILL-INJECT-DONT-ASK-01',
+  },
+  {
+    id: 't06',
+    sev: 'y',
+    cat: 'TRANSPARENCY',
+    title: 'Missing Changelog',
+    hint: 'CHANGELOG.md absent',
+    ruleId: 'SS-SKILL-TRANSPARENCY-CHANGELOG-01',
+  },
+  {
+    id: 't07',
+    sev: 'y',
+    cat: 'MAINTENANCE',
+    title: 'Stale Default Branch',
+    hint: 'last commit >180d',
+    ruleId: 'SS-SKILL-MAINTENANCE-COMMIT-RECENCY-01',
+  },
+  {
+    id: 't08',
+    sev: 'y',
+    cat: 'MAINTENANCE',
+    title: 'Unresolved Issue Backlog',
+    hint: 'open/closed ≥0.5',
+    ruleId: 'SS-SKILL-MAINTENANCE-OPEN-ISSUE-RATIO-01',
+  },
+  {
+    id: 't09',
+    sev: 'y',
+    cat: 'COMMUNITY',
+    title: 'Single-Author Repo',
+    hint: 'contributors = 1',
+    ruleId: 'SS-SKILL-COMMUNITY-CONTRIBUTORS-01',
+  },
+  {
+    id: 't10',
+    sev: 'o',
+    cat: 'MCP POISON',
+    title: 'MCP: Zero-Width Poisoning',
+    hint: 'U+200B–D in tool desc',
+    ruleId: 'SS-MCP-POISON-ZWSP-01',
+  },
+  {
+    id: 't11',
+    sev: 'o',
+    cat: 'CAPABILITY',
+    title: 'Undeclared Subprocess Capability',
+    hint: 'spawn/exec without manifest decl',
+    ruleId: 'SS-MCP-CAP-UNDECLARED-01',
+  },
+  {
+    id: 't12',
+    sev: 'o',
+    cat: 'SUPPLY CHAIN',
+    title: 'Unsigned MCP Release',
+    hint: 'no sigstore/cosign attestation',
+    ruleId: 'SS-MCP-SUPPLY-CHAIN-UNSIGNED-01',
+  },
+  {
+    id: 't13',
+    sev: 'r',
+    cat: 'RCE',
+    title: 'Destructive rm -rf',
+    hint: 'rm -rf / $VAR ~',
+    ruleId: 'SS-HOOKS-RCE-RMRF-01',
+  },
+  {
+    id: 't14',
+    sev: 'r',
+    cat: 'RCE',
+    title: 'World-Writable Permissions',
+    hint: 'chmod 777 / o+w',
+    ruleId: 'SS-HOOKS-RCE-CHMOD-WIDE-01',
+  },
+  {
+    id: 't15',
+    sev: 'o',
+    cat: 'SUPPLY CHAIN',
+    title: 'Owner-Transfer Signal',
+    hint: 'repo owner Δ <90d',
+    ruleId: 'SS-HOOKS-SUPPLY-CHAIN-OWNER-XFER-01',
+  },
+  {
+    id: 't16',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Non-Disclosure Imperative',
+    hint: "/don'?t (mention|disclose|reveal)/i",
+    ruleId: 'SS-RULES-INJECT-IMPERATIVE-01',
+  },
+  {
+    id: 't17',
+    sev: 'y',
+    cat: 'TRANSPARENCY',
+    title: 'Rules: Missing Documentation',
+    hint: 'rule lacks frontmatter',
+    ruleId: 'SS-RULES-TRANSPARENCY-MANIFEST-01',
+  },
+  {
+    id: 't18',
+    sev: 'r',
+    cat: 'CREDENTIAL EXFIL',
+    title: 'AWS Credential Theft',
+    hint: '~/.aws/credentials',
+    ruleId: 'SS-PLUGIN-SECRET-EXFIL-AWS-FILES-01',
+  },
+  {
+    id: 't19',
+    sev: 'r',
+    cat: 'CREDENTIAL EXFIL',
+    title: 'Webhook Exfiltration',
+    hint: 'POST → discord.com/api/webhooks',
+    ruleId: 'SS-PLUGIN-SECRET-EXFIL-WEBHOOK-01',
+  },
+  {
+    id: 't20',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Trojan Source (BiDi)',
+    hint: 'U+202A–E, U+2066–9',
+    ruleId: 'SS-SKILL-INJECT-BIDI-01',
+  },
+  {
+    id: 't21',
+    sev: 'o',
+    cat: 'OBFUSCATION',
+    title: 'Hex-Encoded Payload',
+    hint: 'hex ≥256 chars',
+    ruleId: 'SS-SKILL-INJECT-HEX-PAYLOAD-01',
+  },
+  {
+    id: 't22',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Fenced-Imperative Run',
+    hint: '``` (run|exec|execute)',
+    ruleId: 'SS-SKILL-INJECT-FENCED-RUN-01',
+  },
+  {
+    id: 't23',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'System-Prompt Leak Request',
+    hint: '/print\\s+(your\\s+)?system/i',
+    ruleId: 'SS-SKILL-INJECT-SYS-LEAK-01',
+  },
+  {
+    id: 't24',
+    sev: 'y',
+    cat: 'TRANSPARENCY',
+    title: 'Missing Manifest',
+    hint: 'manifest.json absent',
+    ruleId: 'SS-SKILL-TRANSPARENCY-MANIFEST-01',
+  },
+  {
+    id: 't25',
+    sev: 'y',
+    cat: 'TRANSPARENCY',
+    title: 'Missing SECURITY.md',
+    hint: 'SECURITY.md absent',
+    ruleId: 'SS-SKILL-TRANSPARENCY-SECURITY-01',
+  },
+  {
+    id: 't26',
+    sev: 'y',
+    cat: 'MAINTENANCE',
+    title: 'Low Commit Frequency',
+    hint: '<1 commit / 30d',
+    ruleId: 'SS-SKILL-MAINTENANCE-COMMIT-FREQ-01',
+  },
+  {
+    id: 't27',
+    sev: 'y',
+    cat: 'MAINTENANCE',
+    title: 'Unenforced CI',
+    hint: 'no workflows/ or failing',
+    ruleId: 'SS-SKILL-MAINTENANCE-CI-BROKEN-01',
+  },
+  {
+    id: 't28',
+    sev: 'o',
+    cat: 'MCP POISON',
+    title: 'MCP: Invisible Unicode',
+    hint: 'U+E0000–E007F in tool desc',
+    ruleId: 'SS-MCP-POISON-UNICODE-TAG-01',
+  },
+  {
+    id: 't29',
+    sev: 'o',
+    cat: 'MCP POISON',
+    title: 'Oversized Tool Description',
+    hint: 'description ≥2000 chars',
+    ruleId: 'SS-MCP-POISON-DESCRIPTION-CREEP-01',
+  },
+  {
+    id: 't30',
+    sev: 'o',
+    cat: 'SUPPLY CHAIN',
+    title: 'Typosquat Candidate',
+    hint: 'Levenshtein ≤1',
+    ruleId: 'SS-MCP-SUPPLY-CHAIN-TYPOSQUAT-01',
+  },
+  {
+    id: 't31',
+    sev: 'y',
+    cat: 'COMMUNITY',
+    title: 'Cross-Registry Listing',
+    hint: 'same slug on 2+ registries',
+    ruleId: 'SS-MCP-COMMUNITY-CROSS-REG-01',
+  },
+  {
+    id: 't32',
+    sev: 'r',
+    cat: 'RCE',
+    title: 'Unattended sudo',
+    hint: 'sudo without -S / askpass',
+    ruleId: 'SS-HOOKS-RCE-SUDO-UNATTENDED-01',
+  },
+  {
+    id: 't33',
+    sev: 'o',
+    cat: 'OBFUSCATION',
+    title: 'Base64-Decoded Shell',
+    hint: 'base64 -d | bash',
+    ruleId: 'SS-HOOKS-OBFUSCATION-B64-SHELL-01',
+  },
+  {
+    id: 't34',
+    sev: 'o',
+    cat: 'SUPPLY CHAIN',
+    title: 'New-Account Author',
+    hint: 'account age <30d',
+    ruleId: 'SS-HOOKS-SUPPLY-CHAIN-AUTHOR-AGE-01',
+  },
+  {
+    id: 't35',
+    sev: 'o',
+    cat: 'OBFUSCATION',
+    title: 'Rules: Unicode Tag-Channel',
+    hint: 'U+E0000–E007F in .mdc',
+    ruleId: 'SS-RULES-OBFUSCATION-UNICODE-TAG-01',
+  },
+  {
+    id: 't36',
+    sev: 'y',
+    cat: 'COMMUNITY',
+    title: 'Rules: Low Adoption',
+    hint: 'installs <100',
+    ruleId: 'SS-RULES-COMMUNITY-INSTALLS-01',
+  },
+  {
+    id: 't37',
+    sev: 'r',
+    cat: 'CREDENTIAL EXFIL',
+    title: 'GitHub Token Leak',
+    hint: 'ghp_ / github_pat_ / gho_',
+    ruleId: 'SS-PLUGIN-SECRET-EXFIL-GH-TOKEN-01',
+  },
+  {
+    id: 't38',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Excessive-Agency Imperative',
+    hint: '/must|always|never (ask|confirm)/i',
+    ruleId: 'SS-SKILL-INJECT-STRONG-IMPERATIVE-02',
+  },
+  {
+    id: 't39',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Zero-Width Smuggling',
+    hint: 'U+200B–D, U+2060, U+FEFF (≥3)',
+    ruleId: 'SS-SKILL-INJECT-ZWSP-01',
+  },
+  {
+    id: 't40',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: '“Ignore Previous Instructions”',
+    hint: '/ignore\\s+(all\\s+)?previous/i',
+    ruleId: 'SS-SKILL-INJECT-IGNORE-01',
+  },
+  {
+    id: 't41',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Emoji-Smuggled Instructions',
+    hint: 'VS16 + tag chars',
+    ruleId: 'SS-SKILL-INJECT-EMOJI-SMUG-01',
+  },
+  {
+    id: 't42',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Imperative Override Pattern',
+    hint: '/override|disregard|forget/i',
+    ruleId: 'SS-SKILL-INJECT-IMPERATIVE-01',
+  },
+  {
+    id: 't43',
+    sev: 'y',
+    cat: 'TRANSPARENCY',
+    title: 'Missing License',
+    hint: 'LICENSE absent',
+    ruleId: 'SS-SKILL-TRANSPARENCY-LICENSE-01',
+  },
+  {
+    id: 't44',
+    sev: 'y',
+    cat: 'TRANSPARENCY',
+    title: 'Missing README',
+    hint: 'README.md absent',
+    ruleId: 'SS-SKILL-TRANSPARENCY-DESCRIPTION-01',
+  },
+  {
+    id: 't45',
+    sev: 'y',
+    cat: 'MAINTENANCE',
+    title: 'Slow Issue Response',
+    hint: 'median response >14d',
+    ruleId: 'SS-SKILL-MAINTENANCE-ISSUE-RESPONSE-01',
+  },
+  {
+    id: 't46',
+    sev: 'y',
+    cat: 'COMMUNITY',
+    title: 'Low Adoption Signal',
+    hint: 'stars <50',
+    ruleId: 'SS-SKILL-COMMUNITY-STARS-01',
+  },
+  {
+    id: 't47',
+    sev: 'o',
+    cat: 'MCP POISON',
+    title: 'MCP: BiDi Poisoning',
+    hint: 'U+202A–E in tool desc',
+    ruleId: 'SS-MCP-POISON-BIDI-01',
+  },
+  {
+    id: 't48',
+    sev: 'o',
+    cat: 'MCP POISON',
+    title: 'Shadow Tool Registration',
+    hint: '_internal / __hidden / _meta',
+    ruleId: 'SS-MCP-POISON-SHADOW-TOOL-01',
+  },
+  {
+    id: 't49',
+    sev: 'o',
+    cat: 'SUPPLY CHAIN',
+    title: 'Content-Hash Drift (Rug-Pull)',
+    hint: 'content-hash Δ between scans',
+    ruleId: 'SS-MCP-SUPPLY-CHAIN-HASH-DRIFT-01',
+  },
+  {
+    id: 't50',
+    sev: 'r',
+    cat: 'RCE',
+    title: 'curl ∣ bash',
+    hint: 'curl/wget piped to bash/sh',
+    ruleId: 'SS-HOOKS-RCE-CURL-PIPE-01',
+  },
+  {
+    id: 't51',
+    sev: 'r',
+    cat: 'RCE',
+    title: 'Reverse Shell / Egress',
+    hint: 'bash -i >& /dev/tcp/',
+    ruleId: 'SS-HOOKS-RCE-NET-EGRESS-01',
+  },
+  {
+    id: 't52',
+    sev: 'o',
+    cat: 'OBFUSCATION',
+    title: 'Dynamic eval',
+    hint: 'eval $(...) / eval "$VAR"',
+    ruleId: 'SS-HOOKS-OBFUSCATION-EVAL-01',
+  },
+  {
+    id: 't53',
+    sev: 'y',
+    cat: 'COMMUNITY',
+    title: 'Low Fork Count',
+    hint: 'forks <5',
+    ruleId: 'SS-HOOKS-COMMUNITY-FORK-HEALTH-01',
+  },
+  {
+    id: 't54',
+    sev: 'o',
+    cat: 'OBFUSCATION',
+    title: 'Rules: Homoglyph Confusable',
+    hint: 'Latin ↔ Cyrillic in .mdc',
+    ruleId: 'SS-RULES-OBFUSCATION-HOMOGLYPH-01',
+  },
+  {
+    id: 't55',
+    sev: 'r',
+    cat: 'CREDENTIAL EXFIL',
+    title: 'Env Read + Network Call (Exfil)',
+    hint: 'process.env.* → fetch/http',
+    ruleId: 'SS-PLUGIN-SECRET-EXFIL-ENV-NET-01',
+  },
+  {
+    id: 't56',
+    sev: 'r',
+    cat: 'CREDENTIAL EXFIL',
+    title: 'SSH Private Key Access',
+    hint: '~/.ssh/id_* / BEGIN PRIVATE KEY',
+    ruleId: 'SS-PLUGIN-SECRET-EXFIL-SSH-01',
+  },
+  {
+    id: 't57',
+    sev: 'o',
+    cat: 'PROMPT INJECTION',
+    title: 'Strong Imperative Pattern',
+    hint: '/you (must|will|shall)/i',
+    ruleId: 'SS-SKILL-INJECT-STRONG-IMPERATIVE-01',
+  },
+]
+
+/**
+ * Detection tally — count by severity band. Used by the dt-tally strip
+ * above the detection marquees and must agree with DETECTION_TILES contents.
+ * Recompute if tiles change.
+ */
+export const DETECTION_TALLY = {
+  red: DETECTION_TILES.filter((t) => t.sev === 'r').length,
+  orange: DETECTION_TILES.filter((t) => t.sev === 'o').length,
+  yellow: DETECTION_TILES.filter((t) => t.sev === 'y').length,
+}

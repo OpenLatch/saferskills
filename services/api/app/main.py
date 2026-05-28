@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.observability import init_observability
-from app.routers import health
+from app.routers import health, scans_stub
 
 
 @asynccontextmanager
@@ -47,3 +47,4 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api/v1")
+app.include_router(scans_stub.router, prefix="/api/v1")
