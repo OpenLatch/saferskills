@@ -34,17 +34,22 @@ def _resolve_rubric_dir() -> Path:
     1. `settings.rubric_dir` (typed env-var read; set by Docker / Fly).
     2. Source-checkout layout: `parents[4]/rubric` from this file
        (parents[0]=scan/ parents[1]=app/ parents[2]=api/ parents[3]=services/
-       parents[4]=repo root).
-    3. CWD-relative `./rubric` (fallback for unusual layouts).
+       parents[4]=repo root). The Docker image flattens the tree to /app, so
+       parents[4] would IndexError — we guard with `try/except`.
+    3. CWD-relative `./rubric` (last-resort fallback).
 
     The `_load_all_rules` step checks `.exists()` and returns an empty registry
-    if the directory is missing, so the service still boots cleanly.
+    if the directory is missing, so the service still boots cleanly with no
+    rubric configured (scans just produce empty findings sets).
     """
     override = get_settings().rubric_dir
     if override:
         return Path(override)
-    source_layout = Path(__file__).resolve().parents[4] / "rubric"
-    if source_layout.exists():
+    try:
+        source_layout = Path(__file__).resolve().parents[4] / "rubric"
+    except IndexError:
+        source_layout = None
+    if source_layout is not None and source_layout.exists():
         return source_layout
     return Path.cwd() / "rubric"
 
