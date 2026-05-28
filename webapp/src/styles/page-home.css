@@ -958,54 +958,42 @@ html.dark body.va .nav-links a.active:hover {
   }
 }
 
-/* trailing Enter key */
-.p1-input .p1-enter {
+/* trailing submit affordance — the Kbd chip (or ↵ glyph fallback) IS
+   the affordance. No separate "Enter" button anymore. */
+.p1-input .p1-submit {
   all: unset;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 18px;
-  border-left: 1px solid var(--color-line);
-  background: var(--color-paper);
-  color: var(--color-ink);
+  padding: 0 14px 0 6px;
   flex-shrink: 0;
-  transition:
-    background var(--dur-xs),
-    color var(--dur-xs),
-    border-color var(--dur-xs);
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.p1-input .p1-enter:hover {
+.p1-input .p1-submit:active {
+  transform: scale(0.96);
+}
+.p1-input .p1-submit:hover .kbd-chip {
   background: var(--brand-primary);
-  color: var(--color-paper);
-  border-left-color: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
 }
-.p1-card.audit .p1-input .p1-enter:hover {
+.p1-card.audit .p1-input .p1-submit:hover .kbd-chip {
   background: var(--brand-accent);
-  color: var(--color-paper);
-  border-left-color: var(--brand-accent);
+  color: #fff;
+  border-color: var(--brand-accent);
 }
-.p1-input .p1-enter .key {
+.p1-input .p1-submit-ret {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1.5px solid var(--color-ink);
+  border: 1px solid var(--color-line);
   background: var(--color-paper-deep);
   font-family: var(--font-mono);
   font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-  transition:
-    background var(--dur-xs),
-    color var(--dur-xs),
-    border-color var(--dur-xs);
-}
-.p1-input .p1-enter:hover .key {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  border-color: var(--color-paper);
+  color: var(--fg-2);
 }
 
 /* tab-completion chips (find card) */
@@ -1258,14 +1246,9 @@ html.dark body.va .p1-input input {
 html.dark body.va .p1-input .caret {
   background: var(--fg-1);
 }
-html.dark body.va .p1-input .p1-enter {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--fg-1);
-  border-left-color: var(--color-line);
-}
-html.dark body.va .p1-input .p1-enter .key {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--fg-1);
+html.dark body.va .p1-input .p1-submit-ret {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-2);
   border-color: var(--color-line);
 }
 
@@ -1383,6 +1366,12 @@ html.dark .hero-band .supported-band {
   background: var(--color-paper);
   border-top: 1px solid var(--color-ink);
   overflow: hidden;
+}
+/* Soften the divider in dark mode — same reason as the supported-band top
+   border: --color-ink flips to slate-50 and burns through the dark chrome
+   as a stark white rule between the marquee and the HORIZON band. */
+html.dark .topo-band {
+  border-top-color: var(--color-line);
 }
 .topo-band::before {
   content: "";
@@ -3208,19 +3197,13 @@ html.dark body.va .ridge-pixel .ridge-label {
 }
 
 /* ============================================================
-   HERO KEYBOARD-CHIP SLOT — page-specific positioning of the
-   shared Kbd atom inside the .p1-input bar. The dropdown surface
-   itself + its anchor live in the design system — see
+   HERO INPUT SUBMIT — on narrow screens, hide the kbd-chip-styled
+   submit affordance to keep the input bar uncluttered. The shared
+   SearchDropdown molecule lives in the design system — see
    ui/styles/components.css :: SEARCH-DROPDOWN.
    ============================================================ */
-.p1-input .p1-kbd-host {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px 0 4px;
-  flex-shrink: 0;
-}
 @media (max-width: 980px) {
-  .p1-input .p1-kbd-host {
+  .p1-input .p1-submit .kbd-chip {
     display: none;
   }
 }
