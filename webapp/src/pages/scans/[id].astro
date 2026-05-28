@@ -1,0 +1,59 @@
+---
+export const prerender = false
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import ScanProgressBoard from '@/components/scan/ScanProgressBoard.tsx'
+import ScanReportFull from '@/components/scan/ScanReportFull.tsx'
+
+import { fetchScanById } from '@/lib/api/scans'
+
+import '@/styles/page-scan-progress.css'
+import '@/styles/page-scan-report.css'
+
+const { id } = Astro.params
+if (!id) {
+  return Astro.redirect('/404')
+}
+
+const scan = await fetchScanById(id).catch(() => null)
+if (!scan) {
+  return Astro.redirect('/404')
+}
+
+const isInProgress = scan.status === 'pending' || scan.status === 'running'
+const baseTitle = scan.display_name || scan.slug
+---
+
+<Base
+  title={isInProgress ? `Auditing ${baseTitle} — SaferSkills` : `${baseTitle} ${scan.aggregate_score}/100 — SaferSkills`}
+  description={
+    isInProgress
+      ? `Live audit of ${scan.github_url} — independent detection rules running.`
+      : `SaferSkills audit of ${baseTitle}: ${scan.aggregate_score}/100. Independent, methodology-open, free.`
+  }
+>
+  <NavBar client:idle />
+
+  <PageHead
+    eyebrow={`SCAN · 03 · /SCAN/<ID>`}
+    title={isInProgress ? `Auditing ${baseTitle}` : `${baseTitle} ${scan.aggregate_score}/100`}
+    lede={
+      isInProgress
+        ? `87 detectors across 4 stages. The page auto-refreshes — every detector logs its status.`
+        : `Independent audit · rubric ${scan.rubric_version.slice(0, 7)} · engine ${scan.engine_version.slice(0, 7)}.`
+    }
+    path={`/scans/${id}`}
+  />
+
+  {isInProgress ? (
+    <ScanProgressBoard client:load scanId={id} target={scan.github_url} startedAt={scan.scanned_at} />
+  ) : (
+    <ScanReportFull client:load scan={scan} />
+  )}
+
+  <Footer />
+</Base>

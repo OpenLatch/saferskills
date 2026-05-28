@@ -60,6 +60,45 @@ class Settings(BaseSettings):
     )
     version: str = Field(default="0.0.0-foundation")
 
+    # ── Scan engine identity ───────────────────────────────────────────────
+    # Both versions are 7-40 char hex strings (git SHA prefix). At runtime they
+    # fall back to `git_sha` if not explicitly set — the build pipeline stamps
+    # them during the Docker image build (see Dockerfile ARG / ENV).
+    rubric_version: str = Field(
+        default="unknown",
+        description="Git SHA of the rubric/ subtree at build time. Stamped on every scan + finding.",
+    )
+    engine_version: str = Field(
+        default="unknown",
+        description="Git SHA of the scan engine at build time. Stamped on every scan.",
+    )
+
+    # ── Rubric location ────────────────────────────────────────────────────
+    # The rubric/ subtree lives at the monorepo root in source-checkout layout.
+    # In Docker, the build context is `services/api/` so rubric/ is outside
+    # the image; docker-compose mounts it as a read-only volume at /app/rubric.
+    # Set this env var to override the auto-discovered path.
+    rubric_dir: str | None = Field(
+        default=None,
+        description="Absolute path to the rubric/ directory. None → auto-discover.",
+    )
+
+    # ── GitHub fetch ───────────────────────────────────────────────────────
+    github_token: str | None = Field(
+        default=None,
+        description=(
+            "Optional GitHub PAT for tarball fetches. Without it the scan engine "
+            "is subject to the 60 req/h anonymous rate limit; with it, 5,000 req/h."
+        ),
+    )
+
+    # ── Rate limits ────────────────────────────────────────────────────────
+    scan_submit_daily_limit: int = Field(
+        default=10,
+        ge=1,
+        description="Maximum scan submissions per IP per 24h window (D-FE-11).",
+    )
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> object:

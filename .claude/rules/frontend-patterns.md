@@ -75,6 +75,19 @@ export async function listArtifacts(): Promise<ArtifactList> {
 - Hand-written form schemas (e.g. a transient UI state object) live under `webapp/src/lib/forms/`.
 - `react-hook-form` wires the Zod schema via `@hookform/resolvers/zod`.
 
+## SSE pattern — `useScanProgress`
+
+Long-running scan progress is streamed from the backend via Server-Sent Events on `GET /api/v1/scans/<id>/events` (cf. D-FE-09 + D-FE-34 in `INDEX.md`). The frontend hook `webapp/src/lib/hooks/useScanProgress.ts` is the canonical pattern:
+
+- Opens an `EventSource` against `${env.PUBLIC_API_URL}/api/v1/scans/<id>/events`.
+- Parses `progress` event frames and reduces them into a `ScanProgressState` via `useReducer`.
+- **Reconnect strategy**: exponential backoff 1s → 2s → 4s (max 3 attempts) on `onerror`.
+- **Polling fallback**: after 3 failed reconnects, falls back to `fetchScanById` every 1.5s until the scan reaches a terminal state.
+- **Resume semantics**: each SSE frame carries `id: <scan_id>-<event_seq>`; on reconnect the browser sends `Last-Event-ID` and the backend replays from `scan_events` rows past that sequence.
+- **Cleanup**: the effect's cleanup closes the `EventSource` and clears the polling timer.
+
+Use the hook from React islands hydrated with `client:load` (the progress board needs to be live immediately when the user lands on `/scans/<id>`). Reduced-motion is handled at the molecule level (e.g. `ScanProgressBar`'s `reducedMotion` prop), not the hook.
+
 ## Tailwind v4
 
 - **No `tailwind.config.js`.** Tokens live in `ui/styles/tokens.css` via the `@theme` directive (cf. `design-system.md`).

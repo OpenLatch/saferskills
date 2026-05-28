@@ -28,6 +28,13 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ""
       GIT_SHA: dev
       VERSION: 0.0.0-foundation
+      # Phase B scan engine reads detector specs from rubric/ at startup.
+      # In source-checkout layout the engine auto-discovers from the monorepo
+      # root; in Docker the rubric tree is mounted read-only since it lives
+      # outside the api build context (./services/api).
+      RUBRIC_DIR: /app/rubric
+    volumes:
+      - ./rubric:/app/rubric:ro
     ports: ["8000:8000"]
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]

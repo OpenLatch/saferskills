@@ -1,0 +1,218 @@
+/* /catalog — Phase B layout shell.
+ * Full pixel-perfect port of mockups/hifi/app-pages.css::.cat-* is a Phase C
+ * polish step. This shell establishes the split layout + readable typography
+ * so the catalog is usable + the routing/data layers can be verified.
+ */
+
+.cat-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--border-1, #d8d4c8);
+}
+
+.cat-toolbar-search {
+  flex: 1;
+  max-width: 720px;
+}
+
+.cat-toolbar-search-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-1, #d8d4c8);
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-page, #fbf9f4);
+}
+
+.cat-toolbar-search-label input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.cat-toolbar-search-kbd {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  border: 1px solid var(--border-1, #d8d4c8);
+  padding: 0.1rem 0.35rem;
+  background: var(--bg-paper, #fff);
+}
+
+.cat-toolbar-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+}
+
+.cat-toolbar-counter-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-primary, #0d9488);
+  animation: cat-toolbar-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes cat-toolbar-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-toolbar-counter-pulse {
+    animation: none;
+  }
+}
+
+.cat-split {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .cat-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cat-side {
+  border-right: 1px solid var(--border-1, #d8d4c8);
+  padding-right: 1.5rem;
+}
+
+.cat-side-group {
+  margin-bottom: 2rem;
+}
+
+.cat-side-group h3 {
+  margin: 0 0 0.75rem;
+}
+
+.cat-side-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cat-side-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.cat-side-count {
+  color: var(--fg-3, #888);
+  font-size: 0.75rem;
+}
+
+.cat-side-clear {
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  color: var(--fg-3, #888);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.cat-row-link,
+.cat-results .col-head {
+  display: grid;
+  grid-template-columns: 60px 1fr 90px 130px 110px 130px 100px;
+  gap: 1rem;
+  align-items: center;
+}
+
+.cat-row-link {
+  padding: 1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.cat-results .col-head {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3, #888);
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-1, #d8d4c8);
+}
+
+.cat-results-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.cat-row {
+  border-bottom: 1px solid var(--border-2, #ece8df);
+}
+
+.cat-row.featured {
+  background: rgba(13, 148, 136, 0.04);
+}
+
+.cat-row-name strong {
+  display: block;
+}
+
+.cat-row-author,
+.cat-row-desc {
+  font-size: 0.8rem;
+  color: var(--fg-3, #888);
+}
+
+.cat-row-meta {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.72rem;
+  gap: 0.25rem;
+}
+
+.cat-row-install.btn {
+  width: 96px;
+  text-align: center;
+  text-decoration: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+}
+
+.cat-results-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.cat-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1rem;
+  border-top: 1px solid var(--border-1, #d8d4c8);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
