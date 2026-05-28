@@ -1,88 +1,401 @@
 /* SaferSkills design tokens — the single source of truth.
  *
- * Editorial-Precision aesthetic: 0px radius, 1px hairline borders, no shadows.
- * Distinct from the OpenLatch emerald-teal brand via the cobalt primary.
+ * Brand: emerald-teal (kinship-by-color with OpenLatch master palette);
+ * distinction-by-shape via the hex-cap vocabulary + DM Sans / Space Mono /
+ * Anybody / Nanum Pen Script type stack + Onest 600 monochrome wordmark.
+ *
+ * Supersedes the W1 cobalt-primary direction per the Wordmark Spec lock
+ * (2026-05-27). The hi-fi mockup CSS at
+ *   .local/.brainstorms/frontend/mockups/hifi/tokens.css
+ * is the canonical source ported here. Selectors translated from
+ * `body.va.dark .X` → `html.dark .X` per 2026 Astro best practice.
  *
  * See .claude/rules/design-system.md.
  */
 
 :root {
-  /* ── Surface ──────────────────────────────────────────── */
-  --background:    255 255 255;
-  --foreground:    10 10 10;
-  --muted:         245 245 247;
-  --muted-fg:      90 90 95;
-  --border:        220 220 224;
+  /* ============================================================
+     OPENLATCH SOURCE TOKENS  (--ol-*)
+     Kinship signal — same teal as the OpenLatch master palette.
+     ============================================================ */
 
-  /* ── Brand ────────────────────────────────────────────── */
-  --primary:       30 64 175;    /* #1E40AF cobalt */
-  --primary-fg:    255 255 255;
-  --primary-tint:  239 246 255;  /* #EFF6FF — 5% wash */
+  --ol-brand-primary:        #0D9488;
+  --ol-brand-primary-dark:   #0F766E;
+  --ol-brand-primary-light:  #14B8A6;
+  --ol-brand-primary-tint:   #CCFBF1;
+  --ol-brand-accent:         #F97316;
+  --ol-brand-accent-light:   #FB923C;
 
-  /* ── 4-band score colors (Methodology §Trust score rubric) */
-  --score-green:   16 122 79;    /* #107A4F */
-  --score-yellow:  202 138 4;    /* #CA8A04 */
-  --score-orange:  234 88 12;    /* #EA580C */
-  --score-red:     185 28 28;    /* #B91C1C */
+  --ol-slate-50:   #F8FAFC;
+  --ol-slate-100:  #F1F5F9;
+  --ol-slate-200:  #E2E8F0;
+  --ol-slate-300:  #CBD5E1;
+  --ol-slate-400:  #94A3B8;
+  --ol-slate-500:  #64748B;
+  --ol-slate-600:  #475569;
+  --ol-slate-700:  #334155;
+  --ol-slate-800:  #1E293B;
+  --ol-slate-900:  #0F172A;
 
-  /* ── Typography scale (px) ────────────────────────────── */
-  --type-2xs:      11px;
-  --type-xs:       12px;
-  --type-sm:       14px;
-  --type-base:     16px;
-  --type-lg:       18px;
-  --type-xl:       22px;
-  --type-2xl:      28px;
-  --type-3xl:      36px;
-  --type-hero:     56px;
+  --ol-success:    #10B981;
+  --ol-warning:    #F59E0B;
+  --ol-error:      #EF4444;
+  --ol-info:       #3B82F6;
 
-  /* ── Spacing scale (4px grid) ─────────────────────────── */
-  --space-1:       4px;
-  --space-2:       8px;
-  --space-3:       12px;
-  --space-4:       16px;
-  --space-6:       24px;
-  --space-8:       32px;
-  --space-12:      48px;
-  --space-16:      64px;
+  /* ============================================================
+     LEGACY ALIASES (--color-*)
+     Kept verbatim from the hi-fi to avoid rewriting every selector
+     that already references them.
+     ============================================================ */
 
-  /* ── Architecture: 0px corners, 1px hairlines ─────────── */
-  --radius:        0;
-  --border-width:  1px;
+  --color-slate:        var(--ol-slate-900);
+  --color-mint:         var(--ol-brand-primary);
+  --color-mint-pale:    var(--ol-brand-primary-tint);
+  --color-blush:        #FFE4D2;
+  --color-blush-hot:    var(--ol-brand-accent);
+  --color-citron:       var(--ol-brand-primary-tint);
+  --color-volt:         var(--ol-brand-accent-light);
+  --color-azure:        var(--ol-info);
+  --color-azure-pale:   #DBEAFE;
+  --color-azure-mid:    #60A5FA;
 
-  /* ── Motion (sparingly) ───────────────────────────────── */
-  --duration-fast: 120ms;
-  --duration-base: 200ms;
-  --ease:          cubic-bezier(0.32, 0, 0.67, 0);
+  --color-ink:          var(--ol-slate-900);
+  --color-ink-soft:     var(--ol-slate-800);
+  --color-slate-soft:   var(--ol-slate-500);
+  --color-line:         var(--ol-slate-300);
+  --color-line-soft:    var(--ol-slate-200);
+  --color-paper:        var(--ol-slate-50);
+  --color-paper-deep:   var(--ol-slate-100);
+  --color-white:        #FFFFFF;
+
+  /* ============================================================
+     SEMANTIC COLOR ROLES
+     Use these in components, NOT raw hex/palette names.
+     ============================================================ */
+
+  --fg-1: var(--color-ink);
+  --fg-2: var(--color-slate);
+  --fg-3: var(--color-slate-soft);
+  --fg-on-dark: var(--color-paper);
+  --fg-on-dark-2: var(--color-line);
+  --fg-link: var(--color-azure);
+
+  --bg-page: var(--color-paper);
+  --bg-page-alt: var(--color-paper-deep);
+  --bg-surface: var(--color-white);
+  --bg-surface-mute: var(--color-line-soft);
+  --bg-inverse: var(--color-slate);
+
+  --border-1: var(--color-ink);
+  --border-2: var(--color-line);
+  --border-3: var(--color-line-soft);
+  --border-dashed: var(--color-slate-soft);
+
+  --brand-primary: var(--ol-brand-primary);
+  --brand-primary-dark: var(--ol-brand-primary-dark);
+  --brand-cta: var(--ol-brand-primary);
+  --brand-cta-fg: #FFFFFF;
+  --brand-accent: var(--ol-brand-accent);
+  --brand-highlight: var(--ol-brand-primary-tint);
+
+  --status-success: var(--ol-success);
+  --status-success-bg: #D1FAE5;
+  --status-info: var(--ol-info);
+  --status-info-bg: #DBEAFE;
+  --status-warn: var(--ol-warning);
+  --status-warn-bg: #FEF3C7;
+  --status-danger: var(--ol-error);
+  --status-danger-bg: #FEE2E2;
+
+  /* ============================================================
+     SCORE BAND COLORS — Yuka-style 4-band tier
+     ============================================================ */
+  --score-green:  #10B981;
+  --score-yellow: #F59E0B;
+  --score-orange: #EA580C;
+  --score-red:    #EF4444;
+
+  /* ============================================================
+     TYPOGRAPHY — FAMILIES
+     ============================================================ */
+  --font-display:  "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans:     "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:     "Space Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-loud:     "Anybody", "DM Sans", sans-serif;
+  --font-script:   "Nanum Pen Script", "Bradley Hand", cursive;
+  --font-wordmark: "Onest", "DM Sans", system-ui, sans-serif;
+
+  /* ============================================================
+     TYPOGRAPHY — RAW SCALE
+     ============================================================ */
+  --fs-9:   9px;
+  --fs-10:  10px;
+  --fs-11:  11px;
+  --fs-12:  12px;
+  --fs-13:  13px;
+  --fs-14:  14px;
+  --fs-16:  16px;
+  --fs-18:  18px;
+  --fs-20:  20px;
+  --fs-24:  24px;
+  --fs-30:  30px;
+  --fs-36:  36px;
+  --fs-48:  48px;
+  --fs-64:  64px;
+  --fs-80:  80px;
+  --fs-96:  96px;
+  --fs-128: 128px;
+
+  /* ============================================================
+     SPACING (base 2px — uses the actually-occurring values)
+     ============================================================ */
+  --s-1:   1px;
+  --s-2:   2px;
+  --s-4:   4px;
+  --s-6:   6px;
+  --s-8:   8px;
+  --s-12:  12px;
+  --s-16:  16px;
+  --s-24:  24px;
+  --s-32:  32px;
+  --s-40:  40px;
+  --s-48:  48px;
+  --s-56:  56px;
+  --s-64:  64px;
+  --s-80:  80px;
+  --s-96:  96px;
+  --s-144: 144px;
+  --s-192: 192px;
+  --s-240: 240px;
+
+  /* ============================================================
+     RADII — sharp/brutalist; almost everything is 0
+     ============================================================ */
+  --radius-0:    0px;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-pill: 999px;
+
+  /* ============================================================
+     ELEVATION — flat material; hairlines do the work
+     ============================================================ */
+  --shadow-0: none;
+  --shadow-hairline: 0 0 0 1px var(--color-ink);
+  --shadow-hairline-soft: 0 0 0 1px var(--color-line);
+  --shadow-stamp: 4px 4px 0 0 var(--color-ink);
+  --shadow-stamp-brand: 4px 4px 0 0 var(--color-slate);
+
+  /* ============================================================
+     MOTION
+     ============================================================ */
+  --dur-instant: 80ms;
+  --dur-xs:      150ms;
+  --dur-sm:      160ms;
+  --dur-md:      300ms;
+  --dur-lg:      480ms;
+  --ease-std:    cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+
+  /* ============================================================
+     LAYOUT
+     ============================================================ */
+  --container-max: 1550px;
+  --container-pad: 64px;
+  --container-pad-mobile: 24px;
+
+  /* ============================================================
+     SIGNATURE BACKGROUND TEXTURES
+     Diagonal line-grid is the brand's strongest motif.
+     ============================================================ */
+  --bg-diag-slate: repeating-linear-gradient(
+    -55deg,
+    rgba(100, 116, 139, 0.30) 0px,
+    rgba(100, 116, 139, 0.30) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  --bg-diag-blush: repeating-linear-gradient(
+    -55deg,
+    rgba(249, 115, 22, 0.40) 0px,
+    rgba(249, 115, 22, 0.40) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  --bg-diag-azure: repeating-linear-gradient(
+    -55deg,
+    rgba(13, 148, 136, 0.25) 0px,
+    rgba(13, 148, 136, 0.25) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  --bg-grid-soft: linear-gradient(90deg, rgba(100,116,139,0.10) 1px, transparent 1px),
+                  linear-gradient(rgba(100,116,139,0.10) 1px, transparent 1px);
+  --bg-dot-grid: radial-gradient(circle, rgba(15,23,42,0.12) 1px, transparent 1px);
+  --bg-plus-grid: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.18'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
+  --bg-plus-grid-soft: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.10'><line x1='24' y1='19' x2='24' y2='29'/><line x1='19' y1='24' x2='29' y2='24'/></g></svg>");
+  --bg-plus-grid-paper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
+  --bg-spectrum: linear-gradient(135deg, #CCFBF1, #FFE4D2);
+
+  /* ============================================================
+     HEX MASKS — chamfered end-cap shapes for buttons, badges, chips.
+     Ported verbatim from mockups/hifi/tokens.css.
+     ============================================================ */
+  --mask-hex-cap-left:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 44' preserveAspectRatio='none'><path d='M24 0 L23.24 0 Q22 0 21.12 0.88 L0.88 21.12 Q0 22 0.88 22.88 L21.12 43.12 Q22 44 23.24 44 L24 44 Z' fill='black'/></svg>");
+  --mask-hex-cap-right: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 44' preserveAspectRatio='none'><path d='M0 0 L0.76 0 Q2 0 2.88 0.88 L23.12 21.12 Q24 22 23.12 22.88 L2.88 43.12 Q2 44 0.76 44 L0 44 Z' fill='black'/></svg>");
+  --mask-hex-notch-left:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 44' preserveAspectRatio='none'><path d='M0 0 L23.24 0 Q24 0 24 0.76 L24 22 Z M0 44 L23.24 44 Q24 44 24 43.24 L24 22 Z' fill='black'/></svg>");
+  --mask-hex-notch-right: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 44' preserveAspectRatio='none'><path d='M24 0 L0.76 0 Q0 0 0 0.76 L0 22 Z M24 44 L0.76 44 Q0 44 0 43.24 L0 22 Z' fill='black'/></svg>");
+  --mask-half-cap-left:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 36' preserveAspectRatio='none'><path d='M16 0 L15.24 0 Q14 0 13.12 0.88 L0.88 17.12 Q0 18 0.88 18.88 L13.12 35.12 Q14 36 15.24 36 L16 36 Z' fill='black'/></svg>");
+  --mask-half-cap-right: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 36' preserveAspectRatio='none'><path d='M0 0 L0.76 0 Q2 0 2.88 0.88 L15.12 17.12 Q16 18 15.12 18.88 L2.88 35.12 Q2 36 0.76 36 L0 36 Z' fill='black'/></svg>");
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background:    10 10 10;
-    --foreground:    245 245 247;
-    --muted:         24 24 27;
-    --muted-fg:      161 161 170;
-    --border:        45 45 50;
+/* ============================================================================
+   DARK MODE — `html.dark` (set inline by the FOUC-prevention script in Base.astro
+   per D-FE-08; managed by the ThemeToggle atom).
+   ============================================================================ */
+html.dark {
+  --color-ink:        var(--ol-slate-50);
+  --color-ink-soft:   var(--ol-slate-100);
+  --color-slate-soft: var(--ol-slate-400);
+  --color-line:       var(--ol-slate-700);
+  --color-line-soft:  var(--ol-slate-800);
+  --color-paper:      var(--ol-slate-900);
+  --color-paper-deep: var(--ol-slate-800);
+  --color-slate:      var(--ol-slate-50);
 
-    --primary:       96 165 250;   /* lighter cobalt for dark surface */
-    --primary-fg:    10 10 10;
-    --primary-tint:  30 41 59;
-  }
+  --fg-1: var(--ol-slate-50);
+  --fg-2: var(--ol-slate-100);
+  --fg-3: var(--ol-slate-400);
+  --fg-on-dark: var(--ol-slate-50);
+  --fg-on-dark-2: var(--ol-slate-300);
+  --fg-link: var(--color-azure-mid);
+
+  --bg-page: var(--ol-slate-900);
+  --bg-page-alt: var(--ol-slate-800);
+  --bg-surface: var(--ol-slate-800);
+  --bg-surface-mute: var(--ol-slate-700);
+  --bg-inverse: var(--ol-slate-50);
+
+  --border-1: var(--ol-slate-100);
+  --border-2: var(--ol-slate-700);
+  --border-3: var(--ol-slate-800);
+
+  --brand-primary: var(--ol-brand-primary-light);
+  --brand-primary-dark: var(--ol-brand-primary);
+  --brand-cta: var(--ol-brand-primary-light);
+  --brand-cta-fg: var(--ol-slate-900);
+
+  --shadow-hairline: 0 0 0 1px var(--ol-slate-100);
+  --shadow-hairline-soft: 0 0 0 1px var(--ol-slate-700);
+  --shadow-stamp: 4px 4px 0 0 var(--ol-slate-50);
+
+  --bg-plus-grid: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.14'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
+  --bg-plus-grid-soft: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.08'><line x1='24' y1='19' x2='24' y2='29'/><line x1='19' y1='24' x2='29' y2='24'/></g></svg>");
 }
 
-/* Tailwind v4 mapping — when consuming `bg-primary text-primary-fg` etc. */
+/* ============================================================================
+   TAILWIND V4 — `@theme` block exposes CSS variables as utility classes.
+   `@import "tailwindcss"` lives in ui/styles/globals.css.
+   ============================================================================ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-background: rgb(var(--background));
-  --color-foreground: rgb(var(--foreground));
-  --color-muted: rgb(var(--muted));
-  --color-muted-fg: rgb(var(--muted-fg));
-  --color-border: rgb(var(--border));
-  --color-primary: rgb(var(--primary));
-  --color-primary-fg: rgb(var(--primary-fg));
-  --color-primary-tint: rgb(var(--primary-tint));
-  --color-score-green: rgb(var(--score-green));
-  --color-score-yellow: rgb(var(--score-yellow));
-  --color-score-orange: rgb(var(--score-orange));
-  --color-score-red: rgb(var(--score-red));
+  /* Legacy color aliases */
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-paper: var(--color-paper);
+  --color-paper-deep: var(--color-paper-deep);
+  --color-white: var(--color-white);
+  --color-line: var(--color-line);
+  --color-line-soft: var(--color-line-soft);
+  --color-slate: var(--color-slate);
+  --color-slate-soft: var(--color-slate-soft);
+  --color-mint: var(--color-mint);
+  --color-mint-pale: var(--color-mint-pale);
+  --color-blush: var(--color-blush);
+  --color-blush-hot: var(--color-blush-hot);
+  --color-citron: var(--color-citron);
+  --color-volt: var(--color-volt);
+  --color-azure: var(--color-azure);
+  --color-azure-pale: var(--color-azure-pale);
+  --color-azure-mid: var(--color-azure-mid);
+
+  /* Foreground semantic */
+  --color-fg-1: var(--fg-1);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-fg-link: var(--fg-link);
+  --color-fg-on-dark: var(--fg-on-dark);
+  --color-fg-on-dark-2: var(--fg-on-dark-2);
+
+  /* Background semantic */
+  --color-bg-page: var(--bg-page);
+  --color-bg-page-alt: var(--bg-page-alt);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-mute: var(--bg-surface-mute);
+  --color-bg-inverse: var(--bg-inverse);
+
+  /* Brand */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dark: var(--brand-primary-dark);
+  --color-brand-cta: var(--brand-cta);
+  --color-brand-cta-fg: var(--brand-cta-fg);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-highlight: var(--brand-highlight);
+
+  /* Status */
+  --color-status-success: var(--status-success);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-warn: var(--status-warn);
+  --color-status-warn-bg: var(--status-warn-bg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-info: var(--status-info);
+  --color-status-info-bg: var(--status-info-bg);
+
+  /* Score bands */
+  --color-score-green: var(--score-green);
+  --color-score-yellow: var(--score-yellow);
+  --color-score-orange: var(--score-orange);
+  --color-score-red: var(--score-red);
+
+  /* Fonts */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-loud: var(--font-loud);
+  --font-script: var(--font-script);
+  --font-wordmark: var(--font-wordmark);
+
+  /* Type sizes */
+  --text-9: var(--fs-9);
+  --text-10: var(--fs-10);
+  --text-11: var(--fs-11);
+  --text-12: var(--fs-12);
+  --text-13: var(--fs-13);
+  --text-14: var(--fs-14);
+  --text-16: var(--fs-16);
+  --text-18: var(--fs-18);
+  --text-20: var(--fs-20);
+  --text-24: var(--fs-24);
+  --text-30: var(--fs-30);
+  --text-36: var(--fs-36);
+  --text-48: var(--fs-48);
+  --text-64: var(--fs-64);
+  --text-80: var(--fs-80);
+  --text-96: var(--fs-96);
+  --text-128: var(--fs-128);
+
+  /* Radii */
   --radius: 0;
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-pill: var(--radius-pill);
+
+  /* Motion durations */
+  --transition-duration-instant: var(--dur-instant);
+  --transition-duration-xs: var(--dur-xs);
+  --transition-duration-sm: var(--dur-sm);
+  --transition-duration-md: var(--dur-md);
+  --transition-duration-lg: var(--dur-lg);
 }

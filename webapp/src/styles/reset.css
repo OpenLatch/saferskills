@@ -1,0 +1,47 @@
+/* SaferSkills webapp — base resets.
+ *
+ * Box-sizing + body defaults + minimal element resets.
+ * Token-aware: pulls var(--bg-page), var(--fg-1), etc. from @ui/styles/tokens.css.
+ */
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    background: var(--bg-page);
+    color: var(--fg-1);
+  }
+  body {
+    background: var(--bg-page);
+    background-image: var(--bg-plus-grid-soft);
+    background-size: 48px 48px;
+    color: var(--fg-1);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+  img,
+  svg,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+}

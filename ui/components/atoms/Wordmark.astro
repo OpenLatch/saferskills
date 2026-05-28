@@ -1,27 +1,38 @@
 ---
+/**
+ * SaferSkills wordmark.
+ *
+ * Onest 600 monochrome per Wordmark Spec lock 2026-05-27 — slate-900 on light,
+ * white on dark. 4 sizes (sm / md / lg / hero). Logo (S-monogram) pairs left.
+ *
+ * D-FE-05 / D-FE-36: brand stays monochrome — no two-tone wordmark
+ * surfaces beyond the standalone logo asset.
+ */
+import Logo from './Logo.astro'
+
 interface Props {
-  size?: 'hero' | 'lg' | 'md' | 'sm';
-  href?: string | null;
+  size?: 'sm' | 'md' | 'lg' | 'hero'
+  href?: string | null
+  ariaLabel?: string
 }
-const { size = 'md', href = '/' } = Astro.props;
+const { size = 'md', href = '/', ariaLabel = 'SaferSkills home' } = Astro.props
 
-const sizes = {
-  sm:   { logo: 24, text: 16 },
-  md:   { logo: 40, text: 24 },
-  lg:   { logo: 56, text: 36 },
-  hero: { logo: 80, text: 52 },
-}[size];
-
-const styleVars = `--wm-logo: ${sizes.logo}px; --wm-text: ${sizes.text}px;`;
+const sizing = {
+  sm:   { logo: 24, text: 16, gap: 8 },
+  md:   { logo: 40, text: 24, gap: 12 },
+  lg:   { logo: 56, text: 36, gap: 14 },
+  hero: { logo: 80, text: 52, gap: 16 },
+}[size]
+const inlineVars = `--wm-logo:${sizing.logo}px;--wm-text:${sizing.text}px;--wm-gap:${sizing.gap}px;`
 ---
 {href ? (
-  <a href={href} class="wordmark" style={styleVars} aria-label="SaferSkills home">
-    <img src="/logos/saferskills-logo.svg" alt="" aria-hidden="true" class="wordmark-logo" />
+  <a href={href} class="wordmark" style={inlineVars} aria-label={ariaLabel}>
+    <Logo size={sizing.logo} />
     <span class="wordmark-text">SaferSkills</span>
   </a>
 ) : (
-  <span class="wordmark" style={styleVars}>
-    <img src="/logos/saferskills-logo.svg" alt="" aria-hidden="true" class="wordmark-logo" />
+  <span class="wordmark" style={inlineVars}>
+    <Logo size={sizing.logo} />
     <span class="wordmark-text">SaferSkills</span>
   </span>
 )}
@@ -30,30 +41,19 @@ const styleVars = `--wm-logo: ${sizes.logo}px; --wm-text: ${sizes.text}px;`;
   .wordmark {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--wm-gap);
     text-decoration: none;
-    color: #0F172A;
+    color: var(--fg-1);
     line-height: 1;
   }
-  .wordmark-logo {
-    height: var(--wm-logo);
-    width: auto;
-    display: block;
-    flex-shrink: 0;
-  }
   .wordmark-text {
-    font-family: 'Onest', sans-serif;
+    font-family: var(--font-wordmark);
     font-weight: 600;
     font-size: var(--wm-text);
     letter-spacing: -0.02em;
     line-height: 1;
+    color: inherit;
   }
-  a.wordmark:hover {
-    text-decoration: none;
-    opacity: 0.85;
-  }
-  :global(.dark) .wordmark,
-  :global([data-theme="dark"]) .wordmark {
-    color: #FFFFFF;
-  }
+  a.wordmark { transition: opacity var(--dur-xs) var(--ease-std); }
+  a.wordmark:hover { opacity: 0.85; }
 </style>

@@ -2,12 +2,15 @@
 interface Props {
   title: string
   description?: string
+  ogImage?: string
 }
 const {
   title,
-  description = 'Every AI skill, independently scanned. Public, open-source trust scoring for skills, MCP servers, hooks, and plugins across every agent platform.',
+  description = 'Every AI skill, independently audited. Public, open-source trust scoring for skills, MCP servers, hooks, plugins, and rules across every agent platform.',
+  ogImage,
 } = Astro.props
 import '@/styles/global.css'
+const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
 ---
 <!doctype html>
 <html lang="en">
@@ -24,29 +27,76 @@ import '@/styles/global.css'
     <meta name="theme-color" content="#0D9488" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0F766E" media="(prefers-color-scheme: dark)" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@600&display=swap" rel="stylesheet" />
-
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
 
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={Astro.url.href} />
-    <meta property="og:image" content={new URL('/og-image.png', Astro.site).href} />
+    <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="SaferSkills — Every AI skill, independently scanned." />
+    <meta property="og:image:alt" content="SaferSkills — Every AI skill, independently audited." />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={new URL('/og-image.png', Astro.site).href} />
+    <meta name="twitter:image" content={ogImageUrl} />
 
     <title>{title}</title>
+
+    {/*
+      FOUC-prevention: applies `<html class="dark">` BEFORE first paint.
+      Reads `localStorage['ss-theme']` (light | dark | auto) → falls back to
+      `prefers-color-scheme: dark`. Managed by the ThemeToggle atom.
+    */}
+    <script is:inline>
+      ;(function () {
+        var KEY = 'ss-theme'
+        var stored = null
+        try { stored = localStorage.getItem(KEY) } catch (e) {}
+        var mode = stored || 'auto'
+        var effective = mode
+        if (mode === 'auto') {
+          effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.classList.toggle('dark', effective === 'dark')
+        document.documentElement.dataset.themeMode = mode
+      })()
+    </script>
+
+    {/* Re-apply theme after Astro view transitions. */}
+    <script is:inline>
+      document.addEventListener('astro:after-swap', function () {
+        var mode = document.documentElement.dataset.themeMode || 'auto'
+        var effective = mode
+        if (mode === 'auto') {
+          effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.classList.toggle('dark', effective === 'dark')
+      })
+    </script>
   </head>
   <body class="min-h-screen flex flex-col">
     <slot />
+
+    {/*
+      Observability bootstrap — env-checked init for Sentry + PostHog.
+      No-ops when `PUBLIC_SENTRY_DSN` / `PUBLIC_POSTHOG_KEY` are unset.
+      Idle-loaded so it never blocks the first paint.
+    */}
+    <script>
+      import { initObservability } from '@/lib/observability'
+      function start() {
+        initObservability().catch(() => {
+          /* observability is best-effort; never break the page */
+        })
+      }
+      if ('requestIdleCallback' in window) {
+        ;(window as Window & typeof globalThis).requestIdleCallback(start)
+      } else {
+        setTimeout(start, 200)
+      }
+    </script>
   </body>
 </html>

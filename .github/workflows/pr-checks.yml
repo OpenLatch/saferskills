@@ -61,6 +61,19 @@ jobs:
             echo "::error::Codegen drift — run \`pnpm run generate\` locally and commit the output."
             exit 1
           fi
+      - name: Assert no CDN-hosted fonts
+        # I-03 D-FE-06: every font ships via @fontsource/* or self-hosted
+        # subsetted woff2. CDN imports leak third-party network at runtime
+        # and violate the design-system rule.
+        run: |
+          if grep -RnE 'fonts\.googleapis\.com|fonts\.gstatic\.com' \
+                ui/styles/ \
+                webapp/src/styles/ \
+                webapp/src/layouts/ 2>/dev/null; then
+            echo "::error::CDN-hosted font import detected. Use @fontsource/* or self-hosted woff2 (cf. .claude/rules/design-system.md)."
+            exit 1
+          fi
+          echo "No CDN fonts ✓"
       - name: Assert W1-placeholder taxonomy purged
         # Phase A locked-decision D-01 swapped the W1 placeholder 4-axis
         # sub-score taxonomy (identity / integrity / behavior / provenance)

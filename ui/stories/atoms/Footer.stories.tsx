@@ -1,26 +1,66 @@
-import type { Story } from '@ladle/react';
+import type { Story } from '@ladle/react'
+
+// Footer is an Astro component. The Ladle shell renders a static React
+// approximation of the dark-slate footer chrome for visual review.
 
 export const Default: Story = () => (
   <footer
     style={{
-      borderTop: '1px solid rgb(var(--border))',
-      padding: 24,
-      fontSize: 14,
-      color: 'rgb(var(--muted-fg))',
+      background: '#0F172A',
+      color: '#F8FAFC',
+      padding: '80px 32px 28px',
+      fontFamily: 'system-ui, sans-serif',
+      borderTop: '1px solid #0F172A',
     }}
   >
-    <div style={{ maxWidth: '80ch', margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      <span>Stewarded by OpenLatch</span>
-      <span>·</span>
-      <a href="#">Source</a>
-      <span>·</span>
-      <a href="#">Methodology</a>
-      <span>·</span>
-      <a href="#">Privacy</a>
-      <span>·</span>
-      <a href="#">Terms</a>
-      <span style={{ flex: 1 }}></span>
-      <span>© 2026 Apache 2.0</span>
+    <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+          gap: 48,
+          paddingBottom: 48,
+          borderBottom: '1px solid #475569',
+        }}
+      >
+        <div>
+          <span style={{ fontSize: 44, fontWeight: 600, fontFamily: 'Onest', letterSpacing: '-0.04em' }}>
+            SaferSkills
+          </span>
+          <p style={{ color: '#CBD5E1', maxWidth: 360, marginTop: 14, fontSize: 15 }}>
+            Every AI skill, independently audited. Public, open-source trust scoring across every agent platform.
+          </p>
+        </div>
+        {['SCORES', 'AGENTS', 'DOCS', 'PROJECT'].map((label) => (
+          <div key={label}>
+            <h6 style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', color: '#F97316', margin: '0 0 18px' }}>
+              {label}
+            </h6>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {['Item one', 'Item two', 'Item three'].map((l) => (
+                <li key={l} style={{ padding: '5px 0', fontSize: 14, opacity: 0.86 }}>
+                  {l}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          paddingTop: 28,
+          fontFamily: 'monospace',
+          fontSize: 11,
+          letterSpacing: '0.25em',
+          textTransform: 'uppercase',
+          color: '#64748B',
+        }}
+      >
+        <span>OSS · APACHE 2.0 · © 2026</span>
+        <span>An OpenLatch project</span>
+      </div>
     </div>
   </footer>
-);
+)

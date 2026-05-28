@@ -44,9 +44,9 @@ services:
     depends_on: [api]
     environment:
       PUBLIC_API_URL: http://api:8000
-    ports: ["5173:80"]
+    ports: ["5173:5173"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost/ >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:5173/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 3s
       retries: 5

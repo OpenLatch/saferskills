@@ -1,0 +1,41 @@
+---
+/**
+ * SaferSkills S-monogram logo.
+ *
+ * Renders the locked SVG asset from `webapp/public/logos/`. The source SVG
+ * (`saferskills-logo.svg`) is a two-tone teal monogram per the Wordmark Spec
+ * lock 2026-05-27. For surfaces that need a single-color render (badge SVG
+ * endpoint, README), use the matching `-bw.svg` / `-light-logo.svg` asset.
+ */
+interface Props {
+  size?: number
+  mono?: 'ink' | 'paper' | 'primary' | null
+  class?: string
+  ariaLabel?: string
+}
+const { size = 24, mono = null, class: className = '', ariaLabel } = Astro.props
+
+const src =
+  mono === 'paper'
+    ? '/logos/saferskills-light-logo.svg'
+    : mono === 'ink'
+      ? '/logos/saferskills-logo-bw.svg'
+      : '/logos/saferskills-logo.svg'
+---
+<img
+  src={src}
+  alt={ariaLabel ?? ''}
+  aria-hidden={ariaLabel ? undefined : 'true'}
+  width={size}
+  height={size}
+  class={`ss-logo ${className}`.trim()}
+  loading="eager"
+  decoding="async"
+/>
+
+<style>
+  .ss-logo {
+    display: inline-block;
+    flex-shrink: 0;
+  }
+</style>

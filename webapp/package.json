@@ -7,17 +7,24 @@
     "dev": "astro dev --port 5173 --host",
     "build": "astro build",
     "preview": "astro preview --port 5173 --host",
+    "start": "node ./dist/server/entry.mjs",
     "astro": "astro",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "subset-fonts": "node ./scripts/subset-fonts.cjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^5.0.0",
+    "@astrojs/node": "^10.1.0",
     "@astrojs/react": "^5.0.0",
-    "@astrojs/tailwind": "^6.0.0",
-    "@fontsource/crimson-pro": "^5.0.0",
-    "@fontsource/jetbrains-mono": "^5.0.0",
-    "@fontsource/manrope": "^5.0.0",
+    "@fontsource-variable/anybody": "^5.2.0",
+    "@fontsource/dm-sans": "^5.2.0",
+    "@fontsource/nanum-pen-script": "^5.2.0",
+    "@fontsource/onest": "^5.2.0",
+    "@fontsource/space-mono": "^5.2.0",
+    "@sentry/browser": "^9.0.0",
+    "@tailwindcss/vite": "^4.3.0",
+    "posthog-js": "^1.196.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "astro": "^6.3.0",
@@ -27,10 +34,10 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "jsdom": "^29.0.0",
-    "vitest": "^4.1.0",
-    "vitest-axe": "^0.1.0",
     "@biomejs/biome": "^2.4.0",
-    "typescript": "^6.0.0"
+    "jsdom": "^29.0.0",
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.0",
+    "vitest-axe": "^0.1.0"
   }
 }
