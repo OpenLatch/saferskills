@@ -3,8 +3,8 @@ export const prerender = true
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
-import Badge from '@ui/components/atoms/Badge.tsx'
 import RotatingHeadline from '@ui/components/atoms/RotatingHeadline.tsx'
+import CrosshairGrid from '@ui/components/atoms/CrosshairGrid.tsx'
 import ActionCard from '@ui/components/molecules/ActionCard.tsx'
 import RidgePixel from '@ui/components/atoms/RidgePixel.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
@@ -20,6 +20,7 @@ import WaveBand from '@/components/homepage/WaveBand.astro'
 import FeedsMosaic from '@/components/homepage/FeedsMosaic.astro'
 import DetectionBand from '@/components/homepage/DetectionBand.astro'
 import PixelWave from '@/components/homepage/PixelWave.astro'
+import HeroInputBar from '@/components/homepage/HeroInputBar.tsx'
 
 import { listRecentSubmissionScans, listTrendingScans } from '@/lib/api/scans'
 import {
@@ -38,7 +39,7 @@ const trendingScans = await listTrendingScans({ limit: 3 }).catch(() => [])
 // across the React-island serialization boundary without Astro's
 // JSX-shorthand parsing limits inside object literals.
 const findMetaHtml = `<b>${INDEXED_COUNT.toLocaleString()}</b> indexed · <b>${REGISTRIES_COUNT}</b> registries`
-const auditMetaHtml = 'avg <b>28s</b> · free · no account'
+const auditMetaHtml = 'avg <b>28s</b>'
 ---
 <Base
   title="SaferSkills — Every AI skill, independently audited."
@@ -50,12 +51,12 @@ const auditMetaHtml = 'avg <b>28s</b> · free · no account'
        BAND 1 — HERO
        ───────────────────────────────────────────────────────── */}
   <section class="hero-band" data-screen-label="01 Hero">
+    <CrosshairGrid client:idle spacing={40} />
     <div class="container">
 
-      <div class="hero-top">
-        <Badge variant="live">{INDEXED_COUNT.toLocaleString()} indexed · live</Badge>
-        <span class="hero-tag">— independently audited, openly methodology'd —</span>
-      </div>
+      {/* Empty spacer preserves the vertical rhythm where the
+          "12,847 INDEXED · LIVE — …" eyebrow used to sit. */}
+      <div class="hero-top" aria-hidden="true"></div>
 
       <RotatingHeadline
         client:load
@@ -87,25 +88,21 @@ const auditMetaHtml = 'avg <b>28s</b> · free · no account'
           kicker="Find"
           liveLabel="Indexing"
           title="Search the catalog."
-          lede={`${INDEXED_COUNT.toLocaleString()} skills, MCPs, and plugins indexed from ${REGISTRIES_COUNT}+ registries. One search instead of twelve.`}
+          lede="All the skills, MCPs, and plugins indexed from every public registries. One unified search to find them all."
           variant="find"
           foot={{
             cta: { label: 'Browse catalog →', href: '/catalog' },
             metaHtml: findMetaHtml,
           }}
         >
-          <div class="p1-input">
-            <span class="p1-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-            </span>
-            <label class="p1-field">
-              <span class="caret" aria-hidden="true"></span>
-              <input type="text" placeholder="ripgrep, supabase, linear..." autocomplete="off" aria-label="Search the catalog" />
-            </label>
-            <button class="p1-enter" type="button" aria-label="Submit search">
-              <span class="key">↵</span>
-            </button>
-          </div>
+          <HeroInputBar
+            client:idle
+            kind="find"
+            initialPlaceholder="ripgrep, supabase, linear..."
+            ariaLabel="Search the catalog"
+            submitAriaLabel="Submit search"
+            shortcutKey="k"
+          />
           <div class="p1-tabs">
             <span class="lbl">Popular</span>
             <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">claude-pdf</span><span class="sc green">95</span></button>
@@ -128,18 +125,14 @@ const auditMetaHtml = 'avg <b>28s</b> · free · no account'
             metaHtml: auditMetaHtml,
           }}
         >
-          <div class="p1-input">
-            <span class="p1-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07l-1.5 1.5"></path><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07l1.5-1.5"></path></svg>
-            </span>
-            <label class="p1-field">
-              <span class="caret" aria-hidden="true"></span>
-              <input type="text" placeholder="github.com/anthropic/claude-mcp" autocomplete="off" aria-label="Paste a GitHub URL" />
-            </label>
-            <button class="p1-enter" type="button" aria-label="Submit scan">
-              <span class="key">↵</span>
-            </button>
-          </div>
+          <HeroInputBar
+            client:idle
+            kind="scan"
+            initialPlaceholder="github.com/anthropic/claude-mcp"
+            ariaLabel="Paste a GitHub URL"
+            submitAriaLabel="Submit scan"
+            shortcutKey="j"
+          />
           <div class="p1-progress">
             <div class="row"><span>Audit pipeline</span><span><b>3</b> / 4 stages</span></div>
             <div class="bar"></div>

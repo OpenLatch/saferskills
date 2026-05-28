@@ -271,6 +271,12 @@ html.dark {
   --color-paper-deep: var(--ol-slate-800);
   --color-slate:      var(--ol-slate-50);
 
+  /* Citron is the headline highlight block (rotator underline). The default
+     pale teal #CCFBF1 burns out against dark paper AND eats contrast with the
+     slate-50 headline text. Swap to a deep teal so the highlight still reads
+     as a brand mark with WCAG-passable text contrast. */
+  --color-citron:     var(--ol-brand-primary-dark);
+
   --fg-1: var(--ol-slate-50);
   --fg-2: var(--ol-slate-100);
   --fg-3: var(--ol-slate-400);

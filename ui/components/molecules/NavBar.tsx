@@ -67,7 +67,12 @@ export default function NavBar({
         <span className="nav-corner br" aria-hidden="true" />
 
         <a href="/" className="brand" aria-label="SaferSkills home">
-          <span className="mk" aria-hidden="true" />
+          <img
+            className="mk"
+            src="/logos/saferskills-logo-animated.svg"
+            alt=""
+            aria-hidden="true"
+          />
           SaferSkills
         </a>
 

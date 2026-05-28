@@ -37,7 +37,9 @@ export default function RotatingHeadline({
   const [paused, setPaused] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
   const [state, setState] = useState<'idle' | 'out' | 'in'>('idle')
+  const [widths, setWidths] = useState<number[]>([])
   const wordRef = useRef<HTMLSpanElement | null>(null)
+  const measureRef = useRef<HTMLSpanElement | null>(null)
 
   useEffect(() => {
     if (!respectsReducedMotion || typeof window === 'undefined') return
@@ -47,6 +49,21 @@ export default function RotatingHeadline({
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [respectsReducedMotion])
+
+  // Pre-measure every noun once so .rotator can transition its width when the
+  // visible noun swaps. Without an explicit width, the citron underline jumps
+  // instantly to the new noun's intrinsic width — the visible flicker the
+  // hi-fi calls out.
+  useEffect(() => {
+    if (!measureRef.current) return
+    const m = measureRef.current
+    const next = nouns.map((n) => {
+      m.textContent = n
+      return m.offsetWidth
+    })
+    m.textContent = ''
+    setWidths(next)
+  }, [nouns])
 
   useEffect(() => {
     if (reducedMotion || paused || nouns.length <= 1) return
@@ -69,32 +86,45 @@ export default function RotatingHeadline({
   if (reducedMotion) {
     return (
       <h1 className="h-display rotating-headline reduced">
-        {base}{' '}
-        <span className="rotator">
-          <span className="rotator-word">{nouns.join(' · ')}</span>
+        {base}
+        <span className="rotator-line">
+          <span className="rotator">
+            <span className="rotator-word">{nouns.join(' · ')}</span>
+          </span>
+          {trailing}
         </span>
-        {trailing}
       </h1>
     )
   }
 
   const stateClass = state === 'idle' ? '' : state
+  const rotatorWidth = widths[index]
   return (
     <h1
       className="h-display rotating-headline"
       onMouseEnter={pauseOnHover ? () => setPaused(true) : undefined}
       onMouseLeave={pauseOnHover ? () => setPaused(false) : undefined}
     >
-      {base}{' '}
-      <span className="rotator">
+      {base}
+      <span className="rotator-line">
         <span
-          ref={wordRef}
-          className={`rotator-word ${stateClass}`.trim()}
+          className="rotator"
+          style={rotatorWidth ? { width: `${rotatorWidth}px` } : undefined}
         >
-          {nouns[index]}
+          <span
+            ref={wordRef}
+            className={`rotator-word ${stateClass}`.trim()}
+          >
+            {nouns[index]}
+          </span>
+          <span
+            ref={measureRef}
+            className="rotator-measure"
+            aria-hidden="true"
+          />
         </span>
+        {trailing}
       </span>
-      {trailing}
     </h1>
   )
 }

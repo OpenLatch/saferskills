@@ -1,0 +1,164 @@
+{
+  "data": [
+    {
+      "kind": "skill",
+      "slug": "claude-pdf",
+      "display_name": "claude-pdf",
+      "editor": "claude-code",
+      "scan_score": 87,
+      "severity": "low"
+    },
+    {
+      "kind": "skill",
+      "slug": "claude-excel",
+      "display_name": "claude-excel",
+      "editor": "claude-code",
+      "scan_score": 91,
+      "severity": "info"
+    },
+    {
+      "kind": "skill",
+      "slug": "ripgrep-skill",
+      "display_name": "ripgrep-skill",
+      "editor": "cursor",
+      "scan_score": 76,
+      "severity": "medium"
+    },
+    {
+      "kind": "skill",
+      "slug": "claude-figma",
+      "display_name": "claude-figma",
+      "editor": "claude-code",
+      "scan_score": 64,
+      "severity": "medium"
+    },
+    {
+      "kind": "skill",
+      "slug": "skill-pandas",
+      "display_name": "skill-pandas",
+      "editor": "codex-cli",
+      "scan_score": 42,
+      "severity": "high"
+    },
+    {
+      "kind": "mcp_server",
+      "slug": "github-mcp",
+      "display_name": "github-mcp",
+      "editor": "cursor",
+      "scan_score": 72,
+      "severity": "medium"
+    },
+    {
+      "kind": "mcp_server",
+      "slug": "linear-mcp",
+      "display_name": "linear-mcp",
+      "editor": "claude-code",
+      "scan_score": 88,
+      "severity": "low"
+    },
+    {
+      "kind": "mcp_server",
+      "slug": "obsidian-mcp",
+      "display_name": "obsidian-mcp",
+      "editor": "windsurf",
+      "scan_score": 81,
+      "severity": "low"
+    },
+    {
+      "kind": "mcp_server",
+      "slug": "notion-mcp",
+      "display_name": "notion-mcp",
+      "editor": "cursor",
+      "scan_score": 28,
+      "severity": "critical"
+    },
+    {
+      "kind": "mcp_server",
+      "slug": "supabase-mcp",
+      "display_name": "supabase-mcp",
+      "editor": "claude-code",
+      "scan_score": 79,
+      "severity": "medium"
+    },
+    {
+      "kind": "hook",
+      "slug": "slack-bot",
+      "display_name": "slack-bot",
+      "editor": "github-copilot",
+      "scan_score": 56,
+      "severity": "high"
+    },
+    {
+      "kind": "hook",
+      "slug": "pre-commit-guard",
+      "display_name": "pre-commit-guard",
+      "editor": "claude-code",
+      "scan_score": 93,
+      "severity": "info"
+    },
+    {
+      "kind": "hook",
+      "slug": "auto-lint-hook",
+      "display_name": "auto-lint-hook",
+      "editor": "cursor",
+      "scan_score": 18,
+      "severity": "critical"
+    },
+    {
+      "kind": "plugin",
+      "slug": "tailwind-plugin",
+      "display_name": "tailwind-plugin",
+      "editor": "gemini-cli",
+      "scan_score": 84,
+      "severity": "low"
+    },
+    {
+      "kind": "plugin",
+      "slug": "vitest-plugin",
+      "display_name": "vitest-plugin",
+      "editor": "cline",
+      "scan_score": 70,
+      "severity": "medium"
+    },
+    {
+      "kind": "plugin",
+      "slug": "eslint-legacy",
+      "display_name": "eslint-legacy",
+      "editor": "openclaw",
+      "scan_score": 38,
+      "severity": "high"
+    },
+    {
+      "kind": "rules",
+      "slug": "security-rules",
+      "display_name": "security-rules",
+      "editor": "cursor",
+      "scan_score": 95,
+      "severity": "info"
+    },
+    {
+      "kind": "rules",
+      "slug": "typescript-strict-rules",
+      "display_name": "typescript-strict-rules",
+      "editor": "claude-code",
+      "scan_score": 89,
+      "severity": "low"
+    },
+    {
+      "kind": "rules",
+      "slug": "react-19-rules",
+      "display_name": "react-19-rules",
+      "editor": "windsurf",
+      "scan_score": 67,
+      "severity": "medium"
+    },
+    {
+      "kind": "rules",
+      "slug": "python-pep8-rules",
+      "display_name": "python-pep8-rules",
+      "editor": "codex-cli",
+      "scan_score": 49,
+      "severity": "high"
+    }
+  ]
+}

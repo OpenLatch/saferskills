@@ -176,10 +176,11 @@ html.dark .section-emdash {
   color: var(--color-ink);
 }
 .brand .mk {
-  width: 16px;
-  height: 16px;
-  background: var(--brand-primary);
+  width: auto;
+  height: 22px;
   display: inline-block;
+  /* Animated SMIL SVG — render at intrinsic aspect (~0.75:1) sized to
+     roughly match the cap height of the 20px wordmark text. */
 }
 .nav-links {
   display: flex;
@@ -345,9 +346,14 @@ html.dark .nav-links a[aria-current="page"]:hover {
   align-items: center;
   gap: 7px;
   padding: 0 12px 0 20px;
-  background: var(--color-ink);
-  color: var(--color-paper);
+  /* Theme-independent dark slate. The GhStar reads as a self-contained
+     "system chip" — same restrained surface in light + dark, so a light page
+     never gets the harsh black/white checkered split. Yellow stays the only
+     chroma; CTA next door is the only saturated element. */
+  background: var(--ol-slate-800);
+  color: var(--score-yellow);
   font-weight: 600;
+  transition: background var(--dur-xs) var(--ease-std);
   -webkit-mask:
     var(--mask-half-cap-left) left center / var(--gh-cap-w) var(--gh-h) no-repeat,
     linear-gradient(#000, #000) calc(var(--gh-cap-w) - 1px) center /
@@ -368,11 +374,14 @@ html.dark .nav-links a[aria-current="page"]:hover {
   display: inline-flex;
   align-items: center;
   padding: 0 20px 0 12px;
-  background: var(--brand-highlight);
-  color: var(--color-ink);
+  /* slate-700 is one tonal step lighter than gh-l's slate-800 — keeps the
+     two-half split visible without breaking the muted feel. */
+  background: var(--ol-slate-700);
+  color: var(--ol-slate-50);
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 12px;
+  transition: background var(--dur-xs) var(--ease-std);
   -webkit-mask:
     var(--mask-half-cap-right) right center / var(--gh-cap-w) var(--gh-h) no-repeat,
     linear-gradient(#000, #000) left center / calc(100% - var(--gh-cap-w) + 1px) var(--gh-h)
@@ -382,20 +391,11 @@ html.dark .nav-links a[aria-current="page"]:hover {
     linear-gradient(#000, #000) left center / calc(100% - var(--gh-cap-w) + 1px) var(--gh-h)
     no-repeat;
 }
+.gh-star:hover .gh-l {
+  background: var(--ol-slate-700);
+}
 .gh-star:hover .gh-r {
-  background: var(--color-citron);
-}
-html.dark .gh-star .gh-l {
-  background: var(--color-paper-deep);
-  color: var(--fg-1);
-}
-html.dark .gh-star .gh-r {
-  background: var(--brand-highlight);
-  color: var(--fg-1);
-}
-html.dark .gh-star:hover .gh-r {
-  background: var(--brand-primary);
-  color: var(--color-paper);
+  background: var(--ol-slate-600);
 }
 
 /* ============================================================
@@ -509,6 +509,9 @@ html.dark .gh-star:hover .gh-r {
   gap: 0;
 }
 .btn-pair > * + .btn {
+  /* Overlap btn2 into btn1's cap by 60% of cap-w so the chamfered triangular
+     gap between adjacent hex caps shrinks by ~60%. */
+  margin-left: calc(var(--cap-w) * -0.6);
   padding-left: calc(var(--cap-w) + 14px);
   -webkit-mask:
     var(--mask-hex-notch-left) left center / var(--cap-w) var(--btn-h) no-repeat,
@@ -521,11 +524,20 @@ html.dark .gh-star:hover .gh-r {
     linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
     calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
 }
+/* GhStar's half-cap geometry (--gh-cap-w: 16px) doesn't match the hex
+   button's cap-w, so the standard btn-pair overlap looks crammed instead
+   of interlocking. Restore a positive gap for this specific pairing while
+   keeping the notch-left mask on the .btn so the hex vocabulary holds. */
+.btn-pair > .gh-star + .btn {
+  margin-left: 0;
+}
+
 @media (max-width: 640px) {
   .btn-pair {
     gap: 12px;
   }
   .btn-pair > * + .btn {
+    margin-left: 0;
     padding-left: unset;
     -webkit-mask:
       var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
@@ -1180,10 +1192,10 @@ html.dark .cta-band h2 {
   color: var(--color-paper);
 }
 .ft-brand .word .mk {
-  width: 16px;
-  height: 16px;
-  background: var(--brand-primary);
+  width: auto;
+  height: 44px;
   display: inline-block;
+  /* Animated SMIL SVG sized to the 44px wordmark cap height. */
 }
 .ft-brand p {
   color: var(--color-line);
@@ -1328,8 +1340,9 @@ html.dark .footer .ft-bottom {
 }
 .marquee-track {
   display: inline-flex;
-  gap: 64px;
-  padding-right: 64px;
+  align-items: center;
+  gap: 72px;
+  padding-right: 72px;
   white-space: nowrap;
   animation: ss-marquee 36s linear infinite;
 }
@@ -1339,40 +1352,51 @@ html.dark .footer .ft-bottom {
 .agent-chip {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  justify-content: center;
   color: var(--color-slate-soft);
+  opacity: 0.78;
+  transition: opacity var(--dur-xs) var(--ease-std);
+}
+.agent-chip:hover {
+  opacity: 1;
 }
 .agent-chip .gly {
-  width: 26px;
-  height: 26px;
-  border: 1.5px solid currentColor;
+  width: 32px;
+  height: 32px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.agent-chip .gly-text {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1.5px solid currentColor;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
 }
 @keyframes ss-marquee {
   to {
-    transform: translateX(-50%);
+    /* 4 copies of the agent list → translate one copy = -25%. Keep in
+       sync with TRACK_COPIES in AgentMarquee.tsx. */
+    transform: translateX(-25%);
   }
 }
 @media (max-width: 768px), (prefers-reduced-motion: reduce) {
   .marquee-track {
     animation: none;
     flex-wrap: wrap;
+    justify-content: center;
   }
 }
 html.dark .agent-chip {
-  color: var(--fg-3);
+  color: var(--fg-1);
+  opacity: 0.7;
+}
+html.dark .agent-chip:hover {
+  opacity: 1;
 }
 
 /* ============================================================
@@ -1417,4 +1441,367 @@ html.dark .theme-toggle button.active {
   width: 15px;
   height: 15px;
   display: block;
+}
+
+/* ============================================================
+   CROSSHAIR-GRID — interactive `+` field for hero / page-head
+   backdrops. Component logic lives in ui/components/atoms/
+   CrosshairGrid.tsx; this only positions the canvas inside its
+   host. `pointer-events: none` keeps the islands above it clickable.
+   ============================================================ */
+.crosshair-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ============================================================
+   KBD-CHIP — portable keyboard hint chip (⌘K / Ctrl+K).
+   Hairline border, mono caps. Sized to sit inline next to inputs.
+   ============================================================ */
+.kbd-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  line-height: 1;
+}
+html.dark .kbd-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-line);
+  color: var(--fg-2);
+}
+
+/* ============================================================
+   SEARCH-DROPDOWN — command-palette dropdown anchored below a
+   search input. Implementation: ui/components/molecules/
+   SearchDropdown.tsx. Sits inside a .search-anchor wrapper so
+   `position: absolute` tracks the input's own width.
+
+   Motion: open animation "unrolls" downward from the top edge
+   via clip-path (no JS height measurement, GPU-friendly, works
+   at any content height). 180ms ease-out-expo + a 6px translateY
+   drop for inertia. Reduced-motion collapses to a 100ms fade.
+   ============================================================ */
+.search-anchor {
+  position: relative;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  /* JS publishes --search-dropdown-max-h based on the input's bottom edge
+     against the visual viewport, so the panel never runs off-screen or
+     under the marquee. Falls back to a static cap for SSR. */
+  max-height: var(--search-dropdown-max-h, 440px);
+  overflow-y: auto;
+  font-family: var(--font-sans);
+  transform-origin: top;
+  will-change: clip-path, opacity, transform;
+  animation: search-dropdown-unroll 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes search-dropdown-unroll {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-dropdown {
+    animation: search-dropdown-fade-reduced 100ms ease-out forwards;
+  }
+  @keyframes search-dropdown-fade-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+html.dark .search-dropdown {
+  background: var(--color-paper-deep);
+  border-color: var(--color-line);
+}
+
+.search-dropdown [cmdk-list] {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.search-dropdown [cmdk-group-heading] {
+  padding: 12px 18px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.search-dropdown-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+.search-dropdown-item[data-selected='true'] {
+  background: var(--color-paper-deep);
+  border-left-color: var(--brand-primary);
+}
+html.dark .search-dropdown-item[data-selected='true'] {
+  background: rgba(255, 255, 255, 0.05);
+}
+.search-dropdown-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+}
+.search-dropdown-item[data-selected='true'] .search-dropdown-name {
+  font-weight: 500;
+}
+.search-dropdown-editor {
+  font-size: 11px;
+  color: var(--fg-3);
+  text-transform: lowercase;
+}
+
+.search-dropdown-meta {
+  display: inline-flex;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.search-dropdown-meta .sev-label {
+  padding: 4px 8px;
+  text-transform: lowercase;
+  font-weight: 500;
+}
+.search-dropdown-meta .sev-score {
+  padding: 4px 8px;
+  font-weight: 600;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.search-dropdown-meta.sev-critical .sev-label {
+  background: var(--score-red);
+  color: #fff;
+}
+.search-dropdown-meta.sev-high .sev-label {
+  background: var(--score-orange);
+  color: #fff;
+}
+.search-dropdown-meta.sev-medium .sev-label {
+  background: var(--score-yellow);
+  color: var(--color-ink);
+}
+.search-dropdown-meta.sev-low .sev-label {
+  background: var(--score-green);
+  color: #fff;
+}
+.search-dropdown-meta.sev-info .sev-label {
+  background: var(--ol-slate-400);
+  color: var(--color-ink);
+}
+
+/* ─── Loading skeleton ────────────────────────────────────────
+   Mirrors the real result layout: heading + 3 rows each with a
+   name strip, editor strip, and severity-pill strip. The shimmer
+   plays across all skel children together so the whole panel
+   reads as one pulse, not three independent ones. */
+.search-dropdown-skel-group {
+  padding: 6px 0 10px;
+}
+.search-dropdown-skel-heading {
+  height: 10px;
+  width: 60px;
+  margin: 12px 18px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--color-line-soft);
+}
+.search-dropdown-skel-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+}
+.skel {
+  display: inline-block;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(
+    90deg,
+    var(--color-paper-deep) 0%,
+    var(--color-line-soft) 50%,
+    var(--color-paper-deep) 100%
+  );
+  background-size: 200% 100%;
+  animation: search-dropdown-skel-shimmer 1.6s ease-in-out infinite;
+}
+.skel-name {
+  height: 13px;
+  width: 140px;
+}
+.skel-name.skel-narrow {
+  width: 96px;
+}
+.skel-editor {
+  height: 11px;
+  width: 78px;
+  opacity: 0.7;
+}
+.skel-pill {
+  height: 20px;
+  width: 86px;
+}
+@keyframes search-dropdown-skel-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+    background: var(--color-paper-deep);
+  }
+}
+html.dark .skel {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+html.dark .search-dropdown-skel-heading {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── No-results ──────────────────────────────────────────────
+   Icon + headline + hint stacked horizontally, centred. The
+   trailing kbd-chip primes the user that ↵ falls back to a
+   full-catalog search. */
+.search-dropdown-noresult {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 22px;
+}
+.search-dropdown-noresult-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  color: var(--fg-3);
+  background: var(--color-paper-deep);
+}
+.search-dropdown-noresult-glyph svg {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.search-dropdown-noresult-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.search-dropdown-noresult-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.search-dropdown-noresult-title .q {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--fg-2);
+}
+.search-dropdown-noresult-hint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.search-dropdown-noresult-hint .kbd-chip {
+  height: 18px;
+  font-size: 10px;
+  padding: 0 5px;
+}
+
+/* ─── Error ────────────────────────────────────────────────── */
+.search-dropdown-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--status-danger);
+}
+.search-dropdown-retry {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-xs);
+}
+.search-dropdown-retry:hover {
+  background: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
 }
