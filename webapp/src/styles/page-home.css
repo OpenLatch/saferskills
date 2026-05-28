@@ -392,6 +392,13 @@ html.dark body.va .nav-links a.active:hover {
   flex-direction: column;
   min-height: calc(100svh - 72px);
 }
+/* Soften the marquee bottom (= .hero-band bottom) in dark mode to match
+   the marquee top — both pair with the .topo-band top border underneath,
+   and all three need to read as a single hairline divider, not a stark
+   white line. Same reasoning as the .topo-band fix on this branch. */
+html.dark .hero-band {
+  border-bottom-color: var(--color-line);
+}
 .hero-band > .container {
   position: relative;
   z-index: 1;
@@ -1411,6 +1418,16 @@ html.dark .topo-band {
   border-top: 1px solid var(--color-ink);
   overflow: hidden;
 }
+/* Mirror the install-band + cta-band dark-mode pins — without this,
+   --color-slate flips to slate-50 and the wave divider sits on a
+   bright white slab between two dark sections. #060B14 matches the
+   adjacent CTA band so the transition reads as one continuous deep
+   slate surface. Ported verbatim from the mockup
+   (body.va.dark .wave-band { background:#060B14; border-top-color:var(--color-line); }). */
+html.dark .wave-band {
+  background: #060b14;
+  border-top-color: var(--color-line);
+}
 .wave-band svg {
   position: absolute;
   inset: 0;
@@ -1700,6 +1717,70 @@ html.dark body.va .ridge-pixel .ridge-label {
 .install-band .term {
   border-color: rgba(255, 255, 255, 0.22);
 }
+
+/* ----- DARK MODE — ported from
+   .local/.brainstorms/frontend/mockups/SaferSkills-Homepage-unpacked.html
+   (body.va.dark .install-band …). The install-band is already a dark
+   section in light mode; in dark mode it deepens further to #060B14 so
+   it sits a notch below the slate-900 body, keeping the same terminal
+   contrast vibe and preventing --color-slate from flipping to slate-50. */
+html.dark .install-band {
+  background-color: #060b14;
+  color: var(--fg-1);
+}
+html.dark .install-band .eyebrow {
+  color: var(--brand-accent);
+}
+html.dark .install-band .install-head h2 {
+  color: var(--fg-1);
+}
+html.dark .install-band .install-head h2 .script {
+  color: var(--brand-accent);
+}
+html.dark .install-band .install-head .lede {
+  color: rgba(255, 255, 255, 0.78);
+}
+html.dark .install-band .install-cap {
+  color: rgba(255, 255, 255, 0.55);
+}
+html.dark .install-band .install-cap kbd {
+  color: var(--fg-1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+html.dark .install-band .tabs {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+html.dark .install-band .tab-btn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border-right-color: rgba(255, 255, 255, 0.22);
+}
+html.dark .install-band .tab-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-1);
+}
+html.dark .install-band .tab-btn .tg {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6);
+}
+html.dark .install-band .tab-btn:hover .tg {
+  border-color: var(--fg-1);
+  color: var(--fg-1);
+}
+html.dark .install-band .tab-btn.active {
+  background: var(--brand-primary);
+  color: #0f172a;
+}
+html.dark .install-band .tab-btn.active .tg {
+  border-color: #0f172a;
+  color: #0f172a;
+}
+html.dark .install-band .term {
+  background: #000;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
 .install-band .container {
   position: relative;
   z-index: 1;
