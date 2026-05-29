@@ -27,6 +27,8 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `ENV` | yes | `development` | One of `development` / `staging` / `production` — drives Sentry env tag, log format, migration auto-run skip |
 | `LOG_LEVEL` | no | `INFO` | Python logging level |
 | `CORS_ALLOWED_ORIGINS` | yes | `http://localhost:4321` | Comma-separated origin list |
+| `SCAN_SUBMIT_DAILY_LIMIT` | no | `10` | Max scan submissions per IP per 24h (D-FE-11) |
+| `VENDOR_SESSION_SECRET` | yes (prod) | dev-insecure default | HS256 signing key for the vendor right-of-reply session JWT (`ss_vendor_session` cookie). The API is the sole verifier — the webapp stores the JWT opaquely and forwards it as a Bearer token. 32+ random bytes in prod; rotate quarterly (rotation only invalidates in-flight 15-min sessions). I-03 Phase C. |
 
 ### Frontend (`webapp/.env.example`)
 

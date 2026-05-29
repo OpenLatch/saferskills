@@ -1,0 +1,116 @@
+---
+export const prerender = false
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import VendorResponseBlock from '@ui/components/molecules/VendorResponseBlock.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import ItemIdentity from '@/components/item/ItemIdentity.astro'
+import ScoreCurrent from '@/components/item/ScoreCurrent.tsx'
+import ScoreHistoryChart from '@/components/item/ScoreHistoryChart.tsx'
+import InstallActivity from '@/components/item/InstallActivity.tsx'
+import RelatedItemsGrid from '@/components/item/RelatedItemsGrid.tsx'
+import ScanReportFull from '@/components/scan/ScanReportFull.tsx'
+
+import { fetchItemBySlug } from '@/lib/api/items'
+
+import '@/styles/page-scan-report.css'
+import '@/styles/page-item.css'
+
+const { slug } = Astro.params
+if (!slug) return Astro.redirect('/404')
+
+const detail = await fetchItemBySlug(slug).catch(() => null)
+if (!detail) return Astro.redirect('/404')
+
+const { item, latest_scan, scan_history, install_activity, related_items, vendor_responses } = detail
+const firstScanScore = scan_history.at(0)?.aggregate_score ?? null
+const previousAggregateScore = scan_history.length > 1 ? scan_history.at(-2)?.aggregate_score ?? null : null
+
+const scoreLabel = latest_scan ? `${latest_scan.aggregate_score}/100` : 'unscored'
+const respondHref = `/items/${slug}/respond`
+---
+
+<Base
+  title={`${item.display_name} ${scoreLabel} — SaferSkills`}
+  description={`SaferSkills audit of ${item.display_name} by ${item.github_org}: ${scoreLabel}. Independent, methodology-open, free.`}
+  ogImage={new URL(`/og/item/${slug}.png`, Astro.site).href}
+>
+  <NavBar client:idle />
+
+  <PageHead
+    eyebrow={`ITEM · 06 · /ITEMS/${slug.toUpperCase()}`}
+    title={`${item.display_name} — score history`}
+    lede={`Live dashboard of every score change, install, and re-scan. The score is the rolling result of ${scan_history.length} scan${scan_history.length === 1 ? '' : 's'} over 90 days.`}
+  />
+  <PageRidge variant="contour" label={`— /ITEMS/${slug.toUpperCase()} —`} />
+
+  <ItemIdentity item={item} scan={latest_scan} />
+
+  {latest_scan ? (
+    <>
+      <section class="page-section page-section--grid item-score-band">
+        <div class="container item-score-grid">
+          <ScoreCurrent client:idle scan={latest_scan} firstScanScore={firstScanScore} />
+          <ScoreHistoryChart client:visible points={scan_history} />
+          <InstallActivity client:idle activity={install_activity} />
+        </div>
+      </section>
+
+      <RidgeStars label="— BREAKDOWN · 02 —" />
+
+      <section class="page-section page-section--flat item-breakdown-band">
+        <div class="container">
+          <h2 class="item-band-title">Score breakdown</h2>
+          <ScanReportFull client:load scan={latest_scan} previousAggregateScore={previousAggregateScore} />
+        </div>
+      </section>
+
+      <section class="vendor-response-band" id="vendor-response">
+        <div class="container">
+          {vendor_responses.map((vr) => (
+            <VendorResponseBlock
+              client:visible
+              bodyMarkdown={vr.body_markdown}
+              author={vr.author}
+              submittedAt={vr.submitted_at}
+              version={vr.version}
+            />
+          ))}
+          <a class="vendor-respond-cta" href={respondHref}>
+            Are you the maintainer? Submit a response →
+          </a>
+        </div>
+      </section>
+
+      <RidgeStars label="— RELATED · 03 —" />
+
+      <section class="page-section page-section--grid item-related-band">
+        <RelatedItemsGrid client:visible items={related_items} kind={item.kind} />
+      </section>
+    </>
+  ) : (
+    <section class="page-section page-section--flat item-unscored">
+      <div class="container">
+        <h2>Not scanned yet.</h2>
+        <p>This item is indexed but hasn't been audited. Be the first to run a scan.</p>
+        <a class="btn primary" href={`/scan?prefill=${encodeURIComponent(item.github_url ?? '')}`}>Scan it now →</a>
+      </div>
+    </section>
+  )}
+
+  <CtaBand
+    client:visible
+    title="Scan a repo. Read the report. Decide."
+    lead="~30 seconds. Free. No account. Every finding cites a rule and a line of evidence."
+    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+  />
+
+  <Footer />
+</Base>

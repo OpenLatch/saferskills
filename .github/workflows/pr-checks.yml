@@ -323,9 +323,60 @@ jobs:
       - name: pnpm audit
         run: pnpm audit --audit-level=high || true
 
+  lighthouse-a11y:
+    name: PR - Lighthouse + axe (a11y)
+    needs: [detect-changes, docker-build]
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with: { pattern: image-*, merge-multiple: true, path: /tmp }
+      - name: Load API image
+        run: docker load -i /tmp/api.tar
+      - name: Bring up postgres + api
+        env:
+          API_IMAGE: saferskills-api:pr-${{ github.event.pull_request.number || github.sha }}
+        run: docker compose -f ci/docker-compose.smoke.yml up -d --wait --wait-timeout 90 postgres api
+      - uses: ./.github/actions/setup-saferskills-build
+      - name: Install Chromium
+        run: cd webapp && npx playwright install --with-deps chromium
+      - name: Build webapp
+        env:
+          PUBLIC_API_URL: http://localhost:8000
+        run: pnpm run generate && pnpm --filter @saferskills/webapp build
+      - name: Start webapp (Node SSR)
+        env:
+          PUBLIC_API_URL: http://localhost:8000
+          HOST: 0.0.0.0
+          PORT: "5173"
+        run: |
+          node webapp/dist/server/entry.mjs &
+          echo $! > /tmp/webapp.pid
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5173/ >/dev/null; then echo "webapp up"; break; fi
+            sleep 2
+          done
+      - name: Lighthouse CI
+        run: npx --yes @lhci/cli@0.14.x autorun --config=.lighthouserc.json
+      - name: axe (WCAG 2 A/AA)
+        run: cd webapp && npx playwright test
+      - name: Stop webapp
+        if: always()
+        run: kill "$(cat /tmp/webapp.pid)" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+
   all-checks:
     name: PR - All checks
-    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan]
+    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -344,6 +395,7 @@ jobs:
             "${{ needs.docker-smoke.result }}"
             "${{ needs.trivy-scan.result }}"
             "${{ needs.dep-scan.result }}"
+            "${{ needs.lighthouse-a11y.result }}"
           )
           for r in "${needs_status[@]}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then

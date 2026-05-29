@@ -11,7 +11,7 @@ from __future__ import annotations
 import base64
 import logging
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,11 +22,21 @@ from app.db.session import get_session
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
+from app.models.vendor import VendorResponse, VendorVerification
+from app.scan.report_builder import build_scan_report_detail
 from app.schemas.catalog_summary import (
     CatalogFacets,
     CatalogItemDetail,
     CatalogItemSummary,
     CatalogListEnvelope,
+)
+from app.schemas.item_detail import (
+    AgentShare,
+    InstallActivity,
+    ItemDetailResponse,
+    RelatedItem,
+    ScanHistoryPoint,
+    VendorResponsePublic,
 )
 
 logger = logging.getLogger(__name__)
@@ -275,8 +285,116 @@ async def list_items(
     )
 
 
-@router.get("/{slug}", response_model=CatalogItemDetail)
-async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> CatalogItemDetail:
+def _mock_install_activity(popularity_score: int) -> InstallActivity:
+    """Deterministic placeholder install counts derived from popularity_score.
+
+    Anonymized counts ONLY — never company-level data (company intelligence is
+    OpenLatch's private B2B surface, never public per `.claude/rules/security.md`).
+    I-05 (Install CLI) replaces this with real install telemetry.
+    """
+    all_time = 120 + max(popularity_score, 0) * 7
+    this_month = all_time // 4
+    this_week = this_month // 4
+    return InstallActivity(
+        this_week=this_week,
+        this_month=this_month,
+        all_time=all_time,
+        agent_distribution=[
+            AgentShare(agent="Claude Code", percentage=62),
+            AgentShare(agent="Cursor", percentage=28),
+            AgentShare(agent="Others", percentage=10),
+        ],
+    )
+
+
+async def _scan_history(
+    session: AsyncSession, catalog_item_id: object, *, window_days: int = 90
+) -> list[ScanHistoryPoint]:
+    """90-day score-history series for the item, oldest-first."""
+    since = datetime.now().astimezone() - timedelta(days=window_days)
+    rows = (
+        await session.execute(
+            select(Scan.scanned_at, Scan.aggregate_score, Scan.tier)
+            .where(Scan.catalog_item_id == catalog_item_id)
+            .where(Scan.scanned_at >= since)
+            .order_by(Scan.scanned_at.asc())
+        )
+    ).all()
+    return [
+        ScanHistoryPoint(scanned_at=scanned_at, aggregate_score=score, tier=tier)  # type: ignore[arg-type]
+        for scanned_at, score, tier in rows
+    ]
+
+
+async def _related_items(
+    session: AsyncSession, *, kind: str, exclude_id: object, limit: int = 4
+) -> list[RelatedItem]:
+    """Same-kind, highest-scored peers (excluding self).
+
+    Placeholder until I-04 adds the tag/category/co-install signal.
+    """
+    latest_scan_sub = (
+        select(
+            Scan.catalog_item_id.label("ci_id"),
+            Scan.aggregate_score.label("score"),
+            Scan.tier.label("tier"),
+            func.row_number()
+            .over(partition_by=Scan.catalog_item_id, order_by=desc(Scan.scanned_at))
+            .label("rn"),
+        )
+    ).subquery()
+    rows = (
+        await session.execute(
+            select(
+                CatalogItem.slug,
+                CatalogItem.display_name,
+                latest_scan_sub.c.score,
+                latest_scan_sub.c.tier,
+            )
+            .join(latest_scan_sub, latest_scan_sub.c.ci_id == CatalogItem.id, isouter=True)
+            .where(CatalogItem.kind == kind)
+            .where(CatalogItem.id != exclude_id)
+            .where(CatalogItem.archived.is_(False))
+            .where(or_(latest_scan_sub.c.rn == 1, latest_scan_sub.c.rn.is_(None)))
+            .order_by(desc(func.coalesce(latest_scan_sub.c.score, 0)), CatalogItem.slug)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        RelatedItem(slug=slug, display_name=name, aggregate_score=score, tier=tier)  # type: ignore[arg-type]
+        for slug, name, score, tier in rows
+    ]
+
+
+async def _vendor_responses(
+    session: AsyncSession, catalog_item_id: object
+) -> list[VendorResponsePublic]:
+    """Public vendor responses for the item, newest version first."""
+    rows = (
+        await session.execute(
+            select(VendorResponse, VendorVerification.verified_github_user)
+            .join(
+                VendorVerification,
+                VendorVerification.id == VendorResponse.vendor_verification_id,
+            )
+            .where(VendorResponse.catalog_item_id == catalog_item_id)
+            .order_by(desc(VendorResponse.version))
+        )
+    ).all()
+    return [
+        VendorResponsePublic(
+            id=str(resp.id),
+            author=verified_user or "verified maintainer",
+            body_markdown=resp.body_markdown,
+            submitted_at=resp.submitted_at,
+            version=resp.version,
+        )
+        for resp, verified_user in rows
+    ]
+
+
+@router.get("/{slug}", response_model=ItemDetailResponse)
+async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> ItemDetailResponse:
     stmt = select(CatalogItem).where(CatalogItem.slug == slug)
     item = (await session.execute(stmt)).scalar_one_or_none()
     if item is None:
@@ -287,10 +405,17 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> C
     )
     latest = (await session.execute(latest_scan_stmt)).scalar_one_or_none()
 
+    findings: Sequence[Finding] = []
     findings_count = 0
+    latest_scan_detail = None
     if latest is not None:
-        count_stmt = select(func.count(Finding.id)).where(Finding.scan_id == latest.id)
-        findings_count = int((await session.execute(count_stmt)).scalar_one())
+        findings = (
+            (await session.execute(select(Finding).where(Finding.scan_id == latest.id)))
+            .scalars()
+            .all()
+        )
+        findings_count = len(findings)
+        latest_scan_detail = build_scan_report_detail(latest, item, findings)
 
     reg_rows = (
         await session.execute(
@@ -299,7 +424,7 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> C
     ).all()
     registries = [r[0] for r in reg_rows]
 
-    return CatalogItemDetail(
+    detail = CatalogItemDetail(
         id=str(item.id),
         slug=item.slug,
         kind=item.kind,  # type: ignore[arg-type]
@@ -320,4 +445,13 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> C
         updated_at=item.updated_at,
         sources=item.sources,
         item_metadata=item.item_metadata,
+    )
+
+    return ItemDetailResponse(
+        item=detail,
+        latest_scan=latest_scan_detail,
+        scan_history=await _scan_history(session, item.id),
+        install_activity=_mock_install_activity(item.popularity_score),
+        related_items=await _related_items(session, kind=item.kind, exclude_id=item.id),
+        vendor_responses=await _vendor_responses(session, item.id),
     )

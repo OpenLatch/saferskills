@@ -99,6 +99,17 @@ class Settings(BaseSettings):
         description="Maximum scan submissions per IP per 24h window (D-FE-11).",
     )
 
+    # ── Vendor right-of-reply ──────────────────────────────────────────────
+    # HS256 signing key for the short-lived `ss_vendor_session` JWT minted on
+    # successful `.saferskills/verify.txt` redemption. The webapp stores the
+    # JWT in an HttpOnly cookie and forwards it back as a Bearer token; the API
+    # is the sole verifier (the secret never leaves the backend). Rotate
+    # quarterly — rotation invalidates in-flight 15-minute sessions, no more.
+    vendor_session_secret: str = Field(
+        default="dev-insecure-vendor-session-secret-change-me",
+        description="HS256 key for vendor session JWTs. MUST be overridden in prod.",
+    )
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> object:

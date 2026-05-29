@@ -18,6 +18,15 @@ describe('EmbedBadgeBox', () => {
     expect(container.querySelector('code')?.textContent).toContain('<a href=')
   })
 
+  it('renders the live badge image on the Preview tab', () => {
+    const { container } = render(<EmbedBadgeBox scanId="abc123" score={87} slug="acme--foo" />)
+    const tabs = container.querySelectorAll('.embed-badge-box-tab')
+    fireEvent.click(tabs[2])
+    const img = container.querySelector('.embed-badge-box-preview img')
+    expect(img).not.toBeNull()
+    expect(img?.getAttribute('src')).toContain('/badge/abc123/87.svg')
+  })
+
   it('is accessible (vitest-axe)', async () => {
     const { container } = render(<EmbedBadgeBox scanId="abc123" score={87} slug="acme--foo" />)
     const results = await axe(container)

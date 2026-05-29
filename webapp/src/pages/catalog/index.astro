@@ -4,6 +4,7 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import CatalogToolbar from '@/components/catalog/CatalogToolbar.tsx'
@@ -45,8 +46,8 @@ const emptyVariant: 'empty-catalog' | 'no-match' =
     eyebrow="CATALOG · 02 · /CATALOG"
     title="Browse skills, MCPs & plugins."
     lede="Unified index across mcp.so, Smithery, ClawHub, npm and 8 more registries. Filter by agent, band, and scan tier — every item independently audited."
-    path="/catalog"
   />
+  <PageRidge variant="mesh" label="— /CATALOG —" />
 
   <CatalogToolbar
     client:load

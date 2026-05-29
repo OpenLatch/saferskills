@@ -31,9 +31,20 @@ function _tierForScore(score: number): 'green' | 'yellow' | 'orange' | 'red' {
 
 interface Props {
   scan: ScanReportDetail
+  /**
+   * Aggregate score of the prior scan, when this report is rendered on the
+   * item-detail page. Drives the "Δ vs previous scan" annotation. Per-sub-score
+   * deltas are intentionally not shown — scan history carries aggregate scores
+   * only, so a per-axis delta would be fabricated.
+   */
+  previousAggregateScore?: number | null
 }
 
-export default function ScanReportFull({ scan }: Props) {
+export default function ScanReportFull({ scan, previousAggregateScore }: Props) {
+  const aggregateDelta =
+    previousAggregateScore != null && previousAggregateScore !== scan.aggregate_score
+      ? scan.aggregate_score - previousAggregateScore
+      : null
   const subScores = SUB_SCORE_KEYS.map((key) => {
     const breakdown = (scan.score_breakdown as Record<string, Record<string, unknown>>)[key] ?? {}
     return {
@@ -48,6 +59,12 @@ export default function ScanReportFull({ scan }: Props) {
 
   return (
     <section className="scan-report-full" aria-label="Scan report">
+      {aggregateDelta !== null && (
+        <div className={`report-aggregate-delta ${aggregateDelta >= 0 ? 'up' : 'down'}`}>
+          {aggregateDelta >= 0 ? '↑' : '↓'} {aggregateDelta >= 0 ? '+' : ''}
+          {aggregateDelta} vs previous scan
+        </div>
+      )}
       <ScanReportHero
         score={scan.aggregate_score}
         tier={scan.tier}

@@ -21,7 +21,8 @@ Public scan results are a powerful claim. SaferSkills' legitimacy depends on the
 | Path | W1 status | When to use |
 |---|---|---|
 | **GitHub issue template** (`.github/ISSUE_TEMPLATE/04-vendor-appeal.yml`) | Live | Default at W1. Tracks the appeal in a public issue, links the catalog item, captures structured fields (rule_id, scan timestamp, rebuttal). |
-| **Web form** (`/appeal` on `saferskills.ai/appeal`) | **W6** | Ships with the appeal form route in `webapp/src/pages/appeal.astro`. Posts to `POST /api/v1/appeals` (W6 endpoint). |
+| **Right-of-reply web form** (`/items/<slug>/respond`) | **Live (I-03 Phase C)** | The friction-minimizing structural right-of-reply (D-FE deviation). Verify-by-`.saferskills/verify.txt` → HttpOnly `ss_vendor_session` cookie (webapp-owned; the API mints + is the sole verifier of the HS256 JWT) → ≤2000-char Markdown response posted to `POST /api/v1/items/<slug>/vendor/responses`, rendered publicly next to findings. Optional immediate re-scan. GitHub issues remain the fallback. |
+| **Appeal web form** (`/appeal` on `saferskills.ai/appeal`) | **W6** | The formal finding-appeal flow (distinct from the right-of-reply above). Ships with `webapp/src/pages/appeal.astro`. Posts to `POST /api/v1/appeals` (W6 endpoint). |
 | **Email** (`appeals@openlatch.ai`) | Live | Human-escalation path when the GitHub form is insufficient (e.g. private-disclosure-of-sensitive-detail). Email is converted to a public issue by a maintainer unless the vendor explicitly requests private handling. |
 
 ## Identity verification

@@ -1,0 +1,284 @@
+/* Item-detail page (/items/<slug>) — Phase C.
+ * Composes the shared .page-section surfaces; only inner-component layout +
+ * typography live here. Tier stripes + cards are token-driven so they theme. */
+
+/* ─── Tier left-stripe (shared by score-current + related-card) ─── */
+.stripe-l {
+  border-left: 3px solid var(--color-line);
+}
+.stripe-l.stripe-g {
+  border-left-color: var(--score-green);
+}
+.stripe-l.stripe-y {
+  border-left-color: var(--score-yellow);
+}
+.stripe-l.stripe-o {
+  border-left-color: var(--score-orange);
+}
+.stripe-l.stripe-r {
+  border-left-color: var(--score-red);
+}
+
+/* ─── Identity strip (below page-head, above the score band) ─── */
+.item-identity {
+  border-bottom: var(--shadow-hairline);
+  padding: 20px 0;
+}
+.item-identity .container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.item-name {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.item-name .meta {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--fg-3);
+  margin-left: 8px;
+}
+.item-link {
+  display: inline-block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--brand-primary);
+}
+.item-meta-row {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ─── Score band (3-col: current / history / activity) ─── */
+.item-score-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr 260px;
+  gap: 24px;
+  align-items: start;
+}
+.score-current {
+  padding: 20px 24px;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-hairline);
+}
+.score-current .score-num {
+  display: block;
+  margin: 8px 0;
+}
+.score-delta {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.score-delta.up {
+  color: var(--score-green);
+}
+.score-delta.down {
+  color: var(--score-red);
+}
+
+.score-history-card,
+.install-activity-card {
+  padding: 20px 24px;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-hairline);
+}
+.score-history-meta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg-2);
+  margin: 6px 0 12px;
+}
+.score-history-empty {
+  color: var(--fg-3);
+  font-size: 14px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* ─── Install activity ─── */
+.ia-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+}
+.ia-label {
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.ia-num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+}
+.ia-divider {
+  height: 1px;
+  background: var(--color-line-soft);
+  margin: 12px 0;
+}
+.ia-agents-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+}
+.ia-agent-bar {
+  display: flex;
+  height: 8px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+.ia-agent-seg:nth-child(1) {
+  background: var(--brand-primary);
+}
+.ia-agent-seg:nth-child(2) {
+  background: var(--brand-accent);
+}
+.ia-agent-seg:nth-child(n + 3) {
+  background: var(--fg-3);
+}
+.ia-agent-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ia-agent-legend li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.ia-agent-pct {
+  font-family: var(--font-mono);
+  color: var(--fg-2);
+}
+.ia-note {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+/* ─── Breakdown band ─── */
+.item-band-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 20px;
+}
+.report-aggregate-delta {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.report-aggregate-delta.up {
+  color: var(--score-green);
+}
+.report-aggregate-delta.down {
+  color: var(--score-red);
+}
+
+/* ─── Vendor response band ─── */
+.vendor-response-band {
+  padding: 32px 0;
+}
+.vendor-respond-cta {
+  display: inline-block;
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--brand-primary);
+}
+
+/* ─── Related items ─── */
+.related-items {
+  padding: 8px 0;
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+.related-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-hairline);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.related-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-stamp);
+}
+.r-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.r-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.r-unscored {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--fg-3);
+}
+
+.item-unscored {
+  text-align: center;
+}
+.item-unscored h2 {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .related-card {
+    transition: none;
+  }
+  .related-card:hover {
+    transform: none;
+  }
+}
+
+/* ─── Mobile (D-FE-17): 3-col score band stacks; chart shrinks ─── */
+@media (max-width: 1024px) {
+  .item-score-grid {
+    grid-template-columns: 1fr;
+  }
+  .related-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .related-grid {
+    grid-template-columns: 1fr;
+  }
+  .item-name {
+    font-size: 22px;
+  }
+  .item-identity .container {
+    flex-direction: column;
+  }
+}

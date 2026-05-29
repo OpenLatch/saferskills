@@ -2,9 +2,9 @@
 
 All checks must pass before merge. Every third-party action is **SHA-pinned** (never floating tags); the first step of every workflow is `step-security/harden-runner`; every workflow declares `permissions: contents: read` at the top and elevates per-job only when needed.
 
-## Pipeline lanes (W1: 13 + `all-checks` aggregation)
+## Pipeline lanes (14 + `all-checks` aggregation)
 
-`pr-checks.yml` runs 13 lanes plus the aggregator. Tools are SHA-pinned in `.github/actions/` reusable composites.
+`pr-checks.yml` runs 14 lanes plus the aggregator (the 13 W1 lanes + `lighthouse-a11y`, added in I-03 Phase C). Tools are SHA-pinned in `.github/actions/` reusable composites.
 
 | # | Lane | What it does |
 |---|---|---|
@@ -21,7 +21,8 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 | 11 | `trivy-scan` | Trivy vulnerability scanner (CRITICAL/HIGH) with SARIF upload to GitHub Security tab |
 | 12 | `dep-scan` | `pip-audit` (`uv pip compile`) + `pnpm audit --audit-level=high` |
 | 13 | `pr-title-lint` | Conventional Commits format check |
-| – | `all-checks` | Aggregation job — gates merge; depends on all 13 |
+| 14 | `lighthouse-a11y` | `@lhci/cli` (perf ≥90 / a11y ≥95 on the no-seed public pages) + `@axe-core/playwright` WCAG 2 A/AA smoke. Runs on PRs touching `webapp/**` or `ui/**` (gated on `detect-changes.outputs.frontend`). Brings up postgres+api from the smoke compose, builds + serves the webapp Node SSR on :5173. Seeded pages (item-detail / scan-report) are Lighthoused in the staging e2e. (I-03 Phase C) |
+| – | `all-checks` | Aggregation job — gates merge; depends on all 14 |
 
 Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
 
