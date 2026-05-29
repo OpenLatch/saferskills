@@ -2197,6 +2197,16 @@ html.dark .install-band .term {
   }
 }
 
+@media (max-width: 640px) {
+  /* The window title is absolutely centered + nowrap, so on phones it slides
+     under the right-aligned "Copy command" button (the IMG_5250/5251 overlap).
+     It's cosmetic macOS-window chrome — the breadcrumb + command line below
+     already name the agent — so drop it here; traffic lights + copy remain. */
+  .install-band .iw-chrome .iw-title {
+    display: none;
+  }
+}
+
 /* ----- FEEDS — Grid Mosaic (3×3 with decorative wireframes) ----- */
 /* section header lives inside the grid's title-cell now; tighten outer padding */
 .feeds-band.section {

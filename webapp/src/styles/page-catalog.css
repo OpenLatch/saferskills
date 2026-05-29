@@ -89,7 +89,28 @@
 
 @media (max-width: 1024px) {
   .cat-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Stacked layout: the sidebar's right divider becomes a stray vertical
+     rule down the page edge — drop it and its gutter. Scoped to .cat-split
+     so it beats the later base `.cat-side { border-right }` rule (L116). */
+  .cat-split .cat-side {
+    border-right: 0;
+    padding-right: 0;
+  }
+}
+
+/* P-CAT-1 — stack the toolbar on phones so the search + INDEXED counter
+   don't sit side-by-side and push the counter off the right edge. */
+@media (max-width: 640px) {
+  .cat-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .cat-toolbar-search {
+    max-width: none;
   }
 }
 

@@ -14,7 +14,7 @@ import '@/styles/page-docs.css'
   title="Docs — SaferSkills"
   description="The SaferSkills CLI install docs ship in week 7-8. In the meantime, read the methodology behind every scan, view the README, or scan a repo yourself."
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="DOCS · 04 · /DOCS"

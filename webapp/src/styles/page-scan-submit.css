@@ -11,7 +11,20 @@
 
 @media (max-width: 1024px) {
   .scan-split {
-    grid-template-columns: 1fr;
+    /* minmax(0,1fr) — not 1fr — so the single column can shrink below the
+       panes' min-content instead of forcing the grid (and the page) wider. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .scan-split {
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+  .scan-form-pane,
+  .scan-method-pane {
+    padding: 1.25rem;
   }
 }
 
@@ -20,6 +33,9 @@
   border: 1px solid var(--border-1, #d8d4c8);
   padding: 2rem;
   background: var(--bg-page, #fbf9f4);
+  /* Allow the grid item to shrink below its content's min-content so long
+     mono strings / inputs wrap instead of forcing horizontal overflow. */
+  min-width: 0;
 }
 
 .scan-submit-form-title {
@@ -51,6 +67,7 @@
 
 .scan-input-field {
   flex: 1;
+  min-width: 0;
   padding: 0.85rem 1rem;
   border: 0;
   outline: none;

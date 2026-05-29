@@ -325,6 +325,169 @@ html.dark .nav-links a[aria-current="page"]:hover {
 }
 
 /* ============================================================
+   MOBILE NAV — hamburger toggle + slide-down drawer (<=860px)
+   Desktop (>=861px) is byte-for-byte unchanged: .nav-toggle and
+   .nav-drawer are display:none and the desktop row stays visible.
+   ============================================================ */
+.nav-toggle {
+  display: none; /* shown only <=860px */
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-0);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+.nav-toggle:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+.nav-toggle-bars {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 12px;
+}
+.nav-toggle-bars span {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  background: currentColor;
+  transition:
+    transform 240ms var(--ease-std),
+    opacity 160ms ease;
+}
+.nav-toggle-bars span:nth-child(1) {
+  top: 0;
+}
+.nav-toggle-bars span:nth-child(2) {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.nav-toggle-bars span:nth-child(3) {
+  bottom: 0;
+}
+.nav-toggle-bars[data-open="true"] span:nth-child(1) {
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+}
+.nav-toggle-bars[data-open="true"] span:nth-child(2) {
+  opacity: 0;
+}
+.nav-toggle-bars[data-open="true"] span:nth-child(3) {
+  bottom: 50%;
+  transform: translateY(50%) rotate(-45deg);
+}
+
+.nav-drawer {
+  display: none; /* desktop never shows it; shown <=860px when open */
+}
+
+@media (max-width: 860px) {
+  /* Scoped to .nav-inner so these beat `.btn-pair { display:flex }` (defined
+     later with equal single-class specificity) on `.nav-right`. */
+  .nav-inner .nav-links,
+  .nav-inner .nav-right {
+    display: none;
+  }
+  .nav-toggle {
+    display: inline-flex;
+  }
+  .nav-drawer {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: calc(100% + 2px);
+    z-index: 49;
+    padding: 12px;
+    background: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-0);
+    box-shadow:
+      var(--shadow-hairline),
+      0 12px 32px -16px rgba(15, 23, 42, 0.22);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+  }
+  .nav-drawer[data-open="true"] {
+    display: block;
+  }
+  .nav-drawer-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .nav-drawer-links a {
+    display: block;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--fg-2);
+    border-radius: var(--radius-0);
+  }
+  .nav-drawer-links a:hover {
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--color-ink);
+  }
+  .nav-drawer-links a[aria-current="page"] {
+    color: var(--color-ink);
+    background: rgba(15, 23, 42, 0.08);
+  }
+  .nav-drawer-cta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-line);
+  }
+  .nav-drawer-cta .btn {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+/* dark-mode hamburger + drawer */
+html.dark .nav-toggle {
+  border-color: rgba(248, 250, 252, 0.16);
+  color: var(--fg-1);
+}
+html.dark .nav-toggle:hover {
+  background: rgba(248, 250, 252, 0.08);
+}
+html.dark .nav-drawer {
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(248, 250, 252, 0.16);
+}
+html.dark .nav-drawer-links a {
+  color: var(--fg-2);
+}
+html.dark .nav-drawer-links a:hover,
+html.dark .nav-drawer-links a[aria-current="page"] {
+  color: var(--fg-1);
+  background: rgba(248, 250, 252, 0.08);
+}
+html.dark .nav-drawer-cta {
+  border-top-color: rgba(248, 250, 252, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-toggle-bars span {
+    transition: none;
+  }
+}
+
+/* ============================================================
    GH-STAR — paired chamfered segments
    ============================================================ */
 .gh-star {
@@ -554,6 +717,12 @@ html.dark .nav-links a[aria-current="page"]:hover {
   .btn {
     -webkit-mask: none;
     mask: none;
+  }
+
+  /* Tighten page gutters on phones (G4) — reclaims ~24px of content width.
+     (.container base is L18, earlier in the file, so this override wins.) */
+  .container {
+    padding: 0 20px;
   }
 }
 
@@ -1365,6 +1534,30 @@ html.dark .cta-band h2 {
   opacity: 1;
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+/* Footer mobile collapse (G2/G5) — the universal horizontal-overflow driver.
+   Placed AFTER the footer base rules so these win on equal specificity.
+   The fixed 5-column grid becomes a 2-up wrap with the brand spanning the row,
+   and the 44px wordmark + 360px lede scale to fit the narrow column. */
+@media (max-width: 640px) {
+  .ft-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 32px 24px;
+  }
+  .ft-brand {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  .ft-brand .word {
+    font-size: 32px;
+  }
+  .ft-brand .word .mk {
+    height: 32px;
+  }
+  .ft-brand p {
+    max-width: 100%;
+  }
 }
 html.dark .footer {
   background-color: #060b14;

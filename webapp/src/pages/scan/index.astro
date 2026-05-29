@@ -19,7 +19,7 @@ const recentScans = await listRecentSubmissionScans({ limit: 4 }).catch(() => []
   title="Scan — SaferSkills"
   description="Paste a public GitHub URL. Get a transparent security report in ~30 seconds. Free. No account."
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="SCAN · 03 · /SCAN"

@@ -18,7 +18,7 @@ import '@/styles/page-methodology.css'
   title="Methodology — SaferSkills"
   description="The full SaferSkills detection methodology — 87 deterministic rules across 5 categories. Every claim ties to a specific rule, a rubric version, and a hashed evidence pointer. Reproducible by any third party offline."
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="METHODOLOGY · 05 · /METHODOLOGY"
