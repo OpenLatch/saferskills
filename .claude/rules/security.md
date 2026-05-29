@@ -56,6 +56,7 @@ Every user-submitted GitHub URL is treated as untrusted:
 2. **No SSRF**: outbound fetches go only to `api.github.com` and `raw.githubusercontent.com`, enforced at the HTTP-client layer (denylist `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `::1`).
 3. **Size cap** every fetch (artifacts > 25 MiB rejected up front; per-file > 5 MiB skipped with a logged finding).
 4. **No content execution** — scanned artifacts are parsed as data, never imported, eval'd, or shelled.
+5. **Per-IP submit cap** — `POST /api/v1/scans` enforces a per-IP daily limit (`SCAN_SUBMIT_DAILY_LIMIT`, default 10; D-FE-11). **Loopback callers are exempt** (`scans.py::_is_loopback`): loopback is the operator's own machine — the trusted maintainer/seed path. The exemption keys on `request.client.host` (the real TCP peer, unspoofable to loopback from a remote client); public traffic on Fly arrives over the 6PN proxy and is never loopback, so real submitters are always capped.
 
 ## When to update this rule
 
@@ -66,3 +67,4 @@ Every user-submitted GitHub URL is treated as untrusted:
 | New SAST / dependency scanner / Scorecard probe change | "Dependency Security" |
 | New scan-trace field | "Scan-trace transparency" — re-verify the no-raw-payload invariant |
 | New outbound host allowed | "Public-input handling" #2 + the HTTP-client allowlist |
+| Rate-limit scope / exemption change | "Public-input handling" #5 + `scans.py::_is_loopback` + `environment-config.md` |

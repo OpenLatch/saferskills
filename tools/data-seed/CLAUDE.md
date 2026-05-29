@@ -5,7 +5,7 @@ Standalone uv project. Mirrors `openlatch-platform/tools/data-seed/`. The CLI ta
 ## Hard rules
 
 1. **Allowlist is a hard refusal.** `purge run --apply` against any URL not in `PURGE_ALLOWLIST` exits 2. Production URLs are intentionally absent — adding one requires editing `saferskills_data_seed/domains/purge/app.py`.
-2. **Rate-limited publish.** `catalog publish` paces at ≤2 scans/sec to stay under the I-02 D-25 rate-limit budget (10/day/IP equivalent). The 50-item seed takes ~25-30s.
+2. **Paced publish, loopback-exempt.** `catalog publish` paces at ≤2 scans/sec to avoid hammering the API (the 50-item seed takes ~25-30s). It does **not** rely on staying under the public 10/day/IP cap — that cap is a daily *count*, not a rate, so pacing can't keep a 50-item corpus under it. Instead the API exempts loopback callers from the per-IP scan-submit limit (`services/api/app/routers/scans.py::_is_loopback`), so seeding from the operator's own machine is unlimited while public submissions stay capped. Seed against a remote host and the cap applies again.
 3. **No imports from `services/api/`.** The seed tool talks to the API through HTTP only. Sharing Python modules makes the seed brittle to backend refactors.
 4. **Fixture corpus is canonical.** `saferskills_data_seed/domains/catalog/files/catalog.yaml` is the demo dataset. ~50 entries spanning all 5 PRD categories with the score distribution from D-FE-14. A1 ships with 8 representative entries; the full 50 lands in a follow-up.
 

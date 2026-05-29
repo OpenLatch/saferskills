@@ -5,7 +5,8 @@ Replaces the W1 `routers/scans_stub.py`. The list endpoint joins `scans` +
 homepage feed and catalog row UI consume.
 
 POST `/api/v1/scans` flow:
-1. IP rate-limit check (10/day per `.claude/rules/security.md` § Public-input).
+1. IP rate-limit check (10/day per `.claude/rules/security.md` § Public-input;
+   loopback callers — trusted local seeding — are exempt).
 2. Compute idempotency key sha256(github_url||ref_sha||rubric_version).
 3. Cache hit → return the existing scan as 200 OK.
 4. Cache miss → upsert `catalog_items`, insert pending `scans` row, spawn
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ipaddress
 import json
 import logging
 from typing import Literal
@@ -56,6 +58,22 @@ router = APIRouter(prefix="/scans", tags=["scans"])
 # Hold strong references to scan-runner tasks so the GC doesn't collect them
 # mid-run (cf. asyncio.create_task docs). Tasks self-remove on completion.
 _background_tasks: set[asyncio.Task[None]] = set()
+
+
+def _is_loopback(host: str) -> bool:
+    """True if `host` is a loopback address (127.0.0.0/8 or ::1).
+
+    Loopback means the request originated on the API's own machine — the
+    trusted maintainer path the data-seed CLI (`catalog publish`) uses to bulk-
+    publish the fixture corpus. Public traffic on Fly arrives over the 6PN proxy
+    (fdaa::/16) and is never loopback, so this exemption never touches real
+    users. `request.client.host` is the actual TCP peer, which a remote client
+    cannot spoof to a loopback value.
+    """
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _summary_row(scan: Scan, item: CatalogItem | None, findings_count: int) -> ScanReportSummary:
@@ -155,13 +173,19 @@ async def submit_scan(
             detail=str(exc),
         ) from exc
 
+    # The public per-IP daily cap (D-FE-11) is an anti-abuse control for
+    # anonymous submissions. Trusted local seeding (the data-seed CLI publishing
+    # the fixture corpus) connects over loopback and is exempt — otherwise the
+    # ~50-item corpus would blow past the 10/day budget on the first run. See
+    # `_is_loopback` for why this never exempts real public traffic.
     ip = request.client.host if request.client else "unknown"
-    await enforce_ip_rate_limit(
-        session,
-        ip=ip,
-        bucket="scan_submit",
-        limit=settings.scan_submit_daily_limit,
-    )
+    if not _is_loopback(ip):
+        await enforce_ip_rate_limit(
+            session,
+            ip=ip,
+            bucket="scan_submit",
+            limit=settings.scan_submit_daily_limit,
+        )
 
     # Resolve a stable idempotency key. We don't know the head SHA until the
     # engine fetches; the key is computed against the URL + rubric only — this
