@@ -1,0 +1,218 @@
+---
+export const prerender = true
+
+/*
+ * /cookies — SaferSkills Cookie Policy.
+ * Canonical legal source of truth: docs/legal/cookie-policy.md (keep in sync).
+ *
+ * This page asserts SaferSkills sets NO tracking cookies. That is only TRUE while
+ * PostHog runs cookieless, Sentry has no Session Replay, and no third-party embeds
+ * are added. Any of those introduces non-essential storage and REQUIRES updating
+ * this page + adding an EU consent banner. See docs/legal/cookie-policy.md header.
+ */
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import '@/styles/page-legal.css'
+
+const meta = { effective: '29 May 2026', updated: '29 May 2026', version: '1.0' }
+const privacyEmail = 'privacy@openlatch.ai'
+
+const toc = [
+  { id: 'what-are-cookies', label: 'What cookies are' },
+  { id: 'our-approach', label: 'Our approach: no tracking cookies' },
+  { id: 'what-we-use', label: 'The only storage we use' },
+  { id: 'third-party', label: 'Third-party services' },
+  { id: 'controls', label: 'How to control storage' },
+  { id: 'regional', label: 'Regional notes' },
+  { id: 'changes', label: 'Changes to this policy' },
+  { id: 'contact', label: 'Contact' },
+]
+---
+<Base
+  title="Cookie Policy — SaferSkills"
+  description="SaferSkills uses no cookies for analytics, advertising, or tracking. Cookieless analytics, no fingerprinting, and the only on-device storage is your theme preference."
+>
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
+
+  <PageHead
+    eyebrow="COOKIES · 10 · /COOKIES"
+    title="Cookie Policy."
+    lede="The short version: SaferSkills does not use cookies for analytics, advertising, or tracking — and sets no tracking cookies at all. We deliberately chose a privacy-preserving, cookieless design."
+  />
+  <PageRidge variant="swell" label="— /COOKIES —" />
+
+  {/* ─────────── Intro: meta + lead + TOC ─────────── */}
+  <section class="page-section page-section--grid legal-band legal-band--intro">
+    <div class="container">
+      <div class="legal-meta">
+        <span><b>Effective</b> {meta.effective}</span>
+        <span><b>Last updated</b> {meta.updated}</span>
+        <span><b>Version</b> {meta.version}</span>
+      </div>
+
+      <p class="legal-lead">
+        This Cookie Policy explains how SaferSkills uses cookies and similar device-storage
+        technologies. It supplements our <a href="/privacy">Privacy Policy</a>.
+      </p>
+      <p class="legal-lead">
+        Because we set <strong>no non-essential cookies or storage</strong>, no
+        cookie-consent banner is required for the current site, and there is nothing for
+        you to accept or reject.
+      </p>
+
+      <nav class="legal-toc" aria-label="Table of contents">
+        <h2>Contents</h2>
+        <ol>
+          {toc.map((t) => (
+            <li><a href={`#${t.id}`}>{t.label}</a></li>
+          ))}
+        </ol>
+      </nav>
+    </div>
+  </section>
+
+  <RidgeStars label="— POLICY · FULL TEXT —" />
+
+  {/* ─────────── Body ─────────── */}
+  <section class="page-section page-section--flat legal-band legal-band--body">
+    <div class="container legal-prose">
+
+      <section id="what-are-cookies">
+        <h2><span class="sec-num">1</span> What are cookies and similar technologies?</h2>
+        <p>
+          A <strong>cookie</strong> is a small text file a website stores on your device.
+          "Similar technologies" include browser storage such as <code>localStorage</code>
+          and <code>sessionStorage</code>. These can be <strong>strictly necessary /
+          functional</strong> (needed to provide something you asked for, or to remember a
+          preference you set) or <strong>non-essential</strong> (for analytics, advertising,
+          or tracking, which require your prior consent in the EU/EEA).
+        </p>
+      </section>
+
+      <section id="our-approach">
+        <h2><span class="sec-num">2</span> Our approach: no tracking cookies</h2>
+        <p>To keep the service privacy-friendly:</p>
+        <ul>
+          <li><strong>We do not use analytics cookies.</strong> Our usage analytics (PostHog) run in cookieless mode on an EU server. They store no cookie and no persistent identifier on your device.</li>
+          <li><strong>We do not use advertising or marketing cookies</strong>, and we do not embed third-party ad or social trackers.</li>
+          <li><strong>We do not fingerprint</strong> your device.</li>
+          <li><strong>Error monitoring</strong> (Sentry) does not set cookies on our site, and Session Replay is not used.</li>
+        </ul>
+        <p>
+          Because we set no non-essential cookies or storage, <strong>no cookie-consent
+          banner is required</strong> for the current site, and there is nothing for you to
+          accept or reject.
+        </p>
+      </section>
+
+      <section id="what-we-use">
+        <h2><span class="sec-num">3</span> The only storage we use</h2>
+        <div class="legal-table-wrap">
+          <table class="legal-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Provider</th>
+                <th>Purpose</th>
+                <th>Where</th>
+                <th>Duration</th>
+                <th>Category</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>ss-theme</code></td>
+                <td>localStorage (not a cookie)</td>
+                <td>SaferSkills (first-party)</td>
+                <td>Remembers your light/dark theme choice</td>
+                <td>On your device only — never sent to us</td>
+                <td>Until you clear it</td>
+                <td>Functional / strictly necessary</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          That is the complete list. We set <strong>no cookies</strong>, no analytics
+          storage, and no third-party storage.
+        </p>
+      </section>
+
+      <section id="third-party">
+        <h2><span class="sec-num">4</span> Third-party services and storage</h2>
+        <p>
+          The services we rely on (described in our <a href="/privacy#processors">Privacy
+          Policy</a>) are configured <strong>not</strong> to place tracking storage on your
+          device when you use SaferSkills:
+        </p>
+        <ul>
+          <li><strong>PostHog</strong> — cookieless mode, EU region: no cookies, no device identifier.</li>
+          <li><strong>Sentry</strong> — error monitoring: no cookies; Session Replay is disabled.</li>
+          <li><strong>GitHub</strong> — we fetch public content from GitHub on the server side; this does not place GitHub storage on your device through our site. If you then visit GitHub directly, GitHub's own cookie practices apply.</li>
+        </ul>
+        <p>
+          If we ever add a feature that needs non-essential storage (for example an embedded
+          video, a future logged-in experience, or analytics cookies), we will update this
+          policy <strong>and</strong> present a consent banner — with a "Reject all" option
+          as prominent as "Accept all" — <strong>before</strong> any such storage is set.
+        </p>
+      </section>
+
+      <section id="controls">
+        <h2><span class="sec-num">5</span> How to control storage in your browser</h2>
+        <p>Even though we set no tracking cookies, you remain in full control:</p>
+        <ul>
+          <li>You can clear the <code>ss-theme</code> preference at any time by clearing your browser's site data for SaferSkills (your theme will simply reset to the default).</li>
+          <li>All major browsers let you view, block, and delete cookies and site storage in their privacy/settings menus.</li>
+          <li>We honour the <strong>Global Privacy Control (GPC)</strong> signal. Because we run no advertising or cross-site tracking, there is in practice nothing to opt out of, but the signal is respected.</li>
+        </ul>
+      </section>
+
+      <section id="regional">
+        <h2><span class="sec-num">6</span> Regional notes</h2>
+        <ul>
+          <li><strong>EU/EEA (ePrivacy / French law):</strong> consent is required only for non-essential cookies/storage. As we set none, no consent is collected. The single functional item (<code>ss-theme</code>) is set as a direct result of your own action and is exempt.</li>
+          <li><strong>United Kingdom (PECR):</strong> the same position applies; functional/preference storage set by your action does not require consent.</li>
+          <li><strong>United States:</strong> we do not "sell" or "share" personal information and use no advertising trackers; we honour GPC.</li>
+        </ul>
+      </section>
+
+      <section id="changes">
+        <h2><span class="sec-num">7</span> Changes to this policy</h2>
+        <p>
+          If our use of cookies or similar technologies changes, we will update this policy
+          and the "Last updated" date above, and — where the law requires it — ask for your
+          consent before setting any new non-essential storage.
+        </p>
+      </section>
+
+      <section id="contact">
+        <h2><span class="sec-num">8</span> Contact</h2>
+        <p>Questions about this Cookie Policy:</p>
+        <div class="legal-callout">
+          <p class="mono">{privacyEmail}</p>
+          <p>See also our <a href="/privacy">Privacy Policy</a>.</p>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+  <CtaBand
+    client:visible
+    title="Read the full Privacy Policy."
+    lead="No accounts, no advertising, cookieless analytics, hashed IPs for abuse prevention only."
+    primaryAction={{ label: 'Privacy Policy →', href: '/privacy' }}
+    secondaryAction={{ label: 'About SaferSkills', href: '/about' }}
+  />
+
+  <Footer />
+</Base>

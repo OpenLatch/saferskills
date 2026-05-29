@@ -1,32 +1,552 @@
 ---
-import Footer from '@ui/components/atoms/Footer.astro'
+export const prerender = true
+
+/*
+ * /privacy — SaferSkills Privacy Policy.
+ * Canonical legal source of truth: docs/legal/privacy-policy.md (keep in sync).
+ *
+ * TODO before public launch: fill the controller registration details below
+ * (exact OpenLatch legal name, legal form, registered office, SIREN/RCS). The
+ * cookieless claim is only TRUE while PostHog runs cookieless + Sentry has no
+ * Session Replay — see docs/legal/privacy-policy.md header notes.
+ */
 import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import '@/styles/page-legal.css'
+
+const meta = { effective: '29 May 2026', updated: '29 May 2026', version: '1.0' }
+const privacyEmail = 'privacy@openlatch.ai'
+// Fill with the registered entity details once finalised.
+const controllerLine =
+  '[OpenLatch legal name] ([legal form]), registered in France under SIREN/RCS [SIREN], registered office [registered address].'
+
+const toc = [
+  { id: 'at-a-glance', label: 'At a glance' },
+  { id: 'who-we-are', label: 'Who we are (controller)' },
+  { id: 'data-we-process', label: 'The data we process and why' },
+  { id: 'newsletter', label: 'Newsletter — not yet active' },
+  { id: 'children', label: 'Special-category & children’s data' },
+  { id: 'legitimate-interests', label: 'Use of legitimate interests' },
+  { id: 'scanning', label: 'Scanning public repositories' },
+  { id: 'your-rights', label: 'Your rights' },
+  { id: 'processors', label: 'Who we share data with' },
+  { id: 'transfers', label: 'International transfers' },
+  { id: 'retention', label: 'How long we keep data' },
+  { id: 'security', label: 'How we protect your data' },
+  { id: 'automated', label: 'Automated decision-making' },
+  { id: 'links', label: 'Links to other sites' },
+  { id: 'changes', label: 'Changes to this policy' },
+  { id: 'contact', label: 'Contact' },
+]
 ---
-<Base title="Privacy — SaferSkills">
-  <main class="flex-1 px-6 py-16">
-    <article class="mx-auto max-w-2xl prose">
-      <h1>Privacy</h1>
-      <p>
-        Our final privacy policy will be published before public launch. It is
-        currently in counsel review.
+<Base
+  title="Privacy Policy — SaferSkills"
+  description="How SaferSkills processes personal data: no accounts, no tracking cookies, cookieless analytics, hashed IPs for abuse prevention only, and public scan results. GDPR-aligned, stewarded by OpenLatch (France)."
+>
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
+
+  <PageHead
+    eyebrow="PRIVACY · 09 · /PRIVACY"
+    title="Privacy Policy."
+    lede="We built SaferSkills to collect as little personal data as possible — no accounts, no advertising, no third-party trackers, and no cookies for analytics or marketing. Here is exactly what we process, why, and the rights you have."
+  />
+  <PageRidge variant="contour" label="— /PRIVACY —" />
+
+  {/* ─────────── Intro: meta + lead + at-a-glance + TOC ─────────── */}
+  <section class="page-section page-section--grid legal-band legal-band--intro">
+    <div class="container">
+      <div class="legal-meta">
+        <span><b>Effective</b> {meta.effective}</span>
+        <span><b>Last updated</b> {meta.updated}</span>
+        <span><b>Version</b> {meta.version}</span>
+      </div>
+
+      <p class="legal-lead">
+        SaferSkills is a free, public, open-source service that independently scans
+        publicly available AI-agent artifacts — skills, MCP servers, hooks, rules, and
+        plugins — from the GitHub URLs people submit, and publishes a transparent,
+        methodology-driven trust report for each one.
       </p>
-      <p>
-        Questions in the meantime: <a href="mailto:legal@openlatch.ai">legal@openlatch.ai</a>.
+      <p class="legal-lead">
+        This policy explains, in plain language, what personal data we process, why, on
+        what legal basis, who we share it with, how long we keep it, and your rights.
+        <strong>We do not sell or share your personal data for advertising, we do not
+        profile or fingerprint visitors, and we do not use marketing cookies.</strong>
       </p>
-      <p>
-        Short-form summary of what we will collect and why:
-      </p>
-      <ul>
-        <li>IP address + user agent — 90-day retention, for abuse prevention only.</li>
-        <li>Submitted GitHub URLs — public + indefinite (the catalog).</li>
-        <li>Voluntary email subscription — private; self-serve deletion at <code>/account/delete</code> when that surface ships.</li>
-        <li>Scan results — public + indefinite.</li>
-      </ul>
-      <p>
-        We do not run analytics on visitors. We do not embed third-party
-        trackers. We do not fingerprint.
-      </p>
-    </article>
-  </main>
+
+      <section id="at-a-glance">
+        <p class="legal-kicker">At a glance</p>
+        <div class="legal-table-wrap">
+          <table class="legal-table">
+            <thead>
+              <tr>
+                <th>What</th>
+                <th>Processed?</th>
+                <th>Why</th>
+                <th>Legal basis</th>
+                <th>How long</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>GitHub URLs you submit</td>
+                <td>Yes — and published</td>
+                <td>To scan the artifact and publish a public report</td>
+                <td>Legitimate interest</td>
+                <td>Indefinite (public record)</td>
+              </tr>
+              <tr>
+                <td>Scan results &amp; findings</td>
+                <td>Yes — published</td>
+                <td>The core service</td>
+                <td>Legitimate interest</td>
+                <td>Indefinite (public record)</td>
+              </tr>
+              <tr>
+                <td>Your IP address</td>
+                <td>Hashed on receipt; raw IP never stored</td>
+                <td>Abuse prevention / rate-limiting only</td>
+                <td>Legitimate interest (security)</td>
+                <td>~24 hours (rolling)</td>
+              </tr>
+              <tr>
+                <td>Personal data inside scanned public repos</td>
+                <td>Only if present in the repo</td>
+                <td>To produce the security report</td>
+                <td>Legitimate interest (security)</td>
+                <td>See Section 7</td>
+              </tr>
+              <tr>
+                <td>Cookieless usage analytics</td>
+                <td>Yes — no identifiers, bucketed only</td>
+                <td>Understand aggregate usage; improve the service</td>
+                <td>Legitimate interest</td>
+                <td>~90 days, then aggregated</td>
+              </tr>
+              <tr>
+                <td>Error / diagnostic data</td>
+                <td>Yes — personal data scrubbed</td>
+                <td>Detect and fix faults and abuse</td>
+                <td>Legitimate interest (security)</td>
+                <td>~90 days</td>
+              </tr>
+              <tr>
+                <td>Server logs</td>
+                <td>Yes</td>
+                <td>Operations &amp; security</td>
+                <td>Legitimate interest</td>
+                <td>~30 days</td>
+              </tr>
+              <tr>
+                <td>Newsletter email</td>
+                <td><strong>Not yet active</strong> (Section 4)</td>
+                <td>Launch announcements (future)</td>
+                <td>Consent (when it launches)</td>
+                <td>Until you unsubscribe</td>
+              </tr>
+              <tr>
+                <td>Your theme preference</td>
+                <td>Stored on your device only</td>
+                <td>Remember light/dark mode</td>
+                <td>Strictly necessary</td>
+                <td>Until you clear it</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <nav class="legal-toc" aria-label="Table of contents">
+        <h2>Contents</h2>
+        <ol>
+          {toc.map((t) => (
+            <li><a href={`#${t.id}`}>{t.label}</a></li>
+          ))}
+        </ol>
+      </nav>
+    </div>
+  </section>
+
+  <RidgeStars label="— POLICY · FULL TEXT —" />
+
+  {/* ─────────── Body: the numbered articles ─────────── */}
+  <section class="page-section page-section--flat legal-band legal-band--body">
+    <div class="container legal-prose">
+
+      <section id="who-we-are">
+        <h2><span class="sec-num">2</span> Who we are (data controller)</h2>
+        <p>The data controller responsible for the processing described here is:</p>
+        <div class="legal-callout">
+          <p>{controllerLine} SaferSkills is an OpenLatch project.</p>
+        </div>
+        <p>
+          Because the controller is established in the European Union, <strong>no
+          Article 27 EU representative is required</strong>, and our lead supervisory
+          authority is the French data protection authority, the <strong>CNIL</strong>
+          (Commission Nationale de l'Informatique et des Libertés).
+        </p>
+        <p>
+          We have not appointed a statutory Data Protection Officer (we are not legally
+          required to). For any privacy matter, contact us at
+          <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+        </p>
+      </section>
+
+      <section id="data-we-process">
+        <h2><span class="sec-num">3</span> The data we process and why</h2>
+
+        <h3>3.1 GitHub URLs you submit for scanning</h3>
+        <p>
+          When you submit a public GitHub URL to be scanned, we store that URL and use
+          it to fetch and analyse the referenced artifact. The submitted URL and the
+          resulting scan report become part of our <strong>public catalog</strong>.
+        </p>
+        <ul>
+          <li><strong>What we store:</strong> the GitHub URL, the artifact metadata, and the scan output.</li>
+          <li><strong>What we do not store:</strong> we do not require, request, or retain your name, email, or account identity to run a scan. Scans are anonymous.</li>
+          <li><strong>Legal basis:</strong> legitimate interest in operating an independent, transparent, public security-scoring service (Art. 6(1)(f) GDPR). See Section 6.</li>
+        </ul>
+
+        <h3>3.2 Scan results and findings</h3>
+        <p>
+          Each scan produces a score, sub-scores, and findings, each tied to a documented
+          detection rule and the rubric version that was active. To protect the scanned
+          author's content and any secrets it may contain, <strong>evidence is stored as
+          a cryptographic hash (SHA-256) plus a file position — never the raw content of
+          the scanned artifact.</strong> Scan results are public and retained indefinitely
+          as a transparency record (see Section 7 and Section 11).
+        </p>
+
+        <h3>3.3 Your IP address (abuse prevention only)</h3>
+        <p>
+          To prevent abuse and rate-limit scan submissions, we process the IP address of
+          incoming requests. <strong>The raw IP address is hashed (SHA-256) on receipt and
+          is never written to our database or logs in raw form.</strong> Only the hash, a
+          coarse counter, and a short time window are stored, expiring on a rolling
+          ~24-hour basis.
+        </p>
+        <p><strong>Legal basis:</strong> legitimate interest in the security and availability of the service (Art. 6(1)(f) GDPR).</p>
+
+        <h3>3.4 Anonymous, cookieless usage analytics (PostHog)</h3>
+        <p>
+          We use <strong>PostHog</strong>, configured in <strong>cookieless</strong> mode
+          and hosted in the <strong>European Union</strong>, to understand how the service
+          is used in aggregate. This deployment is specifically designed to avoid
+          identifying you:
+        </p>
+        <ul>
+          <li><strong>No cookies and no persistent identifiers</strong> are stored on your device for analytics. Because nothing is stored on or read from your device for this purpose, <strong>no cookie-consent banner is required</strong> under the ePrivacy rules.</li>
+          <li><strong>No user profiles</strong> are created.</li>
+          <li>Events are limited to a <strong>fixed, closed list</strong> of interaction names, and every numeric value is <strong>bucketed</strong> (e.g. a score is recorded as "70–89", not the exact figure). <strong>Raw URLs, repository names, IP addresses, and free-text input are never sent to analytics.</strong></li>
+        </ul>
+        <p><strong>Legal basis:</strong> legitimate interest in measuring and improving the service (Art. 6(1)(f) GDPR). You can object at any time (Section 8).</p>
+
+        <h3>3.5 Error and diagnostic monitoring (Sentry)</h3>
+        <p>
+          We use <strong>Sentry</strong> to capture application errors so we can fix faults
+          and detect abuse. Sentry is configured to <strong>not send default personal
+          data</strong>, to <strong>scrub</strong> any data that could contain scanned
+          content, and <strong>Session Replay is not used</strong>.
+        </p>
+        <p><strong>Legal basis:</strong> legitimate interest in the security and operational integrity of the service (Art. 6(1)(f) GDPR).</p>
+
+        <h3>3.6 Performance traces (OpenTelemetry)</h3>
+        <p>
+          Server-side traces and metrics help us monitor performance. Trace attributes are
+          limited to hashes, sizes, and counts; <strong>raw scanned content is never
+          recorded</strong>. Legal basis: legitimate interest in operating a reliable
+          service.
+        </p>
+
+        <h3>3.7 Server logs</h3>
+        <p>
+          Our hosting and application layers keep standard operational logs (request paths,
+          status codes, timestamps), retained for ~30 days for security and debugging.
+          Legal basis: legitimate interest in security and operations.
+        </p>
+
+        <h3>3.8 Theme preference</h3>
+        <p>
+          If you switch between light and dark mode, that choice is stored <strong>on your
+          own device</strong> (<code>localStorage</code>, key <code>ss-theme</code>). It
+          never leaves your browser and is not sent to us. See the
+          <a href="/cookies">Cookie Policy</a>.
+        </p>
+      </section>
+
+      <section id="newsletter">
+        <h2><span class="sec-num">4</span> Newsletter / launch list — not yet active</h2>
+        <p>
+          The website may display an email sign-up field for launch announcements.
+          <strong>At the date of this policy, this feature is not active: no email address
+          is collected, transmitted to us, or stored.</strong> When the newsletter does
+          launch:
+        </p>
+        <ul>
+          <li>it will operate strictly on an <strong>opt-in consent</strong> basis (Art. 6(1)(a) GDPR and the applicable ePrivacy electronic-marketing rules);</li>
+          <li>emails will be sent through our processor <strong>Resend</strong>, from a sending domain shared with OpenLatch (<code>notifications.openlatch.ai</code>), with a reply-to at an <code>@openlatch.ai</code> mailbox;</li>
+          <li>every message will contain a one-click unsubscribe, and you can withdraw consent at any time;</li>
+          <li>this policy will be updated <strong>before</strong> any email is collected.</li>
+        </ul>
+      </section>
+
+      <section id="children">
+        <h2><span class="sec-num">5</span> Special-category and children's data</h2>
+        <p>
+          SaferSkills is a developer tool and is <strong>not directed to children</strong>.
+          We do not knowingly collect personal data from anyone under the age of
+          <strong>15</strong> (the age of digital consent in France). We do not
+          intentionally process special categories of data (Art. 9 GDPR). For incidental
+          personal data inside scanned repositories, see Section 7.
+        </p>
+      </section>
+
+      <section id="legitimate-interests">
+        <h2><span class="sec-num">6</span> Our use of "legitimate interests"</h2>
+        <p>
+          Most of our processing relies on the <strong>legitimate interests</strong> legal
+          basis. For each such activity we have carried out (and keep on file) a three-part
+          balancing test — purpose, necessity, and balancing against your rights:
+        </p>
+        <ul>
+          <li><strong>Purpose:</strong> to provide a free, independent, transparent security-scoring service for publicly shared AI-agent artifacts. EU law expressly recognises <strong>network and information security</strong> as a legitimate interest.</li>
+          <li><strong>Necessity:</strong> each category of data is the minimum needed (hashing IPs rather than storing them; bucketing analytics; storing evidence hashes rather than raw content).</li>
+          <li><strong>Balancing:</strong> we minimise, pseudonymise, and never use this data for advertising or profiling, and you can object at any time (Section 8).</li>
+        </ul>
+        <p>You may request a summary of the relevant balancing assessment by emailing <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.</p>
+      </section>
+
+      <section id="scanning">
+        <h2><span class="sec-num">7</span> Scanning public repositories and the personal data they may contain</h2>
+        <p>
+          This section is specific to what SaferSkills does. We fetch and analyse
+          <strong>publicly available</strong> code from GitHub. Public code can contain
+          personal data — for example an author's name, a username, or an email address in
+          commit metadata or in a file. <strong>Data being public does not remove it from
+          the scope of data-protection law</strong>, so we apply the following safeguards:
+        </p>
+        <ul>
+          <li><strong>Lawful basis:</strong> legitimate interest in independent security research and the network/information security of the AI-agent ecosystem (Art. 6(1)(f) GDPR), which carries a recognised public-interest weight.</li>
+          <li><strong>Source and category (Article 14):</strong> where we process personal data we did not obtain from you directly (i.e. data inside a scanned repository), the source is the <strong>public GitHub repository</strong> identified in the report, limited to whatever identifiers that public code contains. We rely on the <strong>Article 14(5) disproportionate-effort exemption</strong> to give this notice via this public policy and the public report, rather than contacting each individual.</li>
+          <li><strong>Data minimisation:</strong> our reports are about <strong>artifacts and repositories, not people</strong>. We reference the organisation/repository, and we do <strong>not</strong> publish authors' email addresses harvested from scanned code. Detection evidence is stored as hashes and positions, never as raw payload.</li>
+          <li><strong>Right to object / right of reply:</strong> every public verdict is appealable. Vendors and authors can submit a verified response, and individuals can object to, or request removal of, incidental personal data about them via <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a> (see Section 8 and Section 11).</li>
+        </ul>
+      </section>
+
+      <section id="your-rights">
+        <h2><span class="sec-num">8</span> Your rights</h2>
+        <p>Under the GDPR you have the right to:</p>
+        <ul>
+          <li><strong>access</strong> the personal data we hold about you;</li>
+          <li><strong>rectify</strong> inaccurate data;</li>
+          <li><strong>erase</strong> data ("right to be forgotten"), subject to the public-record limits in Section 11;</li>
+          <li><strong>restrict</strong> processing;</li>
+          <li><strong>data portability</strong>;</li>
+          <li><strong>object</strong> to processing based on legitimate interests — including an absolute right to object to direct marketing;</li>
+          <li><strong>withdraw consent</strong> at any time where processing is based on consent (this will apply to the newsletter once it launches), without affecting prior processing.</li>
+        </ul>
+        <p>
+          To exercise any right, email <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+          We will respond within <strong>one month</strong> (extendable by two further
+          months for complex requests, with notice). Because the service is anonymous, we
+          may be unable to identify data relating to a purely anonymous visitor; where we
+          cannot identify you we will say so. We may ask for information reasonably
+          necessary to verify a request.
+        </p>
+        <p>
+          You also have the right to <strong>lodge a complaint with a supervisory
+          authority</strong> — for us, the <strong>CNIL</strong>
+          (<a href="https://www.cnil.fr" rel="noopener" target="_blank">www.cnil.fr</a>) —
+          or with the authority in your country of residence.
+        </p>
+        <h3>Visitors in the United Kingdom</h3>
+        <p>
+          If you are in the UK, the UK GDPR and PECR give you equivalent rights. You can
+          complain to the UK <strong>Information Commissioner's Office</strong>
+          (<a href="https://ico.org.uk" rel="noopener" target="_blank">ico.org.uk</a>).
+        </p>
+        <h3>Residents of US states with privacy laws</h3>
+        <p>
+          Depending on your state (e.g. California's CCPA/CPRA, Virginia, Colorado,
+          Connecticut, Texas and others), you may have rights to know, access, delete, and
+          correct your personal information, and to opt out of "sale" or "sharing" and
+          targeted advertising. <strong>SaferSkills does not sell or share personal
+          information and does not use it for cross-context behavioural advertising.</strong>
+          We honour browser-based <strong>Global Privacy Control (GPC)</strong> signals;
+          because we run no advertising trackers, there is in practice nothing to opt out
+          of. To make a request or appeal a decision, email
+          <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+        </p>
+      </section>
+
+      <section id="processors">
+        <h2><span class="sec-num">9</span> Who we share data with (processors)</h2>
+        <p>
+          We do not sell your data. We share the limited data described above only with the
+          service providers who help us run SaferSkills, each under a data-processing
+          agreement:
+        </p>
+        <div class="legal-table-wrap">
+          <table class="legal-table">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Role</th>
+                <th>Data involved</th>
+                <th>Location / safeguard</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Fly.io</td>
+                <td>Application &amp; database hosting</td>
+                <td>All service data at rest/in transit</td>
+                <td>EU region where available; SCCs / provider DPA</td>
+              </tr>
+              <tr>
+                <td>PostHog</td>
+                <td>Cookieless product analytics</td>
+                <td>Anonymous, bucketed event data only</td>
+                <td>EU region (eu.posthog.com) — kept in the EU</td>
+              </tr>
+              <tr>
+                <td>Sentry</td>
+                <td>Error monitoring</td>
+                <td>Diagnostic data with personal data scrubbed</td>
+                <td>US — EU-US DPF and/or SCCs</td>
+              </tr>
+              <tr>
+                <td>GitHub</td>
+                <td>Source of scanned public artifacts</td>
+                <td>Public repository content we fetch</td>
+                <td>Data source; we send only public resources we fetch</td>
+              </tr>
+              <tr>
+                <td>Resend <em>(not yet active)</em></td>
+                <td>Announcement email</td>
+                <td>Email address (once the newsletter launches)</td>
+                <td>US — EU-US DPF and/or SCCs</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>An up-to-date sub-processor list is available on request at <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>, and we will update this table before adding a new sub-processor.</p>
+      </section>
+
+      <section id="transfers">
+        <h2><span class="sec-num">10</span> International data transfers</h2>
+        <p>
+          We prioritise keeping data in the EU (our hosting and analytics are EU-region
+          where available). Where a processor processes data outside the EEA — principally
+          in the United States (Sentry, and Resend once the newsletter launches) — we rely
+          on the <strong>EU-US Data Privacy Framework</strong> where the provider is
+          certified, and/or on the European Commission's <strong>Standard Contractual
+          Clauses</strong> as a fallback, with supplementary measures. You can request a
+          copy of the relevant safeguards at <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+        </p>
+      </section>
+
+      <section id="retention">
+        <h2><span class="sec-num">11</span> How long we keep data (retention)</h2>
+        <div class="legal-table-wrap">
+          <table class="legal-table">
+            <thead>
+              <tr><th>Data</th><th>Retention</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Submitted GitHub URLs, scan results, findings (public catalog)</td><td><strong>Indefinite</strong> — a public transparency record</td></tr>
+              <tr><td>Hashed IP / rate-limit counters</td><td>~24 hours (rolling), then deleted</td></tr>
+              <tr><td>Cookieless analytics events</td><td>~90 days, then retained only in aggregate</td></tr>
+              <tr><td>Error / diagnostic data (Sentry)</td><td>~90 days</td></tr>
+              <tr><td>Server logs</td><td>~30 days</td></tr>
+              <tr><td>Newsletter email (once active)</td><td>Until you unsubscribe, then deleted within 30 days</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <strong>Public-record principle.</strong> Scan results and the URLs that produced
+          them are kept indefinitely so that security findings remain verifiable and our
+          methodology stays auditable — transparency over erasure. We do not retroactively
+          scrub the public catalog except through the vendor right-of-reply / appeals
+          process, or where we are required to remove incidental personal data about an
+          individual (see Section 7 and Section 8).
+        </p>
+      </section>
+
+      <section id="security">
+        <h2><span class="sec-num">12</span> How we protect your data</h2>
+        <p>
+          We follow privacy-by-design and security-by-design principles, including: hashing
+          IP addresses on receipt; storing scan evidence as hashes rather than raw content;
+          scrubbing personal data from error reports; restricting outbound network access
+          when fetching artifacts; size-capping and validating every public input; and
+          never executing the code we scan (it is parsed as data only). No system is
+          perfectly secure, but we work to protect data against unauthorised access, loss,
+          or misuse.
+        </p>
+      </section>
+
+      <section id="automated">
+        <h2><span class="sec-num">13</span> Automated decision-making</h2>
+        <p>
+          Scan scores are produced by <strong>deterministic, documented detection
+          rules</strong>, not by opaque profiling of individuals. The scoring relates to
+          <strong>artifacts</strong>, not to people, and does not produce legal or similarly
+          significant effects on you within the meaning of Article 22 GDPR. Every verdict is
+          documented and appealable.
+        </p>
+      </section>
+
+      <section id="links">
+        <h2><span class="sec-num">14</span> Links to other sites</h2>
+        <p>
+          Our reports link to GitHub and to third-party repositories and vendor sites. Those
+          destinations have their own privacy practices, which we do not control.
+        </p>
+      </section>
+
+      <section id="changes">
+        <h2><span class="sec-num">15</span> Changes to this policy</h2>
+        <p>
+          We may update this policy as the service evolves (for example when accounts or the
+          newsletter launch) or as the law changes. We are monitoring the EU
+          <strong>"Digital Omnibus"</strong> reform proposal (a Commission proposal from
+          November 2025, not yet law) and will update this policy if and when it takes
+          effect. Material changes will be reflected in the "Last updated" date above and,
+          where appropriate, announced on the site.
+        </p>
+      </section>
+
+      <section id="contact">
+        <h2><span class="sec-num">16</span> Contact</h2>
+        <p>Questions, requests, or complaints about this policy or your personal data:</p>
+        <div class="legal-callout">
+          <p class="mono">{privacyEmail}</p>
+          <p>{controllerLine}</p>
+        </div>
+        <p>
+          You may also contact or lodge a complaint with the <strong>CNIL</strong>
+          (<a href="https://www.cnil.fr" rel="noopener" target="_blank">www.cnil.fr</a>).
+        </p>
+      </section>
+
+    </div>
+  </section>
+
+  <CtaBand
+    client:visible
+    title="Read the Cookie Policy."
+    lead="Short version: we set no tracking cookies. See exactly what little we store on your device."
+    primaryAction={{ label: 'Cookie Policy →', href: '/cookies' }}
+    secondaryAction={{ label: 'About SaferSkills', href: '/about' }}
+  />
+
   <Footer />
 </Base>
