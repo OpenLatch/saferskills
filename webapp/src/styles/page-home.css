@@ -1037,7 +1037,7 @@ html.dark .hero-band {
 }
 .p1-chip .kbd {
   background: var(--color-paper-deep);
-  color: var(--fg-3);
+  color: var(--ol-slate-600);
   font-size: 9.5px;
   letter-spacing: 0.06em;
   padding: 4px 6px;
@@ -1060,14 +1060,16 @@ html.dark .hero-band {
   align-items: center;
 }
 .p1-chip .sc.green {
-  background: #10b981;
+  /* darker emerald so the 9.5px white score text meets WCAG AA (4.5:1) */
+  background: #047857;
 }
 .p1-chip .sc.yellow {
   background: #f59e0b;
   color: var(--color-ink);
 }
 .p1-chip .sc.orange {
-  background: #f97316;
+  /* darker orange so the 9.5px white score text meets WCAG AA (4.5:1) */
+  background: #c2410c;
 }
 
 /* audit progress bar (audit card) */
@@ -1147,7 +1149,7 @@ html.dark .hero-band {
   font-weight: 700;
 }
 .p1-progress .steps .pen {
-  color: #b0b4bc;
+  color: var(--color-slate-soft);
 }
 .p1-progress .steps .pen::before {
   content: "·";
@@ -3125,7 +3127,8 @@ html.dark .install-band .term {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 700;
-  color: var(--brand-primary);
+  /* darker teal so the 13px bold link meets WCAG AA (4.5:1) on paper */
+  color: var(--brand-primary-dark);
   border-bottom: 1px solid transparent;
   padding-bottom: 2px;
   transition: border-color var(--dur-xs);
