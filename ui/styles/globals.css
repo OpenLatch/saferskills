@@ -86,6 +86,19 @@
   color: var(--fg-1);
 }
 
+/* Section heading for long-form prose pages (about / methodology) — the
+   weight-800 display scale that matches .page-head .ph-title, distinct from the
+   lighter 600-weight .t-h2. Shared so the two pages don't each hand-roll it. */
+.prose-h2 {
+  font-family: var(--font-sans);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  margin: 0 0 18px;
+  color: var(--fg-1);
+}
+
 .t-h4 {
   font-family: var(--font-sans);
   font-size: 24px;

@@ -21,9 +21,13 @@ export default function DetectorCard({ ruleId, status, filePath, elapsedMs }: Pr
     <article className={`detector-card detector-card-${status}`} aria-label={`Detector ${ruleId} — ${STATUS_LABEL[status]}`}>
       <header className="detector-card-head">
         <code className="detector-card-rule">{ruleId}</code>
-        <span className={`chip chip-${status}`}>
-          {status === 'running' ? <span className="chip-dot pulse" aria-hidden="true" /> : null}
-          {status === 'completed' ? <span className="chip-check" aria-hidden="true">✓</span> : null}
+        <span className={`status-chip status-chip-${status}`}>
+          {status === 'running' ? <span className="status-chip-dot pulse" aria-hidden="true" /> : null}
+          {status === 'completed' ? (
+            <span className="status-chip-check" aria-hidden="true">
+              ✓
+            </span>
+          ) : null}
           {STATUS_LABEL[status]}
         </span>
       </header>

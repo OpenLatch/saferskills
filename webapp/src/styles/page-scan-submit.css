@@ -30,9 +30,9 @@
 
 .scan-form-pane,
 .scan-method-pane {
-  border: 1px solid var(--border-1, #d8d4c8);
+  border: 1px solid var(--border-1);
   padding: 2rem;
-  background: var(--bg-page, #fbf9f4);
+  background: var(--bg-page);
   /* Allow the grid item to shrink below its content's min-content so long
      mono strings / inputs wrap instead of forcing horizontal overflow. */
   min-width: 0;
@@ -43,54 +43,15 @@
   margin: 0.5rem 0 1.5rem;
 }
 
-.scan-input {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.scan-input-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  border: 1px solid var(--ink, #1a1f2e);
-  background: var(--bg-paper, #fff);
-}
-
-.scan-input-prefix {
-  padding: 0.85rem 1rem;
-  background: var(--bg-page, #fbf9f4);
-  border-right: 1px solid var(--border-1, #d8d4c8);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  color: var(--fg-3, #888);
-}
-
-.scan-input-field {
-  flex: 1;
-  min-width: 0;
-  padding: 0.85rem 1rem;
-  border: 0;
-  outline: none;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 1rem;
-  background: transparent;
-}
-
-.scan-input-error {
-  color: var(--score-red, #c0392b);
-  font-size: 0.85rem;
-  margin: 0;
-}
-
 .scan-submit-form-hint {
   font-size: 0.8rem;
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
   margin-top: 1rem;
 }
 
 .scan-submit-form-recent {
   margin-top: 2rem;
-  border-top: 1px solid var(--border-1, #d8d4c8);
+  border-top: 1px solid var(--border-1);
   padding-top: 1.5rem;
 }
 
@@ -111,7 +72,7 @@
   text-decoration: none;
   color: inherit;
   padding: 0.5rem;
-  border: 1px solid var(--border-2, #ece8df);
+  border: 1px solid var(--border-2);
 }
 
 .scan-submit-form-recent-list a:hover {
@@ -143,7 +104,7 @@
   display: grid;
   grid-template-columns: 1fr 80px;
   gap: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-2, #ece8df);
+  border-bottom: 1px solid var(--border-2);
   padding-bottom: 1rem;
 }
 
@@ -155,7 +116,7 @@
 .scan-methodology-preview-row-blurb {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
 }
 
 .scan-methodology-preview-row-rules {
@@ -171,7 +132,7 @@
 
 .scan-methodology-preview-row-rules a {
   text-decoration: none;
-  color: var(--brand-primary, #0d9488);
+  color: var(--brand-primary);
 }
 
 .scan-methodology-preview-row-weight {
@@ -183,17 +144,17 @@
 
 .scan-methodology-preview-row-weight-unit {
   font-size: 1rem;
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
 }
 
 .scan-methodology-preview-row-bar {
   grid-column: 1 / -1;
   height: 4px;
-  background: var(--border-2, #ece8df);
+  background: var(--border-2);
 }
 
 .scan-methodology-preview-row-fill {
   display: block;
   height: 100%;
-  background: var(--brand-primary, #0d9488);
+  background: var(--brand-primary);
 }

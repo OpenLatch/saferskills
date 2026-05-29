@@ -42,8 +42,11 @@ export default function ScanStageCard({
     <article className={`stage-card stage-card-${status}`} aria-label={`Stage ${index}: ${name}`}>
       <header className="stage-card-head">
         <span className="stage-card-index">{index}</span>
-        <span className={`chip chip-${status}`}>
-          <span className={status === 'running' ? 'chip-dot pulse' : 'chip-dot'} aria-hidden="true" />
+        <span className={`status-chip status-chip-${status}`}>
+          <span
+            className={status === 'running' ? 'status-chip-dot pulse' : 'status-chip-dot'}
+            aria-hidden="true"
+          />
           {STATUS_LABEL[status]}
         </span>
       </header>

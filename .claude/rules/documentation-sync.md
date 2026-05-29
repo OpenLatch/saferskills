@@ -57,6 +57,8 @@
 | CI lane change | `ci-cd.md` (lanes table) |
 | Naming convention change | `naming-conventions.md` |
 | Design token change | `design-system.md` + `ui/styles/tokens.css` |
+| DS-component CSS added/moved | `ui/styles/components.css` (not page CSS) — see `design-system.md` § CSS ownership |
+| `check-css.cjs` rule / scope change | `design-system.md` § CSS token discipline + `scripts/check-css.cjs` + `ci-cd.md` |
 | Telemetry event added | `telemetry.md` (event allowlist) |
 
 ## Hard rules

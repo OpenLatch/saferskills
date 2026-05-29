@@ -8,7 +8,7 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 
 | # | Lane | What it does |
 |---|---|---|
-| 1 | `validate` | JSON Schema validation (ajv-cli), schema-to-code generation drift check (regenerates Pydantic + SQLAlchemy + `openapi.json` + TS DTOs + Zod; fails if `git diff --exit-code` is non-empty) |
+| 1 | `validate` | JSON Schema validation (ajv-cli), schema-to-code generation drift check (regenerates Pydantic + SQLAlchemy + `openapi.json` + TS DTOs + Zod; fails if `git diff --exit-code` is non-empty), no-CDN-fonts grep, placeholder-taxonomy grep, and **CSS token discipline** (`node scripts/check-css.cjs` — no stale `var(--x,#hex)` fallbacks, no undefined tokens, no raw hex in shell page CSS; see `design-system.md` § CSS token discipline) |
 | 2 | `lint-fe` | Biome (`pnpm biome check .`) — TS/JS/JSON |
 | 3 | `lint-be` | Ruff (`uv run ruff check . && uv run ruff format --check .`) |
 | 4 | `typecheck-fe` | `pnpm astro check` + `pnpm tsc --noEmit` |

@@ -70,6 +70,19 @@ repos:
       - id: biome-check
         additional_dependencies: ["@biomejs/biome@2.4.11"]
 
+  # ─── 🎨 CSS token discipline ─────────────────
+  # Mirrors the CI `validate` lane. Blocks stale hex fallbacks, undefined
+  # tokens, and raw hex in the cleaned shell page CSS.
+  # See .claude/rules/design-system.md § CSS token discipline.
+  - repo: local
+    hooks:
+      - id: check-css
+        name: check-css (token discipline)
+        entry: node scripts/check-css.cjs
+        language: system
+        files: ^(ui/styles|webapp/src/styles)/.*\.css$
+        pass_filenames: false
+
   # ── Conventional commits ─────────────────────────────────────
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.0.0
