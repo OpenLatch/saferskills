@@ -7,7 +7,6 @@ import RenderMarkdown from './RenderMarkdown'
 
 interface Props {
   slug: string
-  verifiedGithubUser: string
   githubOrg: string
   githubRepo: string
 }
@@ -19,7 +18,7 @@ const MAX_CHARS = 2000
  * forwarded server-side by the `/respond/submit` Astro endpoint — no bearer
  * token in JS. 2000-char Markdown limit + live preview + optional re-scan.
  */
-export default function RespondForm({ slug, verifiedGithubUser, githubOrg, githubRepo }: Props) {
+export default function RespondForm({ slug, githubOrg, githubRepo }: Props) {
   const [body, setBody] = useState('')
   const [triggerRescan, setTriggerRescan] = useState(true)
   const [preview, setPreview] = useState(false)
@@ -51,11 +50,11 @@ export default function RespondForm({ slug, verifiedGithubUser, githubOrg, githu
   return (
     <form className="respond-form" onSubmit={submit}>
       <div className="verified-banner">
-        ✓ Verified — you control{' '}
+        ✓ Verified control of{' '}
         <code>
           github.com/{githubOrg}/{githubRepo}
-        </code>{' '}
-        (as @{verifiedGithubUser})
+        </code>
+        . Your response is attributed to the repository, not to a personal handle.
       </div>
 
       <label className="form-label">

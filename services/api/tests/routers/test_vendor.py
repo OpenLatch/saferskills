@@ -119,6 +119,14 @@ async def test_full_verify_and_respond_flow(
     assert body["version"] == 1
     assert body["rescan_triggered"] is False
 
+    # Security: public author attribution is the VERIFIED REPO, never the
+    # self-asserted github_user — a repo-controller can't impersonate @anyone.
+    detail = await db_client.get(f"/api/v1/items/{item.slug}")
+    responses = detail.json()["vendor_responses"]
+    assert len(responses) == 1
+    assert responses[0]["author"] == f"{item.github_org}/{item.github_repo} maintainer"
+    assert "octocat" not in responses[0]["author"]
+
 
 @pytest.mark.asyncio
 async def test_redeem_rejects_missing_token_in_file(

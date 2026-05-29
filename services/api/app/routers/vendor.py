@@ -228,9 +228,15 @@ async def verify_redeem(
     if body.token not in {line.strip() for line in contents.splitlines()}:
         raise HTTPException(status_code=400, detail="verification file did not contain the token")
 
+    # What's verified is *control of the repo* (the committer pushed the token
+    # to the default branch), NOT the identity of a named GitHub user. The
+    # `github_user` is a self-reported convenience label only — it must never
+    # drive public author attribution (that derives from the verified repo;
+    # see `routers/items.py::_vendor_responses`). True identity verification
+    # (OAuth + push-permission) lands with auth in I-06.
     verification.state = "verified"
     verification.redeemed_at = now
-    verification.verified_github_user = body.github_user
+    verification.verified_github_user = body.github_user  # self-reported, not trusted
     await session.commit()
 
     events.emit_vendor_verification_succeeded(catalog_item_id=item.id)

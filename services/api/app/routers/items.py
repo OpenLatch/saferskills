@@ -22,7 +22,7 @@ from app.db.session import get_session
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
-from app.models.vendor import VendorResponse, VendorVerification
+from app.models.vendor import VendorResponse
 from app.scan.report_builder import build_scan_report_detail
 from app.schemas.catalog_summary import (
     CatalogFacets,
@@ -366,30 +366,38 @@ async def _related_items(
     ]
 
 
-async def _vendor_responses(
-    session: AsyncSession, catalog_item_id: object
-) -> list[VendorResponsePublic]:
-    """Public vendor responses for the item, newest version first."""
+async def _vendor_responses(session: AsyncSession, item: CatalogItem) -> list[VendorResponsePublic]:
+    """Public vendor responses for the item, newest version first.
+
+    Public author attribution is the **verified repository** (`<org>/<repo>`),
+    NOT the self-reported GitHub handle the submitter typed. The
+    `.saferskills/verify.txt` flow proves *control of the repo*, not the
+    identity of a specific GitHub user — so attributing to a self-asserted
+    handle would let a repo-controller impersonate an arbitrary `@user`.
+    Identity-level verification (OAuth + push-permission) lands with auth in
+    I-06; until then the repo coordinate is the only trustworthy attribution.
+    """
+    repo_authority = f"{item.github_org}/{item.github_repo} maintainer"
     rows = (
-        await session.execute(
-            select(VendorResponse, VendorVerification.verified_github_user)
-            .join(
-                VendorVerification,
-                VendorVerification.id == VendorResponse.vendor_verification_id,
+        (
+            await session.execute(
+                select(VendorResponse)
+                .where(VendorResponse.catalog_item_id == item.id)
+                .order_by(desc(VendorResponse.version))
             )
-            .where(VendorResponse.catalog_item_id == catalog_item_id)
-            .order_by(desc(VendorResponse.version))
         )
-    ).all()
+        .scalars()
+        .all()
+    )
     return [
         VendorResponsePublic(
             id=str(resp.id),
-            author=verified_user or "verified maintainer",
+            author=repo_authority,
             body_markdown=resp.body_markdown,
             submitted_at=resp.submitted_at,
             version=resp.version,
         )
-        for resp, verified_user in rows
+        for resp in rows
     ]
 
 
@@ -453,5 +461,5 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         scan_history=await _scan_history(session, item.id),
         install_activity=_mock_install_activity(item.popularity_score),
         related_items=await _related_items(session, kind=item.kind, exclude_id=item.id),
-        vendor_responses=await _vendor_responses(session, item.id),
+        vendor_responses=await _vendor_responses(session, item),
     )
