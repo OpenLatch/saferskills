@@ -21,7 +21,7 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 | 11 | `trivy-scan` | Trivy vulnerability scanner (CRITICAL/HIGH) with SARIF upload to GitHub Security tab |
 | 12 | `dep-scan` | `pip-audit` (`uv pip compile`) + `pnpm audit --audit-level=high` |
 | 13 | `pr-title-lint` | Conventional Commits format check |
-| 14 | `lighthouse-a11y` | `@lhci/cli` (perf ≥90 / a11y ≥95 on the no-seed public pages) + `@axe-core/playwright` WCAG 2 A/AA smoke. Runs on PRs touching `webapp/**` or `ui/**` (gated on `detect-changes.outputs.frontend`). Brings up postgres+api from the smoke compose, builds + serves the webapp Node SSR on :5173. Seeded pages (item-detail / scan-report) are Lighthoused in the staging e2e. (I-03 Phase C) |
+| 14 | `lighthouse-a11y` | `@lhci/cli` (Lighthouse, **observe-mode `warn`** on the no-seed public pages — reports uploaded, not yet hard-gating; promote categories to `error` once perf is baselined in this CI env) + `@axe-core/playwright` WCAG 2 A/AA smoke as the **hard** a11y gate. Runs on PRs touching `webapp/**` or `ui/**` (gated on `detect-changes.outputs.frontend`). Brings up postgres+api from the smoke compose, builds + serves the webapp Node SSR on :5173 (`--no-sandbox` Chrome). Seeded pages (item-detail / scan-report) are Lighthoused in the staging e2e. (I-03 Phase C) |
 | – | `all-checks` | Aggregation job — gates merge; depends on all 14 |
 
 Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
