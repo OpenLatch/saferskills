@@ -92,6 +92,11 @@ jobs:
             exit 1
           fi
           echo "Placeholder taxonomy purged ✓"
+      - name: Assert CSS token discipline
+        # Design-system components must be styled by tokens, not stale hex
+        # fallbacks or undefined custom properties. Mirrors the schema-drift
+        # gate for CSS. See .claude/rules/design-system.md § CSS token discipline.
+        run: node scripts/check-css.cjs
 
   lint-fe:
     name: PR - Biome (TS/JS/JSON)

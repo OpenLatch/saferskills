@@ -13,24 +13,7 @@
 .about-band .container {
   max-width: 880px;
 }
-.about-band h2 {
-  font-family: var(--font-sans);
-  font-size: clamp(28px, 3vw, 40px);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.08;
-  margin: 0 0 18px;
-  color: var(--fg-1);
-}
-.about-band h2 .mark {
-  background-image: linear-gradient(
-    transparent 70%,
-    var(--brand-highlight) 70%,
-    var(--brand-highlight) 94%,
-    transparent 94%
-  );
-  padding: 0 8px;
-}
+/* Section headings use the shared .prose-h2 utility (ui/styles/globals.css). */
 .about-band p {
   font-family: var(--font-sans);
   font-size: 17px;
@@ -281,9 +264,6 @@
 html.dark .about-band p,
 html.dark .founder-card .bio {
   color: var(--fg-2);
-}
-html.dark .about-band h2 {
-  color: var(--fg-1);
 }
 /* Cards on --grid bands (slate-900): a slate-800 surface reads as elevated. */
 html.dark .about-stats,

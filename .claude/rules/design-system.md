@@ -67,6 +67,26 @@ webapp/src/styles/      # reset.css only (page-vocab CSS lives in ui/styles/comp
 - **Page-specific components → `webapp/src/components/`.** Compositions of `ui/` primitives that only one route renders.
 - **`ui/` never imports from `webapp/`.** One-way dependency — `webapp/` consumes `ui/`.
 
+### CSS ownership — the one-way rule applies to CSS too
+
+The dependency must be one-way for **stylesheets**, not just imports. A `ui/` component whose CSS physically lives in a `webapp/` page file is an inverted dependency — the component renders unstyled in Ladle (which loads `ui/styles/`, not page CSS) and the page silently owns DS chrome.
+
+- **Any class rendered by a `ui/` component lives in `ui/styles/components.css`** — never in `webapp/src/styles/page-*.css`. (`components.css` is loaded on every page via `global.css → @ui/styles/globals.css → components.css`, and by Ladle — so DS component CSS there renders everywhere, including stories.)
+- A **page-specific composition** that only one route renders keeps its CSS in that route's `page-*.css`.
+- Decision tree when adding/moving a CSS block:
+  - *Rendered by a `ui/` component, or reused across pages?* → `ui/styles/components.css`.
+  - *Single-page layout / decorative band / one-off composition?* → that page's `page-*.css`.
+- A page **may** override a DS component's appearance for one route (e.g. the homepage's taller `.ridge-pixel`). That override is a legitimate single-page rule and stays in `page-*.css` — it does **not** mean the base CSS belongs there.
+- Custom properties consumed by a `ui/` component (e.g. the terminal `--t-*` palette) must be **re-rooted onto the component** in `components.css`, not left scoped to a page ancestor.
+
+### CSS token discipline
+
+Enforced by `scripts/check-css.cjs` (CI `validate` lane + a `repo: local` pre-commit hook):
+
+- **(b) No `var(--token, #hex)` fallback literals** (repo-wide, `ui/styles/**` + `webapp/src/styles/**`). Tokens are always defined in `tokens.css`; a stale hex fallback never renders but lies about the real color and masks dark-mode bugs.
+- **(c) No references to undefined custom properties** (repo-wide). Catches typos like the historical `--bg-paper` (→ `--bg-surface`), `--ink` (→ `--color-ink`), `--bg-dotgrid-ink` (→ `--bg-dot-grid`).
+- **(a) No bare raw `#rrggbb`** in the cleaned shell page files (`page-catalog` / `page-scan-progress` / `page-scan-report` / `page-scan-submit`) — token-only. `#000`/`#fff` inside `mask`/`url()` compositing are exempt. The ported `page-home.css` (intentional mockup raw-hex) and `components.css` (intentional terminal-ANSI palette) are out of rule (a) scope.
+
 ## Hex-button vocabulary
 
 The signature button silhouette is a chamfered hexagonal cap shape rendered via `-webkit-mask` + `mask` CSS. The mask SVG data lives in `ui/styles/tokens.css` as `--mask-hex-cap-left/-right`, `--mask-hex-notch-left/-right`, `--mask-half-cap-left/-right`.
@@ -183,3 +203,6 @@ Enforced in code review on every PR that adds catalog content. Violations are a 
 | New section-surface class / alternation rule | "Section surfaces" |
 | New hex-button variant or size | "Hex-button vocabulary" |
 | New visual-diff CLI flag | "Visual-validation loop" |
+| New DS-component CSS / relocation | "CSS ownership" — keep the one-way rule (component CSS in `ui/styles/`) |
+| New `check-css.cjs` rule / scope change | "CSS token discipline" + `scripts/check-css.cjs` + `ci-cd.md` (validate lane) |
+| New runtime-set CSS custom property | `scripts/check-css.cjs` `RUNTIME_VARS` allowlist |

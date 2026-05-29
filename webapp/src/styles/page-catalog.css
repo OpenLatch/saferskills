@@ -12,7 +12,7 @@
   padding: 1rem 2rem;
   max-width: 1280px;
   margin: 0 auto;
-  border-bottom: 1px solid var(--border-1, #d8d4c8);
+  border-bottom: 1px solid var(--border-1);
 }
 
 .cat-toolbar-search {
@@ -24,9 +24,9 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid var(--border-1, #d8d4c8);
+  border: 1px solid var(--border-1);
   padding: 0.5rem 0.75rem;
-  background: var(--bg-page, #fbf9f4);
+  background: var(--bg-page);
 }
 
 .cat-toolbar-search-label input {
@@ -41,9 +41,9 @@
 .cat-toolbar-search-kbd {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.7rem;
-  border: 1px solid var(--border-1, #d8d4c8);
+  border: 1px solid var(--border-1);
   padding: 0.1rem 0.35rem;
-  background: var(--bg-paper, #fff);
+  background: var(--bg-surface);
 }
 
 .cat-toolbar-counter {
@@ -58,7 +58,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--brand-primary, #0d9488);
+  background: var(--brand-primary);
   animation: cat-toolbar-pulse 1.4s ease-in-out infinite;
 }
 
@@ -115,7 +115,7 @@
 }
 
 .cat-side {
-  border-right: 1px solid var(--border-1, #d8d4c8);
+  border-right: 1px solid var(--border-1);
   padding-right: 1.5rem;
 }
 
@@ -145,7 +145,7 @@
 }
 
 .cat-side-count {
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
   font-size: 0.75rem;
 }
 
@@ -153,7 +153,7 @@
   background: none;
   border: 0;
   text-decoration: underline;
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -177,9 +177,9 @@
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-1, #d8d4c8);
+  border-bottom: 1px solid var(--border-1);
 }
 
 .cat-results-rows {
@@ -189,7 +189,7 @@
 }
 
 .cat-row {
-  border-bottom: 1px solid var(--border-2, #ece8df);
+  border-bottom: 1px solid var(--border-2);
 }
 
 .cat-row.featured {
@@ -203,7 +203,7 @@
 .cat-row-author,
 .cat-row-desc {
   font-size: 0.8rem;
-  color: var(--fg-3, #888);
+  color: var(--fg-3);
 }
 
 .cat-row-meta {
@@ -233,7 +233,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1rem;
-  border-top: 1px solid var(--border-1, #d8d4c8);
+  border-top: 1px solid var(--border-1);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.8rem;
 }
