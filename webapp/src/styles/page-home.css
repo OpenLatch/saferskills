@@ -1391,7 +1391,15 @@ html.dark body.va .p1-progress .row b {
     padding-bottom: 44px;
   }
   .hero-band h1 {
-    font-size: clamp(38px, 7.4vw, 56px);
+    /* Constrain to the viewport so the headline wraps instead of sizing to its
+       1100px desktop max-width and overflowing both edges on phones. */
+    max-width: 100%;
+    /* Lower the floor from 38px → 24px: below ~514px the 7.4vw term dropped
+       under the old 38px floor, pinning the font too large so the longest
+       rotating noun ("Destructive Commands") ran off-screen. The noun width is
+       measured live at this font, so a smaller floor makes the rotator fit.
+       The 56px cap keeps tablet/desktop sizing unchanged. */
+    font-size: clamp(24px, 7vw, 56px);
   }
 }
 
