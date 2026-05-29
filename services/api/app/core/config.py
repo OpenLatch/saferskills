@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # ── Environment ────────────────────────────────────────────────────────
     env: Literal["development", "staging", "production"] = Field(
         default="development",
-        description="Environment tier — drives Sentry env tag, log format, migration auto-run.",
+        description="Environment tier — drives Sentry env tag and log format.",
     )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO",

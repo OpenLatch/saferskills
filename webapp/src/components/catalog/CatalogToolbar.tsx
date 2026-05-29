@@ -1,53 +1,73 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef } from 'react'
 
 interface Props {
-  totalCount: number
-  initialQuery?: string
+  query: string
+  totalIndexed: number
+  registriesCount: number
+  onQueryChange: (q: string) => void
+  onSubmit: () => void
 }
 
-export default function CatalogToolbar({ totalCount, initialQuery = '' }: Props) {
-  const [query, setQuery] = useState(initialQuery)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // ⌘K / Ctrl+K focuses the search bar.
-  useEffect(() => {
-    function handleShortcut(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }
-    }
-    window.addEventListener('keydown', handleShortcut)
-    return () => window.removeEventListener('keydown', handleShortcut)
-  }, [])
-
+/**
+ * Catalog search toolbar — magnifier + mono input + ⌘K hint, plus two live
+ * pill-stats (indexed total + registries count) wired to /stats. The parent
+ * island owns `query` (controlled) and the ⌘K shortcut focuses this input via
+ * the forwarded ref.
+ */
+const CatalogToolbar = forwardRef<HTMLInputElement, Props>(function CatalogToolbar(
+  { query, totalIndexed, registriesCount, onQueryChange, onSubmit },
+  ref
+) {
   return (
-    <form className="cat-toolbar" action="/catalog" method="GET">
-      <div className="cat-toolbar-search">
-        <label className="cat-toolbar-search-label" htmlFor="cat-toolbar-query">
-          <span className="cat-toolbar-search-icon" aria-hidden="true">
-            ⌕
+    <section className="cat-toolbar">
+      <div className="container">
+        <div className="inner">
+          <div className="search-wrap">
+            <span className="icn" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+            </span>
+            <input
+              ref={ref}
+              type="text"
+              name="q"
+              value={query}
+              placeholder={`Search ${totalIndexed.toLocaleString()} skills, MCPs and plugins…`}
+              autoComplete="off"
+              aria-label="Search the catalog"
+              onChange={(e) => onQueryChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onSubmit()
+                }
+              }}
+            />
+            <span className="kbd" aria-hidden="true">
+              ⌘&nbsp;K
+            </span>
+          </div>
+          <span className="pill-stat">
+            <span className="live" aria-hidden="true" />
+            <b>{totalIndexed.toLocaleString()}</b>&nbsp;indexed
           </span>
-          <input
-            id="cat-toolbar-query"
-            ref={inputRef}
-            type="text"
-            name="q"
-            placeholder="Search by name, repo, or rule_id"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-            aria-label="Catalog search"
-          />
-          <kbd className="cat-toolbar-search-kbd">⌘K</kbd>
-        </label>
+          <span className="pill-stat">
+            <b>{registriesCount.toLocaleString()}</b>&nbsp;registries
+          </span>
+        </div>
       </div>
-      <div className="cat-toolbar-counter">
-        <span className="eyebrow eyebrow-rule">{totalCount.toLocaleString()} INDEXED</span>
-        <span className="cat-toolbar-counter-pulse" aria-hidden="true" />
-        <span className="cat-toolbar-counter-live">LIVE</span>
-      </div>
-    </form>
+    </section>
   )
-}
+})
+
+export default CatalogToolbar

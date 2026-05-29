@@ -1,160 +1,436 @@
-/* /scan — Phase B split-pane shell. */
+/* /scan — pixel-faithful port of the Claude-Design scan-submit mockup.
+ *
+ * Source: .local/.brainstorms/frontend/mockups/SaferSkills-Scan-unpacked.html
+ *   scan block (.scan-split / .scan-form-pane / .scan-method-pane). Ported with
+ *   `body.va.dark` → `html.dark` and raw values → tokens (rule (a): shell page
+ *   CSS is token-only). DS vocabulary (.band-pill, .page-head .ph-*,
+ *   .ridge-stars) lives in ui/styles/components.css and is reused.
+ */
 
+/* shared sub-eyebrow (both panes) */
+.scan-form-pane .sub-eyebrow,
+.scan-method-pane .sub-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scan-form-pane .sub-eyebrow::before,
+.scan-method-pane .sub-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: currentColor;
+}
+
+/* ============================================================
+   SPLIT
+   ============================================================ */
 .scan-split {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  gap: 2rem;
-  padding: 2rem;
-  max-width: 1280px;
-  margin: 0 auto;
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-ink);
+}
+html.dark .scan-split {
+  border-top-color: var(--color-line);
 }
 
-@media (max-width: 1024px) {
-  .scan-split {
-    /* minmax(0,1fr) — not 1fr — so the single column can shrink below the
-       panes' min-content instead of forcing the grid (and the page) wider. */
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .scan-split {
-    padding: 1rem;
-    gap: 1.5rem;
-  }
-  .scan-form-pane,
-  .scan-method-pane {
-    padding: 1.25rem;
-  }
-}
-
-.scan-form-pane,
-.scan-method-pane {
-  border: 1px solid var(--border-1);
-  padding: 2rem;
-  background: var(--bg-page);
-  /* Allow the grid item to shrink below its content's min-content so long
-     mono strings / inputs wrap instead of forcing horizontal overflow. */
+.scan-form-pane {
+  padding: 64px 56px;
+  border-right: 1px solid var(--color-ink);
+  background: var(--color-paper);
+  position: relative;
   min-width: 0;
 }
-
-.scan-submit-form-title {
-  font-size: 1.6rem;
-  margin: 0.5rem 0 1.5rem;
+html.dark .scan-form-pane {
+  border-right-color: var(--color-line);
+}
+.scan-form-pane h2 {
+  font-family: var(--font-sans);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin: 0 0 28px;
+  text-wrap: balance;
 }
 
-.scan-submit-form-hint {
-  font-size: 0.8rem;
+/* big URL input */
+.scan-url-input {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  background: var(--color-paper);
+  border: 1.5px solid var(--color-ink);
+  transition: border-color var(--dur-xs);
+}
+.scan-url-input:focus-within {
+  border-color: var(--brand-primary);
+}
+html.dark .scan-url-input {
+  background: var(--color-paper-deep);
+  border-color: var(--color-line);
+}
+.scan-url-input .lead {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px;
+  background: var(--color-paper-deep);
+  border-right: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+html.dark .scan-url-input .lead {
+  background: rgba(255, 255, 255, 0.06);
+  border-right-color: var(--color-line);
+  color: var(--fg-2);
+}
+.scan-url-input .lead svg {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  fill: currentColor;
+}
+.scan-url-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 20px 18px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--color-ink);
+}
+html.dark .scan-url-input input {
+  color: var(--fg-1);
+}
+.scan-url-input input::placeholder {
   color: var(--fg-3);
-  margin-top: 1rem;
+}
+.scan-url-input .submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  background: var(--brand-primary);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--dur-xs);
+  white-space: nowrap;
+}
+.scan-url-input .submit:hover {
+  background: var(--brand-primary-dark);
+}
+.scan-url-input .submit:disabled {
+  opacity: 0.7;
+  cursor: default;
 }
 
-.scan-submit-form-recent {
-  margin-top: 2rem;
-  border-top: 1px solid var(--border-1);
-  padding-top: 1.5rem;
+.scan-form-pane .hint {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.scan-form-pane .hint b {
+  color: var(--color-ink);
+}
+html.dark .scan-form-pane .hint b {
+  color: var(--fg-1);
+}
+.scan-form-pane .hint .scan-error {
+  color: var(--score-red);
 }
 
-.scan-submit-form-recent-list {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0 0;
+/* recent scans gallery */
+.scan-recent {
+  margin-top: 36px;
+  border: 1px dashed var(--color-line);
+}
+.scan-recent .head {
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  background: var(--color-paper-deep);
+  border-bottom: 1px dashed var(--color-line);
+}
+.scan-recent .grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.scan-recent .rs-cell {
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-
-.scan-submit-form-recent-list a {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.75rem;
-  align-items: baseline;
+  gap: 4px;
+  border-right: 1px dashed var(--color-line);
+  border-bottom: 1px dashed var(--color-line);
   text-decoration: none;
   color: inherit;
-  padding: 0.5rem;
-  border: 1px solid var(--border-2);
+  transition: background var(--dur-xs);
+}
+.scan-recent .rs-cell:hover {
+  background: var(--color-paper-deep);
+}
+.scan-recent .rs-cell:nth-child(2n) {
+  border-right: 0;
+}
+.scan-recent .rs-cell:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.scan-recent .rs-cell .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.scan-recent .rs-cell .nm {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+html.dark .scan-recent .rs-cell .nm {
+  color: var(--fg-1);
+}
+.scan-recent .rs-cell .scn {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+  color: var(--color-ink);
+}
+html.dark .scan-recent .rs-cell .scn {
+  color: var(--fg-1);
+}
+.scan-recent .rs-cell .rs-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.scan-recent .rs-cell .bot {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
 }
 
-.scan-submit-form-recent-list a:hover {
-  background: rgba(13, 148, 136, 0.04);
+/* trust strip */
+.scan-trust {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 32px;
+  border-top: 1px solid var(--color-line);
+  padding-top: 22px;
 }
-
-.scan-submit-form-recent-tier {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
+.scan-trust .it {
+  padding: 0 14px 0 0;
+  border-right: 1px solid var(--color-line);
+}
+.scan-trust .it:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+.scan-trust .it .lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  color: var(--fg-3);
+}
+.scan-trust .it .val {
+  margin-top: 6px;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+}
+html.dark .scan-trust .it .val {
+  color: var(--fg-1);
+}
+.scan-trust .it .sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+  margin-top: 2px;
 }
 
-.scan-methodology-preview-title {
-  font-size: 1.25rem;
-  margin: 0.5rem 0 1.5rem;
+/* ============================================================
+   METHODOLOGY PANE
+   ============================================================ */
+.scan-method-pane {
+  padding: 64px 56px;
+  background: var(--color-paper-deep);
+  background-image: var(--bg-plus-grid);
+  background-size: 32px 32px;
+  position: relative;
+  min-width: 0;
+}
+.scan-method-pane h3 {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 18px;
 }
 
-.scan-methodology-preview-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.method-cats {
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+}
+html.dark .method-cats {
+  border-color: var(--color-line);
+  background: var(--color-paper);
+}
+.method-cats .row {
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 18px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-line);
+  align-items: center;
+}
+.method-cats .row:last-child {
+  border-bottom: 0;
+}
+.method-cats .cat-name {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 3px;
+  min-width: 0;
 }
-
-.scan-methodology-preview-row {
-  display: grid;
-  grid-template-columns: 1fr 80px;
-  gap: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-2);
-  padding-bottom: 1rem;
+.method-cats .cat-name b {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
 }
-
-.scan-methodology-preview-row-label {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+html.dark .method-cats .cat-name b {
+  color: var(--fg-1);
 }
-
-.scan-methodology-preview-row-blurb {
-  margin: 0;
-  font-size: 0.85rem;
+.method-cats .cat-name .rule {
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.scan-methodology-preview-row-rules {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
-}
-
-.scan-methodology-preview-row-rules a {
-  text-decoration: none;
+.method-cats .wt {
+  text-align: center;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.03em;
   color: var(--brand-primary);
 }
-
-.scan-methodology-preview-row-weight {
-  text-align: right;
-  font-family: var(--font-loud, var(--font-mono, ui-monospace, monospace));
-  font-size: 2.2rem;
-  line-height: 1;
+.method-cats .bar {
+  height: 10px;
+  position: relative;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
 }
-
-.scan-methodology-preview-row-weight-unit {
-  font-size: 1rem;
-  color: var(--fg-3);
+html.dark .method-cats .bar {
+  background: rgba(255, 255, 255, 0.06);
 }
-
-.scan-methodology-preview-row-bar {
-  grid-column: 1 / -1;
-  height: 4px;
-  background: var(--border-2);
-}
-
-.scan-methodology-preview-row-fill {
+.method-cats .bar i {
   display: block;
   height: 100%;
   background: var(--brand-primary);
+}
+
+.method-details {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+}
+.method-details li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+  letter-spacing: 0.02em;
+}
+.method-details li .k {
+  color: var(--fg-3);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+.method-details li .v {
+  margin-left: auto;
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .method-details li .v {
+  color: var(--fg-1);
+}
+.method-details li .v.link {
+  color: var(--brand-primary);
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+/* ============================================================
+   RESPONSIVE — stack at ≤980px (mockup L5061)
+   ============================================================ */
+@media (max-width: 980px) {
+  .scan-split {
+    grid-template-columns: 1fr;
+  }
+  .scan-form-pane,
+  .scan-method-pane {
+    padding: 36px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+}
+
+@media (max-width: 520px) {
+  .scan-recent .grid {
+    grid-template-columns: 1fr;
+  }
+  .scan-recent .rs-cell {
+    border-right: 0;
+  }
+  .scan-trust {
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 0;
+  }
+  .scan-trust .it:nth-child(2) {
+    border-right: 0;
+  }
 }

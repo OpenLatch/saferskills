@@ -25,6 +25,13 @@
       "CatalogFacets": {
         "description": "Per-filter-option counts for the catalog filter sidebar.",
         "properties": {
+          "agent": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Agent",
+            "type": "object"
+          },
           "kind": {
             "additionalProperties": {
               "type": "integer"
@@ -65,6 +72,13 @@
       },
       "CatalogItemDetail": {
         "properties": {
+          "agent_compatibility": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Agent Compatibility",
+            "type": "array"
+          },
           "description": {
             "anyOf": [
               {
@@ -225,6 +239,13 @@
       },
       "CatalogItemSummary": {
         "properties": {
+          "agent_compatibility": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Agent Compatibility",
+            "type": "array"
+          },
           "description": {
             "anyOf": [
               {
@@ -383,10 +404,28 @@
             ],
             "title": "Next Cursor"
           },
+          "page": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 25,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
           "total_count": {
             "default": 0,
             "minimum": 0.0,
             "title": "Total Count",
+            "type": "integer"
+          },
+          "total_pages": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Total Pages",
             "type": "integer"
           }
         },
@@ -1345,6 +1384,44 @@
           },
           {
             "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent"
+            }
+          },
+          {
+            "in": "query",
+            "name": "popularity_tier",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Popularity Tier"
+            }
+          },
+          {
+            "in": "query",
             "name": "score_min",
             "required": false,
             "schema": {
@@ -1429,6 +1506,17 @@
               "maximum": 100,
               "minimum": 1,
               "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
               "type": "integer"
             }
           },

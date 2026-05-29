@@ -1111,6 +1111,27 @@ html.dark .page-head::after {
   max-width: 640px;
   text-wrap: pretty;
 }
+/* ph-row — mono stat strip (PATH / SORTED BY / …) below the lede. */
+.page-head .ph-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.page-head .ph-path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 6px 12px;
+}
+.page-head .ph-path b {
+  color: var(--color-ink);
+  font-weight: 700;
+}
 /* ============================================================
    RIDGES — section dividers
    ============================================================ */

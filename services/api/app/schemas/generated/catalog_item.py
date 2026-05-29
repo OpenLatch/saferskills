@@ -33,6 +33,17 @@ class PopularityTier(StrEnum):
     on_demand = "on_demand"
 
 
+class AgentCompatibilityEnum(StrEnum):
+    claude_code = "claude-code"
+    cursor = "cursor"
+    codex = "codex"
+    copilot = "copilot"
+    windsurf = "windsurf"
+    cline = "cline"
+    gemini = "gemini"
+    openclaw = "openclaw"
+
+
 class RegistryId(StrEnum):
     """
     Closed-enum source-of-record identifier. PRD §7.4 dual-attribution.
@@ -132,6 +143,11 @@ class CatalogItem(BaseModel):
         ...,
         alias="popularityScore",
         description="Weekly-recomputed popularity rank within the artifact kind. Drives popularityTier assignment.",
+    )
+    agent_compatibility: list[AgentCompatibilityEnum] | None = Field(
+        [],
+        alias="agentCompatibility",
+        description="Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates.",
     )
     content_hash_sha256: constr(pattern=r"^[a-f0-9]{64}$") | None = Field(
         None,

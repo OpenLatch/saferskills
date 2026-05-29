@@ -28,6 +28,7 @@ from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
 from app.scan.engine import ScanResult
 from app.scan.fetch import GithubRef
+from app.services.agent_compat import agent_compatibility_for
 
 
 def compute_idempotency_key(github_url: str, ref_sha: str, rubric_version: str) -> str:
@@ -69,6 +70,7 @@ async def ensure_catalog_item(
         default_branch="main",
         popularity_tier="indexed",
         popularity_score=0,
+        agent_compatibility=agent_compatibility_for("skill"),
         sources=[],
     )
     session.add(item)

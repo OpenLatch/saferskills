@@ -81,6 +81,7 @@ async def seed_item(db_session: AsyncSession) -> tuple[CatalogItem, Scan]:
         default_branch="main",
         popularity_tier="indexed",
         popularity_score=42,
+        agent_compatibility=["claude-code", "cursor", "codex"],
         sources=[],
     )
     db_session.add(item)

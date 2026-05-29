@@ -20,6 +20,7 @@ export interface CatalogItemSummary {
   latest_scan_at?: string | null
   findings_count: number
   registries: string[]
+  agent_compatibility: string[]
   updated_at: string
 }
 
@@ -32,6 +33,9 @@ export interface CatalogListResponse {
   data: CatalogItemSummary[]
   next_cursor: string | null
   total_count: number
+  page: number
+  total_pages: number
+  page_size: number
 }
 
 export interface ScanHistoryPoint {
@@ -81,17 +85,28 @@ export interface CatalogFacets {
   popularity_tier: Record<string, number>
   tier: Record<string, number>
   registry: Record<string, number>
+  agent: Record<string, number>
   total: number
 }
 
+export type CatalogSort =
+  | 'most_installed'
+  | 'recent'
+  | 'highest_score'
+  | 'lowest_score'
+  | 'most_starred'
+
 export interface ListItemsParams {
   kind?: string[]
+  agent?: string[]
+  popularity_tier?: string[]
   score_min?: number
   score_max?: number
   scan_tier?: string[]
   q?: string
-  sort?: 'most_installed' | 'recent' | 'highest_score' | 'lowest_score' | 'most_starred'
+  sort?: CatalogSort
   limit?: number
+  page?: number
   cursor?: string | null
 }
 
@@ -114,12 +129,15 @@ function buildUrl(
 export async function listCatalogItems(params: ListItemsParams = {}): Promise<CatalogListResponse> {
   const url = buildUrl('/api/v1/items', {
     kind: params.kind,
+    agent: params.agent,
+    popularity_tier: params.popularity_tier,
     score_min: params.score_min,
     score_max: params.score_max,
     scan_tier: params.scan_tier,
     q: params.q,
     sort: params.sort,
     limit: params.limit ?? 25,
+    page: params.page,
     cursor: params.cursor ?? undefined,
   })
   const res = await fetch(url, { headers: { Accept: 'application/json' } })

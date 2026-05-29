@@ -78,6 +78,25 @@
       "maximum": 100,
       "description": "Weekly-recomputed popularity rank within the artifact kind. Drives popularityTier assignment."
     },
+    "agentCompatibility": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude-code",
+          "cursor",
+          "codex",
+          "copilot",
+          "windsurf",
+          "cline",
+          "gemini",
+          "openclaw"
+        ]
+      },
+      "description": "Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates."
+    },
     "contentHashSha256": {
       "type": ["string", "null"],
       "pattern": "^[a-f0-9]{64}$",
@@ -162,6 +181,7 @@
       "defaultBranch": "main",
       "popularityTier": "deep",
       "popularityScore": 87,
+      "agentCompatibility": ["claude-code", "cursor", "codex", "copilot", "windsurf", "cline", "gemini", "openclaw"],
       "contentHashSha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "archived": false,
       "sources": [

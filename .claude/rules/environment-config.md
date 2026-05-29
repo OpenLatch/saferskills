@@ -24,7 +24,7 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `DATABASE_URL` | yes | (none) | PostgreSQL connection string (`postgresql+asyncpg://...`) |
 | `SENTRY_DSN` | no | unset | Errors-only Sentry project (cf. `telemetry.md`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | no | unset | OpenTelemetry collector |
-| `ENV` | yes | `development` | One of `development` / `staging` / `production` — drives Sentry env tag, log format, migration auto-run skip |
+| `ENV` | yes | `development` | One of `development` / `staging` / `production` — drives Sentry env tag and log format. (Does NOT gate migrations: `alembic upgrade head` runs in-process on every boot in all envs — see `ci-cd.md` § Deployment.) |
 | `LOG_LEVEL` | no | `INFO` | Python logging level |
 | `CORS_ALLOWED_ORIGINS` | yes | `http://localhost:4321` | Comma-separated origin list |
 | `SCAN_SUBMIT_DAILY_LIMIT` | no | `10` | Max scan submissions per IP per 24h (D-FE-11) |

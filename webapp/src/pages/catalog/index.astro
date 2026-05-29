@@ -4,76 +4,104 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
-import PageHead from '@ui/components/atoms/PageHead.tsx'
-import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
-import CatalogToolbar from '@/components/catalog/CatalogToolbar.tsx'
-import CatalogFilterSide from '@/components/catalog/CatalogFilterSide.tsx'
-import CatalogResultsList from '@/components/catalog/CatalogResultsList.tsx'
-import { listCatalogItems, type ListItemsParams } from '@/lib/api/items'
+import CatalogApp from '@/components/catalog/CatalogApp.tsx'
+import { sortLabel } from '@/components/catalog/constants'
+import { fetchCatalogFacets, listCatalogItems, type CatalogListResponse } from '@/lib/api/items'
+import { fetchPlatformStats } from '@/lib/api/stats'
+import { fetchOrNull } from '@/lib/fallback'
 
 import '@/styles/page-catalog.css'
 
 const url = new URL(Astro.request.url)
-const filters: ListItemsParams = {
-  kind: url.searchParams.getAll('kind'),
-  scan_tier: url.searchParams.getAll('scan_tier'),
-  score_min: parseInt(url.searchParams.get('score_min') ?? '0', 10),
-  score_max: parseInt(url.searchParams.get('score_max') ?? '100', 10),
-  q: url.searchParams.get('q') ?? undefined,
-  sort: (url.searchParams.get('sort') as ListItemsParams['sort']) ?? 'most_installed',
-  cursor: url.searchParams.get('cursor'),
-  limit: 25,
+const sp = url.searchParams
+
+const num = (key: string, fallback: number) => {
+  const n = Number.parseInt(sp.get(key) ?? '', 10)
+  return Number.isNaN(n) ? fallback : Math.min(100, Math.max(0, n))
+}
+const pageNum = Math.max(1, Number.parseInt(sp.get('page') ?? '1', 10) || 1)
+
+const SORTS = ['most_installed', 'recent', 'highest_score', 'lowest_score', 'most_starred'] as const
+const sortRaw = sp.get('sort') as (typeof SORTS)[number] | null
+const sort = sortRaw && SORTS.includes(sortRaw) ? sortRaw : 'most_installed'
+
+const initialState = {
+  kind: sp.getAll('kind'),
+  agent: sp.getAll('agent'),
+  popularityTier: sp.getAll('popularity_tier'),
+  scanTier: sp.getAll('scan_tier'),
+  scoreMin: num('score_min', 0),
+  scoreMax: num('score_max', 100),
+  q: sp.get('q') ?? '',
+  sort,
+  page: pageNum,
 }
 
-const response = await listCatalogItems(filters).catch(() => ({
+const EMPTY: CatalogListResponse = {
   data: [],
   next_cursor: null,
   total_count: 0,
-}))
+  page: pageNum,
+  total_pages: 1,
+  page_size: 25,
+}
 
-const emptyVariant: 'empty-catalog' | 'no-match' =
-  response.total_count === 0 ? 'empty-catalog' : 'no-match'
+const [response, facets, stats] = await Promise.all([
+  listCatalogItems({
+    kind: initialState.kind,
+    agent: initialState.agent,
+    popularity_tier: initialState.popularityTier,
+    scan_tier: initialState.scanTier,
+    score_min: initialState.scoreMin,
+    score_max: initialState.scoreMax,
+    q: initialState.q || undefined,
+    sort,
+    page: pageNum,
+    limit: 25,
+  }).catch(() => EMPTY),
+  fetchOrNull(fetchCatalogFacets),
+  fetchOrNull(fetchPlatformStats),
+])
+
+const totalIndexed = stats?.catalog_total ?? response.total_count
+const registriesCount = stats?.registries_count ?? Object.keys(facets?.registry ?? {}).length
 ---
 
 <Base
   title="Catalog — SaferSkills"
-  description="Every AI skill, independently scanned. Unified catalog across 12+ registries."
+  description="Every AI skill, independently scanned. Unified catalog across 12+ registries — filter by type, agent, band, and scan tier."
 >
-  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
-  <PageHead
-    eyebrow="CATALOG · 02 · /CATALOG"
-    title="Browse skills, MCPs & plugins."
-    lede="Unified index across mcp.so, Smithery, ClawHub, npm and 8 more registries. Filter by agent, band, and scan tier — every item independently audited."
-  />
-  <PageRidge variant="mesh" label="— /CATALOG —" />
+  <header class="page-head">
+    <div class="container">
+      <div class="ph-eyebrow">CATALOG · 02 · /CATALOG</div>
+      <h1 class="ph-title">Browse <span class="mark">{totalIndexed.toLocaleString()}</span> skills,<br />MCPs &amp; plugins.</h1>
+      <p class="ph-lede">
+        Unified index across mcp.so, Smithery, ClawHub, npm and 8 more registries. Filter by
+        agent, band, and scan tier — every item independently audited.
+      </p>
+      <div class="ph-row">
+        <span class="ph-path">PATH&nbsp;&nbsp;<b>/catalog</b></span>
+        <span class="ph-path">SORTED BY&nbsp;&nbsp;<b>{sortLabel(sort).toLowerCase()}</b></span>
+        <span class="ph-path">INDEXED&nbsp;&nbsp;<b>{totalIndexed.toLocaleString()}</b></span>
+      </div>
+    </div>
+  </header>
 
-  <CatalogToolbar
+  <CatalogApp
     client:load
-    totalCount={response.total_count}
-    initialQuery={filters.q ?? ''}
+    initialState={initialState}
+    initialData={response}
+    initialFacets={facets}
+    totalIndexed={totalIndexed}
+    registriesCount={registriesCount}
   />
 
-  <section class="cat-split">
-    <CatalogFilterSide
-      client:idle
-      initial={{
-        kind: filters.kind ?? [],
-        scoreMin: filters.score_min ?? 0,
-        scoreMax: filters.score_max ?? 100,
-        scanTier: filters.scan_tier ?? [],
-      }}
-    />
-    <CatalogResultsList
-      client:idle
-      items={response.data}
-      nextCursor={response.next_cursor}
-      totalCount={response.total_count}
-      emptyVariant={response.data.length === 0 ? emptyVariant : undefined}
-    />
-  </section>
+  <RidgeStars label="— END OF RESULTS · 04 —" />
 
   <Footer />
 </Base>

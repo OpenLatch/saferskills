@@ -4,8 +4,7 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
-import PageHead from '@ui/components/atoms/PageHead.tsx'
-import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import ScanSubmitForm from '@/components/scan/ScanSubmitForm.tsx'
@@ -17,11 +16,15 @@ import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-
 
 import '@/styles/page-scan-submit.css'
 
-const recentScans = await listRecentSubmissionScans({ limit: 4 }).catch(() => [])
+const [recentScans, stats] = await Promise.all([
+  listRecentSubmissionScans({ limit: 4 }).catch(() => []),
+  fetchOrNull(fetchPlatformStats),
+])
 
 // Live detection-rule count with the generated-methodology count as fallback.
-const stats = await fetchOrNull(fetchPlatformStats)
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
+// P95 latency in whole seconds, when the live stat is available.
+const p95 = stats?.p95_latency_ms != null ? `${Math.round(stats.p95_latency_ms / 1000)}s` : '30s'
 ---
 
 <Base
@@ -30,21 +33,32 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 >
   <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
-  <PageHead
-    eyebrow="SCAN · 03 · /SCAN"
-    title="Paste a GitHub URL. We do the rest."
-    lede={`Independent audit across ${ruleCount} detection rules. Free. No account. Bookmarkable report. Persists for 90 days.`}
-  />
-  <PageRidge variant="swell" label="— /SCAN —" />
+  <header class="page-head">
+    <div class="container">
+      <div class="ph-eyebrow">SCAN · 03 · /SCAN</div>
+      <h1 class="ph-title">Paste a GitHub URL.<br />We do <span class="mark">the rest</span>.<span class="script">— ~30s</span></h1>
+      <p class="ph-lede">
+        Independent audit across {ruleCount} detection rules. Free. No account. Bookmarkable
+        report. Persists for 90 days.
+      </p>
+      <div class="ph-row">
+        <span class="ph-path">PATH&nbsp;&nbsp;<b>/scan</b></span>
+        <span class="ph-path">RULES&nbsp;&nbsp;<b>{ruleCount} active</b></span>
+        <span class="ph-path">P95 LATENCY&nbsp;&nbsp;<b>{p95}</b></span>
+      </div>
+    </div>
+  </header>
 
-  <section class="scan-split">
-    <div class="scan-form-pane">
+  <div class="scan-split">
+    <section class="scan-form-pane">
       <ScanSubmitForm client:load recentScans={recentScans} />
-    </div>
-    <div class="scan-method-pane">
+    </section>
+    <aside class="scan-method-pane">
       <ScanMethodologyPreview />
-    </div>
-  </section>
+    </aside>
+  </div>
+
+  <RidgeStars label="— TRUST · BY DESIGN · 04 —" />
 
   <Footer />
 </Base>

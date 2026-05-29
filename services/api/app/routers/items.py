@@ -87,6 +87,7 @@ def _to_summary(
         latest_scan_at=latest_scan_at,
         findings_count=findings_count,
         registries=list(registries),
+        agent_compatibility=list(item.agent_compatibility or []),
         updated_at=item.updated_at,
     )
 
@@ -117,6 +118,19 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
         )
     ).all()
 
+    # Agent facet: unnest the JSONB agent_compatibility array → per-agent counts.
+    # Postgres treats the set-returning function in FROM as a lateral over the
+    # preceding catalog_items row, so each item contributes one row per agent.
+    agent_fn = func.jsonb_array_elements_text(CatalogItem.agent_compatibility).table_valued("value")
+    agent_rows = (
+        await session.execute(
+            select(agent_fn.c.value, func.count(CatalogItem.id))
+            .select_from(CatalogItem, agent_fn)
+            .where(CatalogItem.archived.is_(False))
+            .group_by(agent_fn.c.value)
+        )
+    ).all()
+
     # Tier facet: bucket by latest_scan_tier — shared with /stats (queries.py).
     tier_dist = await latest_scan_tier_distribution(session)
 
@@ -125,6 +139,7 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
         popularity_tier={k: int(c) for k, c in popularity_rows},
         tier=tier_dist,
         registry={k: int(c) for k, c in registry_rows},
+        agent={k: int(c) for k, c in agent_rows},
         total=int(total),
     )
 
@@ -132,12 +147,15 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
 @router.get("", response_model=CatalogListEnvelope)
 async def list_items(
     kind: list[str] | None = Query(default=None),
+    agent: list[str] | None = Query(default=None),
+    popularity_tier: list[str] | None = Query(default=None),
     score_min: int = Query(default=0, ge=0, le=100),
     score_max: int = Query(default=100, ge=0, le=100),
     scan_tier: list[str] | None = Query(default=None),
     q: str | None = Query(default=None, max_length=200),
     sort: SortKey = Query(default="most_installed"),
     limit: int = Query(default=25, ge=1, le=100),
+    page: int = Query(default=1, ge=1),
     cursor: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> CatalogListEnvelope:
@@ -191,6 +209,12 @@ async def list_items(
 
     if kind:
         stmt = stmt.where(CatalogItem.kind.in_(kind))
+    if popularity_tier:
+        stmt = stmt.where(CatalogItem.popularity_tier.in_(popularity_tier))
+    if agent:
+        # Array-overlap: keep items whose agent_compatibility contains ANY
+        # requested agent. JSONB `@>` per agent, OR'd together.
+        stmt = stmt.where(or_(*[CatalogItem.agent_compatibility.contains([a]) for a in agent]))
     if scan_tier:
         stmt = stmt.where(latest_scan.c.latest_tier.in_(scan_tier))
     if score_min > 0 or score_max < 100:
@@ -210,7 +234,20 @@ async def list_items(
             )
         )
 
-    if cursor:
+    # Filtered total (respects every WHERE applied above) — drives total_pages.
+    # Wrap the filtered query in a subquery and count its rows; the latest-scan
+    # + findings joins are 1:1 per item so row-count == item-count.
+    total = int(
+        (
+            await session.execute(select(func.count()).select_from(stmt.order_by(None).subquery()))
+        ).scalar_one()
+    )
+    total_pages = max(1, (total + limit - 1) // limit)
+
+    # Legacy keyset cursor (back-compat) takes precedence when supplied;
+    # otherwise offset/page pagination drives the numbered pager.
+    use_cursor = cursor is not None
+    if use_cursor:
         decoded = _decode_cursor(cursor)
         stmt = stmt.where(CatalogItem.slug > decoded)
 
@@ -225,16 +262,13 @@ async def list_items(
     else:  # most_installed (default)
         stmt = stmt.order_by(desc(CatalogItem.popularity_score), CatalogItem.slug)
 
+    resolved_page = 1 if use_cursor else page
+    if not use_cursor:
+        stmt = stmt.offset((page - 1) * limit)
     stmt = stmt.limit(limit + 1)
     rows = (await session.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-
-    total = (
-        await session.execute(
-            select(func.count(CatalogItem.id)).where(CatalogItem.archived.is_(False))
-        )
-    ).scalar_one()
 
     next_cursor = _encode_cursor(rows[-1][0].slug) if (has_more and rows) else None
 
@@ -265,7 +299,10 @@ async def list_items(
             for item, latest_score, latest_tier, latest_scan_at, findings_count in rows
         ],
         next_cursor=next_cursor,
-        total_count=int(total),
+        total_count=total,
+        page=resolved_page,
+        total_pages=total_pages,
+        page_size=limit,
     )
 
 
