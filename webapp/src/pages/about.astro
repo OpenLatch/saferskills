@@ -4,6 +4,7 @@ export const prerender = true
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
@@ -20,15 +21,11 @@ import '@/styles/page-about.css'
     eyebrow="ABOUT · 07 · /ABOUT"
     title="About SaferSkills."
     lede="A public, free, open-source trust-scoring service for AI skills, MCP servers, hooks, and plugins. We index them. We audit them. We publish the report."
-    path="/about"
-    meta={[
-      { label: 'STEWARD', value: 'OpenLatch' },
-      { label: 'LICENSE', value: 'Apache 2.0' },
-    ]}
   />
+  <PageRidge variant="contour" label="— /ABOUT —" />
 
   {/* ─────────── Why we built this ─────────── */}
-  <section class="about-band">
+  <section class="page-section page-section--grid about-band">
     <div class="container">
       <h2>Why we built this.</h2>
       <p>
@@ -85,7 +82,7 @@ import '@/styles/page-about.css'
   <RidgeStars label="— FOUNDER · 02 —" />
 
   {/* ─────────── Founder ─────────── */}
-  <section class="about-band">
+  <section class="page-section page-section--flat about-band">
     <div class="container">
       <h2>Who's behind it.</h2>
       <div class="founder-card">
@@ -114,7 +111,7 @@ import '@/styles/page-about.css'
   <RidgeStars label="— OPENLATCH · 03 —" />
 
   {/* ─────────── How we relate to OpenLatch ─────────── */}
-  <section class="about-band">
+  <section class="page-section page-section--grid about-band">
     <div class="container">
       <h2>How we relate to OpenLatch.</h2>
       <p>
@@ -162,7 +159,7 @@ import '@/styles/page-about.css'
   <RidgeStars label="— REACH US · 04 —" />
 
   {/* ─────────── Reach us ─────────── */}
-  <section class="about-band">
+  <section class="page-section page-section--flat about-band">
     <div class="container">
       <h2>How to reach us.</h2>
       <p>

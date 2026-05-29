@@ -4,6 +4,7 @@ export const prerender = true
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
@@ -12,9 +13,6 @@ import Footer from '@ui/components/atoms/Footer.astro'
 import MethodologyIndex from '@/generated/methodology/index.mdx'
 
 import '@/styles/page-methodology.css'
-
-const rubricShaFull = import.meta.env.PUBLIC_RUBRIC_SHA ?? 'main'
-const rubricShaShort = rubricShaFull === 'main' ? 'main' : rubricShaFull.slice(0, 7)
 ---
 <Base
   title="Methodology — SaferSkills"
@@ -26,96 +24,99 @@ const rubricShaShort = rubricShaFull === 'main' ? 'main' : rubricShaFull.slice(0
     eyebrow="METHODOLOGY · 05 · /METHODOLOGY"
     title="What we check & how it's weighted."
     lede="Every claim ties to a specific rule, a specific rubric version, and a specific finding's hashed evidence. Reproducible by any third party offline."
-    path="/methodology"
-    meta={[
-      { label: 'RUBRIC', value: rubricShaShort },
-      { label: 'RULES', value: '87' },
-      { label: 'LICENSE', value: 'Apache 2.0' },
-    ]}
   />
+  <PageRidge variant="mesh" label="— /METHODOLOGY —" />
 
-  <section class="methodology-band">
+  {/* ─────────── §01 Scoring formula ─────────── */}
+  <section class="page-section page-section--grid methodology-band" id="scoring-formula">
     <div class="container">
       <article class="methodology-prose">
+        <Eyebrow withRule>FORMULA · 01</Eyebrow>
+        <h2>Scoring formula.</h2>
+        <p>
+          Aggregate score =
+          <code>round(0.35 × Security + 0.20 × Supply Chain + 0.15 × Maintenance + 0.15 × Transparency + 0.15 × Community)</code>.
+        </p>
+        <p>
+          Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. If any
+          finding in a sub-score is severity <code>critical</code>, the sub-score is
+          capped at 40 — the <strong>critical-floor</strong> rule that prevents a
+          catastrophic finding from being averaged away by minor passes.
+        </p>
+        <ul class="tier-list">
+          <li><span class="dot dot-g" aria-hidden="true"></span> Green ≥ 80 — safe to install.</li>
+          <li><span class="dot dot-y" aria-hidden="true"></span> Yellow 60-79 — caveats present.</li>
+          <li><span class="dot dot-o" aria-hidden="true"></span> Orange 40-59 — significant issues.</li>
+          <li><span class="dot dot-r" aria-hidden="true"></span> Red 0-39 — do not install.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
 
-        {/* ─────────── §01 Scoring formula ─────────── */}
-        <section id="scoring-formula">
-          <Eyebrow withRule>FORMULA · 01</Eyebrow>
-          <h2>Scoring formula.</h2>
-          <p>
-            Aggregate score =
-            <code>round(0.35 × Security + 0.20 × Supply Chain + 0.15 × Maintenance + 0.15 × Transparency + 0.15 × Community)</code>.
-          </p>
-          <p>
-            Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. If any
-            finding in a sub-score is severity <code>critical</code>, the sub-score is
-            capped at 40 — the <strong>critical-floor</strong> rule that prevents a
-            catastrophic finding from being averaged away by minor passes.
-          </p>
-          <ul class="tier-list">
-            <li><span class="dot dot-g" aria-hidden="true"></span> Green ≥ 80 — safe to install.</li>
-            <li><span class="dot dot-y" aria-hidden="true"></span> Yellow 60-79 — caveats present.</li>
-            <li><span class="dot dot-o" aria-hidden="true"></span> Orange 40-59 — significant issues.</li>
-            <li><span class="dot dot-r" aria-hidden="true"></span> Red 0-39 — do not install.</li>
-          </ul>
-        </section>
+  <RidgeStars label="— RULES · 02 —" />
 
-        <RidgeStars label="— RULES · 02 —" />
+  {/* ─────────── §02 Rules — auto-rendered from rubric/ ─────────── */}
+  <section class="page-section page-section--flat methodology-band" id="rules">
+    <div class="container">
+      <article class="methodology-prose">
+        <Eyebrow withRule>RULES · 02</Eyebrow>
+        <h2>The rules.</h2>
+        <p>
+          Each card below is rendered from the rule's YAML frontmatter under
+          <code>rubric/&lt;CATEGORY&gt;/&lt;NAME&gt;-NN.md</code>. The
+          <code>rule_id</code> links to the source file at the current
+          <code>rubricSha</code>. Severity, status, and weight follow the locked
+          5-tier × 3-status × 5-axis taxonomy.
+        </p>
+        <MethodologyIndex />
+      </article>
+    </div>
+  </section>
 
-        {/* ─────────── §02 Rules — auto-rendered from rubric/ ─────────── */}
-        <section id="rules">
-          <Eyebrow withRule>RULES · 02</Eyebrow>
-          <h2>The rules.</h2>
-          <p>
-            Each card below is rendered from the rule's YAML frontmatter under
-            <code>rubric/&lt;CATEGORY&gt;/&lt;NAME&gt;-NN.md</code>. The
-            <code>rule_id</code> links to the source file at the current
-            <code>rubricSha</code>. Severity, status, and weight follow the locked
-            5-tier × 3-status × 5-axis taxonomy.
-          </p>
-          <MethodologyIndex />
-        </section>
+  <RidgeStars label="— REPRODUCIBILITY · 03 —" />
 
-        <RidgeStars label="— REPRODUCIBILITY · 03 —" />
+  {/* ─────────── §03 Reproducibility ─────────── */}
+  <section class="page-section page-section--grid methodology-band" id="reproducibility">
+    <div class="container">
+      <article class="methodology-prose">
+        <Eyebrow withRule>REPRODUCIBILITY · 03</Eyebrow>
+        <h2>Reproducibility.</h2>
+        <p>
+          Every scan report records the rubric version (a git SHA of
+          <code>rubric/</code>) and the engine version. A vendor can re-derive any
+          verdict by checking out those versions and running the rule against the
+          artifact at <code>ref_sha</code>. No model, no random seed, no API key
+          required.
+        </p>
+        <p>
+          <strong>No black-box findings.</strong> If a rule fires, the rule_id plus
+          the exact file path and line range is in the public report — reproducible
+          from the rule's documented trigger.
+        </p>
+      </article>
+    </div>
+  </section>
 
-        {/* ─────────── §03 Reproducibility ─────────── */}
-        <section id="reproducibility">
-          <Eyebrow withRule>REPRODUCIBILITY · 03</Eyebrow>
-          <h2>Reproducibility.</h2>
-          <p>
-            Every scan report records the rubric version (a git SHA of
-            <code>rubric/</code>) and the engine version. A vendor can re-derive any
-            verdict by checking out those versions and running the rule against the
-            artifact at <code>ref_sha</code>. No model, no random seed, no API key
-            required.
-          </p>
-          <p>
-            <strong>No black-box findings.</strong> If a rule fires, the rule_id plus
-            the exact file path and line range is in the public report — reproducible
-            from the rule's documented trigger.
-          </p>
-        </section>
+  <RidgeStars label="— VENDOR APPEALS · 04 —" />
 
-        <RidgeStars label="— VENDOR APPEALS · 04 —" />
-
-        {/* ─────────── §04 Vendor right-of-reply ─────────── */}
-        <section id="vendor-appeals">
-          <Eyebrow withRule>VENDOR APPEALS · 04</Eyebrow>
-          <h2>Vendor right-of-reply.</h2>
-          <p>
-            Every public verdict is appealable. Maintainers commit a verification
-            token to <code>.saferskills/verify.txt</code> in their repo; once verified,
-            they can submit a public response that appears alongside their findings.
-            Re-scans triggered within 1 hour of any push.
-          </p>
-          <p>
-            The vendor right-of-reply form at
-            <code>/items/&lt;slug&gt;/respond</code> walks through the verification
-            flow. Findings are never silently deleted — appealed findings carry the
-            appeal outcome and rationale in the public record.
-          </p>
-        </section>
-
+  {/* ─────────── §04 Vendor right-of-reply ─────────── */}
+  <section class="page-section page-section--flat methodology-band" id="vendor-appeals">
+    <div class="container">
+      <article class="methodology-prose">
+        <Eyebrow withRule>VENDOR APPEALS · 04</Eyebrow>
+        <h2>Vendor right-of-reply.</h2>
+        <p>
+          Every public verdict is appealable. Maintainers commit a verification
+          token to <code>.saferskills/verify.txt</code> in their repo; once verified,
+          they can submit a public response that appears alongside their findings.
+          Re-scans triggered within 1 hour of any push.
+        </p>
+        <p>
+          The vendor right-of-reply form at
+          <code>/items/&lt;slug&gt;/respond</code> walks through the verification
+          flow. Findings are never silently deleted — appealed findings carry the
+          appeal outcome and rationale in the public record.
+        </p>
       </article>
     </div>
   </section>

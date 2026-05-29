@@ -79,17 +79,44 @@ The signature button silhouette is a chamfered hexagonal cap shape rendered via 
 
 ## Page-head pattern
 
-Every in-app page (catalog / scan / report / item / about / docs / methodology) starts with a `<PageHead>` strip. Props: `eyebrow`, `title`, `lede?`, `path?`, `meta?`. CSS lives in `webapp/src/styles/components.css::.page-head`. Includes the 12px tick-ruler accent at top, the 40×40 plus-grid background, `<mark>` highlight option, orange `<span class="script">` accent option, and a row of info pills.
+Every in-app page (catalog / scan / report / item / about / docs / methodology) starts with a `<PageHead>` strip. Props: `eyebrow`, `title`, `lede?`, `className?`. CSS lives in `ui/styles/components.css::.page-head`. Includes the 12px tick-ruler accent at top, the 40×40 plus-grid background, `<mark>` highlight option, and an orange `<span class="script">` accent option.
+
+On every non-homepage page a `<PageRidge>` is placed **directly under** the `<PageHead>` — it provides the header→body transition (replacing the old flat `1px solid ink` border) and carries the page-path cue in its centered label. See "Header ridges" below. (Metadata pills were removed; a future data-heavy page that needs page-level metadata reintroduces a dedicated component then — per scope discipline.)
 
 ## Ridge dividers
 
-Three variants:
+### Inter-section ridges
+
+Three variants, between content sections:
 
 - **`RidgeStars`** — paper-deep bg with plus-grid pattern overlay; 72px tall.
 - **`RidgeFlow`** — gradient transition between sections (paper-deep → paper); 88px tall.
 - **`RidgePixel`** — dark-slate bg with the orange tick-ruler accent; 64px tall (used as transition INTO dark sections).
 
 Each carries an optional centered uppercase mono label.
+
+### Header ridges (`PageRidge`)
+
+A separate, taller family (~104–116px) that carries the header→body transition under `<PageHead>`. One distinct `variant` per non-homepage page; all three recombine the same brand cues (contour + plus-grid + wave + tick-ruler) so pages feel unique-but-familiar:
+
+- **`contour`** (`/about`) — topographic contour bundle dissolving toward the content, with a thin tick-ruler edge.
+- **`mesh`** (`/methodology`) — a plus-grid field crossed by a dashed alignment seam + scattered teal/orange `+` marks.
+- **`swell`** (`/docs`) — a smooth wave bundle with corner registration crosshairs.
+
+Mark colors are token-driven (`--brand-primary` / `--brand-accent` / `--color-ink` via the `.rdg-s-*` classes in `components.css`), so every stroke flips for dark mode for free. Pass `label` for the centered page-path cue (e.g. `label="— /ABOUT —"`). Adding a new page = a new `variant` here + the CSS height/treatment + a Ladle story case.
+
+## Section surfaces
+
+Non-homepage content sections use the shared `.page-section` surface (`ui/styles/components.css`) in an **alternating rhythm**, section to section:
+
+- **`.page-section--grid`** — ruled blueprint grid (60px lines) + a `+` cross at every intersection — the homepage install-band texture, recolored gray-on-light / faint-on-dark.
+- **`.page-section--flat`** — a simpler dot grid (26px) on a slightly deeper `--color-paper-deep` band (dark: `--bg-page-alt`).
+
+Both are theme-aware (slate-50 → slate-900 grid, slate-100 → slate-800 flat). The surface owns the section background + vertical padding; page-specific CSS keeps only inner-component typography/layout. **Verify cards on `--flat` bands read correctly in dark mode** — a card whose dark background equals `--bg-page-alt` (slate-800) blends into a flat band; recess it to `--color-paper` (slate-900) or lift it to `--bg-surface-mute` (slate-700). See the `.rule-card` override in `page-methodology.css` for the canonical example.
+
+### Non-homepage page template
+
+`NavBar → PageHead → PageRidge → alternating .page-section bands (with RidgeStars/RidgeFlow between) → CtaBand → Footer`. Every new non-homepage page inherits this template so brand DNA stays consistent.
 
 ## Scrolled-pill nav
 
@@ -149,7 +176,8 @@ Enforced in code review on every PR that adds catalog content. Violations are a 
 | New component category | "Component layout" |
 | Astro hydration strategy change | "Astro + React 19 islands" — also see `frontend-patterns.md` |
 | Brand-posture exception (cross-link approved) | "Anti-recommendation" — get a brand sign-off first |
-| New ridge divider variant | "Ridge dividers" |
+| New inter-section ridge variant | "Ridge dividers" § Inter-section ridges |
+| New `PageRidge` (header ridge) variant | "Ridge dividers" § Header ridges + the new page's `variant` |
+| New section-surface class / alternation rule | "Section surfaces" |
 | New hex-button variant or size | "Hex-button vocabulary" |
-| New page-head meta-pill convention | "Page-head pattern" |
 | New visual-diff CLI flag | "Visual-validation loop" |

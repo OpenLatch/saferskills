@@ -44,6 +44,7 @@
 |-------------|---------------|
 | New component in `ui/components/` | `ui/CLAUDE.md`, root `CLAUDE.md` if it's a new molecule/organism category |
 | New route/page in `webapp/` | `webapp/src/lib/nav-config.tsx`, root `CLAUDE.md` if structural |
+| New non-homepage page in `webapp/` | Must use the template: `PageHead` + `PageRidge` (new `variant`) + alternating `.page-section` bands — see `design-system.md` § Section surfaces |
 | New CLI command/script | Root `CLAUDE.md` + `scripts/README.md` |
 | New service in `services/` | `tech-stack.md`, `environment-config.md`, root `CLAUDE.md` |
 | DB schema/migration change | `database.md` (write the rule when it lands) |

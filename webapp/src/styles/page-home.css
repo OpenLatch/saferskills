@@ -1171,6 +1171,16 @@ html.dark .hero-band {
   text-decoration: none;
   border-bottom: 1.5px solid var(--color-ink);
   padding-bottom: 1px;
+  /* Smooth the hover recolor of both the label and its underline. */
+  transition:
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+/* Trailing arrow — slides forward on hover (movement → ease-out). */
+.p1-cta-arrow {
+  display: inline-block;
+  margin-left: 6px;
+  transition: transform var(--dur-sm) var(--ease-out);
 }
 .p1-card .p1-cta:hover {
   color: var(--brand-primary);
@@ -1179,6 +1189,16 @@ html.dark .hero-band {
 .p1-card.audit .p1-cta:hover {
   color: var(--brand-accent);
   border-color: var(--brand-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .p1-card .p1-cta:hover .p1-cta-arrow {
+    transform: translateX(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p1-cta-arrow {
+    transition: none;
+  }
 }
 .p1-card .p1-foot .meta {
   font-family: var(--font-mono);
@@ -1230,6 +1250,17 @@ html.dark body.va .p1-card .p1-cta {
   color: var(--fg-1);
   border-bottom-color: var(--fg-1);
 }
+/* Hover recolor in dark mode — the dark base rule above (0,4,2) out-specifies
+   the light `.p1-card .p1-cta:hover` accent (0,3,0), so re-assert it here:
+   find = teal, audit = orange. */
+html.dark body.va .p1-card .p1-cta:hover {
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
+}
+html.dark body.va .p1-card.audit .p1-cta:hover {
+  color: var(--brand-accent);
+  border-bottom-color: var(--brand-accent);
+}
 html.dark body.va .p1-card .p1-foot .meta {
   color: var(--fg-3);
 }
@@ -1257,6 +1288,34 @@ html.dark body.va .p1-input .p1-submit-ret {
   background: rgba(255, 255, 255, 0.06);
   color: var(--fg-2);
   border-color: var(--color-line);
+}
+
+/* Focus accent in dark mode. The `html.dark body.va .p1-input` base rules
+   above (0,3,2) out-specify the light-mode `.p1-input:focus-within` accent
+   (0,2,0), so the FIND card's teal focus ring silently vanished in dark mode
+   while AUDIT (higher-specificity `.p1-card.audit …`) kept its orange. Re-assert
+   both here: find = brand-primary (teal), audit = brand-accent (orange). */
+html.dark body.va .p1-input:focus-within {
+  border-color: var(--brand-primary);
+  background: var(--color-paper);
+}
+html.dark body.va .p1-card.audit .p1-input:focus-within {
+  border-color: var(--brand-accent);
+}
+html.dark body.va .p1-input:focus-within .p1-icon {
+  background: var(--brand-primary);
+  color: #fff;
+  border-right-color: var(--brand-primary);
+}
+html.dark body.va .p1-card.audit .p1-input:focus-within .p1-icon {
+  background: var(--brand-accent);
+  border-right-color: var(--brand-accent);
+}
+html.dark body.va .p1-input:focus-within .caret {
+  background: var(--brand-primary);
+}
+html.dark body.va .p1-card.audit .p1-input:focus-within .caret {
+  background: var(--brand-accent);
 }
 
 /* chips */
@@ -1507,6 +1566,9 @@ html.dark .wave-band {
      teeth, paper slab) doesn't translate to dark, so we hide it. */
 html.dark body.va .ridge-pixel {
   background: var(--color-paper-deep);
+  /* Symmetric --color-line (slate-700) hairline top and bottom — the bottom
+     matches the top. The following feeds-band suppresses its own white section
+     top border (below) so this ridge border is the only line at the edge. */
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
   background-image: var(--bg-plus-grid);
@@ -1523,6 +1585,18 @@ html.dark body.va .ridge-pixel .ridge-label {
   background: var(--color-paper-deep);
   color: var(--color-ink);
   border: 1px solid var(--color-line);
+}
+
+/* The shared `.section` rule (ui/styles/components.css) stamps a
+   `border-top: 1px solid var(--color-ink)` on every section — which flips to
+   slate-50 (near-white) in dark mode. On the bands that directly FOLLOW a
+   ridge divider (feeds-band after ridge-pixel, docs-band after ridge-stars)
+   that white rule lands exactly on the ridge's bottom edge and reads as a
+   bright line. The ridge already carries the divider (its own soft border +
+   plus-grid + label), so drop the duplicate section top border here. */
+html.dark body.va .feeds-band.section,
+html.dark body.va .docs-band {
+  border-top-color: transparent;
 }
 
 /* ---- ridge-stars · FEEDS → DOCS (plus-marker constellation) ---- */
@@ -1701,6 +1775,7 @@ html.dark body.va .ridge-pixel .ridge-label {
 }
 .install-band .install-cap {
   color: rgba(255, 255, 255, 0.55);
+  margin-top: 22px;
 }
 .install-band .install-cap kbd {
   color: var(--color-paper);
@@ -2271,6 +2346,42 @@ html.dark .install-band .term {
 /* mini scan card (works for recent + trending) */
 .feeds-band .scan-card {
   gap: 10px;
+  position: relative;
+  /* Subtle hover affordance for the CLICKABLE feed tiles only (.scan-card is
+     the <a>; title/wire cells are not). Surface lift, no shadow, no movement. */
+  transition: background-color var(--dur-xs) var(--ease-std);
+}
+/* Teal accent line draws in across the top on hover — a "scan" cue that fits
+   the live-feed section. Transform-only (GPU), no layout shift. */
+.feeds-band .scan-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--brand-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-sm) var(--ease-out);
+}
+.feeds-band .scan-card:hover,
+.feeds-band .scan-card:focus-visible {
+  background: var(--color-paper-deep);
+}
+.feeds-band .scan-card:hover::after,
+.feeds-band .scan-card:focus-visible::after {
+  transform: scaleX(1);
+}
+.feeds-band .scan-card .name {
+  transition: color var(--dur-xs) var(--ease-std);
+}
+.feeds-band .scan-card:hover .name,
+.feeds-band .scan-card:focus-visible .name {
+  color: var(--brand-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .feeds-band .scan-card::after {
+    transition: none;
+  }
 }
 .feeds-band .scan-card .row {
   display: flex;
@@ -2468,6 +2579,16 @@ html.dark .install-band .term {
   .docs-band::after {
     width: 140px;
   }
+  /* At narrower widths the container fills most of the band, so the decorative
+     dotted gutters would bleed through the heading + reasons text (they sit
+     behind it with no backing). Give the content columns an opaque band-colour
+     backing so the text stays clean; the gutters then only peek in the margins. */
+  .docs-band .docs-side,
+  .docs-band .reasons-list {
+    position: relative;
+    z-index: 1;
+    background: var(--color-paper-deep);
+  }
 }
 @media (max-width: 980px) {
   .docs-band::before,
@@ -2499,22 +2620,29 @@ html.dark .install-band .term {
   grid-template-columns: 44px 120px 1fr 220px;
   gap: 24px;
   align-items: baseline;
-  padding: 22px 0 22px 0;
+  /* Right padding keeps the right-aligned meta column off the container edge
+     (and clear of the decorative gutter) so it never reads as cut off. */
+  padding: 22px 32px 22px 0;
   border-bottom: 1px dashed var(--color-line);
   text-decoration: none;
   color: var(--color-ink);
   transition:
     padding var(--dur-xs) var(--ease-std),
-    background var(--dur-xs) var(--ease-std);
+    background var(--dur-md) var(--ease-std);
 }
+/* The whole row is a link, so the hover is an honest clickable-row state: a
+   gentle eased surface fade (--dur-md, not an abrupt swap), a layout-neutral
+   10px indent (the 10px moves from right→left padding so content never
+   re-wraps), and the verb + arrows tint/slide in brand teal. */
 .reason-row:hover {
   padding-left: 10px;
+  padding-right: 22px;
   background: var(--color-paper);
 }
 .reason-row:hover .k {
   color: var(--brand-primary);
 }
-.reason-row:hover .arrow {
+.reason-row:hover .k .arrow {
   transform: translateX(4px);
   color: var(--brand-primary);
 }
@@ -2584,9 +2712,24 @@ html.dark .install-band .term {
   border-bottom: 1px dashed currentColor;
   padding-bottom: 1px;
   align-self: flex-end;
+  transition: border-bottom-color var(--dur-xs) var(--ease-std);
 }
-.reason-row .m .ml-link:hover {
-  color: var(--color-ink);
+/* The arrow inside the real link is the moving piece — it slides on row hover
+   (spotlighting the genuine target) and on direct link hover. */
+.reason-row .m .ml-link span {
+  display: inline-block;
+  transition: transform var(--dur-sm) var(--ease-out);
+}
+.reason-row:hover .ml-link {
+  border-bottom-style: solid;
+}
+.reason-row:hover .ml-link span {
+  transform: translateX(4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reason-row .m .ml-link span {
+    transition: none;
+  }
 }
 
 /* ----- MARQUEE BAND (replaces old Why band) ----- */
@@ -3043,6 +3186,10 @@ html.dark .install-band .term {
   position: relative;
   width: 100%;
   overflow: hidden;
+  /* Vertical breathing room so the tiles' 1px top/bottom borders aren't shaved
+     off by the (horizontally-needed) overflow:hidden clip — without it the last
+     row reads as bottomless. The horizontal marquee mask is unaffected. */
+  padding: 2px 0;
   -webkit-mask: linear-gradient(
     90deg,
     transparent 0,
@@ -3111,15 +3258,63 @@ html.dark .install-band .term {
   border-radius: 0;
   text-decoration: none;
   color: var(--color-ink);
+  /* Clip the scan beam (::after) to the tile. */
+  overflow: hidden;
   transition:
     border-color var(--dur-xs) var(--ease-std),
-    background var(--dur-xs) var(--ease-std),
-    transform var(--dur-xs) var(--ease-std);
+    background var(--dur-xs) var(--ease-std);
 }
-.dt-tile:hover {
-  border-color: var(--color-ink);
+/* Highlight: teal accent border + subtle surface lift (no shadow, no move). */
+.dt-tile:hover,
+.dt-tile:focus-visible {
+  border-color: var(--brand-primary);
   background: var(--color-paper-deep);
-  transform: translateY(-1px);
+}
+/* Rich flourish: a thematic teal "scan beam" wipes across the tile once on
+   hover/focus — on-brand for the detection section. GPU-only (transform +
+   opacity), no shadow, no layout movement. */
+.dt-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Neutral, low-key sheen — uses --color-ink so it's a light sweep on dark
+     tiles and a dark sweep on light tiles (theme-aware grey), kept subtle. */
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    color-mix(in srgb, var(--color-ink) 6%, transparent) 47%,
+    color-mix(in srgb, var(--color-ink) 16%, transparent) 50%,
+    color-mix(in srgb, var(--color-ink) 6%, transparent) 53%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .dt-tile:hover::after,
+  .dt-tile:focus-visible::after {
+    animation: dt-scan var(--dur-lg) var(--ease-out);
+  }
+}
+@keyframes dt-scan {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dt-tile:hover::after,
+  .dt-tile:focus-visible::after {
+    animation: none;
+  }
 }
 .dt-tile::before {
   content: "";
@@ -3243,12 +3438,6 @@ html.dark .install-band .term {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: var(--fg-3);
-}
-.detection-band .dt-foot-line .prefix {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
   color: var(--fg-3);
 }
 

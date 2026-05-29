@@ -18,8 +18,8 @@ describe('WhyRow', () => {
     expect(screen.getByText('five sub-rubrics')).toBeInTheDocument()
   })
 
-  it('renders the right-rail .ml-link when arrow is provided', () => {
-    render(
+  it('makes the whole row a single link to the arrow destination', () => {
+    const { container } = render(
       <WhyRow
         index="01"
         tag="find"
@@ -27,8 +27,19 @@ describe('WhyRow', () => {
         arrow={{ label: 'open methodology', href: '/methodology' }}
       />,
     )
-    const link = screen.getByRole('link', { name: /open methodology/i })
-    expect(link).toHaveAttribute('href', '/methodology')
+    const row = container.querySelector('a.reason-row')
+    expect(row).not.toBeNull()
+    expect(row).toHaveAttribute('href', '/methodology')
+    // exactly one link target per row; the right-rail label is a visual cue
+    expect(container.querySelectorAll('a').length).toBe(1)
+    expect(container.querySelector('.ml-link')?.tagName).toBe('SPAN')
+  })
+
+  it('degrades to a plain div when no arrow is provided', () => {
+    const { container } = render(<WhyRow index="02" tag="trust" body="x" />)
+    const row = container.querySelector('.reason-row')
+    expect(row?.tagName).toBe('DIV')
+    expect(container.querySelector('a')).toBeNull()
   })
 
   it('renders meta lines as .stat spans', () => {

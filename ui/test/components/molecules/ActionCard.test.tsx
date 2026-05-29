@@ -52,6 +52,13 @@ describe('ActionCard', () => {
     const link = screen.getByRole('link', { name: /Browse catalog/ })
     expect(link).toHaveAttribute('href', '/catalog')
     expect(screen.getByText('12,847')).toBeInTheDocument()
+    // The trailing arrow is split into its own aria-hidden span so it can be
+    // animated (slide) independently of the label on hover.
+    const arrow = link.querySelector('.p1-cta-arrow')
+    expect(arrow?.textContent).toBe('→')
+    expect(arrow).toHaveAttribute('aria-hidden', 'true')
+    // Accessible name excludes the decorative arrow.
+    expect(link).toHaveAccessibleName('Browse catalog')
   })
 
   it('is accessible (vitest-axe)', async () => {
