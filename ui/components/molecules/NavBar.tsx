@@ -10,6 +10,12 @@ interface Props {
   links?: NavLink[]
   ghCount?: number
   scanHref?: string
+  /**
+   * Current route path, passed from the Astro route (`Astro.url.pathname`) so
+   * the active link is computed identically on the server and the client.
+   * Reading `window.location` during render caused a hydration mismatch.
+   */
+  activePath?: string
 }
 
 const DEFAULT_LINKS: NavLink[] = [
@@ -27,16 +33,19 @@ const DEFAULT_LINKS: NavLink[] = [
  * `max-width: 1100px`, gains `backdrop-filter: blur(12px)`, hairline border,
  * soft shadow, and 4 corner registration marks.
  *
- * Wordmark + GhStar + scan CTA are rendered as Astro slots in webapp pages
- * so this island stays framework-agnostic. The CSS lives in
- * `webapp/src/styles/components.css::.nav`.
+ * Below 860px the horizontal nav (links + GhStar + scan CTA) no longer fits,
+ * so it collapses to a hamburger button that opens a slide-down drawer holding
+ * the same links + GhStar + CTA. The desktop row and the drawer share one
+ * `links` source; CSS toggles which is visible per breakpoint.
  */
 export default function NavBar({
   links = DEFAULT_LINKS,
   ghCount = 0,
   scanHref = '/scan',
+  activePath,
 }: Props) {
   const [scrolled, setScrolled] = useState(false)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -56,7 +65,18 @@ export default function NavBar({
     }
   }, [])
 
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
+  // Close the mobile drawer on Escape.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  const isActive = (href: string) =>
+    activePath === href ? 'page' : undefined
 
   return (
     <nav className={`nav ${scrolled ? 'scrolled' : ''}`.trim()} aria-label="Main navigation">
@@ -79,10 +99,7 @@ export default function NavBar({
         <ul className="nav-links">
           {links.map((link) => (
             <li key={link.href}>
-              <a
-                href={link.href}
-                aria-current={pathname === link.href ? 'page' : undefined}
-              >
+              <a href={link.href} aria-current={isActive(link.href)}>
                 {link.label}
               </a>
             </li>
@@ -92,6 +109,48 @@ export default function NavBar({
         <div className="nav-right btn-pair">
           {ghCount > 0 && <GhStar count={ghCount} />}
           <a href={scanHref} className="btn primary sm">
+            Scan a repo
+          </a>
+        </div>
+
+        <button
+          type="button"
+          className="nav-toggle"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-expanded={open}
+          aria-controls="nav-drawer"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="nav-toggle-bars" data-open={open} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
+      </div>
+
+      <div
+        id="nav-drawer"
+        className="nav-drawer"
+        data-open={open}
+        hidden={!open}
+      >
+        <ul className="nav-drawer-links">
+          {links.map((link) => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                aria-current={isActive(link.href)}
+                onClick={() => setOpen(false)}
+              >
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div className="nav-drawer-cta">
+          {ghCount > 0 && <GhStar count={ghCount} />}
+          <a href={scanHref} className="btn primary sm" onClick={() => setOpen(false)}>
             Scan a repo
           </a>
         </div>

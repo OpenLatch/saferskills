@@ -15,7 +15,7 @@ import '@/styles/page-about.css'
   title="About — SaferSkills"
   description="SaferSkills is the public, independent trust-scoring service for AI skills, MCP servers, hooks, and plugins. Stewarded by OpenLatch, open-source, methodology-driven."
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="ABOUT · 07 · /ABOUT"

@@ -52,6 +52,9 @@
   background: var(--color-paper-deep);
   border: 1px solid var(--color-line);
   color: var(--fg-1);
+  /* Long mono rule_ids / formulas must break instead of overflowing the
+     prose column on narrow screens (P-METH-1). */
+  overflow-wrap: anywhere;
 }
 
 .methodology-prose a {

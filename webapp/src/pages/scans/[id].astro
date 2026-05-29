@@ -36,7 +36,7 @@ const baseTitle = scan.display_name || scan.slug
       : `SaferSkills audit of ${baseTitle}: ${scan.aggregate_score}/100. Independent, methodology-open, free.`
   }
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow={`SCAN · 03 · /SCAN/<ID>`}

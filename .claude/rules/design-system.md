@@ -120,7 +120,9 @@ Both are theme-aware (slate-50 → slate-900 grid, slate-100 → slate-800 flat)
 
 ## Scrolled-pill nav
 
-`NavBar` morphs on scroll: transparent + full-width when `scrollY < 24`, then constrains to `max-width: 1100px`, gains `backdrop-filter: blur(12px)`, hairline border, soft shadow, and 4 corner registration marks (`+` crosshairs). Implemented via passive `scroll` listener throttled to `requestAnimationFrame`. Mobile (<980px): keeps full-width nav, corner marks hidden. Reduced-motion: no morph transition.
+`NavBar` morphs on scroll: transparent + full-width when `scrollY < 24`, then constrains to `max-width: 1100px`, gains `backdrop-filter: blur(12px)`, hairline border, soft shadow, and 4 corner registration marks (`+` crosshairs). Implemented via passive `scroll` listener throttled to `requestAnimationFrame`. Corner marks hidden below 980px. Reduced-motion: no morph transition.
+
+**Mobile collapse (≤860px).** Below 860px — the width at which the horizontal row (wordmark + 5 links + GhStar + scan CTA) no longer fits — the desktop links (`.nav-links`) and right cluster (`.nav-right`) are hidden and a squared, 0-radius, hairline **hamburger button** (`.nav-toggle`) is shown instead. Tapping it opens a slide-down drawer (`.nav-drawer`, absolutely positioned under the bar, `--color-paper` / `--color-line` / `--shadow-hairline`, blurred like the scrolled pill) holding all 5 links + GhStar + the "Scan a repo" CTA stacked. State lives in the `NavBar` island (`useState`); the drawer closes on link click and on `Escape`, carries the `hidden` attribute when closed (so it contributes zero width and stays out of the a11y tree), and its bar-to-X morph sits under the reduced-motion guard. **Active-link state is SSR-correct**: each route passes `activePath={Astro.url.pathname}` to `NavBar` and `aria-current` is derived from that prop — never from `window.location` during render (which caused a hydration mismatch). `≥861px` is byte-for-byte unchanged (`.nav-toggle` / `.nav-drawer` are `display:none`).
 
 ## Theme classes — `<html class="dark">`
 

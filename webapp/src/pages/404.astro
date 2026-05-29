@@ -12,7 +12,7 @@ import '@/styles/page-404.css'
   title="Page not found — SaferSkills"
   description="We can't find that skill, MCP, or page. Try a catalog search, scan a new GitHub URL, or take me home."
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
   <main class="not-found">
     <div class="container">
