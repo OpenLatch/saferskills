@@ -3,6 +3,7 @@ export const prerender = true
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import Input from '@ui/components/atoms/Input.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
@@ -12,7 +13,7 @@ import '@/styles/page-404.css'
   title="Page not found — SaferSkills"
   description="We can't find that skill, MCP, or page. Try a catalog search, scan a new GitHub URL, or take me home."
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <main class="not-found">
     <div class="container">

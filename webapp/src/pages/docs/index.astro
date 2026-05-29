@@ -3,10 +3,13 @@ export const prerender = true
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
+
+import { ruleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-docs.css'
 ---
@@ -14,7 +17,7 @@ import '@/styles/page-docs.css'
   title="Docs — SaferSkills"
   description="The SaferSkills CLI install docs ship in week 7-8. In the meantime, read the methodology behind every scan, view the README, or scan a repo yourself."
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="DOCS · 04 · /DOCS"
@@ -30,7 +33,7 @@ import '@/styles/page-docs.css'
           <span class="cta-eyebrow">METHODOLOGY</span>
           <h3 class="cta-title">The scoring rubric.</h3>
           <p class="cta-lede">
-            87 deterministic detection rules across 5 categories. Each rule has a
+            {ruleCount} deterministic detection rules across 5 categories. Each rule has a
             documented trigger, severity, and false-positive history.
           </p>
           <span class="cta-action">Read methodology →</span>

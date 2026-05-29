@@ -3,6 +3,7 @@ export const prerender = false
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
@@ -10,22 +11,29 @@ import Footer from '@ui/components/atoms/Footer.astro'
 import ScanSubmitForm from '@/components/scan/ScanSubmitForm.tsx'
 import ScanMethodologyPreview from '@/components/scan/ScanMethodologyPreview.astro'
 import { listRecentSubmissionScans } from '@/lib/api/scans'
+import { fetchPlatformStats } from '@/lib/api/stats'
+import { fetchOrNull, pickCount } from '@/lib/fallback'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-scan-submit.css'
 
 const recentScans = await listRecentSubmissionScans({ limit: 4 }).catch(() => [])
+
+// Live detection-rule count with the generated-methodology count as fallback.
+const stats = await fetchOrNull(fetchPlatformStats)
+const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 ---
 
 <Base
   title="Scan — SaferSkills"
   description="Paste a public GitHub URL. Get a transparent security report in ~30 seconds. Free. No account."
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="SCAN · 03 · /SCAN"
     title="Paste a GitHub URL. We do the rest."
-    lede="Independent audit across 87 detection rules. Free. No account. Bookmarkable report. Persists for 90 days."
+    lede={`Independent audit across ${ruleCount} detection rules. Free. No account. Bookmarkable report. Persists for 90 days.`}
   />
   <PageRidge variant="swell" label="— /SCAN —" />
 

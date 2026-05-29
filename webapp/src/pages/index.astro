@@ -21,31 +21,41 @@ import FeedsMosaic from '@/components/homepage/FeedsMosaic.astro'
 import DetectionBand from '@/components/homepage/DetectionBand.astro'
 import PixelWave from '@/components/homepage/PixelWave.astro'
 import HeroInputBar from '@/components/homepage/HeroInputBar.tsx'
+import HomepageLive from '@/components/homepage/HomepageLive.tsx'
 
-import { listRecentSubmissionScans, listTrendingScans } from '@/lib/api/scans'
-import {
-  SUPPORTED_AGENTS,
-  INDEXED_COUNT,
-  REGISTRIES_COUNT,
-} from '@/data/homepage-constants'
+import { SUPPORTED_AGENTS } from '@/data/homepage-constants'
+import type { PopularChip } from '@/data/launch-fallbacks'
+import { getHomepageData } from '@/lib/homepage'
+import { formatCount, formatSeconds } from '@/lib/format'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-home.css'
 
-const recentScans = await listRecentSubmissionScans({ limit: 3 }).catch(() => [])
-const trendingScans = await listTrendingScans({ limit: 3 }).catch(() => [])
+// One resolved view-model — every metric is live-with-fallback (build-time
+// correct even with an empty catalog + JS disabled). The `HomepageLive` island
+// re-runs the same view-model on the client to keep it fresh between deploys.
+const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
+
+// Popular-chip score swatch class (CSS supports green/yellow/orange; red→orange).
+const scClass = (tier: PopularChip['tier']): string =>
+  tier === 'green' ? 'green' : tier === 'yellow' ? 'yellow' : 'orange'
 
 // Hero action-card foot meta — passed as HTML strings (rendered via
 // dangerouslySetInnerHTML inside ActionCard) so the `<b>` emphasis ports
-// across the React-island serialization boundary without Astro's
-// JSX-shorthand parsing limits inside object literals.
-const findMetaHtml = `<b>${INDEXED_COUNT.toLocaleString()}</b> indexed · <b>${REGISTRIES_COUNT}</b> registries`
-const auditMetaHtml = 'avg <b>28s</b>'
+// across the React-island serialization boundary. `data-live-stat` marks the
+// nodes the client island patches with fresh values.
+const findMetaHtml = `<b data-live-stat="catalog_total">${formatCount(data.catalogTotal)}</b> indexed · <b data-live-stat="registries">${data.registriesCount}</b> registries`
+const auditMetaHtml = `avg <b data-live-stat="avg">${formatSeconds(data.avgLatencyMs)}</b>`
 ---
 <Base
   title="SaferSkills — Every AI skill, independently audited."
   bodyClass="va"
 >
-  <NavBar client:idle ghCount={26908} activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={data.githubStars} activePath={Astro.url.pathname} />
+
+  {/* Live-refresh island — re-runs the homepage view-model client-side and
+      patches the SSR DOM (scalars + Popular chips + recently-scanned feed). */}
+  <HomepageLive client:idle initial={data} />
 
   {/* ─────────────────────────────────────────────────────────
        BAND 1 — HERO
@@ -103,12 +113,15 @@ const auditMetaHtml = 'avg <b>28s</b>'
             submitAriaLabel="Submit search"
             shortcutKey="k"
           />
-          <div class="p1-tabs">
+          <div class="p1-tabs" data-live-popular>
             <span class="lbl">Popular</span>
-            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">claude-pdf</span><span class="sc green">95</span></button>
-            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">github-mcp</span><span class="sc green">87</span></button>
-            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">slack-bot</span><span class="sc yellow">71</span></button>
-            <button class="p1-chip" type="button"><span class="kbd">Tab</span><span class="nm">linear-mcp</span><span class="sc green">92</span></button>
+            {data.popular.map((chip) => (
+              <button class="p1-chip" type="button">
+                <span class="kbd">Tab</span>
+                <span class="nm">{chip.name}</span>
+                <span class={`sc ${scClass(chip.tier)}`}>{chip.score}</span>
+              </button>
+            ))}
           </div>
         </ActionCard>
 
@@ -147,10 +160,10 @@ const auditMetaHtml = 'avg <b>28s</b>'
       </div>
 
       <ul class="hero-stats" aria-label="Headline stats">
-        <li><b>{INDEXED_COUNT.toLocaleString()}</b> indexed</li>
-        <li><b>76</b>/100 median</li>
-        <li><b>87</b> detection rules</li>
-        <li><b>30s</b> p95 · free · no account</li>
+        <li><b data-live-stat="catalog_total">{formatCount(data.catalogTotal)}</b> indexed</li>
+        <li><b data-live-stat="median">{data.medianScore}</b>/100 median</li>
+        <li><b data-live-stat="rule_count">{data.ruleCount}</b> detection rules</li>
+        <li><b data-live-stat="p95">{formatSeconds(data.p95LatencyMs)}</b> p95 · free · no account</li>
       </ul>
 
     </div>
@@ -211,7 +224,7 @@ const auditMetaHtml = 'avg <b>28s</b>'
        ───────────────────────────────────────────────────────── */}
   <section class="section feeds-band">
     <div class="container">
-      <FeedsMosaic recent={recentScans} trending={trendingScans} />
+      <FeedsMosaic recent={data.recent} trending={data.trending} />
     </div>
   </section>
 
@@ -248,7 +261,7 @@ const auditMetaHtml = 'avg <b>28s</b>'
             tag="find"
             bodyHtml="<b>Unified catalog across 12+ registries.</b><span>GitHub, npm, PyPI, MCP Registry, mcp.so, Smithery, Glama, PulseMCP, ClawHub, skillsmp, skills.sh, ClaudeSkills, SkillHub. One search instead of twelve.</span>"
             metaLinesHtml={[
-              `<b>${INDEXED_COUNT.toLocaleString()}</b>indexed`,
+              `<b data-live-stat="catalog_total">${formatCount(data.catalogTotal)}</b>indexed`,
               `updated hourly`,
             ]}
             arrow={{ label: 'open methodology', href: '/methodology' }}
@@ -268,9 +281,9 @@ const auditMetaHtml = 'avg <b>28s</b>'
             client:visible
             index="03"
             tag="verify"
-            bodyHtml={'<b>Independent, transparent, open-source scoring.</b><span>87 deterministic detection rules across five categories. Every finding cites a rule ID and an evidence line — not &quot;AI thinks this is bad,&quot; only reproducible facts.</span>'}
+            bodyHtml={`<b>Independent, transparent, open-source scoring.</b><span><b data-live-stat="rule_count">${data.ruleCount}</b> deterministic detection rules across five categories. Every finding cites a rule ID and an evidence line — not &quot;AI thinks this is bad,&quot; only reproducible facts.</span>`}
             metaLinesHtml={[
-              `<b>87</b>rules · Apache 2.0`,
+              `<b data-live-stat="rule_count">${data.ruleCount}</b>rules · Apache 2.0`,
               `community PRs welcome`,
             ]}
             arrow={{ label: 'rule index', href: '/methodology' }}

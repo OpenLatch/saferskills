@@ -1,0 +1,295 @@
+/* Per-page CSS for the legal surfaces (/privacy, /cookies).
+ *
+ * Long-form legal documents rendered inside the standard non-homepage template
+ * (PageHead + PageRidge + alternating .page-section bands). Two bands:
+ *   .legal-band--intro  — meta row + lead + "at a glance" table + table-of-contents (on --grid)
+ *   .legal-band--body   — the numbered article prose (on --flat)
+ * Surfaces:
+ *   .legal-meta     — effective / updated / version mono row
+ *   .legal-lead     — intro paragraph(s)
+ *   .legal-table    — bordered data table (the at-a-glance + cookie tables)
+ *   .legal-toc      — table of contents (anchor list)
+ *   .legal-prose    — the article body (h2/h3/p/ul/ol/table/callout)
+ *   .legal-callout  — bordered block for the controller / contact details
+ */
+
+/* Generic padding + background are owned by .page-section (components.css). */
+.legal-band .container {
+  max-width: 880px;
+}
+
+/* ─────────── Meta row ─────────── */
+.legal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0 0 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px dashed var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.legal-meta b {
+  color: var(--fg-2);
+  font-weight: 700;
+}
+
+/* ─────────── Lead ─────────── */
+.legal-lead {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--fg-1);
+  margin: 0 0 16px;
+  text-wrap: pretty;
+}
+.legal-lead:last-of-type {
+  margin-bottom: 0;
+}
+.legal-lead strong {
+  font-weight: 700;
+  color: var(--fg-1);
+}
+
+/* ─────────── Section / "at a glance" label ─────────── */
+.legal-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--brand-accent);
+  font-weight: 700;
+  margin: 32px 0 12px;
+}
+
+/* ─────────── Tables (at-a-glance + cookie table) ─────────── */
+.legal-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+}
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  min-width: 560px;
+}
+.legal-table th,
+.legal-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 11px 14px;
+  border-bottom: 1px dashed var(--color-line);
+}
+.legal-table thead th {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 700;
+  background: var(--color-paper-deep);
+  border-bottom: 1px solid var(--color-ink);
+}
+.legal-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.legal-table td:first-child {
+  font-weight: 700;
+  color: var(--fg-1);
+}
+.legal-table code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--brand-primary);
+}
+
+/* ─────────── Table of contents ─────────── */
+.legal-toc {
+  margin: 36px 0 0;
+  padding: 22px 24px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+}
+.legal-toc h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+.legal-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 32px;
+  counter-reset: toc;
+}
+.legal-toc li {
+  break-inside: avoid;
+  margin: 0 0 7px;
+  counter-increment: toc;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.legal-toc li::before {
+  content: counter(toc, decimal-leading-zero);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--brand-accent);
+  margin-right: 10px;
+}
+.legal-toc a {
+  color: var(--fg-2);
+  text-decoration: none;
+}
+.legal-toc a:hover {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ─────────── Article prose ─────────── */
+.legal-prose > section {
+  margin: 0 0 40px;
+  scroll-margin-top: 96px;
+}
+.legal-prose > section:last-child {
+  margin-bottom: 0;
+}
+.legal-prose h2 {
+  font-family: var(--font-sans);
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: var(--fg-1);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.legal-prose h2 .sec-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--brand-accent);
+  flex: none;
+}
+.legal-prose h3 {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--fg-1);
+  margin: 24px 0 10px;
+}
+.legal-prose p {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.62;
+  color: var(--fg-2);
+  margin: 0 0 14px;
+  text-wrap: pretty;
+}
+.legal-prose ul,
+.legal-prose ol {
+  margin: 0 0 16px;
+  padding-left: 22px;
+}
+.legal-prose li {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0 0 8px;
+}
+.legal-prose strong {
+  font-weight: 700;
+  color: var(--fg-1);
+}
+.legal-prose a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.legal-prose code {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--brand-primary);
+  background: var(--color-paper-deep);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+}
+.legal-prose .legal-table-wrap {
+  margin: 8px 0 18px;
+}
+
+/* ─────────── Callout (controller block, contact) ─────────── */
+.legal-callout {
+  margin: 14px 0 18px;
+  padding: 18px 22px;
+  border: 1px solid var(--color-ink);
+  border-left-width: 3px;
+  border-left-color: var(--brand-primary);
+  background: var(--color-paper);
+}
+.legal-callout p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.legal-callout p + p {
+  margin-top: 8px;
+}
+.legal-callout .mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--brand-primary);
+}
+
+/* ─────────── Dark mode ─────────── */
+/* Intro band is --grid (slate-900): cards/tables on slate-800 read as elevated. */
+html.dark .legal-band--intro .legal-table-wrap,
+html.dark .legal-band--intro .legal-toc {
+  background: var(--bg-page-alt);
+  border-color: var(--color-line);
+}
+html.dark .legal-table thead th {
+  background: var(--bg-surface-mute);
+  border-bottom-color: var(--color-line);
+}
+/* Body band is --flat (slate-800): lift cards/tables to slate-700 to stay distinct. */
+html.dark .legal-band--body .legal-table-wrap,
+html.dark .legal-band--body .legal-callout {
+  background: var(--bg-surface-mute);
+  border-color: var(--color-line);
+}
+html.dark .legal-band--body .legal-callout {
+  border-left-color: var(--brand-primary);
+}
+html.dark .legal-prose code {
+  background: var(--bg-surface-mute);
+}
+
+/* ─────────── Mobile ─────────── */
+@media (max-width: 768px) {
+  .legal-lead {
+    font-size: 16px;
+  }
+  .legal-toc ol {
+    columns: 1;
+  }
+  .legal-prose h2 {
+    gap: 10px;
+  }
+}

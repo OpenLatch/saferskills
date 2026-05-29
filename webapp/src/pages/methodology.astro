@@ -3,6 +3,7 @@ export const prerender = true
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
@@ -11,14 +12,15 @@ import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import MethodologyIndex from '@/generated/methodology/index.mdx'
+import { ruleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-methodology.css'
 ---
 <Base
   title="Methodology — SaferSkills"
-  description="The full SaferSkills detection methodology — 87 deterministic rules across 5 categories. Every claim ties to a specific rule, a rubric version, and a hashed evidence pointer. Reproducible by any third party offline."
+  description={`The full SaferSkills detection methodology — ${ruleCount} deterministic rules across 5 categories. Every claim ties to a specific rule, a rubric version, and a hashed evidence pointer. Reproducible by any third party offline.`}
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="METHODOLOGY · 05 · /METHODOLOGY"

@@ -23,6 +23,7 @@ from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
 from app.models.vendor import VendorResponse
+from app.queries import latest_scan_tier_distribution
 from app.scan.report_builder import build_scan_report_detail
 from app.schemas.catalog_summary import (
     CatalogFacets,
@@ -116,30 +117,13 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
         )
     ).all()
 
-    # Tier facet: bucket by latest_scan_tier — needs the per-item latest scan.
-    latest_per_item = (
-        select(Scan.catalog_item_id, func.max(Scan.scanned_at).label("max_scanned_at"))
-        .group_by(Scan.catalog_item_id)
-        .subquery()
-    )
-    tier_rows = (
-        await session.execute(
-            select(Scan.tier, func.count(Scan.id))
-            .join(
-                latest_per_item,
-                and_(
-                    Scan.catalog_item_id == latest_per_item.c.catalog_item_id,
-                    Scan.scanned_at == latest_per_item.c.max_scanned_at,
-                ),
-            )
-            .group_by(Scan.tier)
-        )
-    ).all()
+    # Tier facet: bucket by latest_scan_tier — shared with /stats (queries.py).
+    tier_dist = await latest_scan_tier_distribution(session)
 
     return CatalogFacets(
         kind={k: int(c) for k, c in kind_rows},
         popularity_tier={k: int(c) for k, c in popularity_rows},
-        tier={k: int(c) for k, c in tier_rows},
+        tier=tier_dist,
         registry={k: int(c) for k, c in registry_rows},
         total=int(total),
     )

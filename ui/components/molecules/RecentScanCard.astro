@@ -19,6 +19,9 @@ interface Props {
   tier: Tier
   scannedAtRelative: string
   findingCount?: number
+  /** Stable key (e.g. "recent-0") so the homepage live island can re-render
+   * this cell from fresh data without a full reload. */
+  liveKey?: string
 }
 
 const {
@@ -30,6 +33,7 @@ const {
   tier,
   scannedAtRelative,
   findingCount,
+  liveKey,
 } = Astro.props
 
 const tierToIconClass: Record<Tier, string> = {
@@ -55,7 +59,7 @@ const monoLetter = tier === 'red' || tier === 'orange'
   ? 'O'
   : tier === 'yellow' ? 'Y' : 'G'
 ---
-<a class="scan-card recent" href={`/items/${slug}`} aria-label={`${name} — score ${score} of 100`}>
+<a class="scan-card recent" href={`/items/${slug}`} aria-label={`${name} — score ${score} of 100`} data-live-card={liveKey}>
   <div class="row">
     <div class="body">
       <div class="rank-pill">SCAN · {scannedAtRelative}</div>

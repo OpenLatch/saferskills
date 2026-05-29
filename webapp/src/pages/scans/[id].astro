@@ -3,6 +3,7 @@ export const prerender = false
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
@@ -11,6 +12,9 @@ import ScanProgressBoard from '@/components/scan/ScanProgressBoard.tsx'
 import ScanReportFull from '@/components/scan/ScanReportFull.tsx'
 
 import { fetchScanById } from '@/lib/api/scans'
+import { fetchPlatformStats } from '@/lib/api/stats'
+import { fetchOrNull, pickCount } from '@/lib/fallback'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-scan-progress.css'
 import '@/styles/page-scan-report.css'
@@ -25,6 +29,9 @@ if (!scan) {
   return Astro.redirect('/404')
 }
 
+const stats = await fetchOrNull(fetchPlatformStats)
+const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
+
 const isInProgress = scan.status === 'pending' || scan.status === 'running'
 const baseTitle = scan.display_name || scan.slug
 ---
@@ -37,14 +44,14 @@ const baseTitle = scan.display_name || scan.slug
       : `SaferSkills audit of ${baseTitle}: ${scan.aggregate_score}/100. Independent, methodology-open, free.`
   }
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow={`SCAN · 03 · /SCAN/<ID>`}
     title={isInProgress ? `Auditing ${baseTitle}` : `${baseTitle} ${scan.aggregate_score}/100`}
     lede={
       isInProgress
-        ? `87 detectors across 4 stages. The page auto-refreshes — every detector logs its status.`
+        ? `${ruleCount} detectors across 4 stages. The page auto-refreshes — every detector logs its status.`
         : `Independent audit · rubric ${scan.rubric_version.slice(0, 7)} · engine ${scan.engine_version.slice(0, 7)}.`
     }
   />
