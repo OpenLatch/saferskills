@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3-placeholder](https://github.com/OpenLatch/saferskills/compare/v0.0.2-placeholder...v0.0.3-placeholder) (2026-05-29)
+
+
+### Added
+
+* **scan:** phase A — data + rubric + seed rules + FP harness ([#16](https://github.com/OpenLatch/saferskills/issues/16)) ([fdd2b1f](https://github.com/OpenLatch/saferskills/commit/fdd2b1ffda217cc2a8b62d9352f67c490f1e8b23))
+
 ## [0.0.2-placeholder](https://github.com/OpenLatch/saferskills/compare/v0.0.1-placeholder...v0.0.2-placeholder) (2026-05-26)
 
 
