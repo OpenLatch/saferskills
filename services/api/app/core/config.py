@@ -106,6 +106,26 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _normalize_db_scheme(cls, value: str) -> str:
+        """Coerce the DSN to the async driver SQLAlchemy 2.x requires.
+
+        Managed Postgres providers — including Fly's `postgres attach` — hand
+        out `postgres://…` DSNs, but SQLAlchemy 2.x dropped the legacy
+        `postgres` dialect alias, so `create_async_engine` crashes boot with
+        `NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:postgres`.
+        Normalize a bare `postgres://` / `postgresql://` DSN to the
+        `postgresql+asyncpg://` form every consumer here expects
+        (`db/session.py`, `migrations/env.py`; `db_pool.py` strips the driver
+        hint back off for raw asyncpg). An explicit `+driver` is left intact.
+        """
+        if value.startswith("postgres://"):
+            return "postgresql+asyncpg://" + value.removeprefix("postgres://")
+        if value.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+        return value
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
