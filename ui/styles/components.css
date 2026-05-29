@@ -699,21 +699,16 @@ html.dark .nav-drawer-cta {
   .btn-pair {
     gap: 12px;
   }
+  /* Drop the hex mask on small screens for legibility. The second button in a
+     pair previously RE-APPLIED the chamfered caps here (higher specificity than
+     `.btn` below), which on mobile left its centered label spilling past the
+     hexagon edges (e.g. "Browse catalog"). Reset it to a plain rectangle too. */
   .btn-pair > * + .btn {
     margin-left: 0;
     padding-left: unset;
-    -webkit-mask:
-      var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
-      var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
-      linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
-      calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
-    mask:
-      var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
-      var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
-      linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
-      calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
+    -webkit-mask: none;
+    mask: none;
   }
-  /* Drop the hex mask on small screens for legibility */
   .btn {
     -webkit-mask: none;
     mask: none;
@@ -1681,11 +1676,13 @@ html.dark .footer .ft-col a {
     transform: translateX(-25%);
   }
 }
-@media (max-width: 768px), (prefers-reduced-motion: reduce) {
+/* Reduced-motion stops the scroll but keeps the single row (clipped by the
+   .marquee overflow:hidden). Mobile is NOT special-cased — it keeps the same
+   one-line scrolling strip as desktop instead of wrapping the 32 chips into a
+   tall multi-row grid. */
+@media (prefers-reduced-motion: reduce) {
   .marquee-track {
     animation: none;
-    flex-wrap: wrap;
-    justify-content: center;
   }
 }
 html.dark .agent-chip {

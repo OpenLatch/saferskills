@@ -772,6 +772,9 @@ html.dark .hero-band {
   display: flex;
   flex-direction: column;
   position: relative;
+  /* Shrink to the grid track on mobile so inner content (input bar, chip row)
+     wraps instead of forcing the card past the centred grid / viewport edge. */
+  min-width: 0;
 }
 /* slim machine head */
 .p1-card .p1-head {
@@ -1376,7 +1379,10 @@ html.dark body.va .p1-progress .row b {
 /* responsive */
 @media (max-width: 980px) {
   .hero-cards {
-    grid-template-columns: 1fr;
+    /* minmax(0,1fr) — not 1fr — so the single column can shrink to the
+       viewport instead of being forced wider by a card's min-content, which
+       made the Find/Audit cards hang off the right edge (look off-centre). */
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
   }
   .hero-band > .container {
@@ -1780,6 +1786,9 @@ html.dark body.va .docs-band {
 .install-band .install-cap kbd {
   color: var(--color-paper);
   border-color: rgba(255, 255, 255, 0.22);
+  /* Keep the "Copy command" tag on one line — it must never break mid-label. */
+  white-space: nowrap;
+  display: inline-block;
 }
 
 /* tabs + terminal — adjust borders for dark surround */
