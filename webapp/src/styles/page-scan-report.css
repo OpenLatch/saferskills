@@ -281,6 +281,25 @@
   color: var(--bg-paper, #fff);
 }
 
+/* Live badge preview (Phase C) */
+.embed-badge-box-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 1rem 0;
+}
+.embed-badge-box-preview img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.embed-badge-box-note {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  color: var(--fg-3, #888);
+}
+
 .scan-report-full-footer {
   display: flex;
   flex-wrap: wrap;

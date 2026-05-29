@@ -16,7 +16,7 @@ import app.models  # pyright: ignore[reportUnusedImport]
 from app.core.config import get_settings
 from app.core.db_pool import close_pool, init_pool
 from app.core.observability import init_observability
-from app.routers import health, items, scans
+from app.routers import health, items, scans, vendor
 
 
 @asynccontextmanager
@@ -65,3 +65,4 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(scans.router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
+app.include_router(vendor.router, prefix="/api/v1")

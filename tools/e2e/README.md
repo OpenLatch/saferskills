@@ -27,7 +27,11 @@ if the browser is missing.
 | `doctor`   | API + base-URL reachability, per-target latency.                               | None |
 | `smoke`    | `GET /api/v1/health` returns `{"status":"ok"}` and `/openapi.json` is parseable. | None |
 | `homepage` | Playwright loads `<base_url>`, asserts wordmark + email capture, screenshots.  | None |
-| `all`      | Runs `doctor → smoke → homepage` in order, stops on first failure.             | None |
+| `item-detail`    | Playwright loads `/items/<slug>` (slug from the API); asserts identity + score band. Empty catalog → skip. | None |
+| `vendor-respond` | Playwright loads `/items/<slug>/respond`; asserts the verify-challenge renders. Empty catalog → skip.       | None |
+| `badge-endpoint` | HTTP: `/badge/<scan_id>/<score>.svg` → 200 + SVG; tampered score → 400. No scans → skip.                    | None |
+| `og-endpoint`    | HTTP: `/og/scan/<scan_id>.png` → 200 + PNG magic. No scans → skip.                                          | None |
+| `all`      | Runs `doctor → smoke → homepage → item-detail → vendor-respond → badge-endpoint → og-endpoint`, stops on first failure. | None |
 
 ## Usage
 

@@ -1,6 +1,27 @@
 {
   "components": {
     "schemas": {
+      "AgentShare": {
+        "description": "One slice of the install agent-distribution row.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "percentage": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Percentage",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent",
+          "percentage"
+        ],
+        "title": "AgentShare",
+        "type": "object"
+      },
       "CatalogFacets": {
         "description": "Per-filter-option counts for the catalog filter sidebar.",
         "properties": {
@@ -503,6 +524,92 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "InstallActivity": {
+        "description": "Anonymized install counts + agent distribution. No company-level data.",
+        "properties": {
+          "agent_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/AgentShare"
+            },
+            "title": "Agent Distribution",
+            "type": "array"
+          },
+          "all_time": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "All Time",
+            "type": "integer"
+          },
+          "this_month": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "This Month",
+            "type": "integer"
+          },
+          "this_week": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "This Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_distribution"
+        ],
+        "title": "InstallActivity",
+        "type": "object"
+      },
+      "ItemDetailResponse": {
+        "description": "Full payload for the item-detail page.",
+        "properties": {
+          "install_activity": {
+            "$ref": "#/components/schemas/InstallActivity"
+          },
+          "item": {
+            "$ref": "#/components/schemas/CatalogItemDetail"
+          },
+          "latest_scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanReportDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "related_items": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedItem"
+            },
+            "title": "Related Items",
+            "type": "array"
+          },
+          "scan_history": {
+            "items": {
+              "$ref": "#/components/schemas/ScanHistoryPoint"
+            },
+            "title": "Scan History",
+            "type": "array"
+          },
+          "vendor_responses": {
+            "items": {
+              "$ref": "#/components/schemas/VendorResponsePublic"
+            },
+            "title": "Vendor Responses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item",
+          "scan_history",
+          "install_activity",
+          "related_items",
+          "vendor_responses"
+        ],
+        "title": "ItemDetailResponse",
+        "type": "object"
+      },
       "ListEnvelope": {
         "properties": {
           "data": {
@@ -534,6 +641,90 @@
           "data"
         ],
         "title": "ListEnvelope",
+        "type": "object"
+      },
+      "RelatedItem": {
+        "description": "One card in the related-items grid.",
+        "properties": {
+          "aggregate_score": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregate Score"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "enum": [
+                  "green",
+                  "yellow",
+                  "orange",
+                  "red",
+                  "unscoped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          }
+        },
+        "required": [
+          "slug",
+          "display_name"
+        ],
+        "title": "RelatedItem",
+        "type": "object"
+      },
+      "ScanHistoryPoint": {
+        "description": "One point on the 90-day score-history line.",
+        "properties": {
+          "aggregate_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Aggregate Score",
+            "type": "integer"
+          },
+          "scanned_at": {
+            "format": "date-time",
+            "title": "Scanned At",
+            "type": "string"
+          },
+          "tier": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scanned_at",
+          "aggregate_score",
+          "tier"
+        ],
+        "title": "ScanHistoryPoint",
         "type": "object"
       },
       "ScanReportDetail": {
@@ -823,6 +1014,183 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VendorResponsePublic": {
+        "description": "A verified-vendor public response, surfaced next to findings.",
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "body_markdown": {
+            "title": "Body Markdown",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "body_markdown",
+          "submitted_at",
+          "version"
+        ],
+        "title": "VendorResponsePublic",
+        "type": "object"
+      },
+      "VendorResponseRequest": {
+        "properties": {
+          "body_markdown": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body Markdown",
+            "type": "string"
+          },
+          "trigger_rescan": {
+            "default": false,
+            "title": "Trigger Rescan",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "body_markdown"
+        ],
+        "title": "VendorResponseRequest",
+        "type": "object"
+      },
+      "VendorResponseResult": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "rescan_triggered": {
+            "title": "Rescan Triggered",
+            "type": "boolean"
+          },
+          "response_id": {
+            "title": "Response Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "response_id",
+          "version",
+          "rescan_triggered"
+        ],
+        "title": "VendorResponseResult",
+        "type": "object"
+      },
+      "VendorSessionResponse": {
+        "properties": {
+          "github_user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github User"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "verified"
+        ],
+        "title": "VendorSessionResponse",
+        "type": "object"
+      },
+      "VerifyRedeemRequest": {
+        "properties": {
+          "github_user": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Github User",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "github_user"
+        ],
+        "title": "VerifyRedeemRequest",
+        "type": "object"
+      },
+      "VerifyRedeemResponse": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "github_user": {
+            "title": "Github User",
+            "type": "string"
+          },
+          "session_jwt": {
+            "title": "Session Jwt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_jwt",
+          "github_user",
+          "expires_at"
+        ],
+        "title": "VerifyRedeemResponse",
+        "type": "object"
+      },
+      "VerifyStartResponse": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expires_at",
+          "file_path"
+        ],
+        "title": "VerifyStartResponse",
+        "type": "object"
       }
     }
   },
@@ -1052,7 +1420,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CatalogItemDetail"
+                  "$ref": "#/components/schemas/ItemDetailResponse"
                 }
               }
             },
@@ -1072,6 +1440,226 @@
         "summary": "Get Item",
         "tags": [
           "items"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}/vendor/responses": {
+      "post": {
+        "operationId": "submit_response_api_v1_items__slug__vendor_responses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorResponseResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Response",
+        "tags": [
+          "vendor"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}/vendor/session": {
+      "get": {
+        "operationId": "vendor_session_api_v1_items__slug__vendor_session_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vendor Session",
+        "tags": [
+          "vendor"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}/vendor/verify/redeem": {
+      "post": {
+        "operationId": "verify_redeem_api_v1_items__slug__vendor_verify_redeem_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRedeemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyRedeemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Redeem",
+        "tags": [
+          "vendor"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}/vendor/verify/start": {
+      "post": {
+        "operationId": "verify_start_api_v1_items__slug__vendor_verify_start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Start",
+        "tags": [
+          "vendor"
         ]
       }
     },

@@ -4,6 +4,7 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import ScanProgressBoard from '@/components/scan/ScanProgressBoard.tsx'
@@ -46,8 +47,8 @@ const baseTitle = scan.display_name || scan.slug
         ? `87 detectors across 4 stages. The page auto-refreshes — every detector logs its status.`
         : `Independent audit · rubric ${scan.rubric_version.slice(0, 7)} · engine ${scan.engine_version.slice(0, 7)}.`
     }
-    path={`/scans/${id}`}
   />
+  <PageRidge variant="contour" label={`— /SCANS/${id.toUpperCase()} —`} />
 
   {isInProgress ? (
     <ScanProgressBoard client:load scanId={id} target={scan.github_url} startedAt={scan.scanned_at} />

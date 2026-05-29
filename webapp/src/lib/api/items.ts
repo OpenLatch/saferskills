@@ -1,4 +1,5 @@
 import { env } from '@/env'
+import type { ScanReportDetail } from '@/lib/api/scans'
 
 export type CatalogKind = 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
 export type ScanTier = 'green' | 'yellow' | 'orange' | 'red' | 'unscoped'
@@ -31,6 +32,48 @@ export interface CatalogListResponse {
   data: CatalogItemSummary[]
   next_cursor: string | null
   total_count: number
+}
+
+export interface ScanHistoryPoint {
+  scanned_at: string
+  aggregate_score: number
+  tier: ScanTier
+}
+
+export interface AgentShare {
+  agent: string
+  percentage: number
+}
+
+export interface InstallActivity {
+  this_week: number
+  this_month: number
+  all_time: number
+  agent_distribution: AgentShare[]
+}
+
+export interface RelatedItem {
+  slug: string
+  display_name: string
+  aggregate_score?: number | null
+  tier?: ScanTier | null
+}
+
+export interface VendorResponsePublic {
+  id: string
+  author: string
+  body_markdown: string
+  submitted_at: string
+  version: number
+}
+
+export interface ItemDetailResponse {
+  item: CatalogItemDetail
+  latest_scan: ScanReportDetail | null
+  scan_history: ScanHistoryPoint[]
+  install_activity: InstallActivity
+  related_items: RelatedItem[]
+  vendor_responses: VendorResponsePublic[]
 }
 
 export interface CatalogFacets {
@@ -84,12 +127,13 @@ export async function listCatalogItems(params: ListItemsParams = {}): Promise<Ca
   return (await res.json()) as CatalogListResponse
 }
 
-export async function getCatalogItem(slug: string): Promise<CatalogItemDetail> {
+export async function fetchItemBySlug(slug: string): Promise<ItemDetailResponse | null> {
   const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/items/${encodeURIComponent(slug)}`, {
     headers: { Accept: 'application/json' },
   })
+  if (res.status === 404) return null
   if (!res.ok) throw new Error(`API ${res.status}`)
-  return (await res.json()) as CatalogItemDetail
+  return (await res.json()) as ItemDetailResponse
 }
 
 export async function fetchCatalogFacets(): Promise<CatalogFacets> {

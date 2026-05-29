@@ -17,14 +17,16 @@ type Format = 'markdown' | 'html' | 'preview'
 /**
  * Embed-badge box shown on /scans/<id> + /items/<slug>.
  *
- * Phase B stub: 3 tabs (Markdown / HTML / Preview). Markdown + HTML render the
- * copy-pasteable snippet; Preview renders a placeholder span (live SVG ships
- * in Phase C with the badge endpoint).
+ * 3 tabs (Markdown / HTML / Preview). Markdown + HTML render the copy-pasteable
+ * snippet; Preview renders the live SVG served by the Phase-C badge endpoint.
+ * Origin resolves to the current site at runtime so the preview loads in dev.
  */
-export default function EmbedBadgeBox({ scanId, score, slug, origin = 'https://saferskills.ai', onCopy }: Props) {
+export default function EmbedBadgeBox({ scanId, score, slug, origin, onCopy }: Props) {
   const [format, setFormat] = useState<Format>('markdown')
-  const badgeUrl = `${origin}/badge/${scanId}/${score}.svg`
-  const linkUrl = slug ? `${origin}/items/${slug}` : `${origin}/scans/${scanId}`
+  const resolvedOrigin =
+    origin ?? (typeof window !== 'undefined' ? window.location.origin : 'https://saferskills.ai')
+  const badgeUrl = `${resolvedOrigin}/badge/${scanId}/${score}.svg`
+  const linkUrl = slug ? `${resolvedOrigin}/items/${slug}` : `${resolvedOrigin}/scans/${scanId}`
 
   const snippets: Record<Format, string> = {
     markdown: `[![SaferSkills ${score}/100](${badgeUrl})](${linkUrl})`,
@@ -58,8 +60,9 @@ export default function EmbedBadgeBox({ scanId, score, slug, origin = 'https://s
         </div>
       </header>
       {format === 'preview' ? (
-        <div className="embed-badge-box-preview" aria-label="Badge preview placeholder">
-          <span className="embed-badge-box-placeholder">SaferSkills · {score}/100 — live preview ships Phase C</span>
+        <div className="embed-badge-box-preview">
+          <img src={badgeUrl} alt={`SaferSkills score ${score} of 100`} width={280} height={60} />
+          <span className="embed-badge-box-note">Live SVG — exactly what the badge URL serves.</span>
         </div>
       ) : (
         <pre className="embed-badge-box-pre">

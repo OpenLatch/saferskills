@@ -4,6 +4,7 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import ScanSubmitForm from '@/components/scan/ScanSubmitForm.tsx'
@@ -25,8 +26,8 @@ const recentScans = await listRecentSubmissionScans({ limit: 4 }).catch(() => []
     eyebrow="SCAN · 03 · /SCAN"
     title="Paste a GitHub URL. We do the rest."
     lede="Independent audit across 87 detection rules. Free. No account. Bookmarkable report. Persists for 90 days."
-    path="/scan"
   />
+  <PageRidge variant="swell" label="— /SCAN —" />
 
   <section class="scan-split">
     <div class="scan-form-pane">

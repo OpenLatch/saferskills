@@ -1,0 +1,85 @@
+---
+export const prerender = false
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import RespondForm from '@/components/vendor/RespondForm.tsx'
+import VerifyChallenge from '@/components/vendor/VerifyChallenge.tsx'
+
+import { env } from '@/env'
+import { fetchItemBySlug } from '@/lib/api/items'
+import { VENDOR_SESSION_COOKIE } from '@/lib/vendor-session'
+
+import '@/styles/page-vendor-respond.css'
+
+const { slug } = Astro.params
+if (!slug) return Astro.redirect('/404')
+
+const detail = await fetchItemBySlug(slug).catch(() => null)
+if (!detail) return Astro.redirect('/404')
+const { item } = detail
+
+// Verified state lives in an HttpOnly cookie the API minted on redemption. The
+// webapp treats it as opaque and asks the backend (sole JWT verifier) whether
+// it is still valid for this slug.
+const sessionToken = Astro.cookies.get(VENDOR_SESSION_COOKIE)?.value
+let verifiedGithubUser: string | null = null
+if (sessionToken) {
+  try {
+    const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/items/${slug}/vendor/session`, {
+      headers: { Authorization: `Bearer ${sessionToken}`, Accept: 'application/json' },
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { verified: boolean; github_user: string | null }
+      if (data.verified) verifiedGithubUser = data.github_user
+    }
+  } catch {
+    /* backend unreachable → treat as unverified */
+  }
+}
+
+const isVerified = verifiedGithubUser !== null
+const titleName = item.display_name
+---
+
+<Base
+  title={`${isVerified ? 'Submit a response' : 'Verify yourself'} — ${titleName} — SaferSkills`}
+  description="Verified-vendor right-of-reply for a SaferSkills scan report."
+>
+  <NavBar client:idle />
+
+  <PageHead
+    eyebrow={`VENDOR · 07 · /ITEMS/${slug.toUpperCase()}/RESPOND`}
+    title={isVerified ? `Submit a response — ${titleName}` : `Verify yourself — ${titleName}`}
+    lede={isVerified
+      ? 'Your response appears publicly on the report alongside findings. It is not moderated, except for spam or illegal content.'
+      : 'Confirm you control the GitHub repo by committing a one-time token to .saferskills/verify.txt.'}
+  />
+  <PageRidge variant="swell" label={`— /ITEMS/${slug.toUpperCase()}/RESPOND —`} />
+
+  <section class="page-section page-section--flat vendor-band">
+    <div class="container">
+      {isVerified ? (
+        <RespondForm
+          client:load
+          slug={slug}
+          githubOrg={item.github_org}
+          githubRepo={item.github_repo}
+        />
+      ) : (
+        <VerifyChallenge
+          client:load
+          slug={slug}
+          githubOrg={item.github_org}
+          githubRepo={item.github_repo}
+        />
+      )}
+    </div>
+  </section>
+
+  <Footer />
+</Base>

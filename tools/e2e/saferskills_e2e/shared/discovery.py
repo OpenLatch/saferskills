@@ -1,0 +1,32 @@
+"""Catalog/scan discovery helpers for the Phase-C smoke commands.
+
+The item-detail / vendor-respond / badge / og commands all need to find a real
+slug or scan from the running API (the catalog is empty at I-03 ship until
+data-seed runs, so callers skip gracefully on `None`). Centralised here so the
+four commands share one `make_client`-based fetch instead of re-rolling httpx.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from saferskills_e2e.shared.config import Config
+from saferskills_e2e.shared.http_client import make_client
+
+
+async def discover_first_item_slug(config: Config) -> str | None:
+    """Slug of the first catalog item, or None when the catalog is empty."""
+    async with make_client(config) as client:
+        resp = await client.get(f"{config.api_url}/api/v1/items", params={"limit": 1})
+    resp.raise_for_status()
+    data = resp.json().get("data", [])
+    return data[0]["slug"] if data else None
+
+
+async def discover_first_scan(config: Config) -> dict[str, Any] | None:
+    """First scan summary (`id` + `aggregate_score` + …), or None when no scans."""
+    async with make_client(config) as client:
+        resp = await client.get(f"{config.api_url}/api/v1/scans", params={"limit": 1})
+    resp.raise_for_status()
+    data = resp.json().get("data", [])
+    return data[0] if data else None
