@@ -4,6 +4,7 @@ export const prerender = true
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
@@ -19,14 +20,10 @@ import '@/styles/page-docs.css'
     eyebrow="DOCS · 04 · /DOCS"
     title="CLI install docs coming with Track C."
     lede="The `npx saferskills install` command lands in week 7-8 of the build. In the meantime, read the methodology behind every scan, view the GitHub README, or scan a repo yourself."
-    path="/docs"
-    meta={[
-      { label: 'STATUS', value: 'wip' },
-      { label: 'SHIPS', value: 'W7 · Track C' },
-    ]}
   />
+  <PageRidge variant="swell" label="— /DOCS —" />
 
-  <section class="docs-band">
+  <section class="page-section page-section--grid docs-band">
     <div class="container">
       <div class="docs-cta-grid">
         <a class="docs-cta-card" href="/methodology">

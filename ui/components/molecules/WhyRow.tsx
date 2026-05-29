@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ElementType, ReactNode } from 'react'
 
 interface Props {
   /** Sequence number ("01"..."05") rendered as the leading `.n` column. */
@@ -26,9 +26,10 @@ interface Props {
  * a dashed bottom rule — the parent `.reasons-list` supplies the top hairline
  * of the first row.
  *
- * Per the mockup the row itself is a `<div>` (not a link); only the right-rail
- * `.ml-link` is an `<a>`. This preserves a single accessible link target per
- * row instead of a giant card link.
+ * The whole row is a single link to the reason's destination (`arrow.href`);
+ * the right-rail label is a visual `.ml-link` cue (a `<span>`, not a nested
+ * anchor) so the row stays one accessible link target. When no `arrow` is
+ * given the row degrades to a plain `<div>`.
  */
 export default function WhyRow({
   index,
@@ -39,8 +40,11 @@ export default function WhyRow({
   metaLinesHtml = [],
   arrow,
 }: Props) {
+  const href = arrow?.href
+  // Whole-row link when a destination exists; otherwise a plain div.
+  const Root: ElementType = href ? 'a' : 'div'
   return (
-    <div className="reason-row">
+    <Root className="reason-row" {...(href ? { href } : {})}>
       <div className="n">{index}</div>
       <div className="k">
         {tag}
@@ -69,11 +73,11 @@ export default function WhyRow({
               <span key={i} className="stat">{line}</span>
             ))}
         {arrow && (
-          <a className="ml-link" href={arrow.href}>
+          <span className="ml-link">
             {arrow.label} <span aria-hidden="true">→</span>
-          </a>
+          </span>
         )}
       </div>
-    </div>
+    </Root>
   )
 }

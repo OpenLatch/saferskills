@@ -9,13 +9,7 @@
  *   .reach-list     — email-address bullet list
  */
 
-.about-band {
-  padding: 80px 0;
-  background: var(--color-paper);
-}
-.about-band + .about-band {
-  border-top: 0;
-}
+/* Generic padding + background are owned by .page-section (components.css). */
 .about-band .container {
   max-width: 880px;
 }
@@ -289,9 +283,6 @@
 }
 
 /* ─────────── Dark mode tweaks ─────────── */
-html.dark .about-band {
-  background: var(--bg-page);
-}
 html.dark .about-band p,
 html.dark .founder-card .bio {
   color: var(--fg-2);
@@ -299,11 +290,16 @@ html.dark .founder-card .bio {
 html.dark .about-band h2 {
   color: var(--fg-1);
 }
+/* Cards on --grid bands (slate-900): a slate-800 surface reads as elevated. */
 html.dark .about-stats,
-html.dark .founder-card,
-html.dark .ol-box,
-html.dark .reach-list {
+html.dark .ol-box {
   background: var(--bg-page-alt);
+  border-color: var(--color-line);
+}
+/* Cards on --flat bands (slate-800): lift to slate-700 so they stay distinct. */
+html.dark .founder-card,
+html.dark .reach-list {
+  background: var(--bg-surface-mute);
   border-color: var(--color-line);
 }
 html.dark .about-stats .row.headline {
@@ -320,9 +316,6 @@ html.dark .outbound-note {
 
 /* ─────────── Mobile responsive ─────────── */
 @media (max-width: 768px) {
-  .about-band {
-    padding: 56px 0;
-  }
   .founder-card {
     grid-template-columns: 1fr;
     padding: 22px;

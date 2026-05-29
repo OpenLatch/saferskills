@@ -4,21 +4,10 @@
  * RuleCard styling lives co-located in webapp/src/components/methodology/RuleCard.astro.
  */
 
-.methodology-band {
-  padding: 64px 0;
-  background: var(--color-paper);
-}
-
+/* Generic padding + background are owned by .page-section (components.css). */
 .methodology-prose {
   max-width: 880px;
   margin: 0 auto;
-}
-
-.methodology-prose section {
-  margin-bottom: 48px;
-}
-.methodology-prose section:last-child {
-  margin-bottom: 0;
 }
 
 .methodology-prose .eyebrow {
@@ -120,9 +109,6 @@
   margin-block: 18px;
 }
 
-html.dark .methodology-band {
-  background: var(--bg-page);
-}
 html.dark .tier-list {
   background: var(--bg-page-alt);
   border-color: var(--color-line);
@@ -132,9 +118,9 @@ html.dark .methodology-prose code {
   border-color: var(--color-line);
   color: var(--fg-1);
 }
-
-@media (max-width: 640px) {
-  .methodology-band {
-    padding: 48px 0;
-  }
+/* Rule cards land on the --flat (#02 RULES) band, whose dark surface (slate-800)
+   matches the card's default. Recess the card to --color-paper (slate-900) so it
+   stays distinct from the band; the lighter inner chips gain contrast too. */
+html.dark .page-section--flat .rule-card {
+  background: var(--color-paper);
 }

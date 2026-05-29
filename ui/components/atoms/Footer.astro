@@ -11,8 +11,6 @@
  */
 import ThemeToggle from './ThemeToggle.tsx'
 
-const year = new Date().getFullYear()
-
 const cols = [
   {
     label: 'SCORES',
@@ -73,8 +71,7 @@ const cols = [
           Independent, transparent, open-source scoring for AI skills, MCPs, and plugins.
         </p>
         <p class="ft-meta">
-          <span class="live">●</span> 12,847 indexed · methodology open source<br />
-          stewarded by <a href="https://openlatch.ai" rel="noopener">OpenLatch</a>
+          Stewarded by <a href="https://openlatch.ai" rel="noopener">OpenLatch</a>
         </p>
         <ThemeToggle client:idle />
       </div>
@@ -94,10 +91,6 @@ const cols = [
           </ul>
         </div>
       ))}
-    </div>
-    <div class="ft-bottom">
-      <span>OSS · APACHE 2.0 · © {year}</span>
-      <span><a href="https://openlatch.ai" rel="noopener">An OpenLatch project</a></span>
     </div>
   </div>
 </footer>

@@ -1,6 +1,8 @@
 # CLAUDE.md — ui/
 
-Shared design system: tokens + framework-agnostic React 19 atoms + thin Astro shells. Brand sits on the OpenLatch-shared teal palette with distinction-by-shape (hex caps + page-head + ridge dividers) and distinction-by-type (DM Sans / Space Mono / Anybody / Nanum Pen Script + Onest 600 wordmark).
+Shared design system: tokens + framework-agnostic React 19 atoms + thin Astro shells. Brand sits on the OpenLatch-shared teal palette with distinction-by-shape (hex caps + page-head + ridge dividers + header ridges + alternating section surfaces) and distinction-by-type (DM Sans / Space Mono / Anybody / Nanum Pen Script + Onest 600 wordmark).
+
+Non-homepage pages follow a fixed template — `NavBar → PageHead → PageRidge → alternating .page-section bands → CtaBand → Footer`. `PageRidge` (`contour` / `mesh` / `swell`) is the rich header→body divider under `PageHead`; `.page-section--grid` / `.page-section--flat` (in `styles/components.css`) are the canonical alternating section surfaces. See `.claude/rules/design-system.md` § Header ridges + § Section surfaces.
 
 ## Hard rules
 

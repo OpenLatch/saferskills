@@ -4,11 +4,7 @@
  * the real CLI install docs ship.
  */
 
-.docs-band {
-  padding: 80px 0;
-  background: var(--color-paper);
-}
-
+/* Generic padding + background are owned by .page-section (components.css). */
 .docs-cta-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -67,9 +63,6 @@
   margin-top: auto;
 }
 
-html.dark .docs-band {
-  background: var(--bg-page);
-}
 html.dark .docs-cta-grid {
   background: var(--color-line);
 }
@@ -91,9 +84,6 @@ html.dark .docs-cta-card:hover {
 }
 
 @media (max-width: 640px) {
-  .docs-band {
-    padding: 56px 0;
-  }
   .docs-cta-card {
     padding: 24px 22px;
   }

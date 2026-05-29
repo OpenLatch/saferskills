@@ -64,7 +64,21 @@ export default function ActionCard({
       </div>
       {foot && (
         <div className="p1-foot">
-          <a className="p1-cta" href={foot.cta.href}>{foot.cta.label}</a>
+          <a className="p1-cta" href={foot.cta.href}>
+            {(() => {
+              // Split a trailing arrow glyph into its own span so it can slide
+              // on hover independently of the label (see .p1-cta-arrow).
+              const m = foot.cta.label.match(/^(.*?)\s*([→↗↑↪➜])$/)
+              return m ? (
+                <>
+                  {m[1]}
+                  <span className="p1-cta-arrow" aria-hidden="true">{m[2]}</span>
+                </>
+              ) : (
+                foot.cta.label
+              )
+            })()}
+          </a>
           {foot.metaHtml ? (
             <span
               className="meta"

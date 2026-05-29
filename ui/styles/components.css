@@ -837,7 +837,6 @@ html.dark .input input {
 .page-head {
   position: relative;
   background: var(--color-paper);
-  border-bottom: 1px solid var(--color-ink);
   padding: 56px 0 44px;
   overflow: hidden;
 }
@@ -935,27 +934,6 @@ html.dark .page-head::after {
   max-width: 640px;
   text-wrap: pretty;
 }
-.page-head .ph-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-top: 22px;
-  flex-wrap: wrap;
-}
-.page-head .ph-path {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--fg-3);
-  letter-spacing: 0.04em;
-  background: var(--color-paper-deep);
-  border: 1px solid var(--color-line);
-  padding: 6px 12px;
-}
-.page-head .ph-path b {
-  color: var(--color-ink);
-  font-weight: 700;
-}
-
 /* ============================================================
    RIDGES — section dividers
    ============================================================ */
@@ -1005,6 +983,9 @@ html.dark .page-head::after {
   border: 1px solid var(--color-line);
 }
 html.dark .ridge-stars {
+  /* Symmetric --color-line (slate-700) hairline on BOTH edges — the bottom
+     matches the top. The following docs-band suppresses its own white section
+     top border (see page-home.css) so this ridge border is the only line. */
   border-color: var(--color-line);
 }
 
@@ -1060,6 +1041,9 @@ html.dark .ridge-flow {
 }
 html.dark .ridge-pixel {
   background: var(--color-paper-deep);
+  /* Symmetric --color-line (slate-700) hairline top and bottom. The following
+     feeds-band suppresses its own white section top border (see page-home.css)
+     so this ridge border is the only line at the bottom edge. */
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
   background-image: var(--bg-plus-grid);
@@ -1072,6 +1056,148 @@ html.dark .ridge-pixel .ridge-label {
   background: var(--color-paper-deep);
   color: var(--color-ink);
   border: 1px solid var(--color-line);
+}
+
+/* ─────────── Header ridges (PageRidge) — the header→body transition ───────────
+   One distinct variant per non-homepage page (contour / mesh / swell), all
+   recombining the same brand cues. Replaces the old flat .page-head border.
+   Mark colors are token-driven so every stroke flips for dark mode for free. */
+.ridge-header {
+  background: var(--color-paper);
+}
+.ridge-header .rdg-s-teal {
+  stroke: var(--brand-primary);
+}
+.ridge-header .rdg-s-orange {
+  stroke: var(--brand-accent);
+}
+.ridge-header .rdg-s-ink {
+  stroke: var(--color-ink);
+}
+.ridge-header .ridge-label {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+}
+
+/* contour (/about) — topographic bundle + thin tick-ruler edge. */
+.ridge-contour {
+  height: 116px;
+}
+.ridge-contour::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.18) 1px, transparent 1px);
+  background-size:
+    120px 12px,
+    12px 12px;
+  background-position:
+    0 0,
+    0 4px;
+  background-repeat: repeat-x;
+  z-index: 1;
+  pointer-events: none;
+}
+html.dark .ridge-contour::before {
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(248, 250, 252, 0.18) 1px, transparent 1px);
+}
+
+/* mesh (/methodology) — plus-grid field (swaps via the dark grid token). */
+.ridge-mesh {
+  height: 104px;
+}
+.ridge-mesh::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--bg-plus-grid);
+  background-size: 32px 32px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* swell (/docs) — wave bundle + corner registration crosshairs. */
+.ridge-swell {
+  height: 116px;
+}
+
+/* ============================================================
+   SECTION SURFACES — reusable non-homepage page bands
+   Alternating rhythm, section to section:
+     --grid  ruled blueprint grid + `+` crosses at intersections (the homepage
+             install-band texture, recolored gray-on-light / faint-on-dark).
+     --flat  a simpler dot grid on a slightly deeper band.
+   Theme-aware. The canonical surface for every non-homepage section
+   (see design-system.md § Section surfaces).
+   ============================================================ */
+.page-section {
+  position: relative;
+  padding: 80px 0;
+  background: var(--color-paper);
+}
+.page-section > .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* --grid: ruled lines (60px) + a `+` cross at every intersection. */
+.page-section--grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g stroke='rgba(15,23,42,0.06)' stroke-width='1' stroke-linecap='square'><line x1='30' y1='25' x2='30' y2='35'/><line x1='25' y1='30' x2='35' y2='30'/></g></svg>"),
+    linear-gradient(rgba(15, 23, 42, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.02) 1px, transparent 1px);
+  background-size:
+    60px 60px,
+    60px 60px,
+    60px 60px;
+  background-position: center top;
+}
+html.dark .page-section--grid::before {
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g stroke='rgba(248,250,252,0.05)' stroke-width='1' stroke-linecap='square'><line x1='30' y1='25' x2='30' y2='35'/><line x1='25' y1='30' x2='35' y2='30'/></g></svg>"),
+    linear-gradient(rgba(248, 250, 252, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(248, 250, 252, 0.022) 1px, transparent 1px);
+}
+
+/* --flat: a simpler dot grid on a slightly deeper band (preserves card depth). */
+.page-section--flat {
+  background: var(--color-paper-deep);
+}
+.page-section--flat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1.3px, transparent 1.3px);
+  background-size: 28px 28px;
+  background-position: center top;
+}
+html.dark .page-section--flat::before {
+  background-image: radial-gradient(rgba(248, 250, 252, 0.04) 1.3px, transparent 1.3px);
+}
+
+html.dark .page-section {
+  background: var(--bg-page);
+}
+html.dark .page-section--flat {
+  background: var(--bg-page-alt);
+}
+@media (max-width: 768px) {
+  .page-section {
+    padding: 56px 0;
+  }
 }
 
 /* ============================================================
@@ -1177,8 +1303,6 @@ html.dark .cta-band h2 {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 48px;
-  padding-bottom: 48px;
-  border-bottom: 1px solid var(--color-slate-soft);
 }
 .ft-brand .word {
   font-family: var(--font-wordmark);
@@ -1242,24 +1366,6 @@ html.dark .cta-band h2 {
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-.ft-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding-top: 28px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  color: var(--color-slate-soft);
-}
-.ft-bottom a {
-  color: var(--color-slate-soft);
-}
-.ft-bottom a:hover {
-  color: var(--color-paper);
-}
 html.dark .footer {
   background-color: #060b14;
   background-image: repeating-linear-gradient(
@@ -1270,7 +1376,9 @@ html.dark .footer {
     transparent 14px
   );
   color: var(--fg-1);
-  border-top-color: var(--color-line);
+  /* CTA band and footer are both #060b14 in dark mode, so the top border
+     was just a stray bright seam between two identical surfaces — drop it. */
+  border-top-color: transparent;
 }
 html.dark .footer .ft-brand .word {
   color: var(--fg-1);
@@ -1286,10 +1394,6 @@ html.dark .footer .ft-col h6 {
 }
 html.dark .footer .ft-col a {
   color: rgba(255, 255, 255, 0.86);
-}
-html.dark .footer .ft-bottom {
-  color: rgba(255, 255, 255, 0.5);
-  border-top-color: rgba(255, 255, 255, 0.18);
 }
 
 /* ============================================================
@@ -1406,8 +1510,12 @@ html.dark .agent-chip:hover {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Solid (non-translucent) pill — the footer's diagonal hatch must NOT show
+     through it. The active button keeps the teal fill. #1A2237 is the same
+     elevated-dark surface used elsewhere in this file; the footer is dark in
+     both themes so a single value works. A faint hairline outlines the pill. */
+  background: #1a2237;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 3px;
 }
@@ -1441,6 +1549,10 @@ html.dark .theme-toggle button.active {
   width: 15px;
   height: 15px;
   display: block;
+}
+/* Footer layout: separate the theme toggle from the "stewarded by" meta line. */
+.ft-brand .theme-toggle {
+  margin-top: 24px;
 }
 
 /* ============================================================

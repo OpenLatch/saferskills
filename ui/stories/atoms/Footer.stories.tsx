@@ -19,8 +19,6 @@ export const Default: Story = () => (
           display: 'grid',
           gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
           gap: 48,
-          paddingBottom: 48,
-          borderBottom: '1px solid #475569',
         }}
       >
         <div>
@@ -29,6 +27,9 @@ export const Default: Story = () => (
           </span>
           <p style={{ color: '#CBD5E1', maxWidth: 360, marginTop: 14, fontSize: 15 }}>
             Every AI skill, independently audited. Public, open-source trust scoring across every agent platform.
+          </p>
+          <p style={{ color: '#64748B', marginTop: 20, fontFamily: 'monospace', fontSize: 11 }}>
+            Stewarded by OpenLatch
           </p>
         </div>
         {['SCORES', 'AGENTS', 'DOCS', 'PROJECT'].map((label) => (
@@ -45,21 +46,6 @@ export const Default: Story = () => (
             </ul>
           </div>
         ))}
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          paddingTop: 28,
-          fontFamily: 'monospace',
-          fontSize: 11,
-          letterSpacing: '0.25em',
-          textTransform: 'uppercase',
-          color: '#64748B',
-        }}
-      >
-        <span>OSS · APACHE 2.0 · © 2026</span>
-        <span>An OpenLatch project</span>
       </div>
     </div>
   </footer>
