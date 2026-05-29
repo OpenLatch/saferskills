@@ -78,6 +78,10 @@ No raw IPs, no emails, no URLs, no `matched_content` strings. Bucketing helpers 
 - **Single channel**: all alerts land in one Slack/Discord channel; the env tag (`development` / `staging` / `production`) is in the message body, never used as the channel router.
 - Sample rate: 100% of errors in W1 (low volume); revisit when traffic grows.
 
+## Outbound proxies — no PII
+
+The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes one cached hourly `api.github.com` call and stores **only the integer star count** — never request metadata, IPs, or user input. It is not a PostHog/Sentry event and adds nothing to any analytics leg. (GitHub rate-limit *incidents* during scans are covered by the closed-enum `github_rate_limit_hit` / `github_rate_limit_recovered` events above.)
+
 ## OpenTelemetry
 
 `OTEL_EXPORTER_OTLP_ENDPOINT` (optional; cf. `environment-config.md`). Server-side only at W1.

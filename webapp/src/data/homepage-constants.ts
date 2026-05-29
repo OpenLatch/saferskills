@@ -142,9 +142,6 @@ export const ATTACK_GRID = [
 
 export type AttackGridEntry = (typeof ATTACK_GRID)[number]
 
-export const INDEXED_COUNT = 12_847
-export const REGISTRIES_COUNT = 12
-
 /**
  * Detection-band tiles — Phase A2.
  *

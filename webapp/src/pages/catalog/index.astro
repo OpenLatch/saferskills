@@ -3,6 +3,7 @@ export const prerender = false
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
@@ -40,7 +41,7 @@ const emptyVariant: 'empty-catalog' | 'no-match' =
   title="Catalog — SaferSkills"
   description="Every AI skill, independently scanned. Unified catalog across 12+ registries."
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="CATALOG · 02 · /CATALOG"

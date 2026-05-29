@@ -14,50 +14,30 @@ import RecentScanCard from '@ui/components/molecules/RecentScanCard.astro'
 import TrendScanCard from '@ui/components/molecules/TrendScanCard.astro'
 import TitleCell from './TitleCell.astro'
 import WireCell from './WireCell.astro'
-
-interface ScanSummary {
-  slug: string
-  title?: string | null
-  author?: string | null
-  aggregate_score: number
-  tier: 'green' | 'yellow' | 'orange' | 'red' | 'unscoped'
-  scanned_at: string
-  findings_count?: number
-}
+import type { ScanReportSummary } from '@/lib/api/scans'
+import { pickList } from '@/lib/fallback'
+import { PLACEHOLDER_RECENT, PLACEHOLDER_TRENDING, TREND_STATS } from '@/data/launch-fallbacks'
 
 interface Props {
-  recent?: ScanSummary[]
-  trending?: ScanSummary[]
+  recent?: ScanReportSummary[]
+  trending?: ScanReportSummary[]
 }
 
 const { recent = [], trending = [] } = Astro.props
 
-const PLACEHOLDER_RECENT: ScanSummary[] = [
-  { slug: 'acme--github-mcp', title: 'github-mcp', author: 'acme', aggregate_score: 87, tier: 'green', scanned_at: '2m ago', findings_count: 0 },
-  { slug: 'alice--slack-bot', title: 'slack-bot', author: 'alice', aggregate_score: 42, tier: 'orange', scanned_at: '5m ago', findings_count: 2 },
-  { slug: 'tana--obsidian-mcp', title: 'obsidian-mcp', author: 'tana', aggregate_score: 71, tier: 'yellow', scanned_at: '8m ago', findings_count: 1 },
-]
-const PLACEHOLDER_TRENDING: ScanSummary[] = [
-  { slug: 'linear--mcp', title: 'linear-mcp', author: 'linear', aggregate_score: 96, tier: 'green', scanned_at: '7d', findings_count: 0 },
-  { slug: 'notion--mcp', title: 'notion-mcp', author: 'notion', aggregate_score: 88, tier: 'green', scanned_at: '7d', findings_count: 0 },
-  { slug: 'neon--mcp', title: 'neon-mcp', author: 'neon', aggregate_score: 84, tier: 'green', scanned_at: '7d', findings_count: 0 },
-]
+// Live-with-fallback: real data only when it has ≥3 items to look good
+// (getHomepageData already applies this; the picker here keeps the component
+// correct if rendered with raw arrays).
+const r = pickList(recent, PLACEHOLDER_RECENT, 3).slice(0, 3)
+const t = pickList(trending, PLACEHOLDER_TRENDING, 3).slice(0, 3)
 
-const r = (recent.length >= 3 ? recent : PLACEHOLDER_RECENT).slice(0, 3)
-const t = (trending.length >= 3 ? trending : PLACEHOLDER_TRENDING).slice(0, 3)
-
-const tierOrUnscoped = (tier: ScanSummary['tier']): 'green' | 'yellow' | 'orange' | 'red' =>
+const tierOrUnscoped = (tier: ScanReportSummary['tier']): 'green' | 'yellow' | 'orange' | 'red' =>
   tier === 'unscoped' ? 'red' : tier
-
-const TREND_STATS = [
-  { installs: 1247, delta: 312, spark: '▁▂▂▃▅▇█' },
-  { installs: 873, delta: 94, spark: '▁▂▃▃▄▆▇' },
-  { installs: 612, delta: 58, spark: '▁▁▂▃▄▅▆' },
-]
 ---
 <div class="mosaic">
   {/* Row 1 */}
   <RecentScanCard
+    liveKey="recent-0"
     slug={r[0].slug}
     name={r[0].title ?? r[0].slug}
     author={r[0].author ?? 'unknown'}
@@ -68,6 +48,7 @@ const TREND_STATS = [
     findingCount={r[0].findings_count}
   />
   <RecentScanCard
+    liveKey="recent-1"
     slug={r[1].slug}
     name={r[1].title ?? r[1].slug}
     author={r[1].author ?? 'unknown'}
@@ -82,6 +63,7 @@ const TREND_STATS = [
   {/* Row 2 */}
   <TitleCell />
   <RecentScanCard
+    liveKey="recent-2"
     slug={r[2].slug}
     name={r[2].title ?? r[2].slug}
     author={r[2].author ?? 'unknown'}

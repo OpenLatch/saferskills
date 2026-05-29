@@ -76,3 +76,6 @@ tools/e2e/**/artifacts/
 # Local Docker overrides
 docker-compose.override.yml
 .local/
+
+# Astro generated cache
+.astro/

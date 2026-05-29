@@ -37,7 +37,11 @@ export default function GhStar({
       aria-label={`Star ${repo} on GitHub`}
     >
       <span className="gh-l">{GH_ICON} Star</span>
-      <span className="gh-r">{formatStars(count)}</span>
+      {/* data-live-stat: the homepage HomepageLive island patches this with the
+          live repo star count once it clears the fallback threshold. */}
+      <span className="gh-r" data-live-stat="stars">
+        {formatStars(count)}
+      </span>
     </a>
   )
 }

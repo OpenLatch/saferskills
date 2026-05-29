@@ -88,6 +88,28 @@ Long-running scan progress is streamed from the backend via Server-Sent Events o
 
 Use the hook from React islands hydrated with `client:load` (the progress board needs to be live immediately when the user lands on `/scans/<id>`). Reduced-motion is handled at the molecule level (e.g. `ScanProgressBar`'s `reducedMotion` prop), not the hook.
 
+## Live data on a prerendered page (fallback primitives)
+
+**No metric is primarily hardcoded.** Every displayed data value originates from a live API call; an impressive launch placeholder survives ONLY as a fallback when the live source is too thin to look good. This keeps a page beautiful with an empty catalog and silently switches to real data as it fills.
+
+The primitives live in `webapp/src/lib/fallback.ts`:
+
+- `pickList(live, placeholder, minItems = 3)` — use the live array only when it has ≥ `minItems` items.
+- `pickCount(live, placeholder, minCount = 10)` — use the live scalar only when it clears the floor. (`rule_count` passes `minCount = 1` — any rule count is meaningful.)
+- `fetchOrNull(fn)` — error-safe fetch → `null`, so the picker (not a scattered `.catch(() => [])`) decides live-vs-placeholder.
+
+Fallback values are quarantined in **one** clearly-labeled module (`webapp/src/data/launch-fallbacks.ts`), header-commented "Used ONLY as fallback — never a primary source." Genuine config/copy/cited-facts (install paths, curated marketing taxonomy, scoring weights, About-page cited stats) stays out of it.
+
+### Build-seed-then-island-refresh
+
+The canonical shape for a **prerendered** page (`export const prerender = true`) that must stay fresh:
+
+1. A single view-model function (e.g. `lib/homepage.ts::getHomepageData`) fetches every source in parallel via `fetchOrNull`, runs the pickers, and returns one fully-resolved object.
+2. The `.astro` frontmatter calls it at **build time** and renders real-or-placeholder values into the static HTML — correct even with an empty catalog and JS disabled (Lighthouse ≥90 preserved).
+3. A small **island** (`client:idle`) seeded with the build-time view-model re-runs the same function on the client and **patches the existing SSR DOM in place** — it renders `null`, never rewrites structure. Scalar nodes carry `data-live-stat="<key>"`; list cells (feed cards) carry a stable `data-live-card`/container hook. Build with `textContent` + DOM nodes, **never `innerHTML` with API-derived strings** (anonymous-submitted GitHub URLs flow into `author`/`slug`).
+
+Counts derived from a config array (e.g. `SUPPORTED_AGENTS.length`) are config-derived, not magic literals — fine. The rule is **no orphan metric literals**. A build-time count that needs no API (e.g. "N detection rules") reads from generated data: `import { ruleCount } from '@/generated/methodology/index.mdx'`.
+
 ## Tailwind v4
 
 - **No `tailwind.config.js`.** Tokens live in `ui/styles/tokens.css` via the `@theme` directive (cf. `design-system.md`).

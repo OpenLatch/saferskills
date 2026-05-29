@@ -18,6 +18,7 @@ const {
   bodyClass,
 } = Astro.props
 import '@/styles/global.css'
+import NavStars from '@/components/NavStars.tsx'
 const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
 ---
 <!doctype html>
@@ -87,6 +88,10 @@ const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
   </head>
   <body class:list={['min-h-screen', 'flex', 'flex-col', bodyClass]}>
     <slot />
+
+    {/* Site-wide live refresh for the NavBar GitHub-star count (patches every
+        [data-live-stat="stars"] node). Position-independent. */}
+    <NavStars client:idle />
 
     {/*
       Observability bootstrap — env-checked init for Sentry + PostHog.

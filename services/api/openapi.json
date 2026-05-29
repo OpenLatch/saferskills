@@ -643,6 +643,103 @@
         "title": "ListEnvelope",
         "type": "object"
       },
+      "PlatformStats": {
+        "properties": {
+          "agents_count": {
+            "description": "Supported agent platforms (static config).",
+            "minimum": 0.0,
+            "title": "Agents Count",
+            "type": "integer"
+          },
+          "avg_latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Average scan latency in ms over completed scans.",
+            "title": "Avg Latency Ms"
+          },
+          "catalog_total": {
+            "description": "Non-archived catalog item count.",
+            "minimum": 0.0,
+            "title": "Catalog Total",
+            "type": "integer"
+          },
+          "github_stars": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Repo star count (cached proxy); null when unavailable.",
+            "title": "Github Stars"
+          },
+          "median_score": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "P50 aggregate score over completed scans.",
+            "title": "Median Score"
+          },
+          "p95_latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "P95 scan latency in ms over completed scans.",
+            "title": "P95 Latency Ms"
+          },
+          "registries_count": {
+            "description": "Distinct registries sourced from.",
+            "minimum": 0.0,
+            "title": "Registries Count",
+            "type": "integer"
+          },
+          "rule_count": {
+            "description": "Active rubric rule count the engine loads.",
+            "minimum": 0.0,
+            "title": "Rule Count",
+            "type": "integer"
+          },
+          "tier_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Item count bucketed by latest-scan tier.",
+            "title": "Tier Distribution",
+            "type": "object"
+          }
+        },
+        "required": [
+          "catalog_total",
+          "registries_count",
+          "rule_count",
+          "agents_count"
+        ],
+        "title": "PlatformStats",
+        "type": "object"
+      },
       "RelatedItem": {
         "description": "One card in the related-items grid.",
         "properties": {
@@ -1907,6 +2004,27 @@
         "summary": "SSE progress stream for a scan.",
         "tags": [
           "scans"
+        ]
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "operationId": "get_stats_api_v1_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Homepage platform metrics.",
+        "tags": [
+          "stats"
         ]
       }
     }

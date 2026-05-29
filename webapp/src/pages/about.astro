@@ -3,6 +3,7 @@ export const prerender = true
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
@@ -15,7 +16,7 @@ import '@/styles/page-about.css'
   title="About — SaferSkills"
   description="SaferSkills is the public, independent trust-scoring service for AI skills, MCP servers, hooks, and plugins. Stewarded by OpenLatch, open-source, methodology-driven."
 >
-  <NavBar client:idle activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="ABOUT · 07 · /ABOUT"
@@ -86,7 +87,15 @@ import '@/styles/page-about.css'
     <div class="container">
       <h2>Who's behind it.</h2>
       <div class="founder-card">
-        <span class="avatar" aria-hidden="true">LD</span>
+        <img
+          class="avatar"
+          src="/founder/luc-delsalle.webp"
+          width="64"
+          height="64"
+          alt="Luc Delsalle"
+          loading="lazy"
+          decoding="async"
+        />
         <div>
           <div class="name-row">
             <span class="name">Luc Delsalle</span>

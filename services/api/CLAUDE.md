@@ -9,6 +9,12 @@ FastAPI backend for the SaferSkills public catalog + scan engine.
 
 That's the entire shipped surface at W1. Everything else (catalog list, scan submit, scan report read) lands W2-3 via Track A/B.
 
+## Post-W1 routes
+
+- `GET /api/v1/items` / `/items/{slug}` / `/items/facets` — catalog browse (Track B).
+- `GET|POST /api/v1/scans` + `/scans/{id}` + `/scans/{id}/events` — scan list/submit/report/SSE (Track B).
+- `GET /api/v1/stats` — homepage platform metrics (catalog size, registries, tier mix, median score, scan latency, `rule_count`, agents, `github_stars`). 60s in-process TTL cache + `Cache-Control: s-maxage=60, stale-while-revalidate=300`. Shared aggregate SQL lives in `app/queries.py`; the GitHub-stars proxy (`app/services/github_stars.py`) caches one hourly `api.github.com` call. Backs the live-with-fallback homepage (`webapp` `getHomepageData`).
+
 ## Conventions
 
 - **Response models inherit `OrmBaseModel`** — `app/schemas/orm_base.py`. Never plain `BaseModel`. (`.claude/rules/naming-conventions.md`)

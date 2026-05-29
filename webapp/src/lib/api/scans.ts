@@ -40,16 +40,14 @@ export async function listRecentSubmissionScans({
   })
 }
 
-export async function listTrendingScans({
-  limit = 3,
-}: {
-  limit?: number
-} = {}): Promise<ScanReportSummary[]> {
-  return fetchScans({
-    source: 'trending',
-    limit: String(limit),
-    order: 'installs_desc',
-  })
+export async function listTrendingScans(
+  _opts: { limit?: number } = {}
+): Promise<ScanReportSummary[]> {
+  // TODO(I-05): wire to real install counts. Install tracking ships with the
+  // install CLI (I-05); until then `source=trending&order=installs_desc` has no
+  // valid backend mapping and would 422. Return empty so the caller cleanly
+  // falls back to the launch placeholder — no 422 / Sentry noise.
+  return []
 }
 
 export interface Finding {
