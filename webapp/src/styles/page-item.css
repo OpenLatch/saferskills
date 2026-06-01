@@ -9,41 +9,8 @@
  */
 
 /* ============================================================ HEADER ============================================================ */
-.sk-crumbs {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-.sk-crumbs a {
-  color: var(--fg-3);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  transition: color var(--dur-xs);
-}
-.sk-crumbs a:hover {
-  color: var(--brand-primary);
-}
-.sk-crumbs .bc-arrow {
-  font-size: 13px;
-  letter-spacing: 0;
-  transform: translateY(-0.5px);
-}
-.sk-crumbs .sep {
-  opacity: 0.4;
-}
-.sk-crumbs .cur {
-  color: var(--color-ink);
-}
-html.dark .sk-crumbs .cur {
-  color: var(--fg-1);
-}
+/* Breadcrumb is the shared DS `.breadcrumb` (ui/styles/components.css),
+   rendered by the <Breadcrumb> atom. */
 
 .sk-head-row {
   display: flex;
@@ -175,11 +142,13 @@ html.dark .sk-ghstats .ghstat.solid {
 /* ============================================================ STAT BAND ============================================================ */
 .sk-stat-band {
   background: var(--color-paper);
-  padding: 30px 0 8px;
+  padding: 30px 0 16px;
   border-top: 1px solid var(--color-ink);
 }
 html.dark .sk-stat-band {
-  background: transparent;
+  /* Solid surface (not transparent) so the body's plus-grid texture doesn't
+     show through behind the score/install cards — flat like light mode. */
+  background: var(--color-paper);
   border-top-color: var(--color-line);
 }
 .sk-stat-grid {
@@ -296,9 +265,7 @@ html.dark .sb-big {
   border: 1px solid var(--color-ink);
   transition:
     background var(--dur-xs),
-    color var(--dur-xs),
-    box-shadow var(--dur-xs),
-    transform var(--dur-xs);
+    color var(--dur-xs);
 }
 .rescan-btn svg {
   width: 13px;
@@ -326,8 +293,6 @@ html.dark .sb-big {
 .rescan-btn:hover {
   background: var(--color-ink);
   color: var(--color-paper);
-  box-shadow: var(--shadow-stamp-brand);
-  transform: translate(-1px, -1px);
 }
 .rescan-btn:hover svg {
   stroke: var(--brand-primary);
@@ -337,10 +302,6 @@ html.dark .sb-big {
   color: rgba(255, 255, 255, 0.6);
   border-left-color: rgba(255, 255, 255, 0.25);
 }
-.rescan-btn:active {
-  transform: translate(0, 0);
-  box-shadow: none;
-}
 html.dark .rescan-btn {
   background: transparent;
   color: var(--fg-1);
@@ -349,7 +310,13 @@ html.dark .rescan-btn {
 html.dark .rescan-btn:hover {
   background: var(--fg-1);
   color: var(--color-paper);
-  box-shadow: none;
+}
+/* Dark hover flips the bg to the light --fg-1, so the meta + divider must dim
+   the DARK ink (--color-paper), mirroring the light-mode white-on-ink treatment
+   above — otherwise the base rule's white-on-white renders the "~30s" invisible. */
+html.dark .rescan-btn:hover .rs-meta {
+  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
+  border-left-color: color-mix(in srgb, var(--color-paper) 25%, transparent);
 }
 .sk-scorebox .sb-facts {
   padding: 26px 28px;
@@ -459,12 +426,13 @@ html.dark .sk-installbox .ins-row b {
 /* ============================================================ MAIN GRID + TABS ============================================================ */
 .sk-main {
   background: var(--color-paper);
-  border-top: 1px solid var(--color-ink);
+  /* No top border — the stat band flows straight into the main section on
+     open whitespace (the bordered score/install cards provide the framing). */
   border-bottom: 1px solid var(--color-ink);
   padding: 48px 0 64px;
 }
 html.dark .sk-main {
-  border-color: var(--color-line);
+  border-bottom-color: var(--color-line);
 }
 .sk-grid {
   display: grid;
@@ -570,58 +538,6 @@ html.dark .sk-tab.on {
 }
 
 /* ===== SCORE BREAKDOWN ===== */
-.score-eq {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  border: 1px solid var(--color-ink);
-  background-image: var(--bg-plus-grid);
-  background-size: 40px 40px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
-}
-html.dark .score-eq {
-  border-color: var(--color-line);
-  background-image: none;
-}
-.score-eq .eq-final {
-  font-family: var(--font-loud);
-  font-stretch: 125%;
-  font-weight: 800;
-  font-size: 52px;
-  line-height: 0.9;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
-}
-html.dark .score-eq .eq-final {
-  color: var(--fg-1);
-}
-.score-eq .eq-final i {
-  font-family: var(--font-mono);
-  font-stretch: normal;
-  font-style: normal;
-  font-size: 16px;
-  font-weight: 400;
-  color: var(--fg-3);
-  margin-left: 2px;
-}
-.score-eq .eq-op {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  color: var(--fg-3);
-}
-.score-eq .eq-terms {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--fg-2);
-  flex: 1;
-  min-width: 200px;
-}
-.score-eq .band-pill {
-  align-self: flex-start;
-}
 .score-cats {
   border: 1px solid var(--color-ink);
   margin-bottom: 28px;
@@ -1101,6 +1017,60 @@ html.dark .diff-head .dh-compare .tag {
 html.dark .diff-file {
   background: rgba(255, 255, 255, 0.03);
 }
+/* Unified-diff lines — ported from the mockup (gut / sign / txt columns). The
+   add/del/hunk tint backgrounds keep the mockup's translucent rgba (this file
+   is exempt from check-css raw-hex rule a); the line text colors are tokenized
+   to the score-tier text tokens (light + dark via tokens.css). */
+.diff-line {
+  display: grid;
+  grid-template-columns: 44px 16px 1fr;
+  white-space: pre;
+  align-items: baseline;
+}
+.diff-line .gut {
+  color: var(--color-line);
+  text-align: right;
+  padding-right: 12px;
+  user-select: none;
+  font-size: 10.5px;
+}
+.diff-line .sign {
+  text-align: center;
+  user-select: none;
+}
+.diff-line .txt {
+  padding-right: 20px;
+  color: var(--fg-2);
+}
+.diff-line.add {
+  background: rgba(16, 185, 129, 0.09);
+}
+.diff-line.add .sign {
+  color: var(--score-green);
+}
+.diff-line.add .txt {
+  color: var(--score-green-text);
+}
+.diff-line.del {
+  background: rgba(239, 68, 68, 0.08);
+}
+.diff-line.del .sign {
+  color: var(--score-red);
+}
+.diff-line.del .txt {
+  color: var(--score-red-text);
+  text-decoration: none;
+}
+.diff-line.ctx .txt {
+  color: var(--fg-3);
+}
+.diff-hunk {
+  padding: 4px 20px;
+  color: var(--brand-primary);
+  background: rgba(13, 148, 136, 0.06);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
 
 /* ===== MARKDOWN VIEWER ===== */
 .md-viewer {
@@ -1324,6 +1294,10 @@ html.dark .md-body strong {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  /* Drop the column so the first card's top border lines up with the tab-bar
+     bottom rule on the left (.sk-tabs is 13px pad + content + 13px pad + 1px
+     border ≈ this height). Reset when the grid collapses below 1080px. */
+  margin-top: 47px;
 }
 .side-card {
   border: 1px solid var(--color-ink);
@@ -1350,43 +1324,8 @@ html.dark .side-card {
   height: 1px;
   background: currentColor;
 }
-.install-card .cmd {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.5;
-  background: var(--color-slate);
-  color: #e2e8f0;
-  padding: 14px;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.install-card .cmd .pr {
-  color: #14b8a6;
-  font-weight: 700;
-}
-.install-card .cmd .ctext {
-  color: #e2e8f0;
-}
-.install-card .cmd .arg {
-  color: #f9a35e;
-}
-.install-card .cmd .copy-mini {
-  margin-left: auto;
-  padding: 4px 9px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 0;
-  color: #cbd5e1;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  border-radius: 3px;
-  transition: background var(--dur-xs);
-}
-.install-card .cmd .copy-mini:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
+/* The install command box uses the shared DS `.sk-term` terminal
+   (ui/styles/components.css) — markup in InstallCard.tsx. */
 .install-card .install-note {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -1528,8 +1467,18 @@ html.dark .pkg-gh:hover {
 html.dark .sk-vendor {
   border-bottom-color: var(--color-line);
 }
-.sk-vendor .sb-eyebrow {
+/* Eyebrow + respond CTA share one line, vertically centered against each other
+   (the base .sb-eyebrow is 10px mono, the CTA 13px mono — center-align keeps
+   them on the same line cleanly). Vendor-response cards stack below. */
+.sk-vendor-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   margin-bottom: 18px;
+}
+.sk-vendor-head .vendor-respond-cta {
+  margin-top: 0;
 }
 .vendor-respond-cta {
   display: inline-block;
@@ -1565,6 +1514,8 @@ html.dark .sk-vendor {
     position: static;
     flex-direction: row;
     flex-wrap: wrap;
+    /* No tab bar to align with once the grid is single-column. */
+    margin-top: 0;
   }
   .sk-col-side .side-card {
     flex: 1 1 300px;
@@ -1602,5 +1553,85 @@ html.dark .sk-vendor {
   }
   .sk-ghstats {
     width: 100%;
+  }
+}
+
+/* ============================================================ ENTRANCE MOTION ============================================================ */
+/* Subtle top-to-bottom settling cascade on first paint — each region fades up
+   10px as the page is displayed, so the dense layout feels alive without ever
+   reading as a "loading" spinner. CSS keyframes (run off the main thread,
+   one-shot, non-interruptible) + `backwards` fill so elements start hidden.
+   Same vocabulary as page-vendor-respond.css `rail-fade-up`. transform/opacity
+   only (GPU, no reflow). Fully disabled under prefers-reduced-motion. */
+@keyframes sk-reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sk-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.sk-head-l,
+.sk-head-r,
+.sk-scorebox,
+.sk-installbox,
+.sk-col-main,
+.sk-col-side,
+.sk-vendor {
+  animation: sk-reveal-up var(--dur-md) var(--ease-out) backwards;
+}
+
+/* Cascade timing — header first, paired columns trail their sibling by ~60-80ms. */
+.sk-head-l {
+  animation-delay: 0ms;
+}
+.sk-head-r {
+  animation-delay: 80ms;
+}
+.sk-scorebox {
+  animation-delay: 120ms;
+}
+.sk-installbox {
+  animation-delay: 180ms;
+}
+.sk-col-main {
+  animation-delay: 200ms;
+}
+.sk-col-side {
+  animation-delay: 280ms;
+}
+.sk-vendor {
+  animation-delay: 340ms;
+}
+
+/* Score-breakdown bars grow from the left (scaleX respects the inline width),
+   landing just as the main column finishes settling. The default-visible panel,
+   so it plays on load. */
+.score-cats .sc-bar .track i {
+  transform-origin: left center;
+  animation: sk-bar-grow var(--dur-lg) var(--ease-out) 380ms backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-head-l,
+  .sk-head-r,
+  .sk-scorebox,
+  .sk-installbox,
+  .sk-col-main,
+  .sk-col-side,
+  .sk-vendor,
+  .score-cats .sc-bar .track i {
+    animation: none;
   }
 }

@@ -1,0 +1,31 @@
+---
+/**
+ * RuleGroup — one sub-score category section on /methodology, wrapping its
+ * RuleCards. Emitted by scripts/generate-methodology.cjs (one per category).
+ *
+ * Carries `data-category` so the RuleFilter island can hide the whole group
+ * (header + cards) when a filter leaves it with no visible rules. The header
+ * replaces the old plain markdown `## Security (35% of aggregate)` heading.
+ */
+interface Props {
+  category: string
+  title: string
+  weight: number
+  count: number
+}
+const { category, title, weight, count } = Astro.props as Props
+---
+
+<section class="rule-group" data-category={category} aria-label={title}>
+  <header class="rg-head">
+    <h3 class="rg-title">{title}</h3>
+    <span class="rg-meta">
+      <span class="rg-weight">{weight}%</span> of aggregate ·
+      <span class="rg-count" data-rg-count>{count}</span> rules
+    </span>
+  </header>
+  <div class="rg-cards">
+    <slot />
+  </div>
+  <p class="rg-empty" hidden>No rules in this category match the current filter.</p>
+</section>

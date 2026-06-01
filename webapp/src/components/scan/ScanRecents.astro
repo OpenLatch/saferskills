@@ -1,0 +1,53 @@
+---
+import BandPill from '@ui/components/atoms/BandPill'
+import type { ScanReportSummary, ScanTier } from '@/lib/api/scans'
+
+interface Props {
+  recentScans?: ScanReportSummary[]
+}
+
+const { recentScans = [] } = Astro.props
+
+function relAge(iso: string): string {
+  const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (secs < 3600) return `${Math.max(1, Math.round(secs / 60))}m ago`
+  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`
+  return `${Math.round(secs / 86400)}d ago`
+}
+
+function tierBand(tier: ScanTier): 'green' | 'yellow' | 'orange' | 'red' | null {
+  return tier === 'unscoped' ? null : tier
+}
+
+const recent = recentScans.slice(0, 4)
+---
+
+{recent.length > 0 && (
+  <section class="scan-recents page-section page-section--grid">
+    <div class="container">
+      <div class="sub-eyebrow" data-reveal>Recents · 03</div>
+      <h3 data-reveal style="--reveal-delay: 60ms">Recently scanned repositories</h3>
+      <div class="scan-recent">
+        <div class="grid">
+          {recent.map((scan) => {
+            const band = tierBand(scan.tier)
+            const orgRepo = scan.slug.replace('--', '/')
+            return (
+              <a class="rs-cell" href={`/scans/${scan.id}`} data-reveal>
+                <div class="top">
+                  <span class="nm">{scan.title ?? orgRepo}</span>
+                  {band ? <BandPill tier={band} /> : <span class="band-pill">Unscoped</span>}
+                </div>
+                <div class="top">
+                  <span class="scn">{scan.aggregate_score}</span>
+                  <span class="rs-time">{relAge(scan.scanned_at)}</span>
+                </div>
+                <div class="bot">scn_{scan.id.slice(0, 8)}… · {orgRepo}</div>
+              </a>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  </section>
+)}

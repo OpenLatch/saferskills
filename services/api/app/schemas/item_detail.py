@@ -19,6 +19,7 @@ item's popularity_score; I-05 (Install CLI) wires real install telemetry.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
@@ -41,15 +42,68 @@ class VersionPoint(OrmBaseModel):
 
     `tag` is the GitHub release tag when resolvable, else null (the UI falls back
     to the short ref SHA). `sub_scores` powers the per-category diff vs the
-    adjacent version.
+    adjacent version. `scan_id` keys the on-demand `/diff` + `/download`
+    endpoints (ref_sha is NOT unique per item — a re-scan under a new
+    rubric_version reuses the SHA). `has_snapshot` is true only when this scan
+    persisted a file snapshot (pre-storage scans have none).
     """
 
     tag: str | None = None
+    scan_id: str
     ref_sha: str
     scanned_at: datetime
     aggregate_score: int = Field(..., ge=0, le=100)
     tier: ScanTier
     sub_scores: dict[str, int] = Field(default_factory=dict)
+    has_snapshot: bool = False
+
+
+class DiffLine(OrmBaseModel):
+    """One rendered line of a unified diff."""
+
+    type: Literal["add", "del", "ctx"]
+    text: str
+    gutter: str = ""
+
+
+class DiffHunk(OrmBaseModel):
+    """A contiguous `@@ … @@` block of diff lines."""
+
+    header: str
+    # Required (the router always supplies the list) — keeps the field type
+    # fully known under pyright strict, unlike a bare `default_factory=list`.
+    lines: list[DiffLine]
+
+
+class DiffFile(OrmBaseModel):
+    """Per-file diff entry. `note` is set (and `hunks` empty) for binary /
+    not-stored / collapsed-oversize files that carry no renderable line body."""
+
+    path: str
+    status: Literal["added", "removed", "modified", "binary"]
+    hunks: list[DiffHunk]
+    note: str | None = None
+
+
+class DiffResponse(OrmBaseModel):
+    """Line-level diff between two stored scan snapshots (HEAD-over-time)."""
+
+    from_scan_id: str
+    to_scan_id: str
+    files: list[DiffFile]
+    truncated: bool = False
+
+
+class DownloadInfo(OrmBaseModel):
+    """Pointer to the latest scan whose stored snapshot can be served as a zip.
+
+    Null on the item-detail response when no scan has a snapshot yet (the UI
+    falls back to the GitHub zipball). `byte_size` is the total stored snapshot
+    size, surfaced as the real download size in the install card.
+    """
+
+    scan_id: str
+    byte_size: int = Field(default=0, ge=0)
 
 
 class ManifestSource(OrmBaseModel):
@@ -123,3 +177,6 @@ class ItemDetailResponse(OrmBaseModel):
     versions: list[VersionPoint] = Field(default_factory=list)
     # Primary manifest for the Source tab (null until captured at scan time).
     manifest: ManifestSource | None = None
+    # Latest scan with a stored snapshot → served-zip pointer (null until one
+    # exists; the install card falls back to the GitHub zipball).
+    download: DownloadInfo | None = None

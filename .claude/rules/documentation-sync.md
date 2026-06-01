@@ -4,7 +4,7 @@
 
 ## Rule files at W1
 
-12 forks + 2 SaferSkills-specific rules live under `.claude/rules/`.
+12 forks + 3 SaferSkills-specific rules live under `.claude/rules/`.
 
 | Always-on (no `paths:` frontmatter) | Path-scoped |
 |---|---|
@@ -17,13 +17,14 @@
 | | `frontend-patterns.md` (`webapp/**`, `ui/**`) |
 | | `methodology.md` (`docs/methodology.md`, `docs/rules.md`, `rubric/**`) |
 | | `vendor-appeals.md` (vendor-appeal templates + flows) |
+| | `database.md` (`services/api/migrations/**`, `app/models/**`, `app/db/**`) |
 
 ## Deferred rules (write when the feature lands)
 
 | Rule | Lands with |
 |---|---|
 | `security-auth.md` | Track E (W5) — auth, magic links, account routes |
-| `database.md` | First Alembic migration (W2 if scan-result schema; W5 if user store) |
+| ~~`database.md`~~ | **Written** (migration `0006_add_artifact_blobs` — first content-storage subsystem). Now active above. |
 | `multi-tenancy.md` | NEVER at W1 — SaferSkills is single-tenant public. Only write if the product pivots to multi-tenant. |
 | `client-schemas-sync.md` | If a cross-repo wire-format package is published (no plans at W1) |
 | `routing-engine.md` / `policy-engine.md` / `config-plane.md` | NEVER — SaferSkills has no detection plane / routing engine; scans are CI-driven, not request-driven |
@@ -47,7 +48,8 @@
 | New non-homepage page in `webapp/` | Must use the template: `PageHead` + `PageRidge` (new `variant`) + alternating `.page-section` bands — see `design-system.md` § Section surfaces |
 | New CLI command/script | Root `CLAUDE.md` + `scripts/README.md` |
 | New service in `services/` | `tech-stack.md`, `environment-config.md`, root `CLAUDE.md` |
-| DB schema/migration change | `database.md` (write the rule when it lands) |
+| DB schema/migration change | `database.md` + the model under `app/models/` + the registry import in `app/models/__init__.py` |
+| New stored-content table/column (e.g. `artifact_blobs`) | `database.md` + `security.md` § Vendor-data isolation (retention tier) — re-verify the trace stays no-raw-payload |
 | New env var | `environment-config.md`, `services/api/.env.example`, `webapp/.env.example` |
 | New rule under `rubric/` | `methodology.md` + the new rule doc + the CI lane that runs it |
 | New scan trigger / scan-pipeline change | `methodology.md` + `security.md` (scan-trace transparency) |

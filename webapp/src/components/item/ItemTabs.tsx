@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import type { ManifestSource, VersionPoint } from '@/lib/api/items'
+import {
+  type DiffResponse,
+  fetchItemDiff,
+  type ManifestSource,
+  type VersionPoint,
+} from '@/lib/api/items'
 import type { ScanReportDetail } from '@/lib/api/scans'
 import { renderMarkdown } from '@/lib/markdown'
 import { scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
 
 interface Props {
+  slug: string
   scan: ScanReportDetail
   versions: VersionPoint[]
   manifest: ManifestSource | null
@@ -39,7 +45,7 @@ function vband(tier: string): string {
   return TIER_TO_STRIPE[scoredTier(tier) ?? 'red']
 }
 
-export default function ItemTabs({ scan, versions, manifest }: Props) {
+export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
   const [tab, setTab] = useState<TabKey>('score')
   const [vi, setVi] = useState(0)
   const [mdRaw, setMdRaw] = useState(false)
@@ -79,21 +85,6 @@ export default function ItemTabs({ scan, versions, manifest }: Props) {
 
       {/* ===== SCORE BREAKDOWN ===== */}
       <div className="sk-panel" data-panel="score" hidden={tab !== 'score'}>
-        <div className="score-eq">
-          <span className="eq-final">
-            {scan.aggregate_score}
-            <i>/100</i>
-          </span>
-          <span className="eq-op">=</span>
-          <span className="eq-terms">
-            Σ ( category score × weight ) across 5 weighted categories, re-computed on every scan.
-          </span>
-          <span className={`band-pill ${vband(scan.tier)}`}>
-            <span className="sw" />
-            {scoredTier(scan.tier) ?? 'unscoped'} band
-          </span>
-        </div>
-
         <div className="score-cats">
           <div className="sc-row sc-head">
             <span>Category</span>
@@ -204,7 +195,7 @@ export default function ItemTabs({ scan, versions, manifest }: Props) {
                 </button>
               ))}
             </div>
-            <VersionDiff selected={versions[vi]} older={versions[vi + 1] ?? null} />
+            <VersionDiff slug={slug} selected={versions[vi]} older={versions[vi + 1] ?? null} />
           </div>
         )}
       </div>
@@ -267,7 +258,158 @@ export default function ItemTabs({ scan, versions, manifest }: Props) {
   )
 }
 
-function VersionDiff({ selected, older }: { selected: VersionPoint; older: VersionPoint | null }) {
+// Pre-keyed diff render model — unique stable keys (no array-index keys) for the
+// repeated hunk/line lists, assigned once when a DiffResponse arrives.
+interface DiffModelLine {
+  key: string
+  type: 'add' | 'del' | 'ctx'
+  text: string
+  gutter: string
+}
+interface DiffModelHunk {
+  key: string
+  header: string
+  lines: DiffModelLine[]
+}
+interface DiffModelFile {
+  key: string
+  path: string
+  status: string
+  note?: string | null
+  hunks: DiffModelHunk[]
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  added: 'added',
+  removed: 'removed',
+  modified: 'modified',
+  binary: 'binary',
+}
+
+function toDiffModel(data: DiffResponse): DiffModelFile[] {
+  let n = 0
+  return data.files.map((f) => ({
+    key: `f${n++}`,
+    path: f.path,
+    status: f.status,
+    note: f.note,
+    hunks: f.hunks.map((h) => ({
+      key: `h${n++}`,
+      header: h.header,
+      lines: h.lines.map((l) => ({ key: `l${n++}`, type: l.type, text: l.text, gutter: l.gutter })),
+    })),
+  }))
+}
+
+function DiffBody({
+  slug,
+  selected,
+  older,
+}: {
+  slug: string
+  selected: VersionPoint
+  older: VersionPoint
+}) {
+  const [state, setState] = useState<
+    | { kind: 'idle' }
+    | { kind: 'loading' }
+    | { kind: 'error' }
+    | { kind: 'ready'; files: DiffModelFile[]; truncated: boolean }
+  >({ kind: 'idle' })
+
+  const bothStored = selected.has_snapshot && older.has_snapshot
+
+  useEffect(() => {
+    if (!bothStored) {
+      setState({ kind: 'idle' })
+      return
+    }
+    let cancelled = false
+    setState({ kind: 'loading' })
+    fetchItemDiff(slug, selected.scan_id, older.scan_id)
+      .then((data) => {
+        if (cancelled) return
+        setState({ kind: 'ready', files: toDiffModel(data), truncated: data.truncated })
+      })
+      .catch(() => {
+        if (!cancelled) setState({ kind: 'error' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [slug, selected.scan_id, older.scan_id, bothStored])
+
+  if (!bothStored) {
+    return (
+      <div className="diff-body">
+        <div className="diff-file">
+          No stored snapshot for one of these scans — file diffs appear once both versions are
+          captured.
+        </div>
+      </div>
+    )
+  }
+  if (state.kind === 'loading' || state.kind === 'idle') {
+    return (
+      <div className="diff-body">
+        <div className="diff-file">Computing diff…</div>
+      </div>
+    )
+  }
+  if (state.kind === 'error') {
+    return (
+      <div className="diff-body">
+        <div className="diff-file">Could not load the diff for these scans.</div>
+      </div>
+    )
+  }
+  if (state.files.length === 0) {
+    return (
+      <div className="diff-body">
+        <div className="diff-file">No file changes between these snapshots.</div>
+      </div>
+    )
+  }
+  return (
+    <div className="diff-body">
+      {state.files.map((f) => (
+        <div key={f.key}>
+          <div className="diff-file">
+            {STATUS_LABEL[f.status] ?? f.status} · {f.path}
+            {f.note ? ` — ${f.note}` : ''}
+          </div>
+          {f.hunks.map((h) => (
+            <div key={h.key}>
+              <div className="diff-hunk">{h.header}</div>
+              {h.lines.map((ln) => (
+                <div key={ln.key} className={`diff-line ${ln.type}`}>
+                  <span className="gut">{ln.type === 'add' ? '' : ln.gutter}</span>
+                  <span className="sign">
+                    {ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}
+                  </span>
+                  <span className="txt">{ln.text}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+      {state.truncated && (
+        <div className="diff-file">Diff truncated — too large to render in full.</div>
+      )}
+    </div>
+  )
+}
+
+function VersionDiff({
+  slug,
+  selected,
+  older,
+}: {
+  slug: string
+  selected: VersionPoint
+  older: VersionPoint | null
+}) {
   const selTag = selected.tag ?? selected.ref_sha.slice(0, 7)
   if (!older) {
     return (
@@ -328,9 +470,7 @@ function VersionDiff({ selected, older }: { selected: VersionPoint; older: Versi
           )}
         </div>
       </div>
-      <div className="diff-body">
-        <div className="diff-file">file-level diffs — available after artifact storage ships</div>
-      </div>
+      <DiffBody slug={slug} selected={selected} older={older} />
     </div>
   )
 }

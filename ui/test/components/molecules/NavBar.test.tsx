@@ -15,8 +15,19 @@ describe('NavBar', () => {
     expect(screen.getByRole('link', { name: 'Methodology' })).toBeInTheDocument()
   })
 
-  it('renders the GhStar when count > 0', () => {
+  it('renders the GhStar with a count', () => {
     render(<NavBar ghCount={26908} />)
+    expect(screen.getByRole('link', { name: /Star.*GitHub/i })).toBeInTheDocument()
+    // Desktop + (hidden) drawer each render the chip.
+    expect(screen.getAllByText('26.9k')).toHaveLength(2)
+  })
+
+  // Regression: the GhStar must appear on EVERY page even when the route does
+  // not pass a count (the count is filled live by NavStars). Previously the
+  // NavBar gated it on `ghCount > 0`, so /items/<slug> + /respond (which pass no
+  // count) silently dropped the GitHub-star CTA from the top bar.
+  it('always renders the GhStar even with no ghCount', () => {
+    render(<NavBar />)
     expect(screen.getByRole('link', { name: /Star.*GitHub/i })).toBeInTheDocument()
   })
 

@@ -12,7 +12,9 @@ import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import MethodologyIndex from '@/generated/methodology/index.mdx'
-import { ruleCount } from '@/generated/methodology/rule-count'
+import { ruleCount, ruleStats } from '@/generated/methodology/rule-count'
+import FormulaPanel from '@/components/methodology/FormulaPanel.astro'
+import RuleFilter from '@/components/methodology/RuleFilter.tsx'
 
 import '@/styles/page-methodology.css'
 ---
@@ -20,6 +22,10 @@ import '@/styles/page-methodology.css'
   title="Methodology — SaferSkills"
   description={`The full SaferSkills detection methodology — ${ruleCount} deterministic rules across 5 categories. Every claim ties to a specific rule, a rubric version, and a hashed evidence pointer. Reproducible by any third party offline.`}
 >
+  {/* Mark JS active before paint so the reveal CSS's hidden start state only
+      applies when the IntersectionObserver below can undo it. */}
+  <script is:inline>document.documentElement.classList.add('js-anim')</script>
+
   <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
@@ -32,26 +38,7 @@ import '@/styles/page-methodology.css'
   {/* ─────────── §01 Scoring formula ─────────── */}
   <section class="page-section page-section--grid methodology-band" id="scoring-formula">
     <div class="container">
-      <article class="methodology-prose">
-        <Eyebrow withRule>FORMULA · 01</Eyebrow>
-        <h2 class="prose-h2">Scoring formula.</h2>
-        <p>
-          Aggregate score =
-          <code>round(0.35 × Security + 0.20 × Supply Chain + 0.15 × Maintenance + 0.15 × Transparency + 0.15 × Community)</code>.
-        </p>
-        <p>
-          Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. If any
-          finding in a sub-score is severity <code>critical</code>, the sub-score is
-          capped at 40 — the <strong>critical-floor</strong> rule that prevents a
-          catastrophic finding from being averaged away by minor passes.
-        </p>
-        <ul class="tier-list">
-          <li><span class="dot dot-g" aria-hidden="true"></span> Green ≥ 80 — safe to install.</li>
-          <li><span class="dot dot-y" aria-hidden="true"></span> Yellow 60-79 — caveats present.</li>
-          <li><span class="dot dot-o" aria-hidden="true"></span> Orange 40-59 — significant issues.</li>
-          <li><span class="dot dot-r" aria-hidden="true"></span> Red 0-39 — do not install.</li>
-        </ul>
-      </article>
+      <FormulaPanel />
     </div>
   </section>
 
@@ -64,14 +51,18 @@ import '@/styles/page-methodology.css'
         <Eyebrow withRule>RULES · 02</Eyebrow>
         <h2 class="prose-h2">The rules.</h2>
         <p>
-          Each card below is rendered from the rule's YAML frontmatter under
-          <code>rubric/&lt;CATEGORY&gt;/&lt;NAME&gt;-NN.md</code>. The
-          <code>rule_id</code> links to the source file at the current
-          <code>rubricSha</code>. Severity, status, and weight follow the locked
-          5-tier × 3-status × 5-axis taxonomy.
+          Each card is rendered from the rule's YAML frontmatter under
+          <code>rubric/&lt;CATEGORY&gt;/&lt;NAME&gt;-NN.md</code>; the
+          <code>rule_id</code> links to its source at the current
+          <code>rubricSha</code>. Filter by category, severity, or text — every
+          rule stays in the page (and the filter degrades to the full list
+          without JS).
         </p>
-        <MethodologyIndex />
       </article>
+      <RuleFilter client:idle groups={ruleStats} total={ruleCount} targetId="rules-index" />
+      <div class="rules-index" id="rules-index">
+        <MethodologyIndex />
+      </div>
     </div>
   </section>
 
@@ -132,4 +123,31 @@ import '@/styles/page-methodology.css'
   />
 
   <Footer />
+
+  {/* Entrance reveal — adds `.is-visible` to each `[data-reveal]` (just the
+      formula panel) as it scrolls into view, firing the weight-bar fill.
+      No-ops under reduced-motion (CSS keeps bars at rest size) and reveals
+      immediately where IntersectionObserver is unavailable. */}
+  <script is:inline>
+    ;(function () {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      var els = document.querySelectorAll('[data-reveal]')
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function (el) { el.classList.add('is-visible') })
+        return
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-visible')
+              io.unobserve(e.target)
+            }
+          })
+        },
+        { threshold: 0.12, rootMargin: '0px 0px -6% 0px' }
+      )
+      els.forEach(function (el) { io.observe(el) })
+    })()
+  </script>
 </Base>

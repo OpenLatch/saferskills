@@ -28,8 +28,14 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `LOG_LEVEL` | no | `INFO` | Python logging level |
 | `CORS_ALLOWED_ORIGINS` | yes | `http://localhost:4321` | Comma-separated origin list |
 | `SCAN_SUBMIT_DAILY_LIMIT` | no | `10` | Max scan submissions per IP per 24h (D-FE-11). Loopback callers are exempt (trusted local seeding) — see `security.md` § Public-input handling #5. |
+| `ARTIFACT_DOWNLOAD_DAILY_LIMIT` | no | `200` | Max stored-snapshot `.zip` downloads per IP per 24h (`GET /items/{slug}/download`). Same loopback exemption — see `security.md` § Public-input handling #6. |
 | `VENDOR_SESSION_SECRET` | yes (prod) | dev-insecure default | HS256 signing key for the vendor right-of-reply session JWT (`ss_vendor_session` cookie). The API is the sole verifier — the webapp stores the JWT opaquely and forwards it as a Bearer token. 32+ random bytes in prod; rotate quarterly (rotation only invalidates in-flight 15-min sessions). I-03 Phase C. |
 | `GITHUB_TOKEN` | no | unset | Optional GitHub PAT. Raises the 60→5,000 req/h limit for scan-tarball fetches + the hourly `/api/v1/stats` `github_stars` proxy. Unauthenticated is fine for the single cached hourly call. Emits no PII (cached count only, cf. `telemetry.md`). |
+
+> **Artifact storage needs no new env/secret.** Stored scan snapshots
+> (`artifact_blobs`, content-addressed) live in the single Postgres (`DATABASE_URL`)
+> — no object store, no bucket creds, no extra var. Preserves the single-store
+> rule (`tech-stack.md`). See `database.md`.
 
 ### Frontend (`webapp/.env.example`)
 

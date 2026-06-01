@@ -98,6 +98,14 @@ class Settings(BaseSettings):
         ge=1,
         description="Maximum scan submissions per IP per 24h window (D-FE-11).",
     )
+    artifact_download_daily_limit: int = Field(
+        default=200,
+        ge=1,
+        description=(
+            "Maximum stored-snapshot .zip downloads per IP per 24h window. "
+            "Loopback callers (trusted local seeding) are exempt."
+        ),
+    )
 
     # ── Vendor right-of-reply ──────────────────────────────────────────────
     # HS256 signing key for the short-lived `ss_vendor_session` JWT minted on

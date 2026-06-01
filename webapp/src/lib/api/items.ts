@@ -73,11 +73,46 @@ export interface VendorResponsePublic {
 
 export interface VersionPoint {
   tag: string | null
+  scan_id: string
   ref_sha: string
   scanned_at: string
   aggregate_score: number
   tier: ScanTier
   sub_scores: Record<string, number>
+  has_snapshot: boolean
+}
+
+export type DiffLineType = 'add' | 'del' | 'ctx'
+export type DiffFileStatus = 'added' | 'removed' | 'modified' | 'binary'
+
+export interface DiffLine {
+  type: DiffLineType
+  text: string
+  gutter: string
+}
+
+export interface DiffHunk {
+  header: string
+  lines: DiffLine[]
+}
+
+export interface DiffFile {
+  path: string
+  status: DiffFileStatus
+  hunks: DiffHunk[]
+  note?: string | null
+}
+
+export interface DiffResponse {
+  from_scan_id: string
+  to_scan_id: string
+  files: DiffFile[]
+  truncated: boolean
+}
+
+export interface DownloadInfo {
+  scan_id: string
+  byte_size: number
 }
 
 export interface RepoMeta {
@@ -105,6 +140,7 @@ export interface ItemDetailResponse {
   repo: RepoMeta
   versions: VersionPoint[]
   manifest?: ManifestSource | null
+  download?: DownloadInfo | null
 }
 
 export interface CatalogFacets {
@@ -179,6 +215,25 @@ export async function fetchItemBySlug(slug: string): Promise<ItemDetailResponse 
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`API ${res.status}`)
   return (await res.json()) as ItemDetailResponse
+}
+
+export async function fetchItemDiff(
+  slug: string,
+  toScanId: string,
+  fromScanId?: string
+): Promise<DiffResponse> {
+  const url = buildUrl(`/api/v1/items/${encodeURIComponent(slug)}/diff`, {
+    to: toScanId,
+    from: fromScanId,
+  })
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return (await res.json()) as DiffResponse
+}
+
+export function itemDownloadUrl(slug: string, scanId?: string): string {
+  const url = buildUrl(`/api/v1/items/${encodeURIComponent(slug)}/download`, { scan: scanId })
+  return url.toString()
 }
 
 export async function fetchCatalogFacets(): Promise<CatalogFacets> {

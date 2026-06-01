@@ -3,6 +3,7 @@ export const prerender = false
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
+import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
@@ -21,7 +22,7 @@ if (!slug) return Astro.redirect('/404')
 const detail = await fetchItemBySlug(slug).catch(() => null)
 if (!detail) return Astro.redirect('/404')
 
-const { item, latest_scan, scan_history, install_activity, vendor_responses, versions, repo, manifest } = detail
+const { item, latest_scan, scan_history, install_activity, vendor_responses, versions, repo, manifest, download } = detail
 
 const KIND_LABEL: Record<string, string> = {
   skill: 'Agent Skill',
@@ -78,13 +79,13 @@ const installsTotal = install_activity.all_time
 
   <header class="page-head sk-head">
     <div class="container">
-      <nav class="sk-crumbs" aria-label="Breadcrumb">
-        <a href="/catalog"><span class="bc-arrow" aria-hidden="true">←</span>Catalog</a>
-        <span class="sep" aria-hidden="true">/</span>
-        <a href={`/catalog?kind=${item.kind}`}>{kindPlural}</a>
-        <span class="sep" aria-hidden="true">/</span>
-        <span class="cur" aria-current="page">{item.display_name}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Catalog', href: '/catalog' },
+          { label: kindPlural, href: `/catalog?kind=${item.kind}` },
+          { label: item.display_name },
+        ]}
+      />
       <div class="sk-head-row">
         <div class="sk-head-l">
           <h1 class="ph-title">{item.display_name}<span class="script">— {kindLabel.toLowerCase()}</span></h1>
@@ -175,7 +176,7 @@ const installsTotal = install_activity.all_time
       <section class="sk-main">
         <div class="container">
           <div class="sk-grid">
-            <ItemTabs client:load scan={latest_scan} versions={versions} manifest={manifest ?? null} />
+            <ItemTabs client:load slug={slug} scan={latest_scan} versions={versions} manifest={manifest ?? null} />
             <aside class="sk-col-side">
               <InstallCard
                 client:visible
@@ -183,6 +184,7 @@ const installsTotal = install_activity.all_time
                 installsTotal={installsTotal}
                 latestVersion={repo.latest_version}
                 githubUrl={githubUrl}
+                download={download ?? null}
               />
               <div class="side-card pkg-card">
                 <h4>Package</h4>
@@ -206,7 +208,12 @@ const installsTotal = install_activity.all_time
 
       <section class="sk-vendor" id="vendor-response">
         <div class="container">
-          <div class="sb-eyebrow">Vendor response · right of reply</div>
+          <div class="sk-vendor-head">
+            <div class="sb-eyebrow">Vendor response · right of reply</div>
+            <a class="vendor-respond-cta" href={`/items/${slug}/respond`}>
+              Are you the maintainer? Submit a response →
+            </a>
+          </div>
           {vendor_responses.map((vr) => (
             <VendorResponseBlock
               client:visible
@@ -216,9 +223,6 @@ const installsTotal = install_activity.all_time
               version={vr.version}
             />
           ))}
-          <a class="vendor-respond-cta" href={`/items/${slug}/respond`}>
-            Are you the maintainer? Submit a response →
-          </a>
         </div>
       </section>
     </>

@@ -40,7 +40,7 @@ const DEFAULT_LINKS: NavLink[] = [
  */
 export default function NavBar({
   links = DEFAULT_LINKS,
-  ghCount = 0,
+  ghCount,
   scanHref = '/scan',
   activePath,
 }: Props) {
@@ -107,7 +107,10 @@ export default function NavBar({
         </ul>
 
         <div className="nav-right btn-pair">
-          {ghCount > 0 && <GhStar count={ghCount} />}
+          {/* GhStar is ALWAYS present — never gate it on a count. A page that
+              doesn't compute a count renders an empty chip that NavStars fills
+              live. This is the single top bar; do not hand-roll another. */}
+          <GhStar count={ghCount} />
           <a href={scanHref} className="btn primary sm">
             Scan a repo
           </a>
@@ -149,7 +152,7 @@ export default function NavBar({
           ))}
         </ul>
         <div className="nav-drawer-cta">
-          {ghCount > 0 && <GhStar count={ghCount} />}
+          <GhStar count={ghCount} />
           <a href={scanHref} className="btn primary sm" onClick={() => setOpen(false)}>
             Scan a repo
           </a>

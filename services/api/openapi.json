@@ -435,6 +435,153 @@
         "title": "CatalogListEnvelope",
         "type": "object"
       },
+      "DiffFile": {
+        "description": "Per-file diff entry. `note` is set (and `hunks` empty) for binary /\nnot-stored / collapsed-oversize files that carry no renderable line body.",
+        "properties": {
+          "hunks": {
+            "items": {
+              "$ref": "#/components/schemas/DiffHunk"
+            },
+            "title": "Hunks",
+            "type": "array"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "added",
+              "removed",
+              "modified",
+              "binary"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "status",
+          "hunks"
+        ],
+        "title": "DiffFile",
+        "type": "object"
+      },
+      "DiffHunk": {
+        "description": "A contiguous `@@ \u2026 @@` block of diff lines.",
+        "properties": {
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DiffLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "header",
+          "lines"
+        ],
+        "title": "DiffHunk",
+        "type": "object"
+      },
+      "DiffLine": {
+        "description": "One rendered line of a unified diff.",
+        "properties": {
+          "gutter": {
+            "default": "",
+            "title": "Gutter",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "add",
+              "del",
+              "ctx"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ],
+        "title": "DiffLine",
+        "type": "object"
+      },
+      "DiffResponse": {
+        "description": "Line-level diff between two stored scan snapshots (HEAD-over-time).",
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/DiffFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "from_scan_id": {
+            "title": "From Scan Id",
+            "type": "string"
+          },
+          "to_scan_id": {
+            "title": "To Scan Id",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "from_scan_id",
+          "to_scan_id",
+          "files"
+        ],
+        "title": "DiffResponse",
+        "type": "object"
+      },
+      "DownloadInfo": {
+        "description": "Pointer to the latest scan whose stored snapshot can be served as a zip.\n\nNull on the item-detail response when no scan has a snapshot yet (the UI\nfalls back to the GitHub zipball). `byte_size` is the total stored snapshot\nsize, surfaced as the real download size in the install card.",
+        "properties": {
+          "byte_size": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "scan_id": {
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scan_id"
+        ],
+        "title": "DownloadInfo",
+        "type": "object"
+      },
       "FindingResponse": {
         "properties": {
           "file_path": {
@@ -617,6 +764,16 @@
       "ItemDetailResponse": {
         "description": "Full payload for the item-detail page.",
         "properties": {
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "install_activity": {
             "$ref": "#/components/schemas/InstallActivity"
           },
@@ -1460,7 +1617,7 @@
         "type": "object"
       },
       "VersionPoint": {
-        "description": "One entry in the item's version-history rail (a scanned point in time).\n\n`tag` is the GitHub release tag when resolvable, else null (the UI falls back\nto the short ref SHA). `sub_scores` powers the per-category diff vs the\nadjacent version.",
+        "description": "One entry in the item's version-history rail (a scanned point in time).\n\n`tag` is the GitHub release tag when resolvable, else null (the UI falls back\nto the short ref SHA). `sub_scores` powers the per-category diff vs the\nadjacent version. `scan_id` keys the on-demand `/diff` + `/download`\nendpoints (ref_sha is NOT unique per item \u2014 a re-scan under a new\nrubric_version reuses the SHA). `has_snapshot` is true only when this scan\npersisted a file snapshot (pre-storage scans have none).",
         "properties": {
           "aggregate_score": {
             "maximum": 100.0,
@@ -1468,8 +1625,17 @@
             "title": "Aggregate Score",
             "type": "integer"
           },
+          "has_snapshot": {
+            "default": false,
+            "title": "Has Snapshot",
+            "type": "boolean"
+          },
           "ref_sha": {
             "title": "Ref Sha",
+            "type": "string"
+          },
+          "scan_id": {
+            "title": "Scan Id",
             "type": "string"
           },
           "scanned_at": {
@@ -1508,6 +1674,7 @@
           }
         },
         "required": [
+          "scan_id",
           "ref_sha",
           "scanned_at",
           "aggregate_score",
@@ -1811,6 +1978,137 @@
           }
         },
         "summary": "Get Item",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}/diff": {
+      "get": {
+        "description": "Line-level diff between two stored scan snapshots of the same item.\n\nBoth scans must belong to `slug`; `from` defaults to the scan just older\nthan `to`. 404 if either snapshot is absent (a pre-storage scan). The diff\nis CPU-bound, so it runs in a worker thread off the event loop.",
+        "operationId": "get_item_diff_api_v1_items__slug__diff_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "description": "scan_id of the newer snapshot",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "description": "scan_id of the newer snapshot",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "description": "scan_id of the older snapshot",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "scan_id of the older snapshot",
+              "title": "From"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Item Diff",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{slug}/download": {
+      "get": {
+        "description": "Serve a stored scan snapshot as a SaferSkills-built `.zip`.\n\nDefault target is the latest scan with a snapshot. Per-IP daily rate cap\n(loopback-exempt, cf. `scans.py::_is_loopback`) + a snapshot-size cap guard\nthe anonymous endpoint. Snapshots are immutable \u2192 far-future `Cache-Control`.",
+        "operationId": "download_item_snapshot_api_v1_items__slug__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "description": "scan_id; default = latest with a snapshot",
+            "in": "query",
+            "name": "scan",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "scan_id; default = latest with a snapshot",
+              "title": "Scan"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Item Snapshot",
         "tags": [
           "items"
         ]

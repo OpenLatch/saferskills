@@ -14,6 +14,7 @@
 }
 
 .docs-cta-card {
+  position: relative;
   background: var(--color-paper);
   padding: 32px 28px;
   display: flex;
@@ -21,14 +22,30 @@
   gap: 12px;
   text-decoration: none;
   color: inherit;
-  transition:
-    background var(--dur-xs) var(--ease-std),
-    transform var(--dur-xs) var(--ease-std);
+  transition: background var(--dur-xs) var(--ease-std);
   min-height: 220px;
 }
-.docs-cta-card:hover {
+/* Signature brand top-bar affordance — mirrors .scan-card (components.css):
+   a surface-color lift with NO movement (a translateY here would reveal a 1px
+   --color-line seam on the gap:0 bordered grid), plus a brand-primary bar that
+   scales in so the hovered card is unmistakable even on a subtle bg shift. */
+.docs-cta-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--brand-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-sm) var(--ease-out);
+}
+.docs-cta-card:hover,
+.docs-cta-card:focus-visible {
   background: var(--color-paper-deep);
-  transform: translateY(-1px);
+}
+.docs-cta-card:hover::after,
+.docs-cta-card:focus-visible::after {
+  transform: scaleX(1);
 }
 .docs-cta-card .cta-eyebrow {
   font-family: var(--font-mono);
@@ -46,6 +63,11 @@
   color: var(--fg-1);
   margin: 0;
   line-height: 1.15;
+  transition: color var(--dur-xs) var(--ease-std);
+}
+.docs-cta-card:hover .cta-title,
+.docs-cta-card:focus-visible .cta-title {
+  color: var(--brand-primary);
 }
 .docs-cta-card .cta-lede {
   font-family: var(--font-sans);
@@ -69,8 +91,15 @@ html.dark .docs-cta-grid {
 html.dark .docs-cta-card {
   background: var(--bg-page-alt);
 }
-html.dark .docs-cta-card:hover {
+html.dark .docs-cta-card:hover,
+html.dark .docs-cta-card:focus-visible {
   background: var(--bg-surface-mute);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-cta-card::after {
+    transition: none;
+  }
 }
 
 @media (max-width: 1023px) {

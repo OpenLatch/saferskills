@@ -1,5 +1,6 @@
 ---
 import { ruleCount } from '@/generated/methodology/rule-count'
+import WeightBars from '@ui/components/molecules/WeightBars'
 
 const CATS = [
   {
@@ -28,44 +29,14 @@ const CATS = [
     rules: 'SS-SKILL-COMMUNITY-STARS-01 · SS-SKILL-COMMUNITY-CONTRIBUTORS-01',
   },
 ] as const
-
-const DETAILS: { k: string; v: string; href?: string }[] = [
-  { k: 'Detectors', v: `${ruleCount} active` },
-  { k: 'Runtime', v: 'AWS Lambda' },
-  { k: 'Budget', v: '30s p95' },
-  { k: 'Source', v: 'openlatch/saferskills', href: 'https://github.com/openlatch/saferskills' },
-  { k: 'License', v: 'Apache 2.0' },
-  { k: 'Versioning', v: 'v1' },
-  { k: 'Rule index', v: '/methodology', href: '/methodology' },
-  { k: 'Changelog', v: '/docs', href: '/docs' },
-]
 ---
 
 <div class="sub-eyebrow">Methodology · 02</div>
 <h3>What we check &amp; how it&rsquo;s weighted</h3>
 
-<div class="method-cats">
-  {CATS.map((c) => (
-    <div class="row">
-      <div class="cat-name">
-        <b>{c.label}</b>
-        <span class="rule">{c.rules}</span>
-      </div>
-      <div class="wt">{c.weight}%</div>
-      <div class="bar"><i style={`width:${c.weight}%`} aria-hidden="true"></i></div>
-    </div>
-  ))}
-</div>
+<p class="method-foot">
+  {ruleCount} deterministic rules across five categories. Every finding cites a
+  rule ID and an evidence line — read the full <a class="link" href="/methodology">methodology</a>.
+</p>
 
-<ul class="method-details">
-  {DETAILS.map((d) => (
-    <li>
-      <span class="k">{d.k}</span>
-      {d.href ? (
-        <a class="v link" href={d.href}>{d.v}</a>
-      ) : (
-        <span class="v">{d.v}</span>
-      )}
-    </li>
-  ))}
-</ul>
+<WeightBars rows={CATS} />

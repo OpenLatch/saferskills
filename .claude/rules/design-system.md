@@ -27,7 +27,7 @@ All visual tokens live in `ui/styles/tokens.css` — colors, radii, spacing, typ
 | `--radius-xs` | `2px` | Form fields + chips (lone exception) |
 | `--radius-pill` | `999px` | Badges only (used sparingly) |
 | `--shadow-hairline` | `0 0 0 1px var(--color-ink)` | Single hairline borders, never thicker on UI chrome |
-| `--shadow-stamp` | `4px 4px 0 0 var(--color-ink)` | Press-block hover stamp on cards + featured items |
+| `--shadow-stamp` | `4px 4px 0 0 var(--color-ink)` | Press-block emphasis on **non-interactive** cards + featured items, used sparingly. **Never on buttons** — see Hex-button vocabulary § brutalist offset shadows |
 | `--font-display` / `--font-sans` | `DM Sans` (400-800) | Body + display |
 | `--font-mono` | `Space Mono` (400, 700) | Code + rule_ids + monospace meta |
 | `--font-loud` | `Anybody` (variable, wdth=125, weight=800) | Score numbers + loud stat displays |
@@ -42,7 +42,7 @@ Fonts ship via `@fontsource/*` packages (DM Sans, Space Mono, Onest, Nanum Pen S
 ui/
 ├── components/
 │   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, Chip, Badge, BandPill,
-│   │                 # ScoreNumber, DotStrip, Eyebrow, BracketLabel, Input, PageHead, RidgeStars,
+│   │                 # ScoreNumber, DotStrip, Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
 │   │                 # RidgeFlow, RidgePixel, ThemeToggle, RotatingHeadline, Toast, CopyButton,
 │   │                 # EmailCaptureForm (retained — reused by I-06 magic-link surface)
 │   ├── molecules/    # NavBar, CtaBand, AgentMarquee, WhyRow, InstallTabs, ActionCard,
@@ -97,9 +97,15 @@ The signature button silhouette is a chamfered hexagonal cap shape rendered via 
 - **`Badge`** — 28px h, 12px caps, mono uppercase 700 — status flags ("LIVE", "INDEXED").
 - **`GhStar`** — GitHub star CTA, paired half-cap segments.
 
+### Buttons never use "brutalist" offset shadows
+
+Buttons and any link/control styled as a button (e.g. `.rescan-btn`, `.pkg-gh`) **never** use an offset "stamp"/drop shadow on hover (`box-shadow: 4px 4px 0 …` + `transform: translate(-1px,-1px)`) — that brutalist treatment is banned on interactive controls. Hover state reuses the DS `Button` language: a **background fill** change (e.g. ink→paper, or `primary`→`primary-dark`) plus at most a `translateY(-1px)` lift. No box-shadow, no diagonal nudge.
+
+`--shadow-stamp` is reserved for **non-interactive emphasis on cards/featured items** (e.g. `.rule-card:target`), used sparingly — never on a button. (`--shadow-stamp-brand` was removed; it had no remaining sanctioned use.)
+
 ## Page-head pattern
 
-Every in-app page (catalog / scan / report / item / about / docs / methodology) starts with a `<PageHead>` strip. Props: `eyebrow`, `title`, `lede?`, `className?`. CSS lives in `ui/styles/components.css::.page-head`. Includes the 12px tick-ruler accent at top, the 40×40 plus-grid background, `<mark>` highlight option, and an orange `<span class="script">` accent option.
+Every in-app page (catalog / scan / report / item / about / docs / methodology) starts with a `<PageHead>` strip. Props: `eyebrow`, `title`, `lede?`, `className?`. CSS lives in `ui/styles/components.css::.page-head`. Includes the 12px tick-ruler accent at top, the 40×40 plus-grid background, `<mark>` highlight option, and an orange `<span class="script">` accent option. The `<mark>` highlight (driven by `--brand-highlight`) is **theme-aware**: pale teal tint on light paper, deep teal (`--ol-brand-primary-dark`) in dark mode — the same treatment as the homepage hero rotator (`--color-citron`), so every highlighted title reads identically across pages and modes.
 
 On every non-homepage page a `<PageRidge>` is placed **directly under** the `<PageHead>` — it provides the header→body transition (replacing the old flat `1px solid ink` border) and carries the page-path cue in its centered label. See "Header ridges" below. (Metadata pills were removed; a future data-heavy page that needs page-level metadata reintroduces a dedicated component then — per scope discipline.)
 
@@ -107,11 +113,12 @@ On every non-homepage page a `<PageRidge>` is placed **directly under** the `<Pa
 
 ### Inter-section ridges
 
-Three variants, between content sections:
+Four variants, between content sections:
 
 - **`RidgeStars`** — paper-deep bg with plus-grid pattern overlay; 72px tall.
 - **`RidgeFlow`** — gradient transition between sections (paper-deep → paper); 88px tall.
 - **`RidgePixel`** — dark-slate bg with the orange tick-ruler accent; 64px tall (used as transition INTO dark sections).
+- **`RidgeRuler`** — the quiet one: a 48px paper-deep band carrying only a centered tick ruler (orange majors + faint minors), no fill or hatch. Pure-CSS (no SVG), theme-aware (reads light-on-light and dark-on-dark). A discrete "ruler" seam — e.g. directly under the `/scan` PageHead.
 
 Each carries an optional centered uppercase mono label.
 
@@ -139,6 +146,8 @@ Both are theme-aware (slate-50 → slate-900 grid, slate-100 → slate-800 flat)
 `NavBar → PageHead → PageRidge → alternating .page-section bands (with RidgeStars/RidgeFlow between) → CtaBand → Footer`. Every new non-homepage page inherits this template so brand DNA stays consistent.
 
 ## Scrolled-pill nav
+
+**`NavBar` is the single top bar — every page mounts `<NavBar>`; never hand-roll another top bar.** The `GhStar` GitHub-star CTA is a **permanent, non-optional** part of NavBar — rendered unconditionally, never gated on the count. `ghCount` is only an SSR placeholder; when a route omits it the chip renders empty and the site-wide `NavStars` island (mounted in `Base.astro`) fills it live. Do **not** reintroduce a `ghCount > 0` guard or otherwise make the GhStar conditional — that was the regression that dropped it from `/items/<slug>` + `/respond`. Covered by `NavBar.test.tsx` ("always renders the GhStar even with no ghCount").
 
 `NavBar` morphs on scroll: transparent + full-width when `scrollY < 24`, then constrains to `max-width: 1100px`, gains `backdrop-filter: blur(12px)`, hairline border, soft shadow, and 4 corner registration marks (`+` crosshairs). Implemented via passive `scroll` listener throttled to `requestAnimationFrame`. Corner marks hidden below 980px. Reduced-motion: no morph transition.
 
@@ -184,7 +193,7 @@ Enforced in code review on every PR that adds catalog content. Violations are a 
 ## Hard rules
 
 1. **Tokens, not literals.** Never write `#0D9488` or `rounded-md` in a component — reference `var(--brand-primary)` / `rounded-none`.
-2. **0 radius, 1px borders, no drop shadows.** `--radius-0` is the default. `--radius-xs` for form fields/chips. `--radius-pill` for badges only. Shadows replaced by `--shadow-hairline` + `--shadow-stamp` (used sparingly on cards).
+2. **0 radius, 1px borders, no drop shadows.** `--radius-0` is the default. `--radius-xs` for form fields/chips. `--radius-pill` for badges only. Shadows replaced by `--shadow-hairline` + `--shadow-stamp` (used sparingly on **non-interactive** cards — **never** an offset/brutalist shadow on a button; see Hex-button vocabulary).
 3. **`ui/` is framework-agnostic.** No Astro imports in React components. No `import.meta.env` access in component code (read env in the route, pass via props).
 4. **Story + test + axe** for every shared React component; Astro shells need story + Ladle build pass only.
 5. **Anti-recommendation** — catalog never cross-promotes.
