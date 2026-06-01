@@ -36,12 +36,15 @@ import re
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from app.scan import fetch
 from app.scan.rubric import RULES, RubricRule, SubScore
+
+if TYPE_CHECKING:
+    from app.scan.discovery import Capability
 
 # Severity → penalty mapping per D-02. `info` is advisory (weight 0).
 SEVERITY_PENALTY: dict[str, int] = {
@@ -110,12 +113,48 @@ class ScanResult:
     files_index: list[tuple[str, bytes]] = field(default_factory=list)  # type: ignore[arg-type]
 
 
+@dataclass
+class CapabilityResult:
+    """One discovered capability + its independent scan result."""
+
+    kind: str
+    name: str
+    component_path: str
+    result: ScanResult
+
+
+@dataclass
+class RepoScanResult:
+    """Rollup of a repo scan over its N discovered capabilities.
+
+    `repo_aggregate_score` is the mean of the per-capability aggregate scores
+    (the consolidated capabilities score the report surfaces); `kind_tally`
+    counts capabilities by kind for the report's by-kind tally.
+    """
+
+    capabilities: list[CapabilityResult]
+    repo_aggregate_score: int
+    repo_tier: str
+    kind_tally: dict[str, int]
+    capability_count: int
+    ref_sha: str
+    file_count: int
+    latency_ms: int
+    skipped_files: list[str]
+
+
 # ── trigger evaluators ────────────────────────────────────────────────────
 
 
 def _match_any_glob(path: str, patterns: Iterable[str]) -> bool:
     posix = path.replace("\\", "/")
     return any(_fnmatch_recursive(posix, pat.replace("\\", "/")) for pat in patterns)
+
+
+# Public alias — the single glob matcher reused by `app.scan.discovery` (no 2nd
+# matcher in the scan package). Kept distinct from the underscore-internal name
+# so cross-module callers don't trip the private-usage lint.
+match_any_glob = _match_any_glob
 
 
 def _fnmatch_recursive(path: str, pattern: str) -> bool:
@@ -323,6 +362,18 @@ def _evaluate_rules(
     return findings, skipped
 
 
+def tier_for(score: int) -> str:
+    """Map an aggregate score to its tier band. Single source for the bands so
+    the per-capability and repo-rollup paths never drift."""
+    if score >= 80:
+        return "green"
+    if score >= 60:
+        return "yellow"
+    if score >= 40:
+        return "orange"
+    return "red"
+
+
 def aggregate_score(
     findings: list[EngineFinding],
 ) -> tuple[dict[str, int], dict[str, Any], int, str]:
@@ -358,14 +409,7 @@ def aggregate_score(
         weights_used[sub_score] = round(weighted, 2)
 
     aggregate = round(weighted_total)
-    if aggregate >= 80:
-        tier = "green"
-    elif aggregate >= 60:
-        tier = "yellow"
-    elif aggregate >= 40:
-        tier = "orange"
-    else:
-        tier = "red"
+    tier = tier_for(aggregate)
 
     breakdowns["aggregate_math"] = {
         "formula": " + ".join(formula_parts),
@@ -410,4 +454,87 @@ async def run_scan(
         ref_sha=result.ref_sha,
         latency_ms=latency_ms,
         files_index=file_index,
+    )
+
+
+def _score_capability(
+    cap: Capability,
+    rubric_version: str,
+    ref_sha: str,
+) -> CapabilityResult:
+    """Score one discovered capability over its kind-scoped rules + subtree.
+
+    Kind-scoped: only rules whose `appliesTo` includes the capability's kind run
+    (`rubric.by_kind`) — an embedded hook is only HOOKS-scored when it is
+    discovered as its own capability. An empty-finding capability aggregates to
+    100/green (`aggregate_score([])`).
+    """
+    from app.scan.rubric import by_kind
+
+    rules = by_kind(cap.kind)
+    findings, skipped = _evaluate_rules(rules, cap.file_subset, rubric_version)
+    sub_scores, breakdown, aggregate, tier = aggregate_score(findings)
+    result = ScanResult(
+        findings=findings,
+        sub_scores=sub_scores,
+        score_breakdown=breakdown,
+        aggregate_score=aggregate,
+        tier=tier,
+        file_count=len(cap.file_subset),
+        skipped_rules=skipped,
+        skipped_files=[],
+        ref_sha=ref_sha,
+        latency_ms=0,
+        files_index=list(cap.file_subset),
+    )
+    return CapabilityResult(
+        kind=cap.kind,
+        name=cap.name,
+        component_path=cap.component_path,
+        result=result,
+    )
+
+
+async def run_repo_scan(
+    github_url: str,
+    rubric_version: str,
+) -> RepoScanResult:
+    """Scan a repo: fetch once, discover capabilities, score each independently.
+
+    The repo aggregate is the mean of the per-capability aggregate scores. Every
+    repo yields ≥1 capability (the discovery layer's whole-repo fallback), so a
+    plain single-artifact repo stays 1:1 with today's behaviour.
+    """
+    from app.scan.discovery import discover_capabilities
+
+    started = time.monotonic()
+    result = await fetch.fetch_repository(github_url)
+    file_index: list[tuple[str, bytes]] = list(fetch.walk_files(result.directory))
+
+    capabilities = discover_capabilities(file_index)
+    if not capabilities:  # discovery guarantees ≥1; defensive belt-and-braces.
+        raise RuntimeError("discovery returned zero capabilities")
+
+    scored = [_score_capability(cap, rubric_version, result.ref_sha) for cap in capabilities]
+
+    scores = [c.result.aggregate_score for c in scored]
+    repo_aggregate = round(sum(scores) / len(scores))
+    repo_tier = tier_for(repo_aggregate)
+
+    kind_tally: dict[str, int] = {}
+    for cap in scored:
+        kind_tally[cap.kind] = kind_tally.get(cap.kind, 0) + 1
+
+    latency_ms = int((time.monotonic() - started) * 1000)
+
+    return RepoScanResult(
+        capabilities=scored,
+        repo_aggregate_score=repo_aggregate,
+        repo_tier=repo_tier,
+        kind_tally=kind_tally,
+        capability_count=len(scored),
+        ref_sha=result.ref_sha,
+        file_count=result.file_count,
+        latency_ms=latency_ms,
+        skipped_files=result.skipped_oversized_files,
     )

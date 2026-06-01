@@ -93,6 +93,57 @@ export async function fetchScanById(scanId: string): Promise<ScanReportDetail | 
   return (await res.json()) as ScanReportDetail
 }
 
+export type CapabilityKind = 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
+
+export interface FindingsSummary {
+  critical: number
+  high: number
+  medium: number
+  low: number
+  info: number
+  total: number
+}
+
+export interface CapabilityRow {
+  kind: CapabilityKind
+  name: string
+  component_path?: string | null
+  aggregate_score: number
+  tier: ScanTier
+  scan_id: string
+  catalog_slug: string
+  sub_scores: Record<string, number>
+  findings_summary: FindingsSummary
+  findings: Finding[]
+}
+
+/** GET /api/v1/scans/runs/<run_id> — the repo scan report (all capabilities). */
+export interface ScanRunReportDetail {
+  id: string
+  github_url: string
+  repo_aggregate_score: number
+  repo_tier: ScanTier
+  kind_tally: Record<string, number>
+  capability_count: number
+  capabilities: CapabilityRow[]
+  scanned_at: string
+  rubric_version: string
+  engine_version: string
+  latency_ms: number
+  source: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  ref_sha?: string | null
+}
+
+export async function fetchScanRunById(runId: string): Promise<ScanRunReportDetail | null> {
+  const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/scans/runs/${encodeURIComponent(runId)}`, {
+    headers: { Accept: 'application/json' },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return (await res.json()) as ScanRunReportDetail
+}
+
 export interface ScanSubmitRequest {
   github_url: string
   rescan?: boolean

@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/scan-run-report.schema.json",
+  "title": "ScanRunReport",
+  "description": "Full report for one repo scan (a `scan_runs` row): the consolidated repo score, the by-kind tally, and every capability discovered in the repo with its own independent score + findings. Backs GET /api/v1/scans/runs/<run_id> and the `/scans/<id>` page. Wire-only (never persisted as its own table).",
+  "x-postgresql-skip": true,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "githubUrl",
+    "repoAggregateScore",
+    "repoTier",
+    "kindTally",
+    "capabilityCount",
+    "capabilities",
+    "scannedAt",
+    "rubricVersion",
+    "engineVersion",
+    "latencyMs",
+    "source",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Server-assigned scan_runs UUID. Keys the `/scans/<id>` page + the SSE channel."
+    },
+    "githubUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical GitHub repo URL scanned."
+    },
+    "repoAggregateScore": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Consolidated repo score — the rounded mean of the per-capability aggregate scores."
+    },
+    "repoTier": {
+      "type": "string",
+      "enum": ["green", "yellow", "orange", "red", "unscoped"],
+      "description": "5-tier badge for the consolidated repo score."
+    },
+    "kindTally": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0},
+      "description": "Count of discovered capabilities by kind, e.g. `{\"skill\": 3, \"hook\": 2, \"mcp_server\": 1}`."
+    },
+    "capabilityCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of capabilities discovered in the repo (always ≥1 — the whole-repo fallback)."
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/capabilityRow"},
+      "description": "Each capability discovered in the repo, with its own independent score + findings."
+    },
+    "scannedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the repo scan completed (UTC ISO-8601)."
+    },
+    "rubricVersion": {
+      "type": "string",
+      "description": "Rubric git SHA active for this scan."
+    },
+    "engineVersion": {
+      "type": "string",
+      "description": "Scan-engine version for this scan."
+    },
+    "latencyMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock latency of the repo scan in milliseconds."
+    },
+    "source": {
+      "type": "string",
+      "description": "Scan trigger source (submission / ingestion / rescan_drift / rescan_appeal)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed"],
+      "description": "Run lifecycle state. A pending/running run renders the live progress board."
+    },
+    "refSha": {
+      "type": ["string", "null"],
+      "description": "Resolved HEAD SHA of the scanned ref. Null until the engine resolves it."
+    }
+  },
+  "$defs": {
+    "capabilityRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One discovered capability (a catalog item) within the repo scan.",
+      "required": [
+        "kind",
+        "name",
+        "aggregateScore",
+        "tier",
+        "scanId",
+        "catalogSlug",
+        "subScores",
+        "findingsSummary",
+        "findings"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["skill", "mcp_server", "hook", "plugin", "rules"],
+          "description": "Capability taxonomy — drives the row's type glyph."
+        },
+        "name": {
+          "type": "string",
+          "description": "Capability display name (frontmatter / manifest name, or repo name for a whole-repo capability)."
+        },
+        "componentPath": {
+          "type": ["string", "null"],
+          "description": "Relative path of the scanned capability subtree (null / empty = whole-repo)."
+        },
+        "aggregateScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "This capability's independent weighted aggregate score."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["green", "yellow", "orange", "red", "unscoped"],
+          "description": "5-tier badge for this capability."
+        },
+        "scanId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The `scans` row UUID for this capability."
+        },
+        "catalogSlug": {
+          "type": "string",
+          "description": "Catalog slug — links to `/items/<catalogSlug>`."
+        },
+        "subScores": {
+          "type": "object",
+          "additionalProperties": {"type": "integer"},
+          "description": "5-axis sub-scores for this capability."
+        },
+        "findingsSummary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["critical", "high", "medium", "low", "info", "total"],
+          "properties": {
+            "critical": {"type": "integer", "minimum": 0},
+            "high": {"type": "integer", "minimum": 0},
+            "medium": {"type": "integer", "minimum": 0},
+            "low": {"type": "integer", "minimum": 0},
+            "info": {"type": "integer", "minimum": 0},
+            "total": {"type": "integer", "minimum": 0}
+          },
+          "description": "Per-severity finding counts for the collapsed row summary."
+        },
+        "findings": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/finding"},
+          "description": "This capability's findings (one per rule fire), shown when the row expands."
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Inline mirror of finding.schema.json. Keep in sync with the source schema.",
+      "required": [
+        "id",
+        "ruleId",
+        "severity",
+        "subScore",
+        "penalty",
+        "statusAtScan",
+        "filePath",
+        "lineStart",
+        "matchedContentSha256",
+        "remediationLink",
+        "rubricVersion"
+      ],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "ruleId": {
+          "type": "string",
+          "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$"
+        },
+        "severity": {"type": "string", "enum": ["info", "low", "medium", "high", "critical"]},
+        "subScore": {"type": "string", "enum": ["security", "supply_chain", "maintenance", "transparency", "community"]},
+        "penalty": {"type": "integer", "minimum": 0, "maximum": 40},
+        "statusAtScan": {"type": "string", "enum": ["shadow", "active"]},
+        "filePath": {"type": "string", "maxLength": 1024},
+        "lineStart": {"type": "integer", "minimum": 1},
+        "lineEnd": {"type": ["integer", "null"], "minimum": 1},
+        "matchedContentSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "remediationLink": {"type": "string", "format": "uri"},
+        "rubricVersion": {"type": "string", "pattern": "^[a-f0-9]{7,40}$"}
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-9999-7000-8000-000000000001",
+      "githubUrl": "https://github.com/acme/devtools-agent-kit",
+      "repoAggregateScore": 86,
+      "repoTier": "green",
+      "kindTally": {"skill": 3, "hook": 2, "mcp_server": 1},
+      "capabilityCount": 6,
+      "capabilities": [
+        {
+          "kind": "skill",
+          "name": "code-review",
+          "componentPath": "skills/code-review",
+          "aggregateScore": 91,
+          "tier": "green",
+          "scanId": "018e7c8b-aaaa-7000-8000-000000000001",
+          "catalogSlug": "acme--devtools-agent-kit--skill-code-review",
+          "subScores": {"security": 95, "supply_chain": 90, "maintenance": 88, "transparency": 90, "community": 92},
+          "findingsSummary": {"critical": 0, "high": 0, "medium": 1, "low": 1, "info": 0, "total": 2},
+          "findings": []
+        }
+      ],
+      "scannedAt": "2026-06-01T10:30:00Z",
+      "rubricVersion": "a1b2c3d",
+      "engineVersion": "def5678",
+      "latencyMs": 4200,
+      "source": "submission",
+      "status": "completed",
+      "refSha": "abc1234def5678901234567890abcdef12345678"
+    }
+  ]
+}

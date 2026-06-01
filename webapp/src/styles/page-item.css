@@ -247,76 +247,11 @@ html.dark .sb-big {
   color: var(--score-green);
   font-weight: 700;
 }
-.rescan-btn {
+/* `.rescan-btn` base + hover + dark rules are DS-owned (ui/styles/components.css)
+   — rendered by both this page and /scans/<id>. Only the item-page-specific
+   offset below it (flush under the dot strip) stays local. */
+.sk-scorebox .sb-score .rescan-btn {
   margin-top: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
-  padding: 10px 14px;
-  cursor: pointer;
-  text-decoration: none;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  border: 1px solid var(--color-ink);
-  transition:
-    background var(--dur-xs),
-    color var(--dur-xs);
-}
-.rescan-btn svg {
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: var(--brand-primary);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  transition:
-    transform var(--dur-lg) var(--ease-std),
-    stroke var(--dur-xs);
-}
-.rescan-btn .rs-meta {
-  font-weight: 400;
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  color: var(--fg-3);
-  padding-left: 9px;
-  margin-left: 3px;
-  border-left: 1px solid var(--color-line);
-  transition:
-    color var(--dur-xs),
-    border-color var(--dur-xs);
-}
-.rescan-btn:hover {
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-.rescan-btn:hover svg {
-  stroke: var(--brand-primary);
-  transform: rotate(-360deg);
-}
-.rescan-btn:hover .rs-meta {
-  color: rgba(255, 255, 255, 0.6);
-  border-left-color: rgba(255, 255, 255, 0.25);
-}
-html.dark .rescan-btn {
-  background: transparent;
-  color: var(--fg-1);
-  border-color: var(--color-line);
-}
-html.dark .rescan-btn:hover {
-  background: var(--fg-1);
-  color: var(--color-paper);
-}
-/* Dark hover flips the bg to the light --fg-1, so the meta + divider must dim
-   the DARK ink (--color-paper), mirroring the light-mode white-on-ink treatment
-   above — otherwise the base rule's white-on-white renders the "~30s" invisible. */
-html.dark .rescan-btn:hover .rs-meta {
-  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
-  border-left-color: color-mix(in srgb, var(--color-paper) 25%, transparent);
 }
 .sk-scorebox .sb-facts {
   padding: 26px 28px;

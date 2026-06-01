@@ -4,9 +4,11 @@
  * RuleCard styling lives co-located in webapp/src/components/methodology/RuleCard.astro.
  */
 
-/* Generic padding + background are owned by .page-section (components.css). */
+/* Generic padding + background are owned by .page-section (components.css).
+   Methodology content runs to a shared 1100px so every section's left edge
+   lines up under the PageHead; prose paragraphs stay capped for readability. */
 .methodology-prose {
-  max-width: 880px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -66,14 +68,14 @@ html.dark .page-section--flat .rule-card {
    §01 FORMULA PANEL (FormulaPanel.astro) — the boxed scoring spec
    ============================================================ */
 .formula-panel {
-  max-width: 760px;
+  max-width: 1100px;
   margin: 0 auto;
   border: 1px solid var(--color-ink);
   background: var(--color-paper);
-  padding: 28px 30px;
+  padding: 22px 26px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
 }
 html.dark .formula-panel {
   border-color: var(--color-line);
@@ -81,19 +83,39 @@ html.dark .formula-panel {
 }
 .formula-panel .eyebrow {
   display: inline-flex;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
+/* Compact, header-like heading — smaller than the full prose-h2 display size. */
 .fp-head .prose-h2 {
-  margin: 0 0 8px;
+  font-size: clamp(23px, 2.1vw, 29px);
+  margin: 0 0 6px;
 }
 .fp-intro {
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 14.5px;
+  line-height: 1.5;
   color: var(--fg-2);
   margin: 0;
-  max-width: 60ch;
+  max-width: 70ch;
   text-wrap: pretty;
+}
+
+/* Two-column body: weight bars beside the equation + note — uses the wide
+   panel to keep the section short (it reads as a compact header band). */
+.fp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.fp-math {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Tighter weight rows here than on the /scan preview, for a denser panel. */
+.formula-panel .weight-bars .wb-row {
+  padding-block: 9px;
 }
 
 /* Aggregate equation block */
@@ -233,7 +255,7 @@ html.dark .tier-ladder .tier {
   position: sticky;
   top: 72px;
   z-index: 20;
-  max-width: 880px;
+  max-width: 1100px;
   margin: 18px auto 10px;
   padding: 14px 16px;
   border: 1px solid var(--color-line);
@@ -248,26 +270,39 @@ html.dark .rule-filter {
 }
 .rule-filter .rf-row {
   display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+/* Top row: category pills (left) + the search box (right), aligned to the
+   pills' first row. */
+.rule-filter .rf-row--top {
+  justify-content: space-between;
+}
+.rf-cats {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .rule-filter .rf-row--controls {
   justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
 }
 
 /* Category pills */
 .rf-pill {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   color: var(--fg-2);
   background: var(--color-paper-deep);
   border: 1px solid var(--color-line);
-  padding: 6px 12px;
+  padding: 6px 13px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -290,8 +325,10 @@ html.dark .rf-pill {
   color: var(--color-paper);
 }
 .rf-pill-n {
-  font-size: 10px;
-  opacity: 0.72;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.66;
 }
 
 /* Severity chips */
@@ -318,14 +355,14 @@ html.dark .rf-pill {
   border: 0;
 }
 .rf-sev {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   color: var(--fg-3);
   background: transparent;
   border: 1px solid var(--color-line);
-  padding: 4px 9px;
+  padding: 5px 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -368,13 +405,12 @@ html.dark .rf-sev[aria-pressed="true"] {
   background: var(--fg-3);
 }
 
-/* Search box */
+/* Search box — sits top-right, aligned with the category-pill row. */
 .rf-search {
   display: inline-flex;
   align-items: center;
-  flex: 1 1 220px;
-  min-width: 200px;
-  max-width: 340px;
+  flex: 0 0 300px;
+  max-width: 300px;
 }
 .rf-search-lbl {
   position: absolute;
@@ -389,13 +425,13 @@ html.dark .rf-sev[aria-pressed="true"] {
 }
 .rf-search-input {
   width: 100%;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
   color: var(--fg-1);
   background: var(--color-paper-deep);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-xs);
-  padding: 7px 10px;
+  padding: 7px 11px;
 }
 html.dark .rf-search-input {
   background: var(--color-paper);
@@ -410,8 +446,8 @@ html.dark .rf-search-input {
 
 /* Status line + clear */
 .rf-status {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
   color: var(--fg-3);
   display: flex;
   align-items: center;
@@ -426,8 +462,9 @@ html.dark .rf-search-input {
   border: 0;
   padding: 0;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
   color: var(--brand-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -440,7 +477,7 @@ html.dark .rf-search-input {
   font-size: 14px;
   color: var(--fg-2);
   margin: 16px auto 0;
-  max-width: 880px;
+  max-width: 1100px;
   text-align: center;
   padding: 22px;
   border: 1px dashed var(--color-line);
@@ -450,23 +487,38 @@ html.dark .rf-search-input {
    §02 RULE GROUPS (RuleGroup.astro) — category sections + cards
    ============================================================ */
 .rules-index {
-  max-width: 880px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 .rule-group + .rule-group {
-  margin-top: 30px;
+  margin-top: 26px;
 }
 .rule-group[hidden] {
   display: none;
 }
+
+/* Foldable header — a full-width button; clicking it toggles .is-collapsed. */
 .rg-head {
+  width: 100%;
   display: flex;
   align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
-  padding-bottom: 10px;
+  padding: 4px 0 10px;
   margin-bottom: 6px;
+  border: 0;
   border-bottom: 1px solid var(--color-line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color var(--dur-xs) var(--ease-std);
+}
+.rg-head:hover {
+  border-bottom-color: var(--fg-3);
+}
+.rg-head:hover .rg-title {
+  color: var(--brand-primary);
 }
 .rg-title {
   font-family: var(--font-sans);
@@ -475,6 +527,7 @@ html.dark .rf-search-input {
   letter-spacing: -0.02em;
   color: var(--fg-1);
   margin: 0;
+  transition: color var(--dur-xs) var(--ease-std);
 }
 .rg-meta {
   font-family: var(--font-mono);
@@ -489,20 +542,57 @@ html.dark .rf-search-input {
 .rg-count {
   color: var(--fg-2);
 }
-.rg-empty {
-  font-family: var(--font-sans);
-  font-size: 13px;
+/* Chevron sits at the far right; rotates flat when collapsed. */
+.rg-chevron {
+  margin-left: auto;
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
   color: var(--fg-3);
-  font-style: italic;
-  margin: 8px 0 0;
+  transition:
+    transform var(--dur-sm) var(--ease-out),
+    color var(--dur-xs) var(--ease-std);
+}
+.rg-chevron::before {
+  content: "▾";
+  display: inline-block;
+}
+.rg-head:hover .rg-chevron {
+  color: var(--brand-primary);
+}
+.rule-group.is-collapsed .rg-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Collapsible body — grid-rows 1fr → 0fr (GPU-friendly height animation). */
+.rg-cards-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-md) var(--ease-out);
+}
+.rule-group.is-collapsed .rg-cards-wrap {
+  grid-template-rows: 0fr;
+}
+.rg-cards {
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+/* Formula 2-col body collapses before the bars get cramped. */
+@media (max-width: 760px) {
+  .fp-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 @media (max-width: 640px) {
   .formula-panel {
-    padding: 22px 18px;
+    padding: 20px 18px;
   }
   .tier-ladder {
     grid-template-columns: repeat(2, 1fr);
@@ -510,11 +600,24 @@ html.dark .rf-search-input {
   .rule-filter {
     top: 64px;
   }
+  .rule-filter .rf-row--top {
+    flex-direction: column;
+  }
+  .rf-search {
+    flex-basis: auto;
+    max-width: none;
+    width: 100%;
+  }
   .rf-row--controls {
     flex-direction: column;
     align-items: stretch;
   }
-  .rf-search {
-    max-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rg-cards-wrap,
+  .rg-chevron,
+  .js-anim .formula-panel[data-reveal] .wb-fill {
+    transition: none;
   }
 }

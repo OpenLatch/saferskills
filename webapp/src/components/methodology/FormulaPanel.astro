@@ -39,22 +39,26 @@ const TIERS = [
     </p>
   </header>
 
-  <WeightBars rows={CATS} framed={false} />
+  <div class="fp-grid">
+    <WeightBars rows={CATS} framed={false} className="fp-weights" />
 
-  <div class="fp-equation">
-    <span class="fp-eq-label">aggregate</span>
-    <code
-      >round(0.35·Security + 0.20·Supply&nbsp;Chain + 0.15·Maintenance +
-      0.15·Transparency + 0.15·Community)</code
-    >
+    <div class="fp-math">
+      <div class="fp-equation">
+        <span class="fp-eq-label">aggregate</span>
+        <code
+          >round(0.35·Security + 0.20·Supply&nbsp;Chain + 0.15·Maintenance +
+          0.15·Transparency + 0.15·Community)</code
+        >
+      </div>
+
+      <p class="fp-note">
+        Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. Any
+        finding of severity <strong>critical</strong> caps its sub-score at 40 — the
+        <strong>critical-floor</strong> rule that stops one catastrophic finding from
+        being averaged away by minor passes.
+      </p>
+    </div>
   </div>
-
-  <p class="fp-note">
-    Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. Any
-    finding of severity <strong>critical</strong> caps its sub-score at 40 — the
-    <strong>critical-floor</strong> rule that stops one catastrophic finding from being
-    averaged away by minor passes.
-  </p>
 
   <ul class="tier-ladder" aria-label="Score tiers">
     {

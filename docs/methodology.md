@@ -10,7 +10,17 @@ SaferSkills ingests one of:
 - A direct skill / MCP / hook / plugin / rules artifact URL (resolves to a Git ref or release artifact)
 - An `npx`-installable package name (Track C, W4+)
 
-Every submission becomes a deterministic, content-hashed catalog entry. Two submissions of the same artifact deduplicate to the same `catalog_item` row keyed on `(github_url, default_branch)`.
+Every submission becomes a deterministic, content-hashed catalog entry.
+
+## Capability discovery
+
+A scan targets a **repository**, and one repo can hold several capabilities — a Skill, an MCP server, hooks, a Cursor rules set. SaferSkills walks the file tree, identifies each capability, and **scores each one independently** against the rules for its kind. The repo report shows:
+
+- every capability discovered, each with its own security score and findings;
+- the **consolidated repo score** — the mean of those capability scores;
+- a button to open each capability in the public catalog.
+
+One catalog entry = one capability, so a capability links straight to its own `/items/<slug>` page with version history and a permalink. A repo with no recognisable capability is scored as a single whole-repo entry. Discovery is deterministic and static — the same file tree always yields the same capabilities.
 
 ## Sub-score taxonomy & weights
 

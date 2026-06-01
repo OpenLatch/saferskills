@@ -22,6 +22,91 @@
         "title": "AgentShare",
         "type": "object"
       },
+      "CapabilityRow": {
+        "properties": {
+          "aggregate_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Aggregate Score",
+            "type": "integer"
+          },
+          "catalog_slug": {
+            "title": "Catalog Slug",
+            "type": "string"
+          },
+          "component_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Path"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "findings_summary": {
+            "$ref": "#/components/schemas/FindingsSummary"
+          },
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scan_id": {
+            "title": "Scan Id",
+            "type": "string"
+          },
+          "sub_scores": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sub Scores",
+            "type": "object"
+          },
+          "tier": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "aggregate_score",
+          "tier",
+          "scan_id",
+          "catalog_slug",
+          "sub_scores",
+          "findings_summary",
+          "findings"
+        ],
+        "title": "CapabilityRow",
+        "type": "object"
+      },
       "CatalogFacets": {
         "description": "Per-filter-option counts for the catalog filter sidebar.",
         "properties": {
@@ -674,6 +759,42 @@
         "title": "FindingResponse",
         "type": "object"
       },
+      "FindingsSummary": {
+        "properties": {
+          "critical": {
+            "default": 0,
+            "title": "Critical",
+            "type": "integer"
+          },
+          "high": {
+            "default": 0,
+            "title": "High",
+            "type": "integer"
+          },
+          "info": {
+            "default": 0,
+            "title": "Info",
+            "type": "integer"
+          },
+          "low": {
+            "default": 0,
+            "title": "Low",
+            "type": "integer"
+          },
+          "medium": {
+            "default": 0,
+            "title": "Medium",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "FindingsSummary",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1159,6 +1280,17 @@
             "title": "Aggregate Score",
             "type": "integer"
           },
+          "component_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Path"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -1193,6 +1325,17 @@
           "rubric_version": {
             "title": "Rubric Version",
             "type": "string"
+          },
+          "scan_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Run Id"
           },
           "scanned_at": {
             "format": "date-time",
@@ -1337,6 +1480,112 @@
           "scanned_at"
         ],
         "title": "ScanReportSummary",
+        "type": "object"
+      },
+      "ScanRunReportDetail": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityRow"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "capability_count": {
+            "title": "Capability Count",
+            "type": "integer"
+          },
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "github_url": {
+            "title": "Github Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind_tally": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Kind Tally",
+            "type": "object"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "ref_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Sha"
+          },
+          "repo_aggregate_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Repo Aggregate Score",
+            "type": "integer"
+          },
+          "repo_tier": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Repo Tier",
+            "type": "string"
+          },
+          "rubric_version": {
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "scanned_at": {
+            "format": "date-time",
+            "title": "Scanned At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "default": "completed",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "github_url",
+          "repo_aggregate_score",
+          "repo_tier",
+          "kind_tally",
+          "capability_count",
+          "capabilities",
+          "scanned_at",
+          "rubric_version",
+          "engine_version",
+          "latency_ms",
+          "source"
+        ],
+        "title": "ScanRunReportDetail",
         "type": "object"
       },
       "ScanSubmitRequest": {
@@ -2336,7 +2585,7 @@
     },
     "/api/v1/scans": {
       "get": {
-        "description": "Slim summary list \u2014 JOINs scans + catalog_items, projects ScanReportSummary.",
+        "description": "Slim summary list of repo scan RUNS (one row per repo scan, not per\ncapability \u2014 a multi-capability repo would otherwise flood the feed).\nFindings count sums across the run's per-capability scans.",
         "operationId": "list_scans_api_v1_scans_get",
         "parameters": [
           {
@@ -2496,6 +2745,92 @@
         ]
       }
     },
+    "/api/v1/scans/runs/{run_id}": {
+      "get": {
+        "description": "The repo scan surface: consolidated repo score + by-kind tally + one row\nper discovered capability (each its own catalog item) with its findings.",
+        "operationId": "get_scan_run_api_v1_scans_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanRunReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read the full repo scan report (all discovered capabilities) for a run ID.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/{run_id}/events": {
+      "get": {
+        "description": "Server-Sent Events stream of repo-scan progress (re-keyed onto the run).\n\nWire format: each event is `{event_seq, stage, completion_pct, status,\npayload, timestamp}` JSON. Clients pass `Last-Event-ID: <run_id>-<seq>`\nto resume \u2014 we replay `scan_events` rows for the run whose `event_seq > seq`,\nthen subscribe to LISTEN on `scan_progress_<run_id>` for live deltas.",
+        "operationId": "scan_events_api_v1_scans__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "SSE progress stream for a repo scan run.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
     "/api/v1/scans/{scan_id}": {
       "get": {
         "operationId": "get_scan_api_v1_scans__scan_id__get",
@@ -2533,49 +2868,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Read the full scan report for a given scan ID.",
-        "tags": [
-          "scans"
-        ]
-      }
-    },
-    "/api/v1/scans/{scan_id}/events": {
-      "get": {
-        "description": "Server-Sent Events stream of scan progress.\n\nWire format: each event is `{event_seq, stage, completion_pct, status,\npayload, timestamp}` JSON. Clients pass `Last-Event-ID: <scan_id>-<seq>`\nto resume \u2014 we replay rows from `scan_events` whose `event_seq > seq`,\nthen subscribe to LISTEN for live deltas.",
-        "operationId": "scan_events_api_v1_scans__scan_id__events_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "scan_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Scan Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "SSE progress stream for a scan.",
+        "summary": "Read the full scan report for a single capability scan ID.",
         "tags": [
           "scans"
         ]

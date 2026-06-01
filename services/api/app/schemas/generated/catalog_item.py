@@ -92,7 +92,7 @@ class Source(BaseModel):
 
 class CatalogItem(BaseModel):
     """
-    A single deduplicated entry in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item per (github_url, default_branch) — sub-tree artifacts collapse into the parent repo entry.
+    A single capability in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item = one capability; a capability may link to a GitHub repo, and several capabilities can share one repo (a repo scan discovers + scores each independently).
     """
 
     model_config = ConfigDict(
@@ -104,12 +104,12 @@ class CatalogItem(BaseModel):
         description="Artifact taxonomy. `rules` covers Cursor / Windsurf-style rule files.",
     )
     slug: constr(
-        pattern=r"^[a-z0-9][a-z0-9-]*--[a-z0-9][a-z0-9-]*$",
+        pattern=r"^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$",
         min_length=5,
         max_length=255,
     ) = Field(
         ...,
-        description="URL-safe slug of the form `<org>--<repo>` (double-dash separator). Used in `/items/<slug>` permalinks.",
+        description="URL-safe slug, double-dash-separated segments. A legacy repo-level slug is `<org>--<repo>`; a per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]` (a repo hosting several capabilities). Used in `/items/<slug>` permalinks.",
     )
     display_name: constr(min_length=1, max_length=200) = Field(
         ...,

@@ -18,20 +18,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.artifact_blob import ArtifactBlob
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
-from app.scan.engine import ScanResult
-from app.scan.fetch import GithubRef
+from app.models.scan_run import ScanRun
+from app.scan.engine import CapabilityResult, RepoScanResult, ScanResult
+from app.scan.fetch import GithubRef, parse_github_url
 from app.services.agent_compat import agent_compatibility_for
-from app.services.repository_metadata import get_repository_metadata
+from app.services.repository_metadata import RepositoryMetadata, get_repository_metadata
 
 _MANIFEST_MAX_BYTES = 64 * 1024  # cap the stored public manifest at 64 KiB
 # Per-file cap on what we store in artifact_blobs (matches the engine's per-file
@@ -147,30 +149,49 @@ def display_name_for(ref: GithubRef) -> str:
     return ref.repo.replace("-", " ").replace("_", " ").title()
 
 
-async def ensure_catalog_item(
-    session: AsyncSession, ref: GithubRef, github_url: str
-) -> CatalogItem:
-    """Upsert a catalog_items row keyed on slug. Defaults are minimal — Phase B
-    creates a stub entry; richer fields (popularity_score, sources, metadata)
-    arrive with I-04 ingestion adapters.
+def _slugify(text: str) -> str:
+    """Lowercase, collapse non-alnum runs to single dashes, strip edges."""
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def capability_slug(ref: GithubRef, kind: str, name: str) -> str:
+    """Per-capability slug `<org>--<repo>--<kind>-<name>[-<hash6>]`.
+
+    The `<kind>-<name>` tail distinguishes the several capabilities a single repo
+    may host. `mcp_server` → `mcp-server` (slug grammar disallows underscores);
+    name collisions are already hash-disambiguated upstream in
+    `app.scan.discovery`. Capped at the 255-char slug ceiling.
     """
-    slug = slug_for(ref)
+    base = slug_for(ref)
+    kind_seg = kind.replace("_", "-")
+    name_seg = _slugify(name) or _slugify(ref.repo) or "item"
+    return f"{base}--{kind_seg}-{name_seg}"[:255]
+
+
+async def ensure_capability_item(
+    session: AsyncSession, ref: GithubRef, github_url: str, cap: CapabilityResult
+) -> CatalogItem:
+    """Upsert the catalog_items row for one discovered capability, keyed on its
+    per-capability slug. `kind` comes from the capability (no longer a hardcoded
+    `"skill"`); rescans resolve to the same slug and update in place.
+    """
+    slug = capability_slug(ref, cap.kind, cap.name)
     stmt = select(CatalogItem).where(CatalogItem.slug == slug)
     existing = (await session.execute(stmt)).scalar_one_or_none()
     if existing is not None:
         return existing
 
     item = CatalogItem(
-        kind="skill",
+        kind=cap.kind,
         slug=slug,
-        display_name=display_name_for(ref),
+        display_name=cap.name or display_name_for(ref),
         github_url=github_url,
         github_org=ref.org,
         github_repo=ref.repo,
         default_branch="main",
         popularity_tier="indexed",
         popularity_score=0,
-        agent_compatibility=agent_compatibility_for("skill"),
+        agent_compatibility=agent_compatibility_for(cap.kind),
         sources=[],
     )
     session.add(item)
@@ -238,12 +259,32 @@ async def persist_pending_scan(
     return scan
 
 
-async def persist_completed_scan(
+def _apply_repository_metadata(item: CatalogItem, meta: RepositoryMetadata) -> None:
+    """Mirror public GitHub metadata onto a catalog item (best-effort)."""
+    if meta.stars is not None:
+        item.github_stars = meta.stars
+    if meta.forks is not None:
+        item.github_forks = meta.forks
+    if meta.license_spdx is not None:
+        item.license_spdx = meta.license_spdx
+    if meta.latest_version is not None:
+        item.latest_version = meta.latest_version
+
+
+async def _apply_scan_result(
     session: AsyncSession,
     scan: Scan,
     result: ScanResult,
-) -> Scan:
-    """Update scan with score breakdown + bulk-insert findings."""
+    *,
+    item: CatalogItem | None,
+    meta: RepositoryMetadata | None,
+) -> None:
+    """Fill a (flushed) scan row from an engine result: score, findings, manifest,
+    snapshot. Shared by the single-scan and per-capability-run write paths.
+
+    `scan` must already have an `id` (flush before calling). Existing findings
+    for the scan are cleared first so a rescan-in-place never double-inserts.
+    """
     scan.aggregate_score = result.aggregate_score
     scan.tier = result.tier
     scan.sub_scores = dict(result.sub_scores)
@@ -251,6 +292,7 @@ async def persist_completed_scan(
     scan.ref_sha = result.ref_sha
     scan.latency_ms = result.latency_ms
 
+    await session.execute(delete(Finding).where(Finding.scan_id == scan.id))
     if result.findings:
         await session.execute(
             pg_insert(Finding),
@@ -273,32 +315,154 @@ async def persist_completed_scan(
             ],
         )
 
-    # Refresh public GitHub metadata onto the catalog item (off the request path,
-    # cached ~1h, best-effort — never fail a scan over metadata).
-    item = await session.get(CatalogItem, scan.catalog_item_id)
     if item is not None:
-        meta = await get_repository_metadata(item.github_org, item.github_repo)
-        if meta.stars is not None:
-            item.github_stars = meta.stars
-        if meta.forks is not None:
-            item.github_forks = meta.forks
-        if meta.license_spdx is not None:
-            item.license_spdx = meta.license_spdx
-        if meta.latest_version is not None:
-            item.latest_version = meta.latest_version
-
-        # Capture the primary public manifest for the item Source tab.
+        if meta is not None:
+            _apply_repository_metadata(item, meta)
+        # Capture this capability's primary public manifest (its own SKILL.md /
+        # README within the subtree) for the item Source tab.
         manifest = _pick_manifest(result.files_index, item.kind)
         if manifest is not None:
             scan.manifest_path, scan.manifest_source = manifest
 
-        # Persist the full text-file snapshot (deduped) for line diffs + zip.
+        # Persist the per-capability text-file snapshot (deduped) for diffs + zip.
         file_map = await _capture_snapshot(session, result.files_index)
         scan.file_hashes = file_map
         item.content_hash_sha256 = _snapshot_identity(file_map)
 
+
+async def persist_completed_scan(
+    session: AsyncSession,
+    scan: Scan,
+    result: ScanResult,
+) -> Scan:
+    """Update a single scan with score breakdown + findings + snapshot.
+
+    Back-compat path (vendor-triggered single-capability rescans + the legacy
+    `scan_run` worker). The repo-scan fan-out uses `persist_completed_scan_run`.
+    """
+    item = await session.get(CatalogItem, scan.catalog_item_id)
+    meta: RepositoryMetadata | None = None
+    if item is not None:
+        # Refresh public GitHub metadata (off the request path, cached ~1h,
+        # best-effort — never fail a scan over metadata).
+        meta = await get_repository_metadata(item.github_org, item.github_repo)
+    await _apply_scan_result(session, scan, result, item=item, meta=meta)
     await session.flush()
     return scan
+
+
+async def persist_pending_scan_run(
+    session: AsyncSession,
+    *,
+    idempotency_key: str,
+    github_url: str,
+    rubric_version: str,
+    engine_version: str,
+    source: str,
+) -> ScanRun:
+    """Insert the initial `scan_runs` row + return it. Idempotent on the run's
+    idempotency_key — this is the id the submit response + SSE channel key on."""
+    cached = (
+        await session.execute(select(ScanRun).where(ScanRun.idempotency_key == idempotency_key))
+    ).scalar_one_or_none()
+    if cached is not None:
+        return cached
+
+    run = ScanRun(
+        idempotency_key=idempotency_key,
+        github_url=github_url,
+        ref_sha=None,
+        repo_aggregate_score=0,
+        repo_tier="unscoped",
+        kind_tally={},
+        capability_count=0,
+        rubric_version=rubric_version,
+        engine_version=engine_version,
+        source=source,
+        latency_ms=0,
+        file_count=0,
+        status="pending",
+    )
+    session.add(run)
+    await session.flush()
+    return run
+
+
+def _capability_scan_key(run: ScanRun, cap: CapabilityResult) -> str:
+    """Stable per-capability idempotency key — keyed on the run URL + the
+    capability's (component_path, kind) so a rescan updates the same scan row
+    rather than inserting a duplicate. `scans.idempotency_key` is UNIQUE."""
+    return compute_idempotency_key(
+        f"{run.github_url}#{cap.component_path}#{cap.kind}",
+        ref_sha="0" * 40,
+        rubric_version=run.rubric_version,
+    )
+
+
+async def persist_completed_scan_run(
+    session: AsyncSession,
+    run: ScanRun,
+    repo_result: RepoScanResult,
+) -> ScanRun:
+    """Fan out a completed repo scan into N catalog items + N scans, then write
+    the repo rollup onto the run.
+
+    Per capability: ensure the catalog item (by slug) → create/reuse its `scans`
+    row (`scan_run_id` + `component_path`) → fill score/findings/manifest/snapshot
+    via the shared `_apply_scan_result`. The GitHub metadata fetch is hoisted to
+    once-per-run and mirrored onto every item. Shared repo-wide blobs (LICENSE,
+    …) dedupe via `_capture_snapshot`'s `on_conflict_do_nothing`.
+    """
+    ref = parse_github_url(run.github_url)
+    meta = await get_repository_metadata(ref.org, ref.repo)
+
+    for cap in repo_result.capabilities:
+        item = await ensure_capability_item(session, ref, run.github_url, cap)
+        cap_key = _capability_scan_key(run, cap)
+        scan = (
+            await session.execute(select(Scan).where(Scan.idempotency_key == cap_key))
+        ).scalar_one_or_none()
+        if scan is None:
+            scan = Scan(
+                catalog_item_id=item.id,
+                scan_run_id=run.id,
+                component_path=cap.component_path or None,
+                idempotency_key=cap_key,
+                github_url=run.github_url,
+                ref_sha=cap.result.ref_sha,
+                aggregate_score=0,
+                tier="unscoped",
+                sub_scores={},
+                score_breakdown={},
+                rubric_version=run.rubric_version,
+                engine_version=run.engine_version,
+                latency_ms=0,
+                source=run.source,
+            )
+            session.add(scan)
+            await session.flush()  # assign scan.id before findings insert
+        else:
+            scan.scan_run_id = run.id
+            scan.component_path = cap.component_path or None
+        await _apply_scan_result(session, scan, cap.result, item=item, meta=meta)
+
+    run.repo_aggregate_score = repo_result.repo_aggregate_score
+    run.repo_tier = repo_result.repo_tier
+    run.kind_tally = dict(repo_result.kind_tally)
+    run.capability_count = repo_result.capability_count
+    run.ref_sha = repo_result.ref_sha
+    run.file_count = repo_result.file_count
+    run.latency_ms = repo_result.latency_ms
+    run.status = "completed"
+    await session.flush()
+    return run
+
+
+async def select_existing_run_by_idempotency(
+    session: AsyncSession, idempotency_key: str
+) -> ScanRun | None:
+    stmt = select(ScanRun).where(ScanRun.idempotency_key == idempotency_key)
+    return (await session.execute(stmt)).scalar_one_or_none()
 
 
 async def select_existing_by_idempotency(

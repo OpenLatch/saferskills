@@ -8,9 +8,24 @@ PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.m
 
 - **Auto-applied in-process on every API boot, every environment.** `app/core/startup.py::run_startup` runs `alembic upgrade head` under a session-level `pg_advisory_lock` (key `0x5AFE5C11`) — race-safe across concurrent Machines. No Fly `release_command`, no manual migrate step. See `.claude/rules/ci-cd.md` § Deployment.
 - **One revision per schema change**, named `YYYY_MM_DD_NNNN_<slug>.py`, `down_revision` chained to the prior head. Current head: `0006_add_artifact_blobs` (down-rev `0005_add_scan_manifest`).
-- **Every migration is reversible** — `downgrade()` drops what `upgrade()` adds.
+- **Every migration is reversible** — `downgrade()` drops what `upgrade()` adds. Current head: `0007_per_capability_scans` (down-rev `0006_add_artifact_blobs`).
 - Naming follows `.claude/rules/naming-conventions.md` § Database (plural snake_case tables, `idx_`/`uq_`/`chk_` constraints, `<singular>_id` FKs).
 - Production models are hand-written under `app/models/` and registered in `app/models/__init__.py` (the 4-column `generated/` stubs don't match the real schema yet). New model = new import there so `Base.metadata` sees it.
+
+## Per-capability scans (`scan_runs`)
+
+One repo scan discovers + scores N capabilities (a Skill, an MCP server, hooks, …) and fans out to N `scans` rows grouped under one `scan_runs` row. This overturns the original *"one catalog_item per (github_org, github_repo)"* decision — **one catalog_item = one capability**, and several capabilities can share one repo URL.
+
+| Piece | Shape | Role |
+|---|---|---|
+| `scan_runs` | `id` PK; `idempotency_key` UNIQUE; `github_url`/`ref_sha`; `repo_aggregate_score` (0–100 chk) + `repo_tier` (chk); `kind_tally` JSONB; `capability_count`; `rubric_version`/`engine_version`/`source` (chk)/`latency_ms`/`file_count`; `status` (chk); timestamps | The repo scan. `repo_aggregate_score` = rounded mean of its capability scores. `/scans/runs/<run_id>` is the repo report. |
+| `scans.scan_run_id` | nullable FK → `scan_runs` (`SET NULL`) | Links a per-capability scan to its run. Backfilled 1:1 for legacy/seed scans. |
+| `scans.component_path` | String(1024) nullable | Relative path of the scanned capability subtree (`null`/`""` = whole-repo). |
+| `scan_events.scan_run_id` | nullable FK → `scan_runs` (`CASCADE`) | SSE progress re-keys onto the run (channel `scan_progress_<run_id>`); `scan_events.scan_id` is now nullable. |
+
+- **`UNIQUE(catalog_items.github_url)` is dropped** (replaced with non-unique `idx_catalog_items_github_url`) — shared-repo capabilities need it. The slug UNIQUE stays; per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]` (see `naming-conventions.md` § slug grammar).
+- **Discovery → fan-out** lives in `app/scan/discovery.py` (pure) + `app/scan/engine.py::run_repo_scan`; persistence in `app/scan/persistence.py::persist_completed_scan_run`. Snapshots/manifests are **per-capability subtree**.
+- **Backfill (migration 0007):** one `scan_runs` row per existing `scans` row (each a 1-capability run, reusing the scan's idempotency_key). Removed capabilities on a rescan are **not deleted** (archived-public policy).
 
 ## Stored artifact snapshots (`artifact_blobs`)
 

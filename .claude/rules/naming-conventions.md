@@ -59,6 +59,13 @@ The regex (validated in `schemas/rubric-rule.schema.json` + `schemas/finding.sch
 ^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$
 ```
 
+## Catalog slugs
+
+One catalog_item = one capability (Skill/MCP/Hook/Plugin/Rules); several capabilities can share one GitHub repo. The slug is the `/items/<slug>` permalink key and stays UNIQUE.
+
+- **Per-capability slug**: `<org>--<repo>--<kind>-<name>[-<hash6>]` (e.g. `acme--devtools-agent-kit--skill-pdf-extract`). `<kind>` is the `catalog_item.kind` enum with underscores hyphenated (`mcp_server` → `mcp-server`, since the grammar disallows `_`); `<name>` is slugified; same-`(kind, name)` collisions within a repo get a `-<hash6>` of the capability's `component_path` (allocated in `app.scan.discovery`).
+- **Legacy repo-level slug** `<org>--<repo>` stays valid — the grammar was **widened, not replaced**: `^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$`. Source: `schemas/catalog-item.schema.json` (flows to generated Pydantic/Zod/TS). Built in `app/scan/persistence.py::capability_slug`.
+
 ## Severity tiers
 
 Rules and findings use a 5-tier severity ladder (locked decision D-02):
@@ -78,3 +85,4 @@ info | low | medium | high | critical
 | New `<CATEGORY>` for scan rules | "Rule IDs" regex + `methodology.md` + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | New severity tier | "Severity tiers" + `methodology.md` § Sub-scores and aggregate + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | New DB-naming exception | "Database" |
+| Catalog slug grammar change | "Catalog slugs" + `schemas/catalog-item.schema.json` regex + `app/scan/persistence.py::capability_slug` |

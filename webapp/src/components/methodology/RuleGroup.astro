@@ -1,11 +1,16 @@
 ---
 /**
- * RuleGroup — one sub-score category section on /methodology, wrapping its
- * RuleCards. Emitted by scripts/generate-methodology.cjs (one per category).
+ * RuleGroup — one foldable sub-score category section on /methodology, wrapping
+ * its RuleCards. Emitted by scripts/generate-methodology.cjs (one per category).
  *
- * Carries `data-category` so the RuleFilter island can hide the whole group
- * (header + cards) when a filter leaves it with no visible rules. The header
- * replaces the old plain markdown `## Security (35% of aggregate)` heading.
+ * The header is a real <button aria-expanded> toggling `.is-collapsed` on the
+ * section (wired by the inline script in methodology.astro). The card wrapper
+ * collapses via a `grid-template-rows: 1fr → 0fr` transition (the GPU-friendly
+ * height-animation pattern). `data-category` lets the RuleFilter island hide the
+ * whole group when a filter leaves it with no visible rules, and force it open
+ * when a filter has matches inside.
+ *
+ * Progressive enhancement: with JS off the section is simply expanded.
  */
 interface Props {
   category: string
@@ -14,18 +19,21 @@ interface Props {
   count: number
 }
 const { category, title, weight, count } = Astro.props as Props
+const bodyId = `rg-body-${category}`
 ---
 
-<section class="rule-group" data-category={category} aria-label={title}>
-  <header class="rg-head">
-    <h3 class="rg-title">{title}</h3>
+<section class="rule-group" data-category={category}>
+  <button type="button" class="rg-head" aria-expanded="true" aria-controls={bodyId}>
+    <span class="rg-title">{title}</span>
     <span class="rg-meta">
       <span class="rg-weight">{weight}%</span> of aggregate ·
       <span class="rg-count" data-rg-count>{count}</span> rules
     </span>
-  </header>
-  <div class="rg-cards">
-    <slot />
+    <span class="rg-chevron" aria-hidden="true"></span>
+  </button>
+  <div class="rg-cards-wrap" id={bodyId}>
+    <div class="rg-cards">
+      <slot />
+    </div>
   </div>
-  <p class="rg-empty" hidden>No rules in this category match the current filter.</p>
 </section>

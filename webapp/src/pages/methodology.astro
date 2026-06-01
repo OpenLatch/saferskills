@@ -124,6 +124,22 @@ import '@/styles/page-methodology.css'
 
   <Footer />
 
+  {/* Foldable category groups — the .rg-head button toggles .is-collapsed on
+      its section (grid-rows collapse handled in CSS). No-JS leaves every group
+      expanded. Event-delegated so it covers all generated groups. */}
+  <script is:inline>
+    ;(function () {
+      document.addEventListener('click', function (ev) {
+        var head = ev.target.closest && ev.target.closest('.rg-head')
+        if (!head) return
+        var group = head.closest('.rule-group')
+        if (!group) return
+        var collapsed = group.classList.toggle('is-collapsed')
+        head.setAttribute('aria-expanded', String(!collapsed))
+      })
+    })()
+  </script>
+
   {/* Entrance reveal — adds `.is-visible` to each `[data-reveal]` (just the
       formula panel) as it scrolls into view, firing the weight-bar fill.
       No-ops under reduced-motion (CSS keeps bars at rest size) and reveals

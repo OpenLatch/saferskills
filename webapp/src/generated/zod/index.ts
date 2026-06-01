@@ -27,6 +27,10 @@ export type ScanReportSummary = z.infer<typeof ScanReportSummarySchema>;
 export const ScanReportSchema = z.unknown();
 export type ScanReport = z.infer<typeof ScanReportSchema>;
 
+// scan-run-report.schema.json
+export const ScanRunReportSchema = z.unknown();
+export type ScanRunReport = z.infer<typeof ScanRunReportSchema>;
+
 // vendor-response.schema.json
 export const VendorResponseSchema = z.unknown();
 export type VendorResponse = z.infer<typeof VendorResponseSchema>;

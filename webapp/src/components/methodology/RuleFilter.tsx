@@ -51,9 +51,18 @@ export default function RuleFilter({ groups, total, targetId = 'rules-index' }: 
       card.toggleAttribute('hidden', !match)
       if (match) visible++
     }
-    // Hide a whole category section once none of its cards survive the filter.
+    const filtering = cat !== 'all' || sev !== 'all' || needle !== ''
     for (const group of Array.from(root.querySelectorAll<HTMLElement>('.rule-group'))) {
-      group.toggleAttribute('hidden', group.querySelector('.rule-card:not([hidden])') === null)
+      const anyVisible = group.querySelector('.rule-card:not([hidden])') !== null
+      // Hide a whole category section once none of its cards survive the filter.
+      group.toggleAttribute('hidden', !anyVisible)
+      // When a filter is active, force matching groups open so results aren't
+      // stranded behind a collapsed fold (the user's manual fold is restored
+      // simply by clearing the filter).
+      if (filtering && anyVisible && group.classList.contains('is-collapsed')) {
+        group.classList.remove('is-collapsed')
+        group.querySelector('.rg-head')?.setAttribute('aria-expanded', 'true')
+      }
     }
     setShown(visible)
   }, [cat, sev, q, targetId])
@@ -68,26 +77,44 @@ export default function RuleFilter({ groups, total, targetId = 'rules-index' }: 
 
   return (
     <section className="rule-filter" aria-label="Filter detection rules">
-      <div className="rf-row rf-row--cats">
-        <button
-          type="button"
-          className="rf-pill"
-          aria-pressed={cat === 'all'}
-          onClick={() => setCat('all')}
-        >
-          All <span className="rf-pill-n">{total}</span>
-        </button>
-        {groups.map((g) => (
+      <div className="rf-row rf-row--top">
+        <div className="rf-cats">
           <button
             type="button"
-            key={g.key}
             className="rf-pill"
-            aria-pressed={cat === g.key}
-            onClick={() => setCat(g.key)}
+            aria-pressed={cat === 'all'}
+            onClick={() => setCat('all')}
           >
-            {g.title} <span className="rf-pill-n">{g.count}</span>
+            All <span className="rf-pill-n">{total}</span>
           </button>
-        ))}
+          {groups.map((g) => (
+            <button
+              type="button"
+              key={g.key}
+              className="rf-pill"
+              aria-pressed={cat === g.key}
+              onClick={() => setCat(g.key)}
+            >
+              {g.title} <span className="rf-pill-n">{g.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="rf-search">
+          <label className="rf-search-lbl" htmlFor={searchId}>
+            Search rules
+          </label>
+          <input
+            id={searchId}
+            type="search"
+            className="rf-search-input"
+            placeholder="Filter by rule ID or trigger…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
       </div>
 
       <div className="rf-row rf-row--controls">
@@ -115,30 +142,14 @@ export default function RuleFilter({ groups, total, targetId = 'rules-index' }: 
           ))}
         </fieldset>
 
-        <div className="rf-search">
-          <label className="rf-search-lbl" htmlFor={searchId}>
-            Search rules
-          </label>
-          <input
-            id={searchId}
-            type="search"
-            className="rf-search-input"
-            placeholder="Filter by rule ID or trigger…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
+        <div className="rf-status" aria-live="polite">
+          Showing <b>{shown}</b> of {total} rules
+          {isFiltered ? (
+            <button type="button" className="rf-clear" onClick={reset}>
+              Clear filters
+            </button>
+          ) : null}
         </div>
-      </div>
-
-      <div className="rf-status" aria-live="polite">
-        Showing <b>{shown}</b> of {total} rules
-        {isFiltered ? (
-          <button type="button" className="rf-clear" onClick={reset}>
-            Clear filters
-          </button>
-        ) : null}
       </div>
 
       {shown === 0 ? (

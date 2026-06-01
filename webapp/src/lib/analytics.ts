@@ -16,6 +16,12 @@ type EventMap = {
   }
   scan_report_install_copied: { command_type: 'npx' | 'web' }
   scan_report_badge_copied: { format: 'markdown' | 'html' | 'preview' }
+  scan_report_capability_filtered: {
+    kind: 'all' | 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
+  }
+  scan_report_capability_expanded: {
+    kind: 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
+  }
   item_detail_chart_explored: { interaction: 'hover' | 'click_point' }
 }
 

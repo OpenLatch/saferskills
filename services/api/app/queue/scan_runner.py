@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db_pool import get_pool
 from app.db.session import AsyncSessionLocal
 from app.models.scan import Scan, ScanEvent
+from app.models.scan_run import ScanRun
 from app.scan import engine, persistence
 
 logger = logging.getLogger(__name__)
@@ -37,28 +38,38 @@ logger = logging.getLogger(__name__)
 STAGES_SCORING = ("security", "supply_chain", "maintenance", "transparency", "community")
 
 
-async def _next_event_seq(session: AsyncSession, scan_id: UUID) -> int:
+async def _next_event_seq(
+    session: AsyncSession, *, scan_run_id: UUID | None = None, scan_id: UUID | None = None
+) -> int:
+    cond = (
+        ScanEvent.scan_run_id == scan_run_id
+        if scan_run_id is not None
+        else ScanEvent.scan_id == scan_id
+    )
     max_seq = (
-        await session.execute(
-            select(func.coalesce(func.max(ScanEvent.event_seq), 0)).where(
-                ScanEvent.scan_id == scan_id
-            )
-        )
+        await session.execute(select(func.coalesce(func.max(ScanEvent.event_seq), 0)).where(cond))
     ).scalar_one()
     return int(max_seq) + 1
 
 
 async def _emit(
-    scan_id: UUID,
+    channel_id: UUID,
     stage: str,
     completion_pct: int,
     status: str,
     payload: dict[str, Any] | None = None,
+    *,
+    scan_run_id: UUID | None = None,
+    scan_id: UUID | None = None,
 ) -> None:
-    """Append a scan_events row + NOTIFY listening SSE consumers."""
+    """Append a scan_events row + NOTIFY listening SSE consumers on
+    `scan_progress_<channel_id>`. Repo-scan progress keys on `scan_run_id`
+    (the SSE channel the frontend subscribes to); the legacy single-scan path
+    keys on `scan_id`."""
     async with AsyncSessionLocal() as session:
-        event_seq = await _next_event_seq(session, scan_id)
+        event_seq = await _next_event_seq(session, scan_run_id=scan_run_id, scan_id=scan_id)
         event = ScanEvent(
+            scan_run_id=scan_run_id,
             scan_id=scan_id,
             event_seq=event_seq,
             stage=stage,
@@ -70,7 +81,7 @@ async def _emit(
         await session.commit()
 
     pool = get_pool()
-    channel = f"scan_progress_{scan_id.hex}"
+    channel = f"scan_progress_{channel_id.hex}"
     payload_json = json.dumps(
         {
             "event_seq": event_seq,
@@ -96,7 +107,7 @@ async def scan_run(
     spawns via `asyncio.create_task` from POST /scans and never awaits it.
     """
     try:
-        await _emit(scan_id, "fetch", 5, "running", {"target": github_url})
+        await _emit(scan_id, "fetch", 5, "running", {"target": github_url}, scan_id=scan_id)
 
         # The engine runs fetch + walk + ALL rule evaluation + aggregation in one
         # step (it's CPU-bound regex work that doesn't yield meaningful per-stage
@@ -110,14 +121,11 @@ async def scan_run(
             15,
             "completed",
             {"file_count": result.file_count, "ref_sha": result.ref_sha},
+            scan_id=scan_id,
         )
 
         await _emit(
-            scan_id,
-            "index",
-            25,
-            "completed",
-            {"file_count": result.file_count},
+            scan_id, "index", 25, "completed", {"file_count": result.file_count}, scan_id=scan_id
         )
 
         for sub_score, target_pct in zip(STAGES_SCORING, (50, 65, 75, 85, 90), strict=True):
@@ -127,10 +135,8 @@ async def scan_run(
                 sub_score,
                 target_pct,
                 "completed",
-                {
-                    "findings_count": count,
-                    "sub_score": result.sub_scores.get(sub_score, 100),
-                },
+                {"findings_count": count, "sub_score": result.sub_scores.get(sub_score, 100)},
+                scan_id=scan_id,
             )
 
         await _emit(
@@ -138,10 +144,8 @@ async def scan_run(
             "score",
             98,
             "completed",
-            {
-                "aggregate_score": result.aggregate_score,
-                "tier": result.tier,
-            },
+            {"aggregate_score": result.aggregate_score, "tier": result.tier},
+            scan_id=scan_id,
         )
 
         # Persist the final scan + findings.
@@ -155,8 +159,8 @@ async def scan_run(
                 await persistence.persist_completed_scan(session, cached_scan, result)
                 await session.commit()
 
-        await _emit(scan_id, "sign", 100, "completed")
-        await _emit(scan_id, "done", 100, "completed")
+        await _emit(scan_id, "sign", 100, "completed", scan_id=scan_id)
+        await _emit(scan_id, "done", 100, "completed", scan_id=scan_id)
 
     except Exception as exc:
         logger.exception("scan %s failed", scan_id)
@@ -171,10 +175,114 @@ async def scan_run(
                     "error_message": str(exc),
                     "traceback_tail": traceback.format_exc(limit=3),
                 },
+                scan_id=scan_id,
             )
         except Exception:
             # Best-effort — emit may itself fail if the pool is down.
             logger.exception("scan %s final emit also failed", scan_id)
+
+
+async def scan_run_repo(
+    run_id: UUID,
+    github_url: str,
+    rubric_version: str,
+) -> None:
+    """Drive one repo scan to completion: discover + score N capabilities, fan
+    out to N catalog items + N scans under the run, emit progress on
+    `scan_progress_<run_id>`. Modeled on `scan_run`; always terminal.
+    """
+    try:
+        await _emit(run_id, "fetch", 5, "running", {"target": github_url}, scan_run_id=run_id)
+
+        repo = await engine.run_repo_scan(github_url, rubric_version)
+
+        await _emit(
+            run_id,
+            "fetch",
+            15,
+            "completed",
+            {"file_count": repo.file_count, "ref_sha": repo.ref_sha},
+            scan_run_id=run_id,
+        )
+        await _emit(
+            run_id,
+            "index",
+            25,
+            "completed",
+            {"file_count": repo.file_count, "capability_count": repo.capability_count},
+            scan_run_id=run_id,
+        )
+
+        for sub_score, target_pct in zip(STAGES_SCORING, (50, 65, 75, 85, 90), strict=True):
+            count = sum(
+                1
+                for cap in repo.capabilities
+                for f in cap.result.findings
+                if f.sub_score == sub_score
+            )
+            await _emit(
+                run_id,
+                sub_score,
+                target_pct,
+                "completed",
+                {"findings_count": count},
+                scan_run_id=run_id,
+            )
+
+        await _emit(
+            run_id,
+            "score",
+            98,
+            "completed",
+            {
+                "repo_aggregate_score": repo.repo_aggregate_score,
+                "repo_tier": repo.repo_tier,
+                "kind_tally": repo.kind_tally,
+            },
+            scan_run_id=run_id,
+        )
+
+        async with AsyncSessionLocal() as session:
+            run = (
+                await session.execute(select(ScanRun).where(ScanRun.id == run_id))
+            ).scalar_one_or_none()
+            if run is None:
+                logger.warning("scan_run %s vanished mid-run; skipping commit", run_id)
+            else:
+                await persistence.persist_completed_scan_run(session, run, repo)
+                await session.commit()
+
+        await _emit(run_id, "sign", 100, "completed", scan_run_id=run_id)
+        await _emit(run_id, "done", 100, "completed", scan_run_id=run_id)
+
+    except Exception as exc:
+        logger.exception("scan_run %s failed", run_id)
+        # Best-effort: flip the run to failed so the report surface shows it.
+        try:
+            async with AsyncSessionLocal() as session:
+                run = (
+                    await session.execute(select(ScanRun).where(ScanRun.id == run_id))
+                ).scalar_one_or_none()
+                if run is not None:
+                    run.status = "failed"
+                    await session.commit()
+        except Exception:
+            logger.exception("scan_run %s failed-status update also failed", run_id)
+        try:
+            await _emit(
+                run_id,
+                "done",
+                100,
+                "failed",
+                {
+                    "error_class": type(exc).__name__,
+                    "error_message": str(exc),
+                    "traceback_tail": traceback.format_exc(limit=3),
+                },
+                scan_run_id=run_id,
+            )
+        except Exception:
+            logger.exception("scan_run %s final emit also failed", run_id)
 
 
 async def recover_stale_scans() -> None:
