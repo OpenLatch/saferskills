@@ -9,11 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
 from app.scan import persistence
-from app.scan.engine import CapabilityResult, RepoScanResult, ScanResult
+from app.scan.engine import (
+    CapabilityResult,
+    EngineFinding,
+    RepoScanResult,
+    ScanResult,
+)
 from app.services.repository_metadata import RepositoryMetadata
 
 
-def _scan_result(score: int, tier: str, findings: list | None = None) -> ScanResult:
+def _scan_result(score: int, tier: str, findings: list[EngineFinding] | None = None) -> ScanResult:
     return ScanResult(
         findings=findings or [],
         sub_scores={

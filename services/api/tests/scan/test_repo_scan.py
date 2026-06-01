@@ -5,6 +5,7 @@ Pure-logic: the GitHub fetch is monkeypatched, so no network is touched.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,7 @@ def test_score_capability_clean_skill_scores_100() -> None:
         component_path="",
         file_subset=[("SKILL.md", b"# fine")],
     )
-    scored = engine._score_capability(cap, rubric_version="testver", ref_sha="a" * 40)
+    scored = engine.score_capability(cap, rubric_version="testver", ref_sha="a" * 40)
     assert scored.kind == KIND_SKILL
     assert scored.name == "clean"
     assert scored.result.file_count == 1
@@ -65,8 +66,11 @@ async def test_run_repo_scan_rollup_is_mean_and_tally(monkeypatch: pytest.Monkey
             skipped_oversized_files=[],
         )
 
+    def fake_walk(_dir: Path) -> Iterator[tuple[str, bytes]]:
+        return iter(file_index)
+
     monkeypatch.setattr(fetch, "fetch_repository", fake_fetch)
-    monkeypatch.setattr(fetch, "walk_files", lambda _dir: iter(file_index))
+    monkeypatch.setattr(fetch, "walk_files", fake_walk)
 
     repo = await run_repo_scan("https://github.com/acme/kit", rubric_version="testver")
 

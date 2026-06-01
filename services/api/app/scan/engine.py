@@ -457,7 +457,7 @@ async def run_scan(
     )
 
 
-def _score_capability(
+def score_capability(
     cap: Capability,
     rubric_version: str,
     ref_sha: str,
@@ -515,7 +515,7 @@ async def run_repo_scan(
     if not capabilities:  # discovery guarantees ≥1; defensive belt-and-braces.
         raise RuntimeError("discovery returned zero capabilities")
 
-    scored = [_score_capability(cap, rubric_version, result.ref_sha) for cap in capabilities]
+    scored = [score_capability(cap, rubric_version, result.ref_sha) for cap in capabilities]
 
     scores = [c.result.aggregate_score for c in scored]
     repo_aggregate = round(sum(scores) / len(scores))

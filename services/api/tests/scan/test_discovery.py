@@ -8,6 +8,7 @@ from app.scan.discovery import (
     KIND_PLUGIN,
     KIND_RULES,
     KIND_SKILL,
+    Capability,
     discover_capabilities,
 )
 
@@ -16,7 +17,7 @@ def _b(text: str) -> bytes:
     return text.encode("utf-8")
 
 
-def _paths(cap) -> set[str]:
+def _paths(cap: Capability) -> set[str]:
     return {p for p, _ in cap.file_subset}
 
 

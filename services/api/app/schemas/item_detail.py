@@ -174,7 +174,7 @@ class ItemDetailResponse(OrmBaseModel):
     # GitHub repository facts (header + Package card).
     repo: RepoMeta = Field(default_factory=RepoMeta)
     # Version-history rail (newest first); each carries sub_scores for diffing.
-    versions: list[VersionPoint] = Field(default_factory=list)
+    versions: list[VersionPoint] = Field(default_factory=list[VersionPoint])
     # Primary manifest for the Source tab (null until captured at scan time).
     manifest: ManifestSource | None = None
     # Latest scan with a stored snapshot → served-zip pointer (null until one

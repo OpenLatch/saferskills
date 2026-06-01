@@ -104,7 +104,10 @@ async def test_repo_metadata_noassertion_license_is_none(monkeypatch: pytest.Mon
                 200, {"stargazers_count": 1, "license": {"spdx_id": "NOASSERTION"}}
             )
 
-    monkeypatch.setattr(rm.httpx, "AsyncClient", lambda *_, **__: _NoLicenseClient())
+    def _make_client(*_: object, **__: object) -> _NoLicenseClient:
+        return _NoLicenseClient()
+
+    monkeypatch.setattr(rm.httpx, "AsyncClient", _make_client)
     meta = await rm.get_repository_metadata("acme", "unlicensed")
     assert meta.stars == 1
     assert meta.license_spdx is None
