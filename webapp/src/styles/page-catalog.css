@@ -479,8 +479,14 @@ html.dark .cat-row .install-hex:hover {
   margin: 0 0 8px;
 }
 .cat-results-empty a {
-  color: var(--brand-primary);
+  /* brand-primary (#0D9488) only hits 3.57:1 on the light --color-paper surface;
+     the darker teal clears WCAG AA (≥4.5:1) while keeping the brand hue. */
+  color: var(--brand-primary-dark);
   border-bottom: 1px solid currentColor;
+}
+html.dark .cat-results-empty a {
+  /* in dark mode the bright teal is the high-contrast one — keep it. */
+  color: var(--brand-primary);
 }
 
 /* pagination footer */

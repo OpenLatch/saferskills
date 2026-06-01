@@ -245,6 +245,15 @@ html.dark .scan-budget-head {
   background: var(--brand-accent);
   flex-shrink: 0;
 }
+.scan-budget-head .n {
+  /* the inherited --fg-3 (slate-500) only hits 4.34:1 at this 10px size on the
+     light --color-paper-deep surface; slate-600 clears WCAG AA (≥4.5:1). */
+  color: var(--ol-slate-600);
+}
+html.dark .scan-budget-head .n {
+  /* dark surface already passes with the inherited muted slate. */
+  color: var(--fg-3);
+}
 .scan-budget-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
