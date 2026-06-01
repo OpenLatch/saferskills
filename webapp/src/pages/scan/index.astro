@@ -4,12 +4,12 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
-import PageHead from '@ui/components/atoms/PageHead.tsx'
-import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeRuler from '@ui/components/atoms/RidgeRuler.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import ScanSubmitForm from '@/components/scan/ScanSubmitForm.tsx'
 import ScanMethodologyPreview from '@/components/scan/ScanMethodologyPreview.astro'
+import ScanRecents from '@/components/scan/ScanRecents.astro'
 import { listRecentSubmissionScans } from '@/lib/api/scans'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
@@ -17,10 +17,12 @@ import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-
 
 import '@/styles/page-scan-submit.css'
 
-const recentScans = await listRecentSubmissionScans({ limit: 4 }).catch(() => [])
+const [recentScans, stats] = await Promise.all([
+  listRecentSubmissionScans({ limit: 4 }).catch(() => []),
+  fetchOrNull(fetchPlatformStats),
+])
 
 // Live detection-rule count with the generated-methodology count as fallback.
-const stats = await fetchOrNull(fetchPlatformStats)
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 ---
 
@@ -28,23 +30,62 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
   title="Scan — SaferSkills"
   description="Paste a public GitHub URL. Get a transparent security report in ~30 seconds. Free. No account."
 >
+  {/* Mark JS as active before the body paints so the reveal CSS's hidden
+      initial state applies without a flash. No-JS visitors never get it. */}
+  <script is:inline>document.documentElement.classList.add('js-anim')</script>
+
   <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
-  <PageHead
-    eyebrow="SCAN · 03 · /SCAN"
-    title="Paste a GitHub URL. We do the rest."
-    lede={`Independent audit across ${ruleCount} detection rules. Free. No account. Bookmarkable report. Persists for 90 days.`}
-  />
-  <PageRidge variant="swell" label="— /SCAN —" />
+  <header class="page-head">
+    <div class="container">
+      <div class="ph-eyebrow" data-reveal>SCAN · 03 · /SCAN</div>
+      <h1 class="ph-title" data-reveal style="--reveal-delay: 90ms">Paste a GitHub URL.<br />We do <span class="mark">the rest</span>.<span class="script">— ~30s</span></h1>
+      <p class="ph-lede" data-reveal style="--reveal-delay: 170ms">
+        Independent audit across {ruleCount} detection rules. Free. No account. Bookmarkable
+        report. Persists for 90 days.
+      </p>
+    </div>
+  </header>
 
-  <section class="scan-split">
-    <div class="scan-form-pane">
-      <ScanSubmitForm client:load recentScans={recentScans} />
-    </div>
-    <div class="scan-method-pane">
+  <RidgeRuler />
+
+  <div class="scan-split">
+    <section class="scan-form-pane" data-reveal>
+      <ScanSubmitForm client:load />
+    </section>
+    <aside class="scan-method-pane" data-reveal style="--reveal-delay: 120ms">
       <ScanMethodologyPreview />
-    </div>
-  </section>
+    </aside>
+  </div>
+
+  <ScanRecents recentScans={recentScans} />
 
   <Footer />
+
+  {/* Subtle entrance reveals — adds `.is-visible` as each `[data-reveal]`
+      scrolls into view. Early-returns under reduced-motion (CSS already keeps
+      those elements visible), and reveals everything immediately if
+      IntersectionObserver is unavailable. */}
+  <script is:inline>
+    ;(function () {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      var els = document.querySelectorAll('[data-reveal]')
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function (el) { el.classList.add('is-visible') })
+        return
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-visible')
+              io.unobserve(e.target)
+            }
+          })
+        },
+        { threshold: 0.12, rootMargin: '0px 0px -6% 0px' }
+      )
+      els.forEach(function (el) { io.observe(el) })
+    })()
+  </script>
 </Base>

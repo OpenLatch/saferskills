@@ -3,23 +3,17 @@ export const prerender = false
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
-import PageHead from '@ui/components/atoms/PageHead.tsx'
-import PageRidge from '@ui/components/atoms/PageRidge.tsx'
-import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
-import VendorResponseBlock from '@ui/components/molecules/VendorResponseBlock.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
-import ItemIdentity from '@/components/item/ItemIdentity.astro'
-import ScoreCurrent from '@/components/item/ScoreCurrent.tsx'
-import ScoreHistoryChart from '@/components/item/ScoreHistoryChart.tsx'
-import InstallActivity from '@/components/item/InstallActivity.tsx'
-import RelatedItemsGrid from '@/components/item/RelatedItemsGrid.tsx'
-import ScanReportFull from '@/components/scan/ScanReportFull.tsx'
-
+import ItemTabs from '@/components/item/ItemTabs.tsx'
+import InstallCard from '@/components/item/InstallCard.tsx'
+import VendorResponseBlock from '@ui/components/molecules/VendorResponseBlock.tsx'
 import { fetchItemBySlug } from '@/lib/api/items'
+import { scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
-import '@/styles/page-scan-report.css'
 import '@/styles/page-item.css'
 
 const { slug } = Astro.params
@@ -28,12 +22,52 @@ if (!slug) return Astro.redirect('/404')
 const detail = await fetchItemBySlug(slug).catch(() => null)
 if (!detail) return Astro.redirect('/404')
 
-const { item, latest_scan, scan_history, install_activity, related_items, vendor_responses } = detail
-const firstScanScore = scan_history.at(0)?.aggregate_score ?? null
-const previousAggregateScore = scan_history.length > 1 ? scan_history.at(-2)?.aggregate_score ?? null : null
+const { item, latest_scan, scan_history, install_activity, vendor_responses, versions, repo, manifest, download } = detail
 
-const scoreLabel = latest_scan ? `${latest_scan.aggregate_score}/100` : 'unscored'
-const respondHref = `/items/${slug}/respond`
+const KIND_LABEL: Record<string, string> = {
+  skill: 'Agent Skill',
+  mcp_server: 'MCP Server',
+  hook: 'Hook',
+  plugin: 'Plugin',
+  rules: 'Rules',
+}
+const KIND_PLURAL: Record<string, string> = {
+  skill: 'Agent Skills',
+  mcp_server: 'MCP Servers',
+  hook: 'Hooks',
+  plugin: 'Plugins',
+  rules: 'Rules',
+}
+const kindLabel = KIND_LABEL[item.kind] ?? item.kind
+const kindPlural = KIND_PLURAL[item.kind] ?? 'Catalog'
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+const relAge = (iso: string) => {
+  const d = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 86400000))
+  return d === 0 ? 'today' : `${d}d ago`
+}
+
+const score = latest_scan?.aggregate_score ?? null
+const tier = scoredTier(latest_scan?.tier) ?? 'red'
+const tierClass = TIER_TO_STRIPE[tier]
+const dotsFilled = score == null ? 0 : Math.max(0, Math.min(10, Math.round(score / 10)))
+
+const firstScore = scan_history.at(0)?.aggregate_score ?? null
+const delta = score != null && firstScore != null ? score - firstScore : null
+
+// Findings severity split for the "Findings" fact.
+const findings = latest_scan?.findings ?? []
+const highCount = findings.filter((f) => f.severity === 'high' || f.severity === 'critical').length
+const warnCount = findings.length - highCount
+
+const githubUrl = item.github_url ?? `https://github.com/${item.github_org}/${item.github_repo}`
+const description =
+  (typeof item.item_metadata?.description === 'string' ? item.item_metadata.description : null) ??
+  `${item.display_name} — independently scanned and version-tracked by SaferSkills.`
+const registries = item.registries.length ? item.registries.join(' · ') : '—'
+const scoreLabel = score != null ? `${score}/100` : 'unscored'
+const installsTotal = install_activity.all_time
 ---
 
 <Base
@@ -41,38 +75,145 @@ const respondHref = `/items/${slug}/respond`
   description={`SaferSkills audit of ${item.display_name} by ${item.github_org}: ${scoreLabel}. Independent, methodology-open, free.`}
   ogImage={new URL(`/og/item/${slug}.png`, Astro.site).href}
 >
-  <NavBar client:idle />
+  <NavBar client:idle activePath={Astro.url.pathname} />
 
-  <PageHead
-    eyebrow={`ITEM · 06 · /ITEMS/${slug.toUpperCase()}`}
-    title={`${item.display_name} — score history`}
-    lede={`Live dashboard of every score change, install, and re-scan. The score is the rolling result of ${scan_history.length} scan${scan_history.length === 1 ? '' : 's'} over 90 days.`}
-  />
-  <PageRidge variant="contour" label={`— /ITEMS/${slug.toUpperCase()} —`} />
-
-  <ItemIdentity item={item} scan={latest_scan} />
+  <header class="page-head sk-head">
+    <div class="container">
+      <Breadcrumb
+        items={[
+          { label: 'Catalog', href: '/catalog' },
+          { label: kindPlural, href: `/catalog?kind=${item.kind}` },
+          { label: item.display_name },
+        ]}
+      />
+      <div class="sk-head-row">
+        <div class="sk-head-l">
+          <h1 class="ph-title">{item.display_name}<span class="script">— {kindLabel.toLowerCase()}</span></h1>
+          <p class="ph-lede">{description}</p>
+          <div class="sk-head-meta">
+            <span class="by">by <b>{item.github_org}</b></span>
+            <span class="dot">·</span>
+            <span>{kindLabel}</span>
+            <span class="dot">·</span>
+            <a href={githubUrl} target="_blank" rel="noopener">{githubUrl.replace(/^https?:\/\//, '')}</a>
+          </div>
+        </div>
+        <div class="sk-head-r sk-ghstats">
+          {repo.stars != null && (
+            <a class="ghstat" href={`${githubUrl}/stargazers`} target="_blank" rel="noopener">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25l2.06 4.46 4.9.52-3.66 3.3 1.02 4.82L8 11.6l-4.32 2.27 1.02-4.82L1.04 5.23l4.9-.52z"></path></svg>
+              <b>{repo.stars.toLocaleString()}</b><span>stars</span>
+            </a>
+          )}
+          {repo.forks != null && (
+            <a class="ghstat" href={`${githubUrl}/forks`} target="_blank" rel="noopener">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5a1.5 1.5 0 1 0-2 1.4V7a2 2 0 0 0 2 2h2v1.6a1.5 1.5 0 1 0 1.5 0V9h2a2 2 0 0 0 2-2V4.9a1.5 1.5 0 1 0-1.5-.07V7a.5.5 0 0 1-.5.5H5A.5.5 0 0 1 4.5 7V4.9A1.5 1.5 0 0 0 5 3.5z"></path></svg>
+              <b>{repo.forks.toLocaleString()}</b><span>forks</span>
+            </a>
+          )}
+          <a class="ghstat solid" href={githubUrl} target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+            Review on GitHub →
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
 
   {latest_scan ? (
     <>
-      <section class="page-section page-section--grid item-score-band">
-        <div class="container item-score-grid">
-          <ScoreCurrent client:idle scan={latest_scan} firstScanScore={firstScanScore} />
-          <ScoreHistoryChart client:visible points={scan_history} />
-          <InstallActivity client:idle activity={install_activity} />
+      <section class="sk-stat-band">
+        <div class="container">
+          <div class="sk-stat-grid">
+            <div class="sk-scorebox">
+              <div class={`sb-score ${tierClass}`}>
+                <span class="sb-eyebrow">Score</span>
+                <div class="sb-big">{score}<span class="sb-denom">/100</span></div>
+                <div class="dots">
+                  <span class={`dot-${tierClass}`}>{'●'.repeat(dotsFilled)}</span><span class="dot-off">{'○'.repeat(10 - dotsFilled)}</span>
+                </div>
+                {delta != null && (
+                  <span class="sb-delta">{delta >= 0 ? '↑' : '↓'} {delta >= 0 ? '+' : ''}{delta} since first scan ({firstScore} → {score})</span>
+                )}
+                <a class="rescan-btn" href={`/scan?prefill=${encodeURIComponent(githubUrl)}`}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"></path></svg>
+                  <span>Re-scan</span>
+                  <span class="rs-meta">~30s</span>
+                </a>
+              </div>
+              <div class="sb-facts">
+                <span class="sb-eyebrow">Latest scan</span>
+                <div class="fact"><span>Scanned</span><b>{fmtDate(latest_scan.scanned_at)} · {relAge(latest_scan.scanned_at)}</b></div>
+                <div class="fact"><span>Scans run</span><b>{scan_history.length} over 90 days</b></div>
+                <div class="fact"><span>Detectors</span><b>{methodologyRuleCount} checks · 5 categories</b></div>
+                <div class="fact"><span>Findings</span><b>{warnCount} warnings · {highCount} high</b></div>
+                <div class="fact"><span>Engine</span><b>SaferSkills {latest_scan.engine_version.slice(0, 7)}</b></div>
+                <a class="sb-method" href="/methodology">View methodology →</a>
+              </div>
+            </div>
+            <div class="sk-installbox">
+              <span class="sb-eyebrow">SaferSkills installs</span>
+              <div class="ins-row"><span>This week</span><b>{install_activity.this_week.toLocaleString()}</b></div>
+              <div class="ins-row"><span>This month</span><b>{install_activity.this_month.toLocaleString()}</b></div>
+              <div class="ins-row"><span>All time</span><b>{install_activity.all_time.toLocaleString()}</b></div>
+              <div class="ins-distrib">
+                <div class="bar">
+                  {install_activity.agent_distribution.slice(0, 3).map((d, i) => (
+                    <i class={['a', 'b', 'c'][i]} style={`width:${d.percentage}%`}></i>
+                  ))}
+                </div>
+                <div class="legend">
+                  {install_activity.agent_distribution.slice(0, 3).map((d) => (
+                    <span>{d.agent} {d.percentage}%</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <RidgeStars label="— BREAKDOWN · 02 —" />
-
-      <section class="page-section page-section--flat item-breakdown-band">
+      <section class="sk-main">
         <div class="container">
-          <h2 class="item-band-title">Score breakdown</h2>
-          <ScanReportFull client:load scan={latest_scan} previousAggregateScore={previousAggregateScore} />
+          <div class="sk-grid">
+            <ItemTabs client:load slug={slug} scan={latest_scan} versions={versions} manifest={manifest ?? null} />
+            <aside class="sk-col-side">
+              <InstallCard
+                client:visible
+                slug={slug}
+                installsTotal={installsTotal}
+                latestVersion={repo.latest_version}
+                githubUrl={githubUrl}
+                download={download ?? null}
+              />
+              <div class="side-card pkg-card">
+                <h4>Package</h4>
+                <dl class="pkg-dl">
+                  <div><dt>Author</dt><dd>{item.github_org}{repo.verified && <span class="verified"> ✓ verified</span>}</dd></div>
+                  <div><dt>Repository</dt><dd><a href={githubUrl} target="_blank" rel="noopener">{item.github_org}/{item.github_repo}</a></dd></div>
+                  <div><dt>License</dt><dd>{repo.license_spdx ?? '—'}</dd></div>
+                  <div><dt>Latest</dt><dd>{repo.latest_version ?? '—'}</dd></div>
+                  <div><dt>Type</dt><dd>{kindLabel}</dd></div>
+                  <div><dt>Registries</dt><dd>{registries}</dd></div>
+                </dl>
+                <a class="pkg-gh" href={githubUrl} target="_blank" rel="noopener">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+                  Review source on GitHub →
+                </a>
+              </div>
+            </aside>
+          </div>
         </div>
       </section>
 
-      <section class="vendor-response-band" id="vendor-response">
+      <section class="sk-vendor" id="vendor-response">
         <div class="container">
+          <div class="sk-vendor-head">
+            <div class="sb-eyebrow">Vendor response · right of reply</div>
+            <a class="vendor-respond-cta" href={`/items/${slug}/respond`}>
+              Are you the maintainer? Submit a response →
+            </a>
+          </div>
           {vendor_responses.map((vr) => (
             <VendorResponseBlock
               client:visible
@@ -82,26 +223,15 @@ const respondHref = `/items/${slug}/respond`
               version={vr.version}
             />
           ))}
-          <a class="vendor-respond-cta" href={respondHref}>
-            Are you the maintainer? Submit a response →
-          </a>
         </div>
-      </section>
-
-      <RidgeStars label="— RELATED · 03 —" />
-
-      <section class="page-section page-section--grid item-related-band">
-        <RelatedItemsGrid client:visible items={related_items} kind={item.kind} />
       </section>
     </>
   ) : (
-    <section class="page-section page-section--flat item-unscored">
-      <div class="container">
-        <h2>Not scanned yet.</h2>
-        <p>This item is indexed but hasn't been audited. Be the first to run a scan.</p>
-        <a class="btn primary" href={`/scan?prefill=${encodeURIComponent(item.github_url ?? '')}`}>Scan it now →</a>
-      </div>
-    </section>
+    <section class="sk-main"><div class="container"><div class="item-unscored">
+      <h2>Not scanned yet.</h2>
+      <p>This item is indexed but hasn't been audited. Be the first to run a scan.</p>
+      <a class="btn primary" href={`/scan?prefill=${encodeURIComponent(githubUrl)}`}>Scan it now →</a>
+    </div></div></section>
   )}
 
   <CtaBand

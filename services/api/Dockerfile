@@ -21,6 +21,11 @@ RUN uv sync --frozen --no-dev || uv sync --no-dev
 
 COPY app/ ./app/
 
+# alembic.ini + migrations/ are needed at runtime: the API runs
+# `alembic upgrade head` in-process on every boot (app/core/startup.py).
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
+
 # ── runtime image ────────────────────────────────────────────────────────
 FROM python:3.14-slim AS runtime
 
@@ -37,6 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder --chown=app:app /app/.venv ./.venv
 COPY --from=builder --chown=app:app /app/app ./app
+COPY --from=builder --chown=app:app /app/alembic.ini ./
+COPY --from=builder --chown=app:app /app/migrations ./migrations
 
 USER app
 EXPOSE 8000

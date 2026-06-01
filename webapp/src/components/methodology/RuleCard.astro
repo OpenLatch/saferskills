@@ -33,7 +33,16 @@ const fileName = props.sourcePath.split('/').pop() ?? props.sourcePath
 const isShadow = props.status === 'shadow'
 ---
 
-<article id={anchorId} class={`rule-card sev-${props.severity} status-${props.status}`}>
+<article
+  id={anchorId}
+  class={`rule-card sev-${props.severity} status-${props.status}`}
+  data-category={props.subScore}
+  data-severity={props.severity}
+  data-status={props.status}
+  data-applies={props.appliesTo.join(' ')}
+  data-search={`${props.ruleId} ${props.triggerSummary}`.toLowerCase()}
+>
+
   <header class="rc-head">
     <code class="rc-id">{props.ruleId}</code>
     <div class="rc-chips">

@@ -21,7 +21,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-Bucket = Literal["scan_submit", "scan_read", "item_read", "item_list"]
+Bucket = Literal["scan_submit", "scan_read", "item_read", "item_list", "artifact_download"]
 
 
 def _hash_ip(ip: str) -> str:

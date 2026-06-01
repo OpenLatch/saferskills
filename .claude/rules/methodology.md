@@ -72,9 +72,22 @@ Body sections (human-readable, not enforced):
 
 - **Same input → same score**, byte-for-byte. The rubric version is part of the scan input.
 - Every scan report records its `rubric_version` (git SHA of `rubric/` at scan time) in the response payload.
-- A vendor can verify a finding by running the exact `rubric_version` against the exact artifact bytes at the recorded `ref_sha` — the result is reproducible without platform participation.
+- A vendor can verify a finding by running the exact `rubric_version` against the exact artifact bytes at the recorded `ref_sha` — the result is reproducible without platform participation. (The **stored snapshot** — `artifact_blobs`, see `database.md` — preserves those exact text-file bytes, so reproduction needs no re-fetch; it is a storage feature, **not** part of the verdict path and **never** an input to scoring.)
 - **No LLM in the verdict path.** No probabilistic scoring. No editorial moderation queue. Hard, structural.
 - **No randomness, no ML-as-a-black-box.** Heuristics may use ML-trained classifiers, but the classifier weights ship versioned under `rubric/<CATEGORY>/_models/` and the rule doc names which model version it uses.
+
+## Capability discovery (per-capability scans)
+
+A scan targets a **GitHub repo**, and one repo can host several capabilities (a Skill, an MCP server, hooks, …). The engine discovers each capability, scores it independently against its kind-scoped rules, and persists one catalog item + one `scans` row per capability — all grouped under one `scan_runs` row (the repo scan). The repo report (`/scans/<run_id>`) is a rollup over them.
+
+- **Discovery is deterministic + static** (`app/scan/discovery.py`, pure over the file tree, no network). Signals per kind: a dir with `SKILL.md` (skill); `mcp.json`/`.mcp.json` or `package.json` with `mcpServers` (mcp_server); each `hooks/*.json` or a `.claude/settings.json` hooks block (hook); `plugin.json` / `.claude-plugin/` (plugin); `.cursorrules` / `.cursor/rules/*.mdc` / `.windsurfrules` (rules).
+- **Kind-scoped scoring.** Each capability runs only its kind's rules (`rubric.by_kind`, matched on each rule's `appliesTo`). An embedded hook is HOOKS-scored only when discovered as its own capability.
+- **Repo-wide files join every capability.** Root `LICENSE` / `README` / `SECURITY.md` / `CHANGELOG` / `.github/**` are unioned into every capability's file subset so the maintenance/transparency rules still fire per capability. Deepest path claims a file on overlap.
+- **Repo aggregate = rounded mean** of the per-capability aggregate scores; a by-kind tally accompanies it. `tier_for(score)` is the single source for the band thresholds.
+- **Zero-capability fallback (mandatory).** A repo with no capability signal yields exactly one synthetic whole-repo capability (kind inferred, default `skill`) → today's 1:1 behaviour is preserved; every scan has ≥1 capability.
+- **Removed capabilities on a rescan are not deleted** (archived-public policy) — their items/scans persist. Snapshots/manifests are captured **per-capability subtree**.
+
+See `.claude/rules/database.md` § Per-capability scans for the `scan_runs` storage contract.
 
 ## Sub-scores and aggregate (locked D-01 / D-02 / D-13)
 

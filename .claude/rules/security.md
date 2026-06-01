@@ -12,15 +12,16 @@ SaferSkills is a public, free, read-only catalog. **Every endpoint is unauthenti
 
 ## Vendor-data isolation
 
-Scan inputs and outputs have three retention tiers — never conflate them.
+Scan inputs and outputs have distinct retention tiers — never conflate them.
 
 | Tier | Examples | Retention | Deletion contract |
 |---|---|---|---|
 | **Public + indefinite** | Scan results (scores, findings, rule_ids, rubric version); user-submitted GitHub URLs that resolved to a scannable artifact | Indefinite | Public log — transparency over erasure. Vendor right-of-reply per `vendor-appeals.md`. |
+| **Stored public artifact snapshots** | Verbatim bytes of scanned **text** files at the scanned ref (`artifact_blobs`, content-addressed dedup; `scans.file_hashes` maps `{path → sha256\|null}`). Binaries/oversize recorded as present-but-not-stored (null). Backs line-level version diffs + the served `.zip`. | Indefinite (immutable per scan) | Public reproduction of already-public GitHub content. Deletion only via vendor-appeals, which clears the scan's `file_hashes` references; unreferenced blobs are swept later (see `database.md`). |
 | **Private + deletable** | Email addresses (W5+), magic-link tokens, scan-request submitter IPs | Until user deletes via `/account/delete` (W5+) | Hard delete within 30 days of request. |
 | **Operational** | Server logs, Sentry events, PostHog telemetry | 30 days (logs) / 90 days (Sentry/PostHog) | Auto-expire. No PII per `telemetry.md`. |
 
-Public-tier data is **never** retroactively scrubbed except via the vendor-appeals workflow (`vendor-appeals.md`).
+Public-tier data (including stored snapshots) is **never** retroactively scrubbed except via the vendor-appeals workflow (`vendor-appeals.md`).
 
 ## Secrets Management
 
@@ -29,6 +30,7 @@ Public-tier data is **never** retroactively scrubbed except via the vendor-appea
 3. **No secrets in Docker images** — use Fly secrets / Docker secrets / bind mounts.
 4. **No secrets in logs** — auto-redact at logger config level.
 5. **No secrets in scan-result payloads** — if a scanned artifact contains a credential-shaped string, the finding records `rule_id` + position + the redacted hash, NEVER the raw secret.
+   - **Exception — stored public artifact snapshots are verbatim.** `artifact_blobs` stores the unredacted bytes of scanned text files (Phase B). This is deliberate: the bytes are already public on GitHub at the scanned ref, so storing them is reproduction of already-public data, not new disclosure. If a vendor publicly committed a secret, it is already exposed on GitHub; the remedy is the vendor-appeal deletion path (the stored-snapshot retention tier), not redaction at our boundary. **This exception applies ONLY to the stored-snapshot feature — the scan *trace* invariant in #5 / § Scan-trace transparency is unchanged.**
 
 ## Dependency Security
 
@@ -48,6 +50,8 @@ Every maintainer-facing mutation MUST emit an audit record. At W1 the surface is
 
 Every scan emits a per-finding trace: which `rule_id` fired, which rubric version was active, what input bytes (hashed) the rule saw. **Hard rule: traces NEVER contain raw artifact payload** (skill bodies, MCP tool descriptions, hook commands). Only hashes, positions, rule_ids, severity. The trace blob is bounded to ~4 KB per finding; deviations need a security review. This is the legal-defense artifact for the vendor right-of-reply (`vendor-appeals.md`) — a vendor must be able to reproduce the finding from the trace alone, without the platform replaying their content.
 
+This is **orthogonal to** the stored-snapshot feature (§ Vendor-data isolation → stored public artifact snapshots). Snapshots store verbatim public-repo bytes on purpose (to render diffs + serve a zip); the trace stores only hashes/positions/rule_ids. The two are separate stores with separate contracts — never fold raw payload into a trace, and never treat a snapshot as a trace.
+
 ## Public-input handling
 
 Every user-submitted GitHub URL is treated as untrusted:
@@ -56,6 +60,8 @@ Every user-submitted GitHub URL is treated as untrusted:
 2. **No SSRF**: outbound fetches go only to `api.github.com` and `raw.githubusercontent.com`, enforced at the HTTP-client layer (denylist `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `::1`).
 3. **Size cap** every fetch (artifacts > 25 MiB rejected up front; per-file > 5 MiB skipped with a logged finding).
 4. **No content execution** — scanned artifacts are parsed as data, never imported, eval'd, or shelled.
+5. **Per-IP submit cap** — `POST /api/v1/scans` enforces a per-IP daily limit (`SCAN_SUBMIT_DAILY_LIMIT`, default 10; D-FE-11). **Loopback callers are exempt** (`scans.py::_is_loopback`): loopback is the operator's own machine — the trusted maintainer/seed path. The exemption keys on `request.client.host` (the real TCP peer, unspoofable to loopback from a remote client); public traffic on Fly arrives over the 6PN proxy and is never loopback, so real submitters are always capped.
+6. **Per-IP download cap + size cap** — `GET /api/v1/items/{slug}/download` serves a stored snapshot as a `.zip`; it enforces a per-IP daily limit (`ARTIFACT_DOWNLOAD_DAILY_LIMIT`, default 200; same loopback exemption) and rejects (413) any snapshot whose uncompressed total exceeds the 25 MiB cap. The zip is built in `asyncio.to_thread` so the CPU-bound work never blocks the event loop. Snapshots are immutable → `Cache-Control: public, max-age=31536000, immutable`.
 
 ## When to update this rule
 
@@ -65,4 +71,6 @@ Every user-submitted GitHub URL is treated as untrusted:
 | New retention tier or deletion endpoint | "Vendor-data isolation" table |
 | New SAST / dependency scanner / Scorecard probe change | "Dependency Security" |
 | New scan-trace field | "Scan-trace transparency" — re-verify the no-raw-payload invariant |
+| New stored-snapshot field / store | "Vendor-data isolation" stored-snapshots tier + `database.md` + re-verify the trace stays no-raw-payload |
 | New outbound host allowed | "Public-input handling" #2 + the HTTP-client allowlist |
+| Rate-limit scope / exemption change | "Public-input handling" #5/#6 + `scans.py::_is_loopback` + `environment-config.md` |

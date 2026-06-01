@@ -1,10 +1,18 @@
 import type { ReactNode } from 'react'
+import Breadcrumb, { type Crumb } from './Breadcrumb'
 
 interface Props {
-  eyebrow: string
+  /** Optional — omit when a breadcrumb already carries the page path. */
+  eyebrow?: string
   title: ReactNode
   lede?: ReactNode
   className?: string
+  /**
+   * Optional breadcrumb trail rendered above the eyebrow. Pass plain data (not a
+   * rendered element) so the Astro→React boundary can serialize it; PageHead
+   * renders the shared `<Breadcrumb>` itself.
+   */
+  breadcrumbItems?: Crumb[]
 }
 
 /**
@@ -19,11 +27,18 @@ interface Props {
  * Title supports inline `<mark>` (teal-tint underline) + `<span className="script">`
  * (orange Nanum Pen Script accent). Pass via `title` as ReactNode for those.
  */
-export default function PageHead({ eyebrow, title, lede, className = '' }: Props) {
+export default function PageHead({
+  eyebrow,
+  title,
+  lede,
+  className = '',
+  breadcrumbItems,
+}: Props) {
   return (
     <section className={`page-head ${className}`.trim()}>
       <div className="container">
-        <div className="ph-eyebrow">{eyebrow}</div>
+        {breadcrumbItems && <Breadcrumb items={breadcrumbItems} />}
+        {eyebrow && <div className="ph-eyebrow">{eyebrow}</div>}
         <h1 className="ph-title">{title}</h1>
         {lede && <p className="ph-lede">{lede}</p>}
       </div>

@@ -46,7 +46,11 @@ export default function Button(props: Props) {
     )
   }
 
-  const { as: _a, ...rest } = props as ButtonProps
+  // Strip the props we consume (variant/size/children/className) so they don't
+  // leak onto the DOM node — crucially, a passed `className` must NOT override
+  // the computed `classes` (which carries `btn`), and `variant`/`size` are not
+  // valid button attributes.
+  const { as: _a, variant: _v, size: _s, children: _c, className: _cn, ...rest } = props as ButtonProps
   return (
     <button className={classes} {...rest}>
       {children}

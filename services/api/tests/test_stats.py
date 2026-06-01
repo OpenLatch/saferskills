@@ -90,21 +90,61 @@ async def _seed_scan(
     )
 
 
+async def _seed_run(
+    session: AsyncSession,
+    *,
+    idem: str,
+    score: int,
+    tier: str,
+    latency_ms: int,
+    status: str,
+) -> None:
+    await session.execute(
+        text(
+            """
+            INSERT INTO scan_runs (
+                idempotency_key, github_url, repo_aggregate_score, repo_tier,
+                rubric_version, engine_version, source, latency_ms, status
+            ) VALUES (
+                :idem, 'https://github.com/org/x', :score, :tier,
+                'a1b2c3d', 'def5678', 'submission', :latency, :status
+            )
+            """
+        ),
+        {"idem": idem, "score": score, "tier": tier, "latency": latency_ms, "status": status},
+    )
+
+
 @pytest.mark.asyncio
 async def test_median_and_latency_exclude_pending(db_session: AsyncSession) -> None:
     item_id = await _seed_item(db_session, "stats-median")
-    # Three completed scans + one pending (unscoped) that must be excluded.
+    # Median is over per-capability scans (tier != unscoped); the pending
+    # (unscoped) scan must be excluded.
     await _seed_scan(
-        db_session, item_id=item_id, idem="a" * 64, score=40, tier="orange", latency_ms=10_000
+        db_session, item_id=item_id, idem="a" * 64, score=40, tier="orange", latency_ms=0
     )
     await _seed_scan(
-        db_session, item_id=item_id, idem="b" * 64, score=60, tier="yellow", latency_ms=20_000
+        db_session, item_id=item_id, idem="b" * 64, score=60, tier="yellow", latency_ms=0
     )
     await _seed_scan(
-        db_session, item_id=item_id, idem="c" * 64, score=80, tier="green", latency_ms=30_000
+        db_session, item_id=item_id, idem="c" * 64, score=80, tier="green", latency_ms=0
     )
     await _seed_scan(
         db_session, item_id=item_id, idem="d" * 64, score=0, tier="unscoped", latency_ms=0
+    )
+    # Latency is over completed repo SCAN RUNS (the timed unit); the pending run
+    # must be excluded (per-capability scans carry latency_ms=0).
+    await _seed_run(
+        db_session, idem="r" * 64, score=40, tier="orange", latency_ms=10_000, status="completed"
+    )
+    await _seed_run(
+        db_session, idem="s" * 64, score=60, tier="yellow", latency_ms=20_000, status="completed"
+    )
+    await _seed_run(
+        db_session, idem="t" * 64, score=80, tier="green", latency_ms=30_000, status="completed"
+    )
+    await _seed_run(
+        db_session, idem="u" * 64, score=0, tier="unscoped", latency_ms=0, status="pending"
     )
     await db_session.flush()
 

@@ -44,6 +44,16 @@ if (sessionToken) {
 
 const isVerified = verifiedGithubUser !== null
 const titleName = item.display_name
+
+// Same kind→plural mapping the item page uses for its breadcrumb.
+const KIND_PLURAL: Record<string, string> = {
+  skill: 'Agent Skills',
+  mcp_server: 'MCP Servers',
+  hook: 'Hooks',
+  plugin: 'Plugins',
+  rules: 'Rules',
+}
+const kindPlural = KIND_PLURAL[item.kind] ?? 'Catalog'
 ---
 
 <Base
@@ -53,11 +63,16 @@ const titleName = item.display_name
   <NavBar client:idle />
 
   <PageHead
-    eyebrow={`VENDOR · 07 · /ITEMS/${slug.toUpperCase()}/RESPOND`}
     title={isVerified ? `Submit a response — ${titleName}` : `Verify yourself — ${titleName}`}
     lede={isVerified
       ? 'Your response appears publicly on the report alongside findings. It is not moderated, except for spam or illegal content.'
       : 'Confirm you control the GitHub repo by committing a one-time token to .saferskills/verify.txt.'}
+    breadcrumbItems={[
+      { label: 'Catalog', href: '/catalog' },
+      { label: kindPlural, href: `/catalog?kind=${item.kind}` },
+      { label: titleName, href: `/items/${slug}` },
+      { label: 'Respond' },
+    ]}
   />
   <PageRidge variant="swell" label={`— /ITEMS/${slug.toUpperCase()}/RESPOND —`} />
 

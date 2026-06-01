@@ -4,9 +4,11 @@
  * RuleCard styling lives co-located in webapp/src/components/methodology/RuleCard.astro.
  */
 
-/* Generic padding + background are owned by .page-section (components.css). */
+/* Generic padding + background are owned by .page-section (components.css).
+   Methodology content runs to a shared 1100px so every section's left edge
+   lines up under the PageHead; prose paragraphs stay capped for readability. */
 .methodology-prose {
-  max-width: 880px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -50,53 +52,6 @@
   margin: 0 0 18px;
 }
 
-/* Tier list — 4 colored dots (green/yellow/orange/red) */
-.tier-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px solid var(--color-ink);
-  background: var(--color-paper-deep);
-  padding: 16px 22px;
-  margin: 8px 0 18px;
-}
-.tier-list li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  color: var(--fg-1);
-  line-height: 1.45;
-}
-.tier-list .dot {
-  width: 10px;
-  height: 10px;
-  display: inline-block;
-  flex-shrink: 0;
-}
-.tier-list .dot-g {
-  background: var(--score-green);
-}
-.tier-list .dot-y {
-  background: var(--score-yellow);
-}
-.tier-list .dot-o {
-  background: var(--score-orange);
-}
-.tier-list .dot-r {
-  background: var(--score-red);
-}
-
-/* MDX-rendered prose inside the article — neutralize the heading scale a bit */
-.methodology-prose article.rule-card {
-  margin-block: 18px;
-}
-
-html.dark .tier-list {
-  background: var(--bg-page-alt);
-  border-color: var(--color-line);
-}
 html.dark .methodology-prose code {
   background: var(--bg-page-alt);
   border-color: var(--color-line);
@@ -107,4 +62,562 @@ html.dark .methodology-prose code {
    stays distinct from the band; the lighter inner chips gain contrast too. */
 html.dark .page-section--flat .rule-card {
   background: var(--color-paper);
+}
+
+/* ============================================================
+   §01 FORMULA PANEL (FormulaPanel.astro) — the boxed scoring spec
+   ============================================================ */
+.formula-panel {
+  max-width: 1100px;
+  margin: 0 auto;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+html.dark .formula-panel {
+  border-color: var(--color-line);
+  background: var(--bg-page-alt);
+}
+.formula-panel .eyebrow {
+  display: inline-flex;
+  margin-bottom: 8px;
+}
+/* Compact, header-like heading — smaller than the full prose-h2 display size. */
+.fp-head .prose-h2 {
+  font-size: clamp(23px, 2.1vw, 29px);
+  margin: 0 0 6px;
+}
+.fp-intro {
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 70ch;
+  text-wrap: pretty;
+}
+
+/* Two-column body: weight bars beside the equation + note — uses the wide
+   panel to keep the section short (it reads as a compact header band). */
+.fp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.fp-math {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Tighter weight rows here than on the /scan preview, for a denser panel. */
+.formula-panel .weight-bars .wb-row {
+  padding-block: 9px;
+}
+
+/* Aggregate equation block */
+.fp-equation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fp-eq-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.fp-equation code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-1);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
+}
+html.dark .fp-equation code {
+  background: var(--color-paper);
+}
+
+.fp-note {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 64ch;
+  text-wrap: pretty;
+}
+.fp-note strong {
+  color: var(--fg-1);
+  font-weight: 700;
+}
+.fp-note code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  padding: 1px 5px;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+html.dark .fp-note code {
+  background: var(--color-paper);
+}
+
+/* 4-tier band ladder — colored legend grid */
+.tier-ladder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--color-line);
+  border: 1px solid var(--color-line);
+}
+.tier-ladder .tier {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  background: var(--color-paper);
+}
+html.dark .tier-ladder .tier {
+  background: var(--bg-page-alt);
+}
+.tier-ladder .tier-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.tier-ladder .tier-dot {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.tier--g .tier-dot {
+  background: var(--score-green);
+}
+.tier--y .tier-dot {
+  background: var(--score-yellow);
+}
+.tier--o .tier-dot {
+  background: var(--score-orange);
+}
+.tier--r .tier-dot {
+  background: var(--score-red);
+}
+.tier-ladder .tier-band {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--fg-1);
+}
+.tier-ladder .tier-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.tier-ladder .tier-note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--fg-3);
+  line-height: 1.35;
+}
+
+/* Weight bars fill left→right when the panel scrolls into view. Resting size
+   is scaleX(--wb-frac); under reduced-motion / no-JS the bars stay full. */
+.js-anim .formula-panel[data-reveal] .wb-fill {
+  transform: scaleX(0);
+  transition: transform 560ms var(--ease-out) 220ms;
+}
+.js-anim .formula-panel[data-reveal].is-visible .wb-fill {
+  transform: scaleX(var(--wb-frac, 1));
+}
+
+/* ============================================================
+   §02 RULE FILTER (RuleFilter.tsx) — sticky toolbar over the rule list
+   ============================================================ */
+.rule-filter {
+  position: sticky;
+  top: 72px;
+  z-index: 20;
+  max-width: 1100px;
+  margin: 18px auto 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+html.dark .rule-filter {
+  background: var(--bg-page-alt);
+  border-color: var(--color-line);
+}
+.rule-filter .rf-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+/* Top row: category pills (left) + the search box (right), aligned to the
+   pills' first row. */
+.rule-filter .rf-row--top {
+  justify-content: space-between;
+}
+.rf-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rule-filter .rf-row--controls {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+/* Category pills */
+.rf-pill {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--fg-2);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 6px 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+html.dark .rf-pill {
+  background: var(--bg-surface-mute);
+}
+.rf-pill:hover {
+  color: var(--fg-1);
+  border-color: var(--fg-3);
+}
+.rf-pill[aria-pressed="true"] {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--color-paper);
+}
+.rf-pill-n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.66;
+}
+
+/* Severity chips */
+.rf-sevs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  /* reset the <fieldset> chrome — it's a semantic group, not a visible box */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.rf-sevs-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.rf-sev {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--fg-3);
+  background: transparent;
+  border: 1px solid var(--color-line);
+  padding: 5px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    border-color var(--dur-xs) var(--ease-std);
+}
+.rf-sev:hover {
+  color: var(--fg-1);
+}
+.rf-sev[aria-pressed="true"] {
+  color: var(--fg-1);
+  border-color: var(--fg-2);
+  background: var(--color-paper-deep);
+}
+html.dark .rf-sev[aria-pressed="true"] {
+  background: var(--bg-surface-mute);
+}
+.rf-sev-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  background: var(--fg-3);
+}
+.rf-sev--critical .rf-sev-dot {
+  background: var(--color-ink);
+}
+.rf-sev--high .rf-sev-dot {
+  background: var(--score-red);
+}
+.rf-sev--medium .rf-sev-dot {
+  background: var(--score-orange);
+}
+.rf-sev--low .rf-sev-dot {
+  background: var(--score-yellow);
+}
+.rf-sev--info .rf-sev-dot {
+  background: var(--fg-3);
+}
+
+/* Search box — sits top-right, aligned with the category-pill row. */
+.rf-search {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 300px;
+  max-width: 300px;
+}
+.rf-search-lbl {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.rf-search-input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--fg-1);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  padding: 7px 11px;
+}
+html.dark .rf-search-input {
+  background: var(--color-paper);
+}
+.rf-search-input::placeholder {
+  color: var(--fg-3);
+}
+.rf-search-input:focus-visible {
+  outline: none;
+  border-color: var(--brand-primary);
+}
+
+/* Status line + clear */
+.rf-status {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--fg-3);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rf-status b {
+  color: var(--fg-1);
+  font-weight: 700;
+}
+.rf-clear {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rf-clear:hover {
+  color: var(--brand-primary-dark);
+}
+.rf-empty {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-2);
+  margin: 16px auto 0;
+  max-width: 1100px;
+  text-align: center;
+  padding: 22px;
+  border: 1px dashed var(--color-line);
+}
+
+/* ============================================================
+   §02 RULE GROUPS (RuleGroup.astro) — category sections + cards
+   ============================================================ */
+.rules-index {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.rule-group + .rule-group {
+  margin-top: 26px;
+}
+.rule-group[hidden] {
+  display: none;
+}
+
+/* Foldable header — a full-width button; clicking it toggles .is-collapsed. */
+.rg-head {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 0 10px;
+  margin-bottom: 6px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color var(--dur-xs) var(--ease-std);
+}
+.rg-head:hover {
+  border-bottom-color: var(--fg-3);
+}
+.rg-head:hover .rg-title {
+  color: var(--brand-primary);
+}
+.rg-title {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fg-1);
+  margin: 0;
+  transition: color var(--dur-xs) var(--ease-std);
+}
+.rg-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.rg-weight {
+  color: var(--brand-primary);
+  font-weight: 700;
+}
+.rg-count {
+  color: var(--fg-2);
+}
+/* Chevron sits at the far right; rotates flat when collapsed. */
+.rg-chevron {
+  margin-left: auto;
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--fg-3);
+  transition:
+    transform var(--dur-sm) var(--ease-out),
+    color var(--dur-xs) var(--ease-std);
+}
+.rg-chevron::before {
+  content: "▾";
+  display: inline-block;
+}
+.rg-head:hover .rg-chevron {
+  color: var(--brand-primary);
+}
+.rule-group.is-collapsed .rg-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Collapsible body — grid-rows 1fr → 0fr (GPU-friendly height animation). */
+.rg-cards-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-md) var(--ease-out);
+}
+.rule-group.is-collapsed .rg-cards-wrap {
+  grid-template-rows: 0fr;
+}
+.rg-cards {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+/* Formula 2-col body collapses before the bars get cramped. */
+@media (max-width: 760px) {
+  .fp-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .formula-panel {
+    padding: 20px 18px;
+  }
+  .tier-ladder {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rule-filter {
+    top: 64px;
+  }
+  .rule-filter .rf-row--top {
+    flex-direction: column;
+  }
+  .rf-search {
+    flex-basis: auto;
+    max-width: none;
+    width: 100%;
+  }
+  .rf-row--controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rg-cards-wrap,
+  .rg-chevron,
+  .js-anim .formula-panel[data-reveal] .wb-fill {
+    transition: none;
+  }
 }

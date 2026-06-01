@@ -1,49 +1,215 @@
-/* Vendor right-of-reply (/items/<slug>/respond) — Phase C. */
+/* Vendor right-of-reply (/items/<slug>/respond) — Phase C.
+ *
+ * Vertical Rail Stepper: a left progress rail (numbered 34px nodes joined by a
+ * 2px connector that fills teal as steps complete) with each step in its own
+ * hairline-bordered card. Active node = teal + card gets an inset 3px teal
+ * left-bar; done steps collapse to a ✓ + dim; future steps dim + disable. The
+ * verified RespondForm reuses the same rail card (single ✓ node).
+ *
+ * Tokens only. The token block is the shared DS `.sk-term` (components.css).
+ */
 
 .vendor-band .container {
-  max-width: 720px;
+  max-width: 760px;
 }
 
-/* ─── Verify challenge ─── */
-.verify-steps {
+/* ─── Vertical rail ─── */
+.verify-rail {
   list-style: none;
   margin: 0;
   padding: 0;
-  counter-reset: step;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 22px;
 }
-.verify-steps > li {
-  padding: 20px 0;
-  border-bottom: 1px solid var(--color-line-soft);
+.rail-item {
+  /* Each <li> places its gutter into col 1 and its card into col 2. */
+  display: contents;
 }
-.verify-steps > li.done {
+
+.rail-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.rail-node {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-line);
+  background: var(--color-paper);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--fg-3);
+  transition:
+    background var(--dur-md) var(--ease-std),
+    border-color var(--dur-md) var(--ease-std),
+    color var(--dur-md) var(--ease-std);
+}
+.rail-conn {
+  flex: 1;
+  width: 2px;
+  min-height: 20px;
+  margin: 5px 0;
+  background: var(--color-line);
+  position: relative;
+}
+.rail-conn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 0;
+  background: var(--brand-primary);
+  transition: height var(--dur-lg) var(--ease-std);
+}
+.rail-item.active .rail-node,
+.rail-item.done .rail-node {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--brand-cta-fg);
+}
+.rail-item.done .rail-conn::after {
+  height: 100%;
+}
+.rail-item.active .rail-conn::after {
+  height: 55%;
+}
+
+.rail-card {
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  min-width: 0;
+  transition: opacity var(--dur-md) var(--ease-std);
+}
+.rail-item.active .rail-card {
+  box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+.rail-item.future .rail-card {
+  opacity: 0.5;
+}
+.rail-item.done .rail-card {
   opacity: 0.6;
-}
-.verify-steps p {
-  margin: 8px 0 12px;
-  color: var(--fg-2);
-}
-.verify-token {
+  padding: 13px 20px;
+  /* Done state shows only the eyebrow + "✓ Token issued" tag — lay them on one
+     centered row (the eyebrow's default 18px bottom margin + the tag's old
+     top margin were what threw the baseline off). */
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  background: var(--color-paper-deep);
-  box-shadow: var(--shadow-hairline);
 }
-.verify-token code {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  word-break: break-all;
-}
-.verify-user-label {
-  display: block;
-  font-size: 13px;
-  color: var(--fg-2);
-  margin: 12px 0;
+.rail-item.done .rail-card .eyebrow {
+  margin-bottom: 0;
 }
 
-/* ─── Respond form ─── */
+.rail-text {
+  margin: 10px 0 14px;
+  color: var(--fg-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.rail-text code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+  color: var(--fg-1);
+  padding: 1px 6px;
+}
+.rail-text.muted {
+  color: var(--fg-3);
+}
+.rail-ctl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* collapsed "done" summary (hidden unless the step is done) */
+.rail-done-tag {
+  display: none;
+}
+.rail-item.done .rail-text,
+.rail-item.done .rail-ctl {
+  display: none;
+}
+.rail-item.done .rail-done-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--score-green);
+}
+
+/* token terminal (shared .sk-term — copy button lives in its chrome header) */
+.verify-token {
+  margin: 4px 0 12px;
+}
+
+.verify-user-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Step 3: username field + verify button share one row, button right-aligned. */
+.verify-submit-row {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.verify-submit-row .verify-user-label {
+  flex: 1;
+  margin: 4px 0 0;
+}
+.verify-submit-row .verify-submit {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .verify-submit-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .verify-submit-row .verify-submit {
+    margin-left: 0;
+  }
+}
+.verify-user-label .form-input {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--fg-1);
+}
+/* Required-field validation message (Step 3 username) — sits below the row. */
+.verify-user-error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--score-red);
+  margin: 10px 0 0;
+}
+
+/* ─── Respond form (verified branch — sits inside a rail card) ─── */
+.respond-rail .rail-card {
+  margin-bottom: 0;
+}
 .respond-form {
   display: flex;
   flex-direction: column;
@@ -54,6 +220,7 @@
   background: color-mix(in srgb, var(--score-green) 12%, var(--color-paper));
   box-shadow: inset 3px 0 0 var(--score-green);
   font-size: 13px;
+  color: var(--fg-1);
 }
 .verified-banner code {
   font-family: var(--font-mono);
@@ -84,6 +251,15 @@
   outline: none;
   box-shadow:
     0 0 0 2px var(--brand-primary),
+    0 0 0 3px var(--color-paper);
+}
+/* Invalid (empty required field) — red border, and a red ring when focused. */
+.form-input.invalid {
+  border-color: var(--score-red);
+}
+.form-input.invalid:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--score-red),
     0 0 0 3px var(--color-paper);
 }
 .form-meta {
@@ -127,6 +303,10 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
+  color: var(--fg-2);
+}
+.form-checkbox input {
+  accent-color: var(--brand-primary);
 }
 .form-actions {
   display: flex;
@@ -147,6 +327,56 @@
   background: color-mix(in srgb, var(--score-red) 10%, var(--color-paper));
   box-shadow: inset 3px 0 0 var(--score-red);
   font-size: 13px;
+  color: var(--fg-1);
+}
+/* Verify error sits inside the active step card, below its controls. */
+.rail-card .form-error {
+  margin-top: 14px;
+}
+
+/* ─── Motion (standard) — respects prefers-reduced-motion ─── */
+@keyframes rail-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rail-node-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.rail-card {
+  animation: rail-fade-up var(--dur-md) var(--ease-out) backwards;
+}
+.rail-reveal {
+  animation: rail-fade-up var(--dur-md) var(--ease-out) backwards;
+}
+.rail-item.active .rail-node {
+  animation: rail-node-pop var(--dur-md) var(--ease-out) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-card,
+  .rail-reveal,
+  .rail-item.active .rail-node {
+    animation: none;
+  }
+  .rail-node,
+  .rail-conn::after,
+  .rail-card {
+    transition: none;
+  }
 }
 
 @media (max-width: 640px) {

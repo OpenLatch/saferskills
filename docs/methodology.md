@@ -10,7 +10,17 @@ SaferSkills ingests one of:
 - A direct skill / MCP / hook / plugin / rules artifact URL (resolves to a Git ref or release artifact)
 - An `npx`-installable package name (Track C, W4+)
 
-Every submission becomes a deterministic, content-hashed catalog entry. Two submissions of the same artifact deduplicate to the same `catalog_item` row keyed on `(github_url, default_branch)`.
+Every submission becomes a deterministic, content-hashed catalog entry.
+
+## Capability discovery
+
+A scan targets a **repository**, and one repo can hold several capabilities — a Skill, an MCP server, hooks, a Cursor rules set. SaferSkills walks the file tree, identifies each capability, and **scores each one independently** against the rules for its kind. The repo report shows:
+
+- every capability discovered, each with its own security score and findings;
+- the **consolidated repo score** — the mean of those capability scores;
+- a button to open each capability in the public catalog.
+
+One catalog entry = one capability, so a capability links straight to its own `/items/<slug>` page with version history and a permalink. A repo with no recognisable capability is scored as a single whole-repo entry. Discovery is deterministic and static — the same file tree always yields the same capabilities.
 
 ## Sub-score taxonomy & weights
 
@@ -117,6 +127,24 @@ A vendor can re-derive any historical verdict by checking out `rubric_version` +
 ## Scan-trace transparency
 
 Every finding carries: `rule_id`, `severity`, `file_path`, `line_start`/`line_end`, `matched_content_sha256` (hash only — the raw matched content is never published per [`../.claude/rules/security.md`](../.claude/rules/security.md) § Scan-trace transparency), `remediation_link` to the rule source at the recorded `rubric_version`. The per-finding payload is capped at 4 KiB; the per-scan trace at 256 KiB.
+
+## Agent compatibility (catalog metadata)
+
+Each catalog item carries an `agent_compatibility` list — the agent platforms the artifact can run on. It is **catalog metadata, not a scoring input**: it never affects a score, only the catalog's *Agent compatibility* filter. Because it is metadata (not a verdict), it is derived by a documented deterministic mapping rather than the rule-RFC process.
+
+At W2 there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill):
+
+| `kind` | `agent_compatibility` | Rationale |
+|---|---|---|
+| `mcp_server` | `claude-code, cursor, codex, copilot, windsurf, cline, gemini, openclaw` | MCP is a cross-agent transport standard — every supported agent can consume it |
+| `skill` | `claude-code, openclaw` | Claude Skills format; OpenClaw is Claude-compatible |
+| `plugin` | `claude-code, openclaw` | Claude Code plugin packaging |
+| `hook` | `claude-code, openclaw` | Claude Code lifecycle hooks |
+| `rules` | `cursor, windsurf, cline, copilot` | Editor rule-file format consumed by those editors |
+
+The agent id enum is closed (`schemas/catalog-item.schema.json::agentCompatibility`). Unknown kinds map to the empty list — no claim is the honest default.
+
+**TODO (I-04 ingestion / methodology RFC):** refine the mapping with real manifest signals — declared `engines`/`agents` manifest fields, MCP transport detection, and editor-rule frontmatter — instead of kind alone. When the mapping changes, ship a fresh backfill migration so existing rows stay consistent.
 
 ## Limitations
 

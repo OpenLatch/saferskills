@@ -19,14 +19,38 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _migrations_ok() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """Default every test to the healthy startup state.
+
+    The lifespan (which runs `run_startup()` → `mark_migrations_ok()`) never
+    fires under httpx's `ASGITransport`, so without this the singleton stays at
+    its `migrations_ok=False` default and `StartupGuardMiddleware` would 503
+    every non-`/health` route. Tests that exercise degraded mode toggle the
+    state themselves; this fixture saves/restores around each test.
+    """
+    from app.core.startup_state import startup_state
+
+    prev_ok = startup_state.migrations_ok
+    prev_err = startup_state.migrations_error
+    startup_state.mark_migrations_ok()
+    try:
+        yield
+    finally:
+        startup_state.migrations_ok = prev_ok
+        startup_state.migrations_error = prev_err
+
 
 # Resolve the project root (services/api/) so the alembic.ini path is stable
 # regardless of where pytest is invoked from.

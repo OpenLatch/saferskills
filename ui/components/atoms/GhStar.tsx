@@ -25,7 +25,13 @@ export default function GhStar({
   className = '',
 }: {
   repo?: string
-  count: number
+  /**
+   * SSR placeholder star count. Optional: when omitted the count chip renders
+   * empty and the site-wide `NavStars` island fills it live on the client — so
+   * the GhStar is always present in the NavBar even on a page that doesn't
+   * compute a count. Never gate the GhStar's rendering on this value.
+   */
+  count?: number
   className?: string
 }) {
   return (
@@ -40,7 +46,7 @@ export default function GhStar({
       {/* data-live-stat: the homepage HomepageLive island patches this with the
           live repo star count once it clears the fallback threshold. */}
       <span className="gh-r" data-live-stat="stars">
-        {formatStars(count)}
+        {count != null ? formatStars(count) : ''}
       </span>
     </a>
   )

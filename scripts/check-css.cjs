@@ -38,7 +38,9 @@ const SHELL_FILES = [
   'webapp/src/styles/page-scan-submit.css',
 ]
 // Custom properties set at runtime (never declared with `:` in CSS) — allow.
-const RUNTIME_VARS = new Set(['--search-dropdown-max-h'])
+// `--wb-frac`: per-row fill fraction set inline by the WeightBars molecule
+// (`style={{ '--wb-frac': r.weight / 100 }}`), consumed as scaleX(var(--wb-frac, 1)).
+const RUNTIME_VARS = new Set(['--search-dropdown-max-h', '--wb-frac'])
 
 function listCss(dir) {
   const abs = path.join(ROOT, dir)

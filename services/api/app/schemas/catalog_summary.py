@@ -29,6 +29,7 @@ class CatalogItemSummary(OrmBaseModel):
     latest_scan_at: datetime | None = None
     findings_count: int = Field(default=0, ge=0)
     registries: list[str] = Field(default_factory=list)
+    agent_compatibility: list[str] = Field(default_factory=list)
     updated_at: datetime
 
 
@@ -41,6 +42,9 @@ class CatalogListEnvelope(OrmBaseModel):
     data: list[CatalogItemSummary]
     next_cursor: str | None = Field(default=None)
     total_count: int = Field(default=0, ge=0)
+    page: int = Field(default=1, ge=1)
+    total_pages: int = Field(default=1, ge=1)
+    page_size: int = Field(default=25, ge=1)
 
 
 class CatalogFacets(OrmBaseModel):
@@ -50,4 +54,5 @@ class CatalogFacets(OrmBaseModel):
     popularity_tier: dict[str, int] = Field(default_factory=dict)
     tier: dict[str, int] = Field(default_factory=dict)
     registry: dict[str, int] = Field(default_factory=dict)
+    agent: dict[str, int] = Field(default_factory=dict)
     total: int = Field(default=0, ge=0)

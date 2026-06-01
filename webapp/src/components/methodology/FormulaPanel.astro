@@ -1,0 +1,77 @@
+---
+/**
+ * FormulaPanel — the boxed "§01 Scoring formula" spec on /methodology.
+ *
+ * Replaces the old floating prose: one hairline panel holding the shared
+ * WeightBars visual (DS-first, same component as the /scan preview), the
+ * aggregate equation, the critical-floor note, and the 4-tier band ladder.
+ *
+ * `data-reveal` opts the panel into the page's IntersectionObserver reveal
+ * (see methodology.astro): the weight bars fill left→right on first view.
+ * Reduced-motion / no-JS keep the bars at their resting full size.
+ */
+import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
+import WeightBars from '@ui/components/molecules/WeightBars'
+
+const CATS = [
+  { label: 'Security', weight: 35 },
+  { label: 'Supply chain', weight: 20 },
+  { label: 'Maintenance', weight: 15 },
+  { label: 'Transparency', weight: 15 },
+  { label: 'Community', weight: 15 },
+] as const
+
+const TIERS = [
+  { key: 'g', band: '≥ 80', name: 'Green', note: 'safe to install' },
+  { key: 'y', band: '60–79', name: 'Yellow', note: 'caveats present' },
+  { key: 'o', band: '40–59', name: 'Orange', note: 'significant issues' },
+  { key: 'r', band: '0–39', name: 'Red', note: 'do not install' },
+] as const
+---
+
+<section class="formula-panel" data-reveal>
+  <header class="fp-head">
+    <Eyebrow withRule>FORMULA · 01</Eyebrow>
+    <h2 class="prose-h2">Scoring formula.</h2>
+    <p class="fp-intro">
+      Five sub-scores, each capped at 100 and penalised per finding, combine by a
+      fixed weight into one aggregate.
+    </p>
+  </header>
+
+  <div class="fp-grid">
+    <WeightBars rows={CATS} framed={false} className="fp-weights" />
+
+    <div class="fp-math">
+      <div class="fp-equation">
+        <span class="fp-eq-label">aggregate</span>
+        <code
+          >round(0.35·Security + 0.20·Supply&nbsp;Chain + 0.15·Maintenance +
+          0.15·Transparency + 0.15·Community)</code
+        >
+      </div>
+
+      <p class="fp-note">
+        Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. Any
+        finding of severity <strong>critical</strong> caps its sub-score at 40 — the
+        <strong>critical-floor</strong> rule that stops one catastrophic finding from
+        being averaged away by minor passes.
+      </p>
+    </div>
+  </div>
+
+  <ul class="tier-ladder" aria-label="Score tiers">
+    {
+      TIERS.map((t) => (
+        <li class={`tier tier--${t.key}`}>
+          <span class="tier-top">
+            <span class="tier-dot" aria-hidden="true" />
+            <span class="tier-band">{t.band}</span>
+          </span>
+          <span class="tier-name">{t.name}</span>
+          <span class="tier-note">{t.note}</span>
+        </li>
+      ))
+    }
+  </ul>
+</section>

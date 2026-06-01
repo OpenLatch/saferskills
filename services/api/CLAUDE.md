@@ -37,4 +37,4 @@ That's the entire shipped surface at W1. Everything else (catalog list, scan sub
 
 ## Database
 
-Alembic is wired (`alembic.ini` + `migrations/env.py`) but holds **zero migrations** at W1. The first migration lands with the catalog ingestion in W2.
+Alembic is wired (`alembic.ini` + `migrations/env.py`). Migrations **auto-apply in-process on every API boot** in all environments: the FastAPI lifespan calls `app/core/startup.py::run_startup`, which runs `alembic upgrade head` under a `pg_advisory_lock` (race-safe across concurrent Machines) with retry/backoff, and falls back to degraded mode (503 on every route but `/api/v1/health`) if the DB is unreachable. No Fly `release_command`, no manual migrate step. See `.claude/rules/ci-cd.md` § Deployment.

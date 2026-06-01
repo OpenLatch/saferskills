@@ -115,6 +115,12 @@
   --score-orange: #EA580C;
   --score-red:    #EF4444;
 
+  /* Readable text-on-light variants of the green/red tiers — used for diff
+     add/del line text (deeper than the band fill so small mono text passes
+     contrast on the tinted row). Dark-mode pair below. */
+  --score-green-text: #0A7A55;
+  --score-red-text:   #B4302B;
+
   /* ============================================================
      TYPOGRAPHY — FAMILIES
      ============================================================ */
@@ -183,7 +189,6 @@
   --shadow-hairline: 0 0 0 1px var(--color-ink);
   --shadow-hairline-soft: 0 0 0 1px var(--color-line);
   --shadow-stamp: 4px 4px 0 0 var(--color-ink);
-  --shadow-stamp-brand: 4px 4px 0 0 var(--color-slate);
 
   /* ============================================================
      MOTION
@@ -276,6 +281,17 @@ html.dark {
      slate-50 headline text. Swap to a deep teal so the highlight still reads
      as a brand mark with WCAG-passable text contrast. */
   --color-citron:     var(--ol-brand-primary-dark);
+
+  /* Same story for the hand-marked emphasis highlight (.t-mark / .h-display
+     .mark / .page-head .ph-title .mark). Without this override it stayed the
+     pale light-mode tint and washed out under PageHead titles in dark mode;
+     pin it to the same deep teal as the homepage rotator so every `<mark>`
+     reads identically across pages. */
+  --brand-highlight:  var(--ol-brand-primary-dark);
+
+  /* Diff add/del text — lighter on dark paper than the light-mode pair. */
+  --score-green-text: #6EE7B7;
+  --score-red-text:   #FCA5A5;
 
   --fg-1: var(--ol-slate-50);
   --fg-2: var(--ol-slate-100);

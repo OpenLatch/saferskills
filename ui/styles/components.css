@@ -1111,6 +1111,27 @@ html.dark .page-head::after {
   max-width: 640px;
   text-wrap: pretty;
 }
+/* ph-row — mono stat strip (PATH / SORTED BY / …) below the lede. */
+.page-head .ph-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.page-head .ph-path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 6px 12px;
+}
+.page-head .ph-path b {
+  color: var(--color-ink);
+  font-weight: 700;
+}
 /* ============================================================
    RIDGES — section dividers
    ============================================================ */
@@ -1230,6 +1251,48 @@ html.dark .ridge-pixel::before {
   display: none;
 }
 html.dark .ridge-pixel .ridge-label {
+  background: var(--color-paper-deep);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+}
+
+/* ruler — the quietest ridge: a theme-aware tick-ruler seam on a paper-deep
+   band (no hatch, no fill). Just the orange-major / faint-minor tick ruler,
+   vertically centered, so the transition stays focused on the rules. Reads
+   light-on-light and dark-on-dark, both subtle. */
+.ridge-ruler {
+  height: 48px;
+  background: var(--color-paper-deep);
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+.ridge-ruler::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 14px;
+  transform: translateY(-50%);
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.2) 1px, transparent 1px);
+  background-size:
+    120px 14px,
+    12px 14px;
+  background-position:
+    0 0,
+    0 5px;
+  background-repeat: repeat-x;
+  z-index: 1;
+  pointer-events: none;
+}
+html.dark .ridge-ruler::before {
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(248, 250, 252, 0.22) 1px, transparent 1px);
+}
+.ridge-ruler .ridge-label {
   background: var(--color-paper-deep);
   color: var(--color-ink);
   border: 1px solid var(--color-line);
@@ -2338,6 +2401,80 @@ html.dark .search-dropdown-skel-heading {
   color: var(--score-orange);
   text-transform: uppercase;
   letter-spacing: 0.18em;
+}
+
+/* ============================================================
+   RE-SCAN CONTROL
+   A button-styled anchor rendered on both /items/<slug> and /scans/<id>
+   (two pages → DS-owned here per the one-way CSS-ownership rule). Hover is a
+   background fill (no offset/brutalist shadow, no diagonal translate) per
+   design-system.md § "Buttons never use brutalist offset shadows". The hovered
+   meta dims `--color-paper` in BOTH themes (light hover paints ink-on-paper,
+   dark hover paints fg-1-on-paper — the meta text is `--color-paper` either
+   way), so one color-mix rule covers both modes.
+   ============================================================ */
+.rescan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs);
+}
+.rescan-btn svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: var(--brand-primary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  transition:
+    transform var(--dur-lg) var(--ease-std),
+    stroke var(--dur-xs);
+}
+.rescan-btn .rs-meta {
+  font-weight: 400;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--fg-3);
+  padding-left: 9px;
+  margin-left: 3px;
+  border-left: 1px solid var(--color-line);
+  transition:
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.rescan-btn:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.rescan-btn:hover svg {
+  stroke: var(--brand-primary);
+  transform: rotate(-360deg);
+}
+.rescan-btn:hover .rs-meta {
+  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
+  border-left-color: color-mix(in srgb, var(--color-paper) 25%, transparent);
+}
+html.dark .rescan-btn {
+  background: transparent;
+  color: var(--fg-1);
+  border-color: var(--color-line);
+}
+html.dark .rescan-btn:hover {
+  background: var(--fg-1);
+  color: var(--color-paper);
 }
 
 .install-command-box,
@@ -3451,6 +3588,127 @@ html.dark .p1-progress .row b {
   background: #28c840;
 }
 
+/* ============================================================
+   BREADCRUMB — mono-uppercase trail (DS-owned; item-detail head +
+   vendor-respond PageHead). First crumb has a ← arrow; last is current.
+   ============================================================ */
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.breadcrumb a {
+  color: var(--fg-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: color var(--dur-xs);
+}
+.breadcrumb a:hover {
+  color: var(--brand-primary);
+}
+.breadcrumb .bc-arrow {
+  font-size: 13px;
+  letter-spacing: 0;
+  transform: translateY(-0.5px);
+}
+.breadcrumb .sep {
+  opacity: 0.4;
+}
+.breadcrumb .cur {
+  color: var(--color-ink);
+}
+html.dark .breadcrumb .cur {
+  color: var(--fg-1);
+}
+/* When carried inside a PageHead (vendor-respond), own its own row above the
+   eyebrow (base .breadcrumb is inline-flex; flex makes it block-level so the
+   eyebrow drops below instead of sitting on the same line). */
+.page-head .breadcrumb {
+  display: flex;
+  margin-bottom: 14px;
+}
+
+/* ============================================================
+   SK-TERM — compact terminal window (DS-owned, reused by the item-page
+   InstallCard command box + the vendor-respond verify token). Fixed dark
+   ANSI/terminal palette (intentional raw-hex exception, like .iw-window) so it
+   reads as a terminal in both light and dark themes. Pairs with .mac-traffic.
+   ============================================================ */
+.sk-term {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  background: #1a1b1f;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 30px -16px rgba(0, 0, 0, 0.5);
+}
+.sk-term-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, #3a3c42, #2c2e34);
+  border-bottom: 1px solid #14151a;
+}
+.sk-term-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: #c8ccd2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sk-term-copy {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background var(--dur-xs) var(--ease-std);
+}
+.sk-term-copy:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.sk-term-body {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  padding: 14px 16px;
+  color: #e4e4e4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  word-break: break-word;
+}
+.sk-term-body .pr {
+  color: #14b8a6;
+  font-weight: 700;
+  margin-right: 8px;
+}
+.sk-term-body .arg,
+.sk-term-body .tok {
+  color: #f9a35e;
+}
+
 .mt-body {
   background: var(--t-bg);
   color: var(--t-fg);
@@ -3990,4 +4248,89 @@ html.dark .p1-progress .row b {
   font-size: 18px;
   color: var(--color-ink);
   letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   WEIGHT BARS — shared "how it's weighted" sub-score visual
+   (WeightBars.tsx; used by the /scan methodology preview AND the
+   /methodology formula panel — one source, not a per-page copy).
+   Fill is sized with transform: scaleX(--wb-frac) so a consumer can
+   reveal it without a width reflow (see page-methodology.css).
+   ============================================================ */
+.weight-bars {
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+}
+.weight-bars--bare {
+  border: 0;
+  background: transparent;
+}
+html.dark .weight-bars {
+  border-color: var(--color-line);
+  background: var(--color-paper);
+}
+.weight-bars .wb-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 18px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-line);
+  align-items: center;
+}
+.weight-bars--bare .wb-row {
+  padding-inline: 0;
+}
+.weight-bars .wb-row:last-child {
+  border-bottom: 0;
+}
+.weight-bars .wb-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.weight-bars .wb-name b {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+html.dark .weight-bars .wb-name b {
+  color: var(--fg-1);
+}
+.weight-bars .wb-rule {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.weight-bars .wb-wt {
+  text-align: center;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  color: var(--brand-primary);
+}
+.weight-bars .wb-bar {
+  height: 10px;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+}
+html.dark .weight-bars .wb-bar {
+  background: rgba(255, 255, 255, 0.06);
+}
+.weight-bars .wb-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--wb-frac, 1));
+  background: var(--brand-primary);
 }

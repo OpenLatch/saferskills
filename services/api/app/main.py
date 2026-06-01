@@ -15,7 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import app.models  # pyright: ignore[reportUnusedImport]
 from app.core.config import get_settings
 from app.core.db_pool import close_pool, init_pool
+from app.core.middleware import StartupGuardMiddleware
 from app.core.observability import init_observability
+from app.core.startup import run_startup
 from app.routers import health, items, scans, stats, vendor
 
 
@@ -23,6 +25,10 @@ from app.routers import health, items, scans, stats, vendor
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     await init_observability(settings)
+    # Bring the DB to head before anything touches it. `run_startup()` is NOT
+    # suppressed — it self-handles failure by entering degraded mode (the
+    # StartupGuardMiddleware then serves 503 on every route but /health).
+    await run_startup()
     # Pool init failures are non-fatal at boot — health endpoint still serves;
     # any route that needs the pool will raise on its own. Same for the
     # stale-scan recovery sweep: missing DB at boot shouldn't keep /health red.
@@ -50,6 +56,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url=None,
 )
+
+# Degraded-mode guard — registered BEFORE CORS so CORS stays the outermost
+# layer and OPTIONS preflight still succeeds even when the API is degraded.
+app.add_middleware(StartupGuardMiddleware)
 
 # CORS posture: origins from `settings.cors_allowed_origins` (env-driven).
 # Tightens to auth + per-route in Track E.

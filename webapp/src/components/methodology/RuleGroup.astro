@@ -1,0 +1,39 @@
+---
+/**
+ * RuleGroup — one foldable sub-score category section on /methodology, wrapping
+ * its RuleCards. Emitted by scripts/generate-methodology.cjs (one per category).
+ *
+ * The header is a real <button aria-expanded> toggling `.is-collapsed` on the
+ * section (wired by the inline script in methodology.astro). The card wrapper
+ * collapses via a `grid-template-rows: 1fr → 0fr` transition (the GPU-friendly
+ * height-animation pattern). `data-category` lets the RuleFilter island hide the
+ * whole group when a filter leaves it with no visible rules, and force it open
+ * when a filter has matches inside.
+ *
+ * Progressive enhancement: with JS off the section is simply expanded.
+ */
+interface Props {
+  category: string
+  title: string
+  weight: number
+  count: number
+}
+const { category, title, weight, count } = Astro.props as Props
+const bodyId = `rg-body-${category}`
+---
+
+<section class="rule-group" data-category={category}>
+  <button type="button" class="rg-head" aria-expanded="true" aria-controls={bodyId}>
+    <span class="rg-title">{title}</span>
+    <span class="rg-meta">
+      <span class="rg-weight">{weight}%</span> of aggregate ·
+      <span class="rg-count" data-rg-count>{count}</span> rules
+    </span>
+    <span class="rg-chevron" aria-hidden="true"></span>
+  </button>
+  <div class="rg-cards-wrap" id={bodyId}>
+    <div class="rg-cards">
+      <slot />
+    </div>
+  </div>
+</section>

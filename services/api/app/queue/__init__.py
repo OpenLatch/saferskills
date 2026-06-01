@@ -11,6 +11,6 @@ re-enqueue any scan whose status has been `running` for >5 minutes (a Fly
 machine restart mid-scan would otherwise orphan it).
 """
 
-from app.queue.scan_runner import scan_run
+from app.queue.scan_runner import scan_run, scan_run_repo
 
-__all__ = ["scan_run"]
+__all__ = ["scan_run", "scan_run_repo"]

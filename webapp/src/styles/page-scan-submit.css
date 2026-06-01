@@ -1,160 +1,464 @@
-/* /scan — Phase B split-pane shell. */
+/* /scan — pixel-faithful port of the Claude-Design scan-submit mockup.
+ *
+ * Source: .local/.brainstorms/frontend/mockups/SaferSkills-Scan-unpacked.html
+ *   scan block (.scan-split / .scan-form-pane / .scan-method-pane). Ported with
+ *   `body.va.dark` → `html.dark` and raw values → tokens (rule (a): shell page
+ *   CSS is token-only). DS vocabulary (.band-pill, .page-head .ph-*,
+ *   .ridge-stars) lives in ui/styles/components.css and is reused.
+ */
 
+/* shared sub-eyebrow (both panes + recents band) */
+.scan-form-pane .sub-eyebrow,
+.scan-method-pane .sub-eyebrow,
+.scan-recents .sub-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scan-form-pane .sub-eyebrow::before,
+.scan-method-pane .sub-eyebrow::before,
+.scan-recents .sub-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: currentColor;
+}
+
+/* ============================================================
+   SPLIT
+   ============================================================ */
 .scan-split {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  gap: 2rem;
-  padding: 2rem;
-  max-width: 1280px;
-  margin: 0 auto;
+  background: var(--color-paper);
+  /* The header→body seam is owned by the <RidgeRuler> directly above; no
+     duplicate top border here. */
 }
 
-@media (max-width: 1024px) {
-  .scan-split {
-    /* minmax(0,1fr) — not 1fr — so the single column can shrink below the
-       panes' min-content instead of forcing the grid (and the page) wider. */
-    grid-template-columns: minmax(0, 1fr);
-  }
+.scan-form-pane {
+  padding: 64px 56px;
+  border-right: 1px solid var(--color-ink);
+  background: var(--color-paper);
+  position: relative;
+  min-width: 0;
+}
+html.dark .scan-form-pane {
+  border-right-color: var(--color-line);
+}
+.scan-form-pane h2 {
+  font-family: var(--font-sans);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin: 0 0 28px;
+  text-wrap: balance;
 }
 
-@media (max-width: 640px) {
+/* SCAN CONSOLE — reuses the DS .p1-input + .p1-progress (components.css), with
+   the orange "audit" accent always-on for this single route (a legitimate
+   single-page override per design-system.md § CSS ownership). The base
+   structure + animations (caret blink, marching pipeline) come from the DS. */
+.scan-console {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.scan-console .p1-input {
+  border-color: var(--brand-accent);
+}
+.scan-console .p1-input .p1-icon {
+  background: var(--brand-accent);
+  color: #fff;
+  border-right-color: var(--brand-accent);
+}
+.scan-console .p1-input:focus-within .caret {
+  background: var(--brand-accent);
+}
+.scan-console .p1-submit {
+  cursor: pointer;
+}
+.scan-console .p1-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.scan-console .p1-submit .p1-submit-ret {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.scan-console .p1-submit:not(:disabled):hover .p1-submit-ret {
+  background: var(--brand-accent);
+  color: #fff;
+  border-color: var(--brand-accent);
+}
+
+.scan-form-pane .hint {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.scan-form-pane .hint b {
+  color: var(--color-ink);
+}
+html.dark .scan-form-pane .hint b {
+  color: var(--fg-1);
+}
+.scan-form-pane .hint .scan-error {
+  color: var(--score-red);
+}
+
+/* ============================================================
+   RECENTS · 03 — full-width band below the split. The recent-scan
+   gallery, lifted out of the methodology pane into its own row.
+   ============================================================ */
+/* Surface (background + padding + the blueprint grid + crosses) is owned by the
+   shared `.page-section--grid` DS class on the <section>; here we only add the
+   header→band hairline divider from the split above. */
+.scan-recents {
+  border-top: 1px solid var(--color-ink);
+}
+html.dark .scan-recents {
+  border-top-color: var(--color-line);
+}
+.scan-recents h3 {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 22px;
+}
+
+.scan-recent {
+  border: 1px dashed var(--color-line);
+}
+.scan-recent .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.scan-recent .rs-cell {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px dashed var(--color-line);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    transform var(--dur-sm) var(--ease-out);
+}
+.scan-recent .rs-cell:hover {
+  background: var(--color-paper-deep);
+}
+.scan-recent .rs-cell:nth-child(4n) {
+  border-right: 0;
+}
+.scan-recent .rs-cell .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.scan-recent .rs-cell .nm {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+html.dark .scan-recent .rs-cell .nm {
+  color: var(--fg-1);
+}
+.scan-recent .rs-cell .scn {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+  color: var(--color-ink);
+}
+html.dark .scan-recent .rs-cell .scn {
+  color: var(--fg-1);
+}
+.scan-recent .rs-cell .rs-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.scan-recent .rs-cell .bot {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+
+/* BUDGET & LIMITS — bordered spec box. Replaces the old cramped 4-up trust
+   strip (orphan first divider, lines too tight, no budget framing). Full-height
+   hairline dividers BETWEEN cells, generous padding, mono header naming the
+   budget. */
+.scan-budget {
+  margin-top: 32px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+}
+html.dark .scan-budget {
+  border-color: var(--color-line);
+  background: var(--color-paper-deep);
+}
+.scan-budget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-paper-deep);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+html.dark .scan-budget-head {
+  background: rgba(255, 255, 255, 0.04);
+}
+.scan-budget-head .t {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--fg-2);
+}
+.scan-budget-head .t::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  background: var(--brand-accent);
+  flex-shrink: 0;
+}
+.scan-budget-head .n {
+  /* the inherited --fg-3 (slate-500) only hits 4.34:1 at this 10px size on the
+     light --color-paper-deep surface; slate-600 clears WCAG AA (≥4.5:1). */
+  color: var(--ol-slate-600);
+}
+html.dark .scan-budget-head .n {
+  /* dark surface already passes with the inherited muted slate. */
+  color: var(--fg-3);
+}
+.scan-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.budget-cell {
+  padding: 16px 18px;
+  border-left: 1px solid var(--color-line);
+}
+.budget-cell:first-child {
+  border-left: 0;
+}
+.budget-cell .lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.budget-cell .val {
+  margin-top: 8px;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--color-ink);
+}
+html.dark .budget-cell .val {
+  color: var(--fg-1);
+}
+.budget-cell .sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+  margin-top: 5px;
+}
+
+/* ============================================================
+   METHODOLOGY PANE
+   ============================================================ */
+.scan-method-pane {
+  padding: 64px 56px;
+  background: var(--color-paper-deep);
+  /* DS dot-grid surface (matches .page-section--flat) — quieter than the
+     plus-grid crosshairs it replaced. */
+  background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1.3px, transparent 1.3px);
+  background-size: 28px 28px;
+  position: relative;
+  min-width: 0;
+}
+html.dark .scan-method-pane {
+  background-image: radial-gradient(rgba(248, 250, 252, 0.04) 1.3px, transparent 1.3px);
+}
+.scan-method-pane h3 {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 18px;
+}
+
+/* The weighting visual is now the shared WeightBars component
+   (.weight-bars in ui/styles/components.css) — consumed here + on
+   /methodology. Only the surrounding copy stays page-local. */
+
+.method-foot {
+  margin: 0 0 22px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.method-foot .link {
+  color: var(--brand-primary);
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+/* ============================================================
+   RESPONSIVE — stack at ≤980px (mockup L5061)
+   ============================================================ */
+@media (max-width: 980px) {
   .scan-split {
-    padding: 1rem;
-    gap: 1.5rem;
+    grid-template-columns: 1fr;
   }
   .scan-form-pane,
   .scan-method-pane {
-    padding: 1.25rem;
+    padding: 36px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
   }
 }
 
-.scan-form-pane,
-.scan-method-pane {
-  border: 1px solid var(--border-1);
-  padding: 2rem;
-  background: var(--bg-page);
-  /* Allow the grid item to shrink below its content's min-content so long
-     mono strings / inputs wrap instead of forcing horizontal overflow. */
-  min-width: 0;
+/* Recents: 4-up → 2×2 on tablet (add the inter-row dashed seam) */
+@media (max-width: 860px) {
+  .scan-recent .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .scan-recent .rs-cell:nth-child(2n) {
+    border-right: 0;
+  }
+  .scan-recent .rs-cell:nth-child(2n + 1) {
+    border-right: 1px dashed var(--color-line);
+  }
+  .scan-recent .rs-cell:nth-child(-n + 2) {
+    border-bottom: 1px dashed var(--color-line);
+  }
 }
 
-.scan-submit-form-title {
-  font-size: 1.6rem;
-  margin: 0.5rem 0 1.5rem;
+@media (max-width: 520px) {
+  .scan-recent .grid {
+    grid-template-columns: 1fr;
+  }
+  .scan-recent .rs-cell {
+    border-right: 0;
+  }
+  .scan-recent .rs-cell:not(:last-child) {
+    border-bottom: 1px dashed var(--color-line);
+  }
+  .scan-budget-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  /* 2×2: the top-left + bottom-left cells start a row, so drop their left
+     dividers and add a hairline between the two rows. */
+  .budget-cell:nth-child(3) {
+    border-left: 0;
+  }
+  .budget-cell:nth-child(3),
+  .budget-cell:nth-child(4) {
+    border-top: 1px solid var(--color-line);
+  }
 }
 
-.scan-submit-form-hint {
-  font-size: 0.8rem;
-  color: var(--fg-3);
-  margin-top: 1rem;
+/* ============================================================
+   MOTION — subtle entrance reveals + hover lift.
+   The hidden initial state is gated behind BOTH `.js-anim` (added by an
+   inline script in scan/index.astro, so no-JS visitors keep fully-rendered
+   content) AND `prefers-reduced-motion: no-preference` (so reduced-motion
+   visitors get no movement). GPU-only — opacity + transform. An
+   IntersectionObserver adds `.is-visible` as each element scrolls in.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .js-anim [data-reveal] {
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity var(--dur-lg) var(--ease-out) var(--reveal-delay, 0ms),
+      transform var(--dur-lg) var(--ease-out) var(--reveal-delay, 0ms);
+  }
+  .js-anim [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Recent cards fade in place — transform stays free for the hover lift. */
+  .js-anim .rs-cell[data-reveal] {
+    transform: none;
+    transition:
+      opacity var(--dur-lg) var(--ease-out) var(--reveal-delay, 0ms),
+      background var(--dur-xs) var(--ease-std),
+      transform var(--dur-sm) var(--ease-out);
+  }
+
+  /* Title highlight "draws" in left→right once the title settles — echoes the
+     brand's hand-marked emphasis. */
+  .js-anim .ph-title[data-reveal] .mark {
+    background-repeat: no-repeat;
+    background-size: 0% 100%;
+    transition: background-size 520ms var(--ease-out) 280ms;
+  }
+  .js-anim .ph-title[data-reveal].is-visible .mark {
+    background-size: 100% 100%;
+  }
+
+  /* Weighting bars fill from the left when the methodology pane reveals.
+     Targets the shared WeightBars fill (.wb-fill); its resting size is
+     scaleX(--wb-frac), so the reveal animates 0 → that per-row fraction. */
+  .js-anim .scan-method-pane[data-reveal] .weight-bars .wb-fill {
+    transform: scaleX(0);
+    transition: transform 560ms var(--ease-out) 220ms;
+  }
+  .js-anim .scan-method-pane[data-reveal].is-visible .weight-bars .wb-fill {
+    transform: scaleX(var(--wb-frac, 1));
+  }
 }
 
-.scan-submit-form-recent {
-  margin-top: 2rem;
-  border-top: 1px solid var(--border-1);
-  padding-top: 1.5rem;
+/* Recent-card hover lift — snappy, gated to real hover devices. */
+@media (hover: hover) and (pointer: fine) {
+  .scan-recent .rs-cell:hover {
+    transform: translateY(-2px);
+  }
 }
 
-.scan-submit-form-recent-list {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+/* Recent-card entrance stagger. */
+.scan-recent .rs-cell:nth-child(1) {
+  --reveal-delay: 0ms;
 }
-
-.scan-submit-form-recent-list a {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.75rem;
-  align-items: baseline;
-  text-decoration: none;
-  color: inherit;
-  padding: 0.5rem;
-  border: 1px solid var(--border-2);
+.scan-recent .rs-cell:nth-child(2) {
+  --reveal-delay: 70ms;
 }
-
-.scan-submit-form-recent-list a:hover {
-  background: rgba(13, 148, 136, 0.04);
+.scan-recent .rs-cell:nth-child(3) {
+  --reveal-delay: 140ms;
 }
-
-.scan-submit-form-recent-tier {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-}
-
-.scan-methodology-preview-title {
-  font-size: 1.25rem;
-  margin: 0.5rem 0 1.5rem;
-}
-
-.scan-methodology-preview-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.scan-methodology-preview-row {
-  display: grid;
-  grid-template-columns: 1fr 80px;
-  gap: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-2);
-  padding-bottom: 1rem;
-}
-
-.scan-methodology-preview-row-label {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
-}
-
-.scan-methodology-preview-row-blurb {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--fg-3);
-}
-
-.scan-methodology-preview-row-rules {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
-}
-
-.scan-methodology-preview-row-rules a {
-  text-decoration: none;
-  color: var(--brand-primary);
-}
-
-.scan-methodology-preview-row-weight {
-  text-align: right;
-  font-family: var(--font-loud, var(--font-mono, ui-monospace, monospace));
-  font-size: 2.2rem;
-  line-height: 1;
-}
-
-.scan-methodology-preview-row-weight-unit {
-  font-size: 1rem;
-  color: var(--fg-3);
-}
-
-.scan-methodology-preview-row-bar {
-  grid-column: 1 / -1;
-  height: 4px;
-  background: var(--border-2);
-}
-
-.scan-methodology-preview-row-fill {
-  display: block;
-  height: 100%;
-  background: var(--brand-primary);
+.scan-recent .rs-cell:nth-child(4) {
+  --reveal-delay: 210ms;
 }

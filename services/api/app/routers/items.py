@@ -8,22 +8,32 @@ filter sidebar drives.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import io
 import logging
+import zipfile
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, cast
+from urllib.parse import quote
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.core.rate_limit import enforce_ip_rate_limit
 from app.db.session import get_session
+from app.models.artifact_blob import ArtifactBlob
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
 from app.models.vendor import VendorResponse
 from app.queries import latest_scan_tier_distribution
+from app.routers.scans import _is_loopback  # pyright: ignore[reportPrivateUsage]
 from app.scan.report_builder import build_scan_report_detail
 from app.schemas.catalog_summary import (
     CatalogFacets,
@@ -33,16 +43,29 @@ from app.schemas.catalog_summary import (
 )
 from app.schemas.item_detail import (
     AgentShare,
+    DiffFile,
+    DiffHunk,
+    DiffLine,
+    DiffResponse,
+    DownloadInfo,
     InstallActivity,
     ItemDetailResponse,
+    ManifestSource,
     RelatedItem,
+    RepoMeta,
     ScanHistoryPoint,
     VendorResponsePublic,
+    VersionPoint,
 )
+from app.services.artifact_diff import diff_snapshots, load_snapshot
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+# Hard cap on a served snapshot zip (uncompressed total), mirrors the engine's
+# 25 MiB tarball fetch cap. Over this → 413 on the anonymous download endpoint.
+_MAX_ZIP_BYTES = 25 * 1024 * 1024
 
 
 SortKey = Literal["most_installed", "recent", "highest_score", "lowest_score", "most_starred"]
@@ -87,6 +110,7 @@ def _to_summary(
         latest_scan_at=latest_scan_at,
         findings_count=findings_count,
         registries=list(registries),
+        agent_compatibility=list(item.agent_compatibility or []),
         updated_at=item.updated_at,
     )
 
@@ -117,6 +141,19 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
         )
     ).all()
 
+    # Agent facet: unnest the JSONB agent_compatibility array → per-agent counts.
+    # Postgres treats the set-returning function in FROM as a lateral over the
+    # preceding catalog_items row, so each item contributes one row per agent.
+    agent_fn = func.jsonb_array_elements_text(CatalogItem.agent_compatibility).table_valued("value")
+    agent_rows = (
+        await session.execute(
+            select(agent_fn.c.value, func.count(CatalogItem.id))
+            .select_from(CatalogItem, agent_fn)
+            .where(CatalogItem.archived.is_(False))
+            .group_by(agent_fn.c.value)
+        )
+    ).all()
+
     # Tier facet: bucket by latest_scan_tier — shared with /stats (queries.py).
     tier_dist = await latest_scan_tier_distribution(session)
 
@@ -125,6 +162,7 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
         popularity_tier={k: int(c) for k, c in popularity_rows},
         tier=tier_dist,
         registry={k: int(c) for k, c in registry_rows},
+        agent={k: int(c) for k, c in agent_rows},
         total=int(total),
     )
 
@@ -132,12 +170,15 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
 @router.get("", response_model=CatalogListEnvelope)
 async def list_items(
     kind: list[str] | None = Query(default=None),
+    agent: list[str] | None = Query(default=None),
+    popularity_tier: list[str] | None = Query(default=None),
     score_min: int = Query(default=0, ge=0, le=100),
     score_max: int = Query(default=100, ge=0, le=100),
     scan_tier: list[str] | None = Query(default=None),
     q: str | None = Query(default=None, max_length=200),
     sort: SortKey = Query(default="most_installed"),
     limit: int = Query(default=25, ge=1, le=100),
+    page: int = Query(default=1, ge=1),
     cursor: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> CatalogListEnvelope:
@@ -191,6 +232,12 @@ async def list_items(
 
     if kind:
         stmt = stmt.where(CatalogItem.kind.in_(kind))
+    if popularity_tier:
+        stmt = stmt.where(CatalogItem.popularity_tier.in_(popularity_tier))
+    if agent:
+        # Array-overlap: keep items whose agent_compatibility contains ANY
+        # requested agent. JSONB `@>` per agent, OR'd together.
+        stmt = stmt.where(or_(*[CatalogItem.agent_compatibility.contains([a]) for a in agent]))
     if scan_tier:
         stmt = stmt.where(latest_scan.c.latest_tier.in_(scan_tier))
     if score_min > 0 or score_max < 100:
@@ -210,7 +257,20 @@ async def list_items(
             )
         )
 
-    if cursor:
+    # Filtered total (respects every WHERE applied above) — drives total_pages.
+    # Wrap the filtered query in a subquery and count its rows; the latest-scan
+    # + findings joins are 1:1 per item so row-count == item-count.
+    total = int(
+        (
+            await session.execute(select(func.count()).select_from(stmt.order_by(None).subquery()))
+        ).scalar_one()
+    )
+    total_pages = max(1, (total + limit - 1) // limit)
+
+    # Legacy keyset cursor (back-compat) takes precedence when supplied;
+    # otherwise offset/page pagination drives the numbered pager.
+    use_cursor = cursor is not None
+    if use_cursor:
         decoded = _decode_cursor(cursor)
         stmt = stmt.where(CatalogItem.slug > decoded)
 
@@ -225,16 +285,13 @@ async def list_items(
     else:  # most_installed (default)
         stmt = stmt.order_by(desc(CatalogItem.popularity_score), CatalogItem.slug)
 
+    resolved_page = 1 if use_cursor else page
+    if not use_cursor:
+        stmt = stmt.offset((page - 1) * limit)
     stmt = stmt.limit(limit + 1)
     rows = (await session.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-
-    total = (
-        await session.execute(
-            select(func.count(CatalogItem.id)).where(CatalogItem.archived.is_(False))
-        )
-    ).scalar_one()
 
     next_cursor = _encode_cursor(rows[-1][0].slug) if (has_more and rows) else None
 
@@ -265,7 +322,10 @@ async def list_items(
             for item, latest_score, latest_tier, latest_scan_at, findings_count in rows
         ],
         next_cursor=next_cursor,
-        total_count=int(total),
+        total_count=total,
+        page=resolved_page,
+        total_pages=total_pages,
+        page_size=limit,
     )
 
 
@@ -308,6 +368,117 @@ async def _scan_history(
         ScanHistoryPoint(scanned_at=scanned_at, aggregate_score=score, tier=tier)  # type: ignore[arg-type]
         for scanned_at, score, tier in rows
     ]
+
+
+async def _versions(
+    session: AsyncSession, catalog_item_id: object, *, limit: int = 12
+) -> list[VersionPoint]:
+    """Version-history rail — the most-recent scans (newest first) with the
+    per-scan sub_scores the diff panel needs. `tag` is null for now (release-tag
+    resolution is a later refinement); the UI falls back to the short ref SHA.
+    """
+    rows = (
+        await session.execute(
+            select(
+                Scan.id,
+                Scan.ref_sha,
+                Scan.scanned_at,
+                Scan.aggregate_score,
+                Scan.tier,
+                Scan.sub_scores,
+                Scan.file_hashes,
+            )
+            .where(Scan.catalog_item_id == catalog_item_id)
+            .order_by(desc(Scan.scanned_at))
+            .limit(limit)
+        )
+    ).all()
+    return [
+        VersionPoint(
+            tag=None,
+            scan_id=str(scan_id),
+            ref_sha=ref_sha,
+            scanned_at=scanned_at,
+            aggregate_score=score,
+            tier=tier,  # type: ignore[arg-type]
+            sub_scores={
+                str(k): int(v) for k, v in cast("dict[str, int]", sub_scores or {}).items()
+            },
+            has_snapshot=bool(file_hashes),
+        )
+        for scan_id, ref_sha, scanned_at, score, tier, sub_scores, file_hashes in rows
+    ]
+
+
+def _has_servable_snapshot(scan: Scan) -> bool:
+    """True when the scan's snapshot has at least one stored (text) blob.
+
+    `file_hashes` populated AND at least one path maps to a sha (a scan that
+    captured only binaries — all-null map — has no servable content).
+    """
+    return bool(scan.file_hashes) and any(scan.file_hashes.values())
+
+
+async def _latest_snapshot_scan(session: AsyncSession, catalog_item_id: object) -> Scan | None:
+    """Most-recent scan that persisted a usable file snapshot (newest first).
+
+    Pre-storage scans have `file_hashes IS NULL` and are skipped.
+    """
+    scans = (
+        (
+            await session.execute(
+                select(Scan)
+                .where(Scan.catalog_item_id == catalog_item_id)
+                .where(Scan.file_hashes.isnot(None))
+                .order_by(desc(Scan.scanned_at))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return next((scan for scan in scans if _has_servable_snapshot(scan)), None)
+
+
+async def _download_info(session: AsyncSession, scan: Scan) -> DownloadInfo:
+    """Build the served-zip pointer for a scan with a snapshot.
+
+    `byte_size` is the uncompressed total served (sum over stored paths — a file
+    written once per path, so deduped blobs shared by two paths count twice).
+    """
+    file_hashes: dict[str, str | None] = scan.file_hashes or {}
+    shas = {sha for sha in file_hashes.values() if sha}
+    sizes: dict[str, int] = {}
+    if shas:
+        rows = (
+            await session.execute(
+                select(ArtifactBlob.sha256, ArtifactBlob.byte_size).where(
+                    ArtifactBlob.sha256.in_(shas)
+                )
+            )
+        ).all()
+        sizes = {sha: int(size) for sha, size in rows}
+    total = sum(sizes.get(sha, 0) for sha in file_hashes.values() if sha)
+    return DownloadInfo(scan_id=str(scan.id), byte_size=total)
+
+
+async def _load_scan_for_item(session: AsyncSession, catalog_item_id: object, scan_id: str) -> Scan:
+    """Load a scan that MUST belong to this item — the slug↔scan ownership gate.
+
+    A foreign or unknown scan_id 404s (never leaks another item's scan), and a
+    malformed UUID 400s.
+    """
+    try:
+        sid = UUID(scan_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid scan id") from exc
+    scan = (
+        await session.execute(
+            select(Scan).where(Scan.id == sid).where(Scan.catalog_item_id == catalog_item_id)
+        )
+    ).scalar_one_or_none()
+    if scan is None:
+        raise HTTPException(status_code=404, detail="scan not found for this item")
+    return scan
 
 
 async def _related_items(
@@ -409,6 +580,22 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         findings_count = len(findings)
         latest_scan_detail = build_scan_report_detail(latest, item, findings)
 
+    # Sub-scores of the 2nd-most-recent scan → powers the item page's per-category
+    # "Δ vs last scan" column. None when the item has fewer than two scans.
+    previous_sub_scores: dict[str, int] | None = None
+    if latest is not None:
+        prev = (
+            await session.execute(
+                select(Scan.sub_scores)
+                .where(Scan.catalog_item_id == item.id)
+                .order_by(desc(Scan.scanned_at))
+                .offset(1)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if isinstance(prev, dict):
+            previous_sub_scores = {str(k): int(v) for k, v in prev.items()}
+
     reg_rows = (
         await session.execute(
             select(ItemSource.registry_id).where(ItemSource.catalog_item_id == item.id)
@@ -439,6 +626,27 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         item_metadata=item.item_metadata,
     )
 
+    repo = RepoMeta(
+        stars=item.github_stars,
+        forks=item.github_forks,
+        license_spdx=item.license_spdx,
+        latest_version=item.latest_version,
+        verified="vendor_verified" in registries,
+    )
+
+    manifest = None
+    if latest is not None and latest.manifest_source:
+        manifest = ManifestSource(
+            path=latest.manifest_path or "SKILL.md",
+            content=latest.manifest_source,
+            bytes=len(latest.manifest_source.encode("utf-8")),
+        )
+
+    download = None
+    snapshot_scan = await _latest_snapshot_scan(session, item.id)
+    if snapshot_scan is not None:
+        download = await _download_info(session, snapshot_scan)
+
     return ItemDetailResponse(
         item=detail,
         latest_scan=latest_scan_detail,
@@ -446,4 +654,151 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         install_activity=_mock_install_activity(item.popularity_score),
         related_items=await _related_items(session, kind=item.kind, exclude_id=item.id),
         vendor_responses=await _vendor_responses(session, item),
+        previous_sub_scores=previous_sub_scores,
+        repo=repo,
+        versions=await _versions(session, item.id),
+        manifest=manifest,
+        download=download,
+    )
+
+
+async def _require_item(session: AsyncSession, slug: str) -> CatalogItem:
+    item = (
+        await session.execute(select(CatalogItem).where(CatalogItem.slug == slug))
+    ).scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="item not found")
+    return item
+
+
+def _build_zip(files: dict[str, bytes]) -> bytes:
+    """Deterministic deflate zip of `{path: bytes}` — runs in a worker thread."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(files):
+            archive.writestr(path, files[path])
+    return buffer.getvalue()
+
+
+@router.get("/{slug}/diff", response_model=DiffResponse)
+async def get_item_diff(
+    slug: str,
+    to: str = Query(..., description="scan_id of the newer snapshot"),
+    from_: str | None = Query(
+        default=None, alias="from", description="scan_id of the older snapshot"
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> DiffResponse:
+    """Line-level diff between two stored scan snapshots of the same item.
+
+    Both scans must belong to `slug`; `from` defaults to the scan just older
+    than `to`. 404 if either snapshot is absent (a pre-storage scan). The diff
+    is CPU-bound, so it runs in a worker thread off the event loop.
+    """
+    item = await _require_item(session, slug)
+    to_scan = await _load_scan_for_item(session, item.id, to)
+
+    if from_ is not None:
+        from_scan: Scan | None = await _load_scan_for_item(session, item.id, from_)
+    else:
+        from_scan = (
+            await session.execute(
+                select(Scan)
+                .where(Scan.catalog_item_id == item.id)
+                .where(Scan.scanned_at < to_scan.scanned_at)
+                .order_by(desc(Scan.scanned_at))
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if from_scan is None:
+            raise HTTPException(status_code=404, detail="no prior scan to diff against")
+
+    if not to_scan.file_hashes or not from_scan.file_hashes:
+        raise HTTPException(status_code=404, detail="snapshot not available for one of these scans")
+
+    old = await load_snapshot(session, from_scan)
+    new = await load_snapshot(session, to_scan)
+    result = await asyncio.to_thread(diff_snapshots, old, new)
+
+    return DiffResponse(
+        from_scan_id=str(from_scan.id),
+        to_scan_id=str(to_scan.id),
+        files=[
+            DiffFile(
+                path=f.path,
+                status=f.status,  # type: ignore[arg-type]
+                note=f.note,
+                hunks=[
+                    DiffHunk(
+                        header=h.header,
+                        lines=[
+                            DiffLine(type=line.type, text=line.text, gutter=line.gutter)  # type: ignore[arg-type]
+                            for line in h.lines
+                        ],
+                    )
+                    for h in f.hunks
+                ],
+            )
+            for f in result.files
+        ],
+        truncated=result.truncated,
+    )
+
+
+@router.get("/{slug}/download")
+async def download_item_snapshot(
+    slug: str,
+    request: Request,
+    scan: str | None = Query(default=None, description="scan_id; default = latest with a snapshot"),
+    session: AsyncSession = Depends(get_session),
+) -> StreamingResponse:
+    """Serve a stored scan snapshot as a SaferSkills-built `.zip`.
+
+    Default target is the latest scan with a snapshot. Per-IP daily rate cap
+    (loopback-exempt, cf. `scans.py::_is_loopback`) + a snapshot-size cap guard
+    the anonymous endpoint. Snapshots are immutable → far-future `Cache-Control`.
+    """
+    settings = get_settings()
+    item = await _require_item(session, slug)
+
+    if scan is not None:
+        target = await _load_scan_for_item(session, item.id, scan)
+    else:
+        latest_snapshot = await _latest_snapshot_scan(session, item.id)
+        if latest_snapshot is None:
+            raise HTTPException(status_code=404, detail="no stored snapshot for this item")
+        target = latest_snapshot
+
+    if not _has_servable_snapshot(target):
+        raise HTTPException(status_code=404, detail="snapshot not available for this scan")
+
+    ip = request.client.host if request.client else "unknown"
+    if not _is_loopback(ip):
+        await enforce_ip_rate_limit(
+            session,
+            ip=ip,
+            bucket="artifact_download",
+            limit=settings.artifact_download_daily_limit,
+        )
+
+    snapshot = await load_snapshot(session, target)
+    files = {path: content for path, content in snapshot.items() if content is not None}
+    total = sum(len(content) for content in files.values())
+    if total > _MAX_ZIP_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"snapshot exceeds the {_MAX_ZIP_BYTES} byte download cap",
+        )
+
+    payload = await asyncio.to_thread(_build_zip, files)
+    filename = f"{slug}.zip"
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(
+        io.BytesIO(payload),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": disposition,
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Content-Length": str(len(payload)),
+        },
     )

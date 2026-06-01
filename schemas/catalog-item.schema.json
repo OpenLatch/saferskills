@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/catalog-item.schema.json",
   "title": "CatalogItem",
-  "description": "A single deduplicated entry in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item per (github_url, default_branch) — sub-tree artifacts collapse into the parent repo entry.",
+  "description": "A single capability in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item = one capability; a capability may link to a GitHub repo, and several capabilities can share one repo (a repo scan discovers + scores each independently).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -33,10 +33,10 @@
     },
     "slug": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*--[a-z0-9][a-z0-9-]*$",
+      "pattern": "^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$",
       "minLength": 5,
       "maxLength": 255,
-      "description": "URL-safe slug of the form `<org>--<repo>` (double-dash separator). Used in `/items/<slug>` permalinks."
+      "description": "URL-safe slug, double-dash-separated segments. A legacy repo-level slug is `<org>--<repo>`; a per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]` (a repo hosting several capabilities). Used in `/items/<slug>` permalinks."
     },
     "displayName": {
       "type": "string",
@@ -77,6 +77,45 @@
       "minimum": 0,
       "maximum": 100,
       "description": "Weekly-recomputed popularity rank within the artifact kind. Drives popularityTier assignment."
+    },
+    "agentCompatibility": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude-code",
+          "cursor",
+          "codex",
+          "copilot",
+          "windsurf",
+          "cline",
+          "gemini",
+          "openclaw"
+        ]
+      },
+      "description": "Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates."
+    },
+    "githubStars": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "GitHub stargazer count, refreshed from api.github.com at scan time. Null until first fetch. Surfaced on the item-detail header (read-only mirror of public GitHub data)."
+    },
+    "githubForks": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "GitHub fork count, refreshed from api.github.com at scan time. Null until first fetch."
+    },
+    "licenseSpdx": {
+      "type": ["string", "null"],
+      "maxLength": 100,
+      "description": "SPDX license id resolved from the GitHub repo license object (e.g. `Apache-2.0`, `MIT`). Null when unknown/unlicensed."
+    },
+    "latestVersion": {
+      "type": ["string", "null"],
+      "maxLength": 100,
+      "description": "Latest GitHub release tag (e.g. `v1.3.1`), from /releases/latest. Null when the repo publishes no releases."
     },
     "contentHashSha256": {
       "type": ["string", "null"],
@@ -162,6 +201,7 @@
       "defaultBranch": "main",
       "popularityTier": "deep",
       "popularityScore": 87,
+      "agentCompatibility": ["claude-code", "cursor", "codex", "copilot", "windsurf", "cline", "gemini", "openclaw"],
       "contentHashSha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "archived": false,
       "sources": [

@@ -38,6 +38,7 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 - **All Astro/React component code is framework-agnostic React 19 + Tailwind primitives** — never import Astro APIs from `ui/components/`. The `ui/` package is portable; Astro lives only in `webapp/src/pages/`.
 - **The 6-step codegen pipeline is the source of truth.** `pnpm run generate` is the only entry point.
 - **Single Postgres** — in-process LRU caches mirror data inside the process; never reach for Redis at W1.
+- **Artifact storage is in-Postgres by design.** Stored scan-file snapshots (`artifact_blobs`, content-addressed dedup) live in the single Postgres as `bytea` — no object store / bucket / new secret. This **preserves** the single-store rule above; it does not amend it. See `database.md`.
 
 ## Forbidden tools
 

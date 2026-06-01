@@ -20,6 +20,7 @@ export interface CatalogItemSummary {
   latest_scan_at?: string | null
   findings_count: number
   registries: string[]
+  agent_compatibility: string[]
   updated_at: string
 }
 
@@ -32,6 +33,9 @@ export interface CatalogListResponse {
   data: CatalogItemSummary[]
   next_cursor: string | null
   total_count: number
+  page: number
+  total_pages: number
+  page_size: number
 }
 
 export interface ScanHistoryPoint {
@@ -67,6 +71,64 @@ export interface VendorResponsePublic {
   version: number
 }
 
+export interface VersionPoint {
+  tag: string | null
+  scan_id: string
+  ref_sha: string
+  scanned_at: string
+  aggregate_score: number
+  tier: ScanTier
+  sub_scores: Record<string, number>
+  has_snapshot: boolean
+}
+
+export type DiffLineType = 'add' | 'del' | 'ctx'
+export type DiffFileStatus = 'added' | 'removed' | 'modified' | 'binary'
+
+export interface DiffLine {
+  type: DiffLineType
+  text: string
+  gutter: string
+}
+
+export interface DiffHunk {
+  header: string
+  lines: DiffLine[]
+}
+
+export interface DiffFile {
+  path: string
+  status: DiffFileStatus
+  hunks: DiffHunk[]
+  note?: string | null
+}
+
+export interface DiffResponse {
+  from_scan_id: string
+  to_scan_id: string
+  files: DiffFile[]
+  truncated: boolean
+}
+
+export interface DownloadInfo {
+  scan_id: string
+  byte_size: number
+}
+
+export interface RepoMeta {
+  stars: number | null
+  forks: number | null
+  license_spdx: string | null
+  latest_version: string | null
+  verified: boolean
+}
+
+export interface ManifestSource {
+  path: string
+  content: string
+  bytes: number
+}
+
 export interface ItemDetailResponse {
   item: CatalogItemDetail
   latest_scan: ScanReportDetail | null
@@ -74,6 +136,11 @@ export interface ItemDetailResponse {
   install_activity: InstallActivity
   related_items: RelatedItem[]
   vendor_responses: VendorResponsePublic[]
+  previous_sub_scores?: Record<string, number> | null
+  repo: RepoMeta
+  versions: VersionPoint[]
+  manifest?: ManifestSource | null
+  download?: DownloadInfo | null
 }
 
 export interface CatalogFacets {
@@ -81,17 +148,28 @@ export interface CatalogFacets {
   popularity_tier: Record<string, number>
   tier: Record<string, number>
   registry: Record<string, number>
+  agent: Record<string, number>
   total: number
 }
 
+export type CatalogSort =
+  | 'most_installed'
+  | 'recent'
+  | 'highest_score'
+  | 'lowest_score'
+  | 'most_starred'
+
 export interface ListItemsParams {
   kind?: string[]
+  agent?: string[]
+  popularity_tier?: string[]
   score_min?: number
   score_max?: number
   scan_tier?: string[]
   q?: string
-  sort?: 'most_installed' | 'recent' | 'highest_score' | 'lowest_score' | 'most_starred'
+  sort?: CatalogSort
   limit?: number
+  page?: number
   cursor?: string | null
 }
 
@@ -114,12 +192,15 @@ function buildUrl(
 export async function listCatalogItems(params: ListItemsParams = {}): Promise<CatalogListResponse> {
   const url = buildUrl('/api/v1/items', {
     kind: params.kind,
+    agent: params.agent,
+    popularity_tier: params.popularity_tier,
     score_min: params.score_min,
     score_max: params.score_max,
     scan_tier: params.scan_tier,
     q: params.q,
     sort: params.sort,
     limit: params.limit ?? 25,
+    page: params.page,
     cursor: params.cursor ?? undefined,
   })
   const res = await fetch(url, { headers: { Accept: 'application/json' } })
@@ -134,6 +215,25 @@ export async function fetchItemBySlug(slug: string): Promise<ItemDetailResponse 
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`API ${res.status}`)
   return (await res.json()) as ItemDetailResponse
+}
+
+export async function fetchItemDiff(
+  slug: string,
+  toScanId: string,
+  fromScanId?: string
+): Promise<DiffResponse> {
+  const url = buildUrl(`/api/v1/items/${encodeURIComponent(slug)}/diff`, {
+    to: toScanId,
+    from: fromScanId,
+  })
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return (await res.json()) as DiffResponse
+}
+
+export function itemDownloadUrl(slug: string, scanId?: string): string {
+  const url = buildUrl(`/api/v1/items/${encodeURIComponent(slug)}/download`, { scan: scanId })
+  return url.toString()
 }
 
 export async function fetchCatalogFacets(): Promise<CatalogFacets> {

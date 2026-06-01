@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 
 import { env } from '@/env'
-import { fetchScanById } from '@/lib/api/scans'
+import { fetchScanRunById } from '@/lib/api/scans'
 
 type StageId =
   | 'fetch'
@@ -155,7 +155,7 @@ export function useScanProgress(scanId: string | null) {
       dispatch({ type: 'polling' })
       pollingTimer.current = window.setInterval(async () => {
         try {
-          const detail = await fetchScanById(activeScanId)
+          const detail = await fetchScanRunById(activeScanId)
           if (!detail) return
           if (detail.status === 'completed' || detail.status === 'failed') {
             dispatch({ type: 'completed' })

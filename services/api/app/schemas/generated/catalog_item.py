@@ -33,6 +33,17 @@ class PopularityTier(StrEnum):
     on_demand = "on_demand"
 
 
+class AgentCompatibilityEnum(StrEnum):
+    claude_code = "claude-code"
+    cursor = "cursor"
+    codex = "codex"
+    copilot = "copilot"
+    windsurf = "windsurf"
+    cline = "cline"
+    gemini = "gemini"
+    openclaw = "openclaw"
+
+
 class RegistryId(StrEnum):
     """
     Closed-enum source-of-record identifier. PRD §7.4 dual-attribution.
@@ -81,7 +92,7 @@ class Source(BaseModel):
 
 class CatalogItem(BaseModel):
     """
-    A single deduplicated entry in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item per (github_url, default_branch) — sub-tree artifacts collapse into the parent repo entry.
+    A single capability in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item = one capability; a capability may link to a GitHub repo, and several capabilities can share one repo (a repo scan discovers + scores each independently).
     """
 
     model_config = ConfigDict(
@@ -93,12 +104,12 @@ class CatalogItem(BaseModel):
         description="Artifact taxonomy. `rules` covers Cursor / Windsurf-style rule files.",
     )
     slug: constr(
-        pattern=r"^[a-z0-9][a-z0-9-]*--[a-z0-9][a-z0-9-]*$",
+        pattern=r"^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$",
         min_length=5,
         max_length=255,
     ) = Field(
         ...,
-        description="URL-safe slug of the form `<org>--<repo>` (double-dash separator). Used in `/items/<slug>` permalinks.",
+        description="URL-safe slug, double-dash-separated segments. A legacy repo-level slug is `<org>--<repo>`; a per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]` (a repo hosting several capabilities). Used in `/items/<slug>` permalinks.",
     )
     display_name: constr(min_length=1, max_length=200) = Field(
         ...,
@@ -132,6 +143,31 @@ class CatalogItem(BaseModel):
         ...,
         alias="popularityScore",
         description="Weekly-recomputed popularity rank within the artifact kind. Drives popularityTier assignment.",
+    )
+    agent_compatibility: list[AgentCompatibilityEnum] | None = Field(
+        [],
+        alias="agentCompatibility",
+        description="Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates.",
+    )
+    github_stars: conint(ge=0) | None = Field(
+        None,
+        alias="githubStars",
+        description="GitHub stargazer count, refreshed from api.github.com at scan time. Null until first fetch. Surfaced on the item-detail header (read-only mirror of public GitHub data).",
+    )
+    github_forks: conint(ge=0) | None = Field(
+        None,
+        alias="githubForks",
+        description="GitHub fork count, refreshed from api.github.com at scan time. Null until first fetch.",
+    )
+    license_spdx: constr(max_length=100) | None = Field(
+        None,
+        alias="licenseSpdx",
+        description="SPDX license id resolved from the GitHub repo license object (e.g. `Apache-2.0`, `MIT`). Null when unknown/unlicensed.",
+    )
+    latest_version: constr(max_length=100) | None = Field(
+        None,
+        alias="latestVersion",
+        description="Latest GitHub release tag (e.g. `v1.3.1`), from /releases/latest. Null when the repo publishes no releases.",
     )
     content_hash_sha256: constr(pattern=r"^[a-f0-9]{64}$") | None = Field(
         None,

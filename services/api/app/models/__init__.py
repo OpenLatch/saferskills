@@ -8,14 +8,17 @@ Importing this module is sufficient to register every ORM model against
 `Base.metadata` (declarative classes self-register on definition).
 """
 
+from app.models.artifact_blob import ArtifactBlob
 from app.models.base import Base
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
 from app.models.rate_limit import RateLimit
 from app.models.scan import Finding, Scan, ScanEvent
+from app.models.scan_run import ScanRun
 from app.models.vendor import VendorResponse, VendorVerification
 
 __all__ = [
+    "ArtifactBlob",
     "Base",
     "CatalogItem",
     "Finding",
@@ -23,6 +26,7 @@ __all__ = [
     "RateLimit",
     "Scan",
     "ScanEvent",
+    "ScanRun",
     "VendorResponse",
     "VendorVerification",
 ]

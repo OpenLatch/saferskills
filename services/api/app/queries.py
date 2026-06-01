@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
 from app.models.scan import Scan
+from app.models.scan_run import ScanRun
 
 _UNSCOPED = "unscoped"
 
@@ -79,13 +80,18 @@ async def median_completed_score(session: AsyncSession) -> int | None:
 
 
 async def latency_stats_ms(session: AsyncSession) -> tuple[int | None, int | None]:
-    """(p95, avg) latency in ms over completed scans. (None, None) when empty."""
+    """(p95, avg) latency in ms over completed repo scans. (None, None) when empty.
+
+    Latency is the wall-clock of a whole repo scan, recorded on `scan_runs` —
+    per-capability `scans` rows carry `latency_ms=0` (the run is the timed unit),
+    so this measures `scan_runs`, not the fanned-out per-capability scans.
+    """
     row = (
         await session.execute(
             select(
-                func.percentile_cont(0.95).within_group(Scan.latency_ms.asc()),
-                func.avg(Scan.latency_ms),
-            ).where(Scan.tier != _UNSCOPED)
+                func.percentile_cont(0.95).within_group(ScanRun.latency_ms.asc()),
+                func.avg(ScanRun.latency_ms),
+            ).where(ScanRun.status == "completed")
         )
     ).first()
     if row is None:

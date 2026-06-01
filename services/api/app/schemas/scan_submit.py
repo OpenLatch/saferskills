@@ -59,3 +59,7 @@ class ScanReportDetail(OrmBaseModel):
     source: str
     status: Literal["pending", "running", "completed", "failed"] = "completed"
     ref_sha: str
+    # Per-capability context (optional → no item-detail break). Populated when the
+    # scan belongs to a repo scan run (one capability of several in the repo).
+    component_path: str | None = None
+    scan_run_id: str | None = None
