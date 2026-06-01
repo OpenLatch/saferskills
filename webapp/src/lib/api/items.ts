@@ -71,6 +71,29 @@ export interface VendorResponsePublic {
   version: number
 }
 
+export interface VersionPoint {
+  tag: string | null
+  ref_sha: string
+  scanned_at: string
+  aggregate_score: number
+  tier: ScanTier
+  sub_scores: Record<string, number>
+}
+
+export interface RepoMeta {
+  stars: number | null
+  forks: number | null
+  license_spdx: string | null
+  latest_version: string | null
+  verified: boolean
+}
+
+export interface ManifestSource {
+  path: string
+  content: string
+  bytes: number
+}
+
 export interface ItemDetailResponse {
   item: CatalogItemDetail
   latest_scan: ScanReportDetail | null
@@ -78,6 +101,10 @@ export interface ItemDetailResponse {
   install_activity: InstallActivity
   related_items: RelatedItem[]
   vendor_responses: VendorResponsePublic[]
+  previous_sub_scores?: Record<string, number> | null
+  repo: RepoMeta
+  versions: VersionPoint[]
+  manifest?: ManifestSource | null
 }
 
 export interface CatalogFacets {

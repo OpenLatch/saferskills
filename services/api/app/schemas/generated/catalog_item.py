@@ -149,6 +149,26 @@ class CatalogItem(BaseModel):
         alias="agentCompatibility",
         description="Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates.",
     )
+    github_stars: conint(ge=0) | None = Field(
+        None,
+        alias="githubStars",
+        description="GitHub stargazer count, refreshed from api.github.com at scan time. Null until first fetch. Surfaced on the item-detail header (read-only mirror of public GitHub data).",
+    )
+    github_forks: conint(ge=0) | None = Field(
+        None,
+        alias="githubForks",
+        description="GitHub fork count, refreshed from api.github.com at scan time. Null until first fetch.",
+    )
+    license_spdx: constr(max_length=100) | None = Field(
+        None,
+        alias="licenseSpdx",
+        description="SPDX license id resolved from the GitHub repo license object (e.g. `Apache-2.0`, `MIT`). Null when unknown/unlicensed.",
+    )
+    latest_version: constr(max_length=100) | None = Field(
+        None,
+        alias="latestVersion",
+        description="Latest GitHub release tag (e.g. `v1.3.1`), from /releases/latest. Null when the repo publishes no releases.",
+    )
     content_hash_sha256: constr(pattern=r"^[a-f0-9]{64}$") | None = Field(
         None,
         alias="contentHashSha256",

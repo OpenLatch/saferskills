@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -36,6 +36,10 @@ class Scan(Base):
     sub_scores: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     score_breakdown: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     file_hashes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Primary public manifest (SKILL.md / README) captured at scan time, size-capped.
+    # Public repo content surfaced on the item Source tab — not a scan-trace payload.
+    manifest_path: Mapped[str | None] = mapped_column(String(255))
+    manifest_source: Mapped[str | None] = mapped_column(Text)
     trace_truncated: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )

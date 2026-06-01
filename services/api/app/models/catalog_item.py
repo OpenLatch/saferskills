@@ -41,6 +41,10 @@ class CatalogItem(Base):
     agent_compatibility: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
+    github_stars: Mapped[int | None] = mapped_column(Integer)
+    github_forks: Mapped[int | None] = mapped_column(Integer)
+    license_spdx: Mapped[str | None] = mapped_column(String(100))
+    latest_version: Mapped[str | None] = mapped_column(String(100))
     content_hash_sha256: Mapped[str | None] = mapped_column(String(64))
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     sources: Mapped[list[dict[str, Any]]] = mapped_column(

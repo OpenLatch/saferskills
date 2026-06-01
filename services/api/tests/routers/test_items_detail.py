@@ -58,6 +58,18 @@ async def test_item_detail_shape(db_client: AsyncClient, seed_item: SeededItem) 
     # vendor_responses present (empty until a vendor submits one)
     assert body["vendor_responses"] == []
 
+    # Single-scan item → no previous scan to diff against
+    assert body["previous_sub_scores"] is None
+
+    # Repo metadata block present (fields null until a real scan fetches them)
+    assert "repo" in body
+    assert body["repo"]["verified"] is False
+    # Version-history rail carries the seeded scan
+    assert isinstance(body["versions"], list)
+    assert len(body["versions"]) == 1
+    assert body["versions"][0]["ref_sha"]
+    assert "sub_scores" in body["versions"][0]
+
 
 @pytest.mark.asyncio
 async def test_item_detail_related_items_same_kind(
@@ -124,3 +136,85 @@ async def test_item_detail_related_items_same_kind(
     related_slugs = {r["slug"] for r in related}
     assert peer.slug in related_slugs
     assert base.slug not in related_slugs
+
+
+@pytest.mark.asyncio
+async def test_item_detail_previous_sub_scores(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A 2-scan item exposes the older scan's sub_scores for the Δ column."""
+    import uuid
+    from datetime import datetime, timedelta
+
+    suffix = uuid.uuid4().hex[:6]
+    item = CatalogItem(
+        kind="mcp_server",
+        slug=f"delta--{suffix}",
+        display_name="Delta MCP",
+        github_url="https://github.com/delta/mcp",
+        github_org="delta",
+        github_repo="mcp",
+        default_branch="main",
+        popularity_tier="deep",
+        popularity_score=50,
+        sources=[],
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    now = datetime.now(tz=UTC)
+    older = Scan(
+        catalog_item_id=item.id,
+        idempotency_key=uuid.uuid4().hex,
+        github_url=item.github_url,
+        ref_sha="c" * 40,
+        aggregate_score=80,
+        tier="green",
+        sub_scores={
+            "security": 88,
+            "supply_chain": 78,
+            "maintenance": 81,
+            "transparency": 82,
+            "community": 79,
+        },
+        score_breakdown={},
+        rubric_version="abc1234",
+        engine_version="def5678",
+        latency_ms=100,
+        source="submission",
+        scanned_at=now - timedelta(days=7),
+    )
+    newer = Scan(
+        catalog_item_id=item.id,
+        idempotency_key=uuid.uuid4().hex,
+        github_url=item.github_url,
+        ref_sha="d" * 40,
+        aggregate_score=87,
+        tier="green",
+        sub_scores={
+            "security": 92,
+            "supply_chain": 80,
+            "maintenance": 89,
+            "transparency": 82,
+            "community": 90,
+        },
+        score_breakdown={},
+        rubric_version="abc1234",
+        engine_version="def5678",
+        latency_ms=100,
+        source="submission",
+        scanned_at=now,
+    )
+    db_session.add_all([older, newer])
+    await db_session.flush()
+
+    body = (await db_client.get(f"/api/v1/items/{item.slug}")).json()
+    # previous_sub_scores reflects the OLDER scan (the diff baseline for the latest).
+    assert body["previous_sub_scores"] == older.sub_scores
+    assert body["latest_scan"]["aggregate_score"] == 87
+    assert len(body["scan_history"]) == 2
+    # Version rail has both scans, newest first, each with sub_scores for diffing.
+    assert len(body["versions"]) == 2
+    assert body["versions"][0]["aggregate_score"] == 87
+    assert body["versions"][1]["aggregate_score"] == 80
+    assert body["versions"][0]["sub_scores"]["security"] == 92

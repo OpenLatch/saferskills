@@ -546,6 +546,21 @@
             "title": "Git Sha",
             "type": "string"
           },
+          "migrations_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migrations Error"
+          },
+          "migrations_ok": {
+            "title": "Migrations Ok",
+            "type": "boolean"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -558,7 +573,8 @@
         "required": [
           "status",
           "version",
-          "git_sha"
+          "git_sha",
+          "migrations_ok"
         ],
         "title": "HealthResponse",
         "type": "object"
@@ -617,12 +633,39 @@
               }
             ]
           },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManifestSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previous_sub_scores": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Sub Scores"
+          },
           "related_items": {
             "items": {
               "$ref": "#/components/schemas/RelatedItem"
             },
             "title": "Related Items",
             "type": "array"
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepoMeta"
           },
           "scan_history": {
             "items": {
@@ -636,6 +679,13 @@
               "$ref": "#/components/schemas/VendorResponsePublic"
             },
             "title": "Vendor Responses",
+            "type": "array"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionPoint"
+            },
+            "title": "Versions",
             "type": "array"
           }
         },
@@ -680,6 +730,31 @@
           "data"
         ],
         "title": "ListEnvelope",
+        "type": "object"
+      },
+      "ManifestSource": {
+        "description": "The primary public manifest file (SKILL.md / README) for the Source tab.",
+        "properties": {
+          "bytes": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "ManifestSource",
         "type": "object"
       },
       "PlatformStats": {
@@ -827,6 +902,62 @@
           "display_name"
         ],
         "title": "RelatedItem",
+        "type": "object"
+      },
+      "RepoMeta": {
+        "description": "Public GitHub facts mirrored onto the item header + Package card.",
+        "properties": {
+          "forks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forks"
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version"
+          },
+          "license_spdx": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Spdx"
+          },
+          "stars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stars"
+          },
+          "verified": {
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "title": "RepoMeta",
         "type": "object"
       },
       "ScanHistoryPoint": {
@@ -1326,6 +1457,63 @@
           "file_path"
         ],
         "title": "VerifyStartResponse",
+        "type": "object"
+      },
+      "VersionPoint": {
+        "description": "One entry in the item's version-history rail (a scanned point in time).\n\n`tag` is the GitHub release tag when resolvable, else null (the UI falls back\nto the short ref SHA). `sub_scores` powers the per-category diff vs the\nadjacent version.",
+        "properties": {
+          "aggregate_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Aggregate Score",
+            "type": "integer"
+          },
+          "ref_sha": {
+            "title": "Ref Sha",
+            "type": "string"
+          },
+          "scanned_at": {
+            "format": "date-time",
+            "title": "Scanned At",
+            "type": "string"
+          },
+          "sub_scores": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sub Scores",
+            "type": "object"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag"
+          },
+          "tier": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_sha",
+          "scanned_at",
+          "aggregate_score",
+          "tier"
+        ],
+        "title": "VersionPoint",
         "type": "object"
       }
     }

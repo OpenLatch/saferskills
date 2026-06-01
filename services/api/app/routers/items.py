@@ -12,7 +12,7 @@ import base64
 import logging
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, desc, func, or_, select
@@ -35,9 +35,12 @@ from app.schemas.item_detail import (
     AgentShare,
     InstallActivity,
     ItemDetailResponse,
+    ManifestSource,
     RelatedItem,
+    RepoMeta,
     ScanHistoryPoint,
     VendorResponsePublic,
+    VersionPoint,
 )
 
 logger = logging.getLogger(__name__)
@@ -347,6 +350,36 @@ async def _scan_history(
     ]
 
 
+async def _versions(
+    session: AsyncSession, catalog_item_id: object, *, limit: int = 12
+) -> list[VersionPoint]:
+    """Version-history rail — the most-recent scans (newest first) with the
+    per-scan sub_scores the diff panel needs. `tag` is null for now (release-tag
+    resolution is a later refinement); the UI falls back to the short ref SHA.
+    """
+    rows = (
+        await session.execute(
+            select(Scan.ref_sha, Scan.scanned_at, Scan.aggregate_score, Scan.tier, Scan.sub_scores)
+            .where(Scan.catalog_item_id == catalog_item_id)
+            .order_by(desc(Scan.scanned_at))
+            .limit(limit)
+        )
+    ).all()
+    return [
+        VersionPoint(
+            tag=None,
+            ref_sha=ref_sha,
+            scanned_at=scanned_at,
+            aggregate_score=score,
+            tier=tier,  # type: ignore[arg-type]
+            sub_scores={
+                str(k): int(v) for k, v in cast("dict[str, int]", sub_scores or {}).items()
+            },
+        )
+        for ref_sha, scanned_at, score, tier, sub_scores in rows
+    ]
+
+
 async def _related_items(
     session: AsyncSession, *, kind: str, exclude_id: object, limit: int = 4
 ) -> list[RelatedItem]:
@@ -446,6 +479,22 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         findings_count = len(findings)
         latest_scan_detail = build_scan_report_detail(latest, item, findings)
 
+    # Sub-scores of the 2nd-most-recent scan → powers the item page's per-category
+    # "Δ vs last scan" column. None when the item has fewer than two scans.
+    previous_sub_scores: dict[str, int] | None = None
+    if latest is not None:
+        prev = (
+            await session.execute(
+                select(Scan.sub_scores)
+                .where(Scan.catalog_item_id == item.id)
+                .order_by(desc(Scan.scanned_at))
+                .offset(1)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if isinstance(prev, dict):
+            previous_sub_scores = {str(k): int(v) for k, v in prev.items()}
+
     reg_rows = (
         await session.execute(
             select(ItemSource.registry_id).where(ItemSource.catalog_item_id == item.id)
@@ -476,6 +525,22 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         item_metadata=item.item_metadata,
     )
 
+    repo = RepoMeta(
+        stars=item.github_stars,
+        forks=item.github_forks,
+        license_spdx=item.license_spdx,
+        latest_version=item.latest_version,
+        verified="vendor_verified" in registries,
+    )
+
+    manifest = None
+    if latest is not None and latest.manifest_source:
+        manifest = ManifestSource(
+            path=latest.manifest_path or "SKILL.md",
+            content=latest.manifest_source,
+            bytes=len(latest.manifest_source.encode("utf-8")),
+        )
+
     return ItemDetailResponse(
         item=detail,
         latest_scan=latest_scan_detail,
@@ -483,4 +548,8 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         install_activity=_mock_install_activity(item.popularity_score),
         related_items=await _related_items(session, kind=item.kind, exclude_id=item.id),
         vendor_responses=await _vendor_responses(session, item),
+        previous_sub_scores=previous_sub_scores,
+        repo=repo,
+        versions=await _versions(session, item.id),
+        manifest=manifest,
     )

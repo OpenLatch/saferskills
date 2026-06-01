@@ -36,6 +36,40 @@ class ScanHistoryPoint(OrmBaseModel):
     tier: ScanTier
 
 
+class VersionPoint(OrmBaseModel):
+    """One entry in the item's version-history rail (a scanned point in time).
+
+    `tag` is the GitHub release tag when resolvable, else null (the UI falls back
+    to the short ref SHA). `sub_scores` powers the per-category diff vs the
+    adjacent version.
+    """
+
+    tag: str | None = None
+    ref_sha: str
+    scanned_at: datetime
+    aggregate_score: int = Field(..., ge=0, le=100)
+    tier: ScanTier
+    sub_scores: dict[str, int] = Field(default_factory=dict)
+
+
+class ManifestSource(OrmBaseModel):
+    """The primary public manifest file (SKILL.md / README) for the Source tab."""
+
+    path: str
+    content: str
+    bytes: int = Field(default=0, ge=0)
+
+
+class RepoMeta(OrmBaseModel):
+    """Public GitHub facts mirrored onto the item header + Package card."""
+
+    stars: int | None = None
+    forks: int | None = None
+    license_spdx: str | None = None
+    latest_version: str | None = None
+    verified: bool = False
+
+
 class AgentShare(OrmBaseModel):
     """One slice of the install agent-distribution row."""
 
@@ -80,3 +114,12 @@ class ItemDetailResponse(OrmBaseModel):
     install_activity: InstallActivity
     related_items: list[RelatedItem]
     vendor_responses: list[VendorResponsePublic]
+    # Sub-scores of the 2nd-most-recent scan, so the item page can render a real
+    # per-category "Δ vs last scan" column. None when the item has < 2 scans.
+    previous_sub_scores: dict[str, int] | None = None
+    # GitHub repository facts (header + Package card).
+    repo: RepoMeta = Field(default_factory=RepoMeta)
+    # Version-history rail (newest first); each carries sub_scores for diffing.
+    versions: list[VersionPoint] = Field(default_factory=list)
+    # Primary manifest for the Source tab (null until captured at scan time).
+    manifest: ManifestSource | None = None

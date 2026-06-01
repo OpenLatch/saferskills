@@ -29,6 +29,37 @@ from app.models.scan import Finding, Scan
 from app.scan.engine import ScanResult
 from app.scan.fetch import GithubRef
 from app.services.agent_compat import agent_compatibility_for
+from app.services.repository_metadata import get_repository_metadata
+
+_MANIFEST_MAX_BYTES = 64 * 1024  # cap the stored public manifest at 64 KiB
+
+
+def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str, str] | None:
+    """Pick the primary public manifest to surface on the item Source tab.
+
+    Skills lead with SKILL.md; everything else falls back to README.md, then any
+    manifest-ish file. Returns (relative_path, decoded_source) size-capped, or
+    None. Public repo content only — never a scan-trace payload.
+    """
+    # Preference order by basename (lowercased).
+    preferred = ["skill.md", "readme.md", "manifest.json", "package.json"]
+    if kind != "skill":
+        preferred = ["readme.md", "skill.md", "manifest.json", "package.json"]
+
+    by_base: dict[str, tuple[str, bytes]] = {}
+    for path, content in files_index:
+        base = path.rsplit("/", 1)[-1].lower()
+        # Keep the shallowest path for a given basename (root README over nested).
+        if base not in by_base or path.count("/") < by_base[base][0].count("/"):
+            by_base[base] = (path, content)
+
+    for base in preferred:
+        hit = by_base.get(base)
+        if hit is not None:
+            path, content = hit
+            text = content[:_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
+            return path, text
+    return None
 
 
 def compute_idempotency_key(github_url: str, ref_sha: str, rubric_version: str) -> str:
@@ -172,6 +203,25 @@ async def persist_completed_scan(
                 for f in result.findings
             ],
         )
+
+    # Refresh public GitHub metadata onto the catalog item (off the request path,
+    # cached ~1h, best-effort — never fail a scan over metadata).
+    item = await session.get(CatalogItem, scan.catalog_item_id)
+    if item is not None:
+        meta = await get_repository_metadata(item.github_org, item.github_repo)
+        if meta.stars is not None:
+            item.github_stars = meta.stars
+        if meta.forks is not None:
+            item.github_forks = meta.forks
+        if meta.license_spdx is not None:
+            item.license_spdx = meta.license_spdx
+        if meta.latest_version is not None:
+            item.latest_version = meta.latest_version
+
+        # Capture the primary public manifest for the item Source tab.
+        manifest = _pick_manifest(result.files_index, item.kind)
+        if manifest is not None:
+            scan.manifest_path, scan.manifest_source = manifest
 
     await session.flush()
     return scan
