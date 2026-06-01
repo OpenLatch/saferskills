@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import HeroInputBar from '@/components/homepage/HeroInputBar'
 
 import { track } from '@/lib/analytics'
 import {
@@ -11,7 +12,6 @@ import {
 } from '@/lib/api/items'
 import CatalogFilterSide from './CatalogFilterSide'
 import CatalogResultsList from './CatalogResultsList'
-import CatalogToolbar from './CatalogToolbar'
 import {
   type CatalogState,
   DEFAULT_STATE,
@@ -19,7 +19,7 @@ import {
   stateToSearchParams,
 } from './constants'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 10
 
 type ToggleGroup = 'kind' | 'agent' | 'scanTier' | 'popularityTier'
 
@@ -41,8 +41,6 @@ interface Props {
   initialState: CatalogState
   initialData: CatalogListResponse
   initialFacets: CatalogFacets | null
-  totalIndexed: number
-  registriesCount: number
 }
 
 function paramsFor(state: CatalogState) {
@@ -60,13 +58,7 @@ function paramsFor(state: CatalogState) {
   }
 }
 
-export default function CatalogApp({
-  initialState,
-  initialData,
-  initialFacets,
-  totalIndexed,
-  registriesCount,
-}: Props) {
+export default function CatalogApp({ initialState, initialData, initialFacets }: Props) {
   const [state, setState] = useState<CatalogState>(initialState)
   const [items, setItems] = useState<CatalogItemSummary[]>(initialData.data)
   const [totalCount, setTotalCount] = useState(initialData.total_count)
@@ -74,7 +66,6 @@ export default function CatalogApp({
   const [facets, setFacets] = useState<CatalogFacets | null>(initialFacets)
   const [loading, setLoading] = useState(false)
 
-  const searchRef = useRef<HTMLInputElement>(null)
   const reqToken = useRef(0)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -134,29 +125,6 @@ export default function CatalogApp({
     return () => window.removeEventListener('popstate', onPop)
   }, [runQuery])
 
-  // ⌘K focuses search; ⌘G jumps to a page.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (!(e.metaKey || e.ctrlKey)) return
-      const key = e.key.toLowerCase()
-      if (key === 'k') {
-        e.preventDefault()
-        searchRef.current?.focus()
-        searchRef.current?.select()
-      } else if (key === 'g') {
-        e.preventDefault()
-        const raw = window.prompt(`Jump to page (1–${totalPages})`)
-        if (raw == null) return
-        const n = Number.parseInt(raw, 10)
-        if (Number.isNaN(n)) return
-        const clamped = Math.min(totalPages, Math.max(1, n))
-        commit({ ...state, page: clamped })
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [state, totalPages, commit])
-
   const onToggle = useCallback(
     (group: ToggleGroup, value: string) => {
       const key = GROUP_TO_STATE_KEY[group]
@@ -179,17 +147,6 @@ export default function CatalogApp({
     },
     [state, commit]
   )
-
-  const onQueryChange = useCallback(
-    (q: string) => commit({ ...state, q, page: 1 }, { debounce: true }),
-    [state, commit]
-  )
-
-  const onSearchSubmit = useCallback(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    runQuery({ ...state, page: 1 }, true)
-    setState((s) => ({ ...s, page: 1 }))
-  }, [state, runQuery])
 
   const onSortChange = useCallback(
     (sort: CatalogSort) => {
@@ -230,14 +187,17 @@ export default function CatalogApp({
 
   return (
     <>
-      <CatalogToolbar
-        ref={searchRef}
-        query={state.q}
-        totalIndexed={totalIndexed}
-        registriesCount={registriesCount}
-        onQueryChange={onQueryChange}
-        onSubmit={onSearchSubmit}
-      />
+      <section className="cat-toolbar">
+        <div className="container">
+          <HeroInputBar
+            kind="find"
+            initialPlaceholder="Search the catalog…"
+            ariaLabel="Search the catalog"
+            submitAriaLabel="Search the catalog"
+            shortcutKey="k"
+          />
+        </div>
+      </section>
       <div className="cat-split">
         <CatalogFilterSide
           state={state}

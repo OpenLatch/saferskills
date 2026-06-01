@@ -3,7 +3,7 @@ import DotStrip from '@ui/components/atoms/DotStrip'
 
 import type { CatalogItemSummary, CatalogSort } from '@/lib/api/items'
 import CatalogPagination from './CatalogPagination'
-import { bandFromTier, bandOf, kindTag, relativeAge, SORT_OPTIONS, sortLabel } from './constants'
+import { bandFromTier, bandOf, kindTag, relativeAge } from './constants'
 
 interface Props {
   items: CatalogItemSummary[]
@@ -32,49 +32,8 @@ export default function CatalogResultsList({
   onPageChange,
   onItemClick,
 }: Props) {
-  const start = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
-  const end = totalCount === 0 ? 0 : start + items.length - 1
-
   return (
     <div className="cat-results" aria-busy={loading}>
-      <div className="ribbon">
-        <span>
-          Showing{' '}
-          <b>
-            {start}–{end}
-          </b>{' '}
-          of <b>{totalCount.toLocaleString()}</b>
-        </span>
-        <span className="sort">
-          <span>Sort by</span>
-          <span className="picker">
-            {sortLabel(sort)}
-            <svg
-              width="9"
-              height="6"
-              viewBox="0 0 9 6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              aria-hidden="true"
-            >
-              <path d="M1 1l3.5 3L8 1" />
-            </svg>
-            <select
-              value={sort}
-              aria-label="Sort catalog"
-              onChange={(e) => onSortChange(e.target.value as CatalogSort)}
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </span>
-        </span>
-      </div>
-
       <div className="col-head">
         <div>#</div>
         <div>Name · author · description</div>
@@ -153,7 +112,16 @@ export default function CatalogResultsList({
           )
         })
       )}
-      <CatalogPagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+      <CatalogPagination
+        page={page}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        itemCount={items.length}
+        sort={sort}
+        onPageChange={onPageChange}
+        onSortChange={onSortChange}
+      />
     </div>
   )
 }

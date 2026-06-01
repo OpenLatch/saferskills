@@ -1,7 +1,15 @@
+import type { CatalogSort } from '@/lib/api/items'
+import { SORT_OPTIONS, sortLabel } from './constants'
+
 interface Props {
   page: number
+  pageSize: number
   totalPages: number
+  totalCount: number
+  itemCount: number
+  sort: CatalogSort
   onPageChange: (page: number) => void
+  onSortChange: (sort: CatalogSort) => void
 }
 
 /** Build the page-button list: first, neighbors of current, last — with gaps. */
@@ -18,14 +26,33 @@ function pageList(current: number, total: number): (number | 'gap')[] {
   return out
 }
 
-export default function CatalogPagination({ page, totalPages, onPageChange }: Props) {
-  if (totalPages <= 1) return null
-  const items = pageList(page, totalPages)
+/**
+ * Catalog footer: the result-range count (left), the numbered pager (center),
+ * and the sort picker (right) on a single line — the old ribbon bar is folded
+ * in here, and the ⌘G jump affordance was dropped.
+ */
+export default function CatalogPagination({
+  page,
+  pageSize,
+  totalPages,
+  totalCount,
+  itemCount,
+  sort,
+  onPageChange,
+  onSortChange,
+}: Props) {
+  const items = pageList(page, Math.max(1, totalPages))
+  const start = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
+  const end = totalCount === 0 ? 0 : start + itemCount - 1
 
   return (
     <nav className="cat-pagination" aria-label="Catalog pagination">
       <div className="pg-ct">
-        PAGE&nbsp;&nbsp;<b>{page.toLocaleString()}</b>&nbsp;OF&nbsp;{totalPages.toLocaleString()}
+        SHOWING&nbsp;&nbsp;
+        <b>
+          {start}–{end}
+        </b>
+        &nbsp;OF&nbsp;<b>{totalCount.toLocaleString()}</b>
       </div>
       <div className="pg-nav">
         <button
@@ -66,9 +93,34 @@ export default function CatalogPagination({ page, totalPages, onPageChange }: Pr
           ›
         </button>
       </div>
-      <div className="pg-ct">
-        JUMP&nbsp;&nbsp;<b>⌘&nbsp;G</b>
-      </div>
+      <span className="sort">
+        <span>Sort by</span>
+        <span className="picker">
+          {sortLabel(sort)}
+          <svg
+            width="9"
+            height="6"
+            viewBox="0 0 9 6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            aria-hidden="true"
+          >
+            <path d="M1 1l3.5 3L8 1" />
+          </svg>
+          <select
+            value={sort}
+            aria-label="Sort catalog"
+            onChange={(e) => onSortChange(e.target.value as CatalogSort)}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </span>
+      </span>
     </nav>
   )
 }

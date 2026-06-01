@@ -8,7 +8,6 @@ import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import CatalogApp from '@/components/catalog/CatalogApp.tsx'
-import { sortLabel } from '@/components/catalog/constants'
 import { fetchCatalogFacets, listCatalogItems, type CatalogListResponse } from '@/lib/api/items'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull } from '@/lib/fallback'
@@ -40,13 +39,15 @@ const initialState = {
   page: pageNum,
 }
 
+const PAGE_SIZE = 10
+
 const EMPTY: CatalogListResponse = {
   data: [],
   next_cursor: null,
   total_count: 0,
   page: pageNum,
   total_pages: 1,
-  page_size: 25,
+  page_size: PAGE_SIZE,
 }
 
 const [response, facets, stats] = await Promise.all([
@@ -60,7 +61,7 @@ const [response, facets, stats] = await Promise.all([
     q: initialState.q || undefined,
     sort,
     page: pageNum,
-    limit: 25,
+    limit: PAGE_SIZE,
   }).catch(() => EMPTY),
   fetchOrNull(fetchCatalogFacets),
   fetchOrNull(fetchPlatformStats),
@@ -76,19 +77,13 @@ const registriesCount = stats?.registries_count ?? Object.keys(facets?.registry 
 >
   <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
-  <header class="page-head">
+  <header class="page-head page-head--compact">
     <div class="container">
       <div class="ph-eyebrow">CATALOG · 02 · /CATALOG</div>
-      <h1 class="ph-title">Browse <span class="mark">{totalIndexed.toLocaleString()}</span> skills,<br />MCPs &amp; plugins.</h1>
+      <h1 class="ph-title">Browse <span class="mark">{totalIndexed.toLocaleString()}</span> skills, MCPs &amp; plugins.</h1>
       <p class="ph-lede">
-        Unified index across mcp.so, Smithery, ClawHub, npm and 8 more registries. Filter by
-        agent, band, and scan tier — every item independently audited.
+        Unified index across {registriesCount}+ registries — every item independently scanned.
       </p>
-      <div class="ph-row">
-        <span class="ph-path">PATH&nbsp;&nbsp;<b>/catalog</b></span>
-        <span class="ph-path">SORTED BY&nbsp;&nbsp;<b>{sortLabel(sort).toLowerCase()}</b></span>
-        <span class="ph-path">INDEXED&nbsp;&nbsp;<b>{totalIndexed.toLocaleString()}</b></span>
-      </div>
     </div>
   </header>
 
@@ -97,8 +92,6 @@ const registriesCount = stats?.registries_count ?? Object.keys(facets?.registry 
     initialState={initialState}
     initialData={response}
     initialFacets={facets}
-    totalIndexed={totalIndexed}
-    registriesCount={registriesCount}
   />
 
   <RidgeStars label="— END OF RESULTS · 04 —" />
