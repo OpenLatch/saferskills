@@ -117,55 +117,7 @@ import '@/styles/page-about.css'
     </div>
   </section>
 
-  <RidgeStars label="— OPENLATCH · 03 —" />
-
-  {/* ─────────── How we relate to OpenLatch ─────────── */}
-  <section class="page-section page-section--grid about-band">
-    <div class="container">
-      <h2 class="prose-h2">How we relate to OpenLatch.</h2>
-      <p>
-        SaferSkills is operated by OpenLatch, a runtime security platform for AI agents.
-        We're transparent about it — it's in this page, in our footer, and in our
-        privacy policy. The two products are independent but adjacent:
-      </p>
-
-      <div class="ol-diagram" aria-label="SaferSkills and OpenLatch product relationship">
-        <div class="ol-box you">
-          <span class="label">YOU ARE HERE</span>
-          <span class="title">SaferSkills</span>
-          <span class="meta">
-            <b>Pre-install assessment</b><br />
-            Free · Open source<br />
-            Public catalog · Public reports
-          </span>
-        </div>
-        <div class="ol-arrow" aria-hidden="true">→</div>
-        <div class="ol-box">
-          <span class="label">SISTER PROJECT</span>
-          <span class="title">OpenLatch</span>
-          <span class="meta">
-            <b>Runtime enforcement</b><br />
-            Paid · Enterprise<br />
-            Policy plane · Detection plane
-          </span>
-        </div>
-      </div>
-
-      <p>
-        SaferSkills' UX, content, and recommendations never push OpenLatch. The
-        exception is risk-alert emails to users who watch skills that drop in score —
-        those include a single line about OpenLatch's runtime enforcement as relevant
-        context. That's it.
-      </p>
-      <p>
-        Our brand voice is independent on purpose. Our methodology is open source on
-        purpose. Our commercial relationship with OpenLatch is disclosed on purpose.
-        Trust requires transparency, not just technical merit.
-      </p>
-    </div>
-  </section>
-
-  <RidgeStars label="— REACH US · 04 —" />
+  <RidgeStars label="— REACH US · 03 —" />
 
   {/* ─────────── Reach us ─────────── */}
   <section class="page-section page-section--flat about-band">
@@ -179,30 +131,44 @@ import '@/styles/page-about.css'
 
       <ul class="reach-list">
         <li>
-          <span class="label">SECURITY</span>
-          <code>security@openlatch.ai</code>
+          <span class="reach-label">Security</span>
+          <span class="reach-desc">Vulnerability reports &amp; disclosures</span>
+          <a class="reach-email" href="mailto:security@openlatch.ai">security@openlatch.ai</a>
         </li>
         <li>
-          <span class="label">PRESS</span>
-          <code>press@openlatch.ai</code>
+          <span class="reach-label">Press</span>
+          <span class="reach-desc">Media &amp; interview requests</span>
+          <a class="reach-email" href="mailto:press@openlatch.ai">press@openlatch.ai</a>
         </li>
         <li>
-          <span class="label">GENERAL</span>
-          <code>hello@openlatch.ai</code>
+          <span class="reach-label">General</span>
+          <span class="reach-desc">Everything else</span>
+          <a class="reach-email" href="mailto:hello@openlatch.ai">hello@openlatch.ai</a>
         </li>
         <li>
-          <span class="label">METHODOLOGY</span>
-          <code>methodology@openlatch.ai</code>
+          <span class="reach-label">Methodology</span>
+          <span class="reach-desc">Rule proposals &amp; scoring feedback</span>
+          <a class="reach-email" href="mailto:methodology@openlatch.ai">methodology@openlatch.ai</a>
         </li>
       </ul>
 
-      <p class="outbound-note">
-        Emails from SaferSkills arrive
-        <code>From: SaferSkills &lt;…@notifications.openlatch.ai&gt;</code>. We use a
-        single sending domain shared with OpenLatch to keep email infrastructure costs
-        at one verified-domain seat. Reply-to is always a <code>@openlatch.ai</code>
-        mailbox.
-      </p>
+      <aside class="outbound-note">
+        <span class="on-label">Sending domain</span>
+        <dl class="on-rows">
+          <div class="on-row">
+            <dt>From</dt>
+            <dd>SaferSkills &lt;…@notifications.openlatch.ai&gt;</dd>
+          </div>
+          <div class="on-row">
+            <dt>Reply-to</dt>
+            <dd>any @openlatch.ai mailbox</dd>
+          </div>
+        </dl>
+        <p class="on-prose">
+          A single verified sending domain shared with OpenLatch keeps email
+          infrastructure at one domain seat.
+        </p>
+      </aside>
     </div>
   </section>
 
