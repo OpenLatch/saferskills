@@ -70,15 +70,31 @@ html.dark .scan-form-pane {
   flex-direction: column;
   gap: 18px;
 }
-.scan-console .p1-input {
+/* Repo mode (Scan-repo tab) accents the input ORANGE — but ONLY while it is
+   selected (`:focus-within`); unfocused it keeps the DS-neutral chrome. The DS
+   teal focus rules tie these on specificity in light mode and outrank them in
+   dark (via the extra `html.dark` element+class), so the selectors below raise
+   specificity by one class to win the focused state deterministically. */
+.scan-console .p1-input:focus-within {
   border-color: var(--brand-accent);
 }
-.scan-console .p1-input .p1-icon {
+.scan-console .p1-input:focus-within .p1-icon {
   background: var(--brand-accent);
   color: #fff;
   border-right-color: var(--brand-accent);
 }
 .scan-console .p1-input:focus-within .caret {
+  background: var(--brand-accent);
+}
+html.dark .scan-console .p1-input:focus-within {
+  border-color: var(--brand-accent);
+}
+html.dark .scan-console .p1-input:focus-within .p1-icon {
+  background: var(--brand-accent);
+  color: #fff;
+  border-right-color: var(--brand-accent);
+}
+html.dark .scan-console .p1-input:focus-within .caret {
   background: var(--brand-accent);
 }
 .scan-console .p1-submit {

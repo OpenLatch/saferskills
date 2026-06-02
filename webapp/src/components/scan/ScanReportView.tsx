@@ -184,7 +184,6 @@ export default function ScanReportView({ run, shareUrl }: Props) {
                         ruleId={f.rule_id}
                         severity={f.severity}
                         category={SUB_LABELS[f.sub_score] ?? f.sub_score}
-                        finding={`${f.rule_id} fired against ${f.file_path}`}
                         matchedContentSha256={f.matched_content_sha256}
                         evidence={{
                           filePath: f.file_path,

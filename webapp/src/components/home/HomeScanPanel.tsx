@@ -3,37 +3,41 @@ import Toggle from '@ui/components/atoms/Toggle'
 import DropZone from '@ui/components/molecules/DropZone'
 import { useState } from 'react'
 import { track } from '@/lib/analytics'
-import type { ScanUploadResponse, Visibility } from '@/lib/api/scans'
+import type { ScanSubmitResponse, ScanUploadResponse, Visibility } from '@/lib/api/scans'
+import { useRepoScanFlow } from '@/lib/hooks/useRepoScanFlow'
 import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
 import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 
 type Tab = 'upload' | 'url'
 
 /**
- * Homepage / 404 audit-panel affordance (D-UP-25). The Upload path now runs
- * **inline** (no /scan redirect, no IndexedDB handoff): pick files → the compact
- * DropZone collapses + shows progress → on success we navigate to the result.
- * The URL path still redirects to /scan?prefill=<url> (the full repo-scan
- * ceremony lives there). `homepage_scan_panel_started` fires on the first pick;
- * `homepage_scan_submitted` fires on the actual inline submit.
+ * Homepage / 404 audit-panel affordance (D-UP-25). BOTH paths now run **inline**
+ * (no /scan redirect, no IndexedDB handoff): Upload accumulates files in the
+ * compact DropZone → submit; Scan-repo validates the GitHub URL → submit. On
+ * success we navigate straight to the result (`/scans/<id>` or the unlisted
+ * share URL). `homepage_scan_panel_started` fires on first engagement;
+ * `homepage_scan_submitted` fires on the actual submit.
  */
 export default function HomeScanPanel() {
   const [tab, setTab] = useState<Tab>('upload')
   const [visibility, setVisibility] = useState<Visibility>('public')
-  const [urlValue, setUrlValue] = useState('')
   const [started, setStarted] = useState(false)
 
   const upload = useUploadFlow()
+  const repo = useRepoScanFlow()
+
+  function markStarted(artifactSource: 'upload' | 'github') {
+    if (started) return
+    track('homepage_scan_panel_started', { artifact_source: artifactSource, visibility })
+    setStarted(true)
+  }
 
   function onFiles(files: File[]) {
-    if (!started) {
-      track('homepage_scan_panel_started', { artifact_source: 'upload', visibility })
-      setStarted(true)
-    }
+    markStarted('upload')
     upload.onFiles(files)
   }
 
-  function navigateToResult(res: ScanUploadResponse) {
+  function navigateToResult(res: ScanUploadResponse | ScanSubmitResponse) {
     const dest = visibility === 'unlisted' && res.share_url ? res.share_url : `/scans/${res.id}`
     window.location.assign(dest)
   }
@@ -44,14 +48,10 @@ export default function HomeScanPanel() {
     void upload.submit({ visibility, onResult: navigateToResult })
   }
 
-  function goUrl() {
-    track('homepage_scan_panel_started', { artifact_source: 'github', visibility })
-    const q = new URLSearchParams()
-    const v = urlValue.trim()
-    if (v) q.set('prefill', v)
-    if (visibility === 'unlisted') q.set('visibility', 'unlisted')
-    const qs = q.toString()
-    window.location.assign(`/scan${qs ? `?${qs}` : ''}`)
+  function submitUrl() {
+    if (repo.submitting) return
+    track('homepage_scan_submitted', { artifact_source: 'github', visibility })
+    void repo.submit({ visibility, onResult: navigateToResult })
   }
 
   return (
@@ -94,7 +94,7 @@ export default function HomeScanPanel() {
         </div>
       ) : (
         <div id={panelId('hs', 'url')} role="tabpanel" aria-labelledby="hs-tab-url">
-          <div className={`p1-input${urlValue ? ' has-value' : ''}`}>
+          <div className={`p1-input${repo.urlValue ? ' has-value' : ''}`}>
             <span className="p1-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <title>Scan</title>
@@ -109,12 +109,13 @@ export default function HomeScanPanel() {
                 placeholder="github.com/anthropic/claude-mcp"
                 autoComplete="off"
                 aria-label="Paste a GitHub URL to scan"
-                value={urlValue}
-                onChange={(e) => setUrlValue(e.target.value)}
+                value={repo.urlValue}
+                onFocus={() => markStarted('github')}
+                onChange={(e) => repo.setUrlValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    goUrl()
+                    submitUrl()
                   }
                 }}
               />
@@ -122,14 +123,20 @@ export default function HomeScanPanel() {
             <button
               type="button"
               className="p1-submit"
-              aria-label="Continue to scan"
-              onClick={goUrl}
+              aria-label="Scan repository"
+              disabled={repo.submitting}
+              onClick={submitUrl}
             >
               <span className="p1-submit-ret" aria-hidden="true">
-                ↵
+                {repo.submitting ? '…' : '↵'}
               </span>
             </button>
           </div>
+          {repo.urlError && (
+            <p className="hs-url-error" role="alert">
+              {repo.urlError}
+            </p>
+          )}
         </div>
       )}
 
