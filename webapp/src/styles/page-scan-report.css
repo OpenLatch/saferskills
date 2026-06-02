@@ -31,6 +31,12 @@
   margin-top: 14px;
   max-width: 60ch;
 }
+/* The rich upload header's long lede wraps to 3 lines at 56ch (mockups 3/4);
+   scoped to the rich head so the GitHub cap-list header (1-line lede, mockup 5
+   parity) keeps its 60ch unchanged. */
+.sk-head--rich .ph-lede {
+  max-width: 56ch;
+}
 .sr-head-meta {
   display: flex;
   flex-wrap: wrap;
@@ -707,6 +713,30 @@ html.dark .sr-catalog .cl-l h4 {
   border: 1px solid color-mix(in srgb, var(--brand-primary) 45%, transparent);
   background: color-mix(in srgb, var(--brand-primary) 8%, transparent);
   border-radius: var(--radius-xs);
+}
+
+/* Provenance box (mockups 3/4): the rich upload report reuses the item-page
+   `.sk-installbox`, whose `.ins-row b` is the loud display face built for short
+   install counts. Provenance values are hashes / filenames / key names, so they
+   need mono 13px (the mockup's `.sk-installbox .ins-row b` override). Scoped to
+   the report's provenance box via `--meta` (this file is imported only by the
+   scan routes, never /items) and double-classed so it wins on specificity, not
+   just source order — /items install counts stay loud. */
+.sk-installbox.sk-installbox--meta .ins-row {
+  align-items: baseline;
+  gap: 16px;
+}
+.sk-installbox.sk-installbox--meta .ins-row span {
+  white-space: nowrap;
+}
+.sk-installbox.sk-installbox--meta .ins-row b {
+  font-family: var(--font-mono);
+  font-stretch: normal;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 /* Per-capability "Private" label replacing the (404-ing) catalog link for unlisted. */
