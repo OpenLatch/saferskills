@@ -322,7 +322,15 @@ html.dark .rf-pill {
 .rf-pill[aria-pressed="true"] {
   background: var(--brand-primary);
   border-color: var(--brand-primary);
-  color: var(--color-paper);
+  color: var(--brand-cta-fg);
+}
+/* Dark mode: beat the `html.dark .rf-pill` background override (0,2,1 >
+   0,2,0) so the selected pill keeps its teal fill + on-brand text instead of
+   collapsing to dark-on-dark. */
+html.dark .rf-pill[aria-pressed="true"] {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--brand-cta-fg);
 }
 .rf-pill-n {
   font-family: var(--font-mono);
