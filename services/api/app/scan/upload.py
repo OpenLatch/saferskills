@@ -1,15 +1,20 @@
 """Validation + safe extraction for direct artifact uploads (I-3.5).
 
-Turns an uploaded body (a single capability file or a `.zip`) into the **same**
-`list[tuple[str, bytes]]` file index `app/scan/fetch.py::walk_files` produces, so
-everything downstream (`discover_capabilities` → per-capability scoring → trace →
-persistence) is unchanged and source-agnostic. The engine never knows the source.
+Turns an uploaded body (one capability file, one `.zip`, or N loose files —
+combined ≤10 MiB) into the **same** `list[tuple[str, bytes]]` file index
+`app/scan/fetch.py::walk_files` produces, so everything downstream
+(`discover_capabilities` → per-capability scoring → trace → persistence) is
+unchanged and source-agnostic. The engine never knows the source.
 
 Security posture (see `.claude/rules/security.md` § Public-input handling):
-- streaming size cap (the body never lands whole before the cap can fire);
+- cumulative size cap enforced in the multipart parser (the body never lands
+  whole before the cap can fire) — across ALL parts combined;
 - extension allowlist + magic-byte sniff (spoofed Content-Type caught);
 - `.zip` extraction enforces the full bomb / Zip-Slip / nesting / path-length /
   NFC / duplicate-fold cap set incrementally, aborting on the first breach;
+- a multi-file batch forbids archives (`nesting`), sanitizes each part path with
+  the shared `_safe_relpath` (`zip_slip`/`bad_path`), and dedups by casefold
+  (`dup_path`) — reusing the already-audited zip containment;
 - bytes are read as data only — never imported, eval'd, or shelled.
 """
 
@@ -24,7 +29,6 @@ import secrets
 import tempfile
 import unicodedata
 import zipfile
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, cast
@@ -68,50 +72,128 @@ def _ext(filename: str) -> str:
     return Path(filename).suffix.lower()
 
 
-async def _read_capped(stream: AsyncIterator[bytes], max_bytes: int) -> bytes:
-    """Drain an async byte stream, aborting the moment the cap is exceeded.
-
-    Belt-and-suspenders: the multipart handler already tallies + aborts at the
-    same cap (`app/routers/scans.py`), so this rarely fires — but it keeps
-    `extract_upload` safe for any caller (e.g. the CLI in I-05).
-    """
-    buf = bytearray()
-    async for chunk in stream:
-        buf += chunk
-        if len(buf) > max_bytes:
-            raise UploadRejected(413, "upload_too_large")
-    return bytes(buf)
-
-
 def _safe_single_name(filename: str) -> str:
     """Basename of a single uploaded file, NFC-normalized, fallback `artifact`."""
     name = unicodedata.normalize("NFC", Path(filename).name).strip()
     return name or "artifact"
 
 
-async def extract_upload(
-    stream: AsyncIterator[bytes], filename: str, *, settings: Settings
-) -> ExtractedUpload:
-    """Validate + extract an uploaded body into an engine-ready file index."""
-    body = await _read_capped(stream, settings.upload_max_bytes)
-    ext = _ext(filename)
-    if ext not in settings.upload_allowed_extensions:
-        raise UploadRejected(415, "unsupported_type")
+def _batch_original_filename(parts: list[tuple[str, bytes]]) -> str:
+    """Display-only label for a multi-file batch. The durable identity is the
+    `content_hash` over `files_index`, so this never feeds the idempotency cache."""
+    n = len(parts)
+    return f"{n} file{'s' if n != 1 else ''}"
 
-    if ext == ".zip":
-        files_index = _extract_zip(body, settings)
+
+def _safe_relpath(filename: str, real_tmp: str) -> str | None:
+    """Sanitize an archive entry / loose part name into a safe relative POSIX
+    path. Shared by `_extract_zip` and `_extract_loose_batch` — the same audited
+    containment surface (no new attack surface).
+
+    NFC-normalizes, then rejects absolute / `..` / tempdir-escaping paths
+    (`zip_slip`) and over-length paths (`bad_path`). Returns `None` to DROP a
+    top-level `.git/` entry (VCS noise, never capability content)."""
+    name = unicodedata.normalize("NFC", filename)
+    posix = name.replace("\\", "/")
+    parts = PurePosixPath(posix).parts
+
+    # Containment: absolute, `..`, or escaping the tempdir → Zip-Slip.
+    dest = os.path.realpath(os.path.join(real_tmp, posix))
+    escapes = not (dest == real_tmp or dest.startswith(real_tmp + os.sep))
+    if posix.startswith("/") or ".." in parts or escapes:
+        raise UploadRejected(422, "archive_rejected", "zip_slip")
+
+    if len(posix) > _PATH_MAX:
+        raise UploadRejected(422, "archive_rejected", "bad_path")
+
+    # Dotfile policy: keep committed dotfiles (.env etc.), but drop VCS internals
+    # under a top-level .git/ (noise, never capability content).
+    if parts and parts[0] == ".git":
+        return None
+    return posix
+
+
+def extract_upload(parts: list[tuple[str, bytes]], *, settings: Settings) -> ExtractedUpload:
+    """Validate + extract uploaded file part(s) into an engine-ready file index.
+
+    One part → the single-file / single-`.zip` path (byte-for-byte unchanged).
+    N parts → the loose-batch path (scanned like a repo subtree). The cumulative
+    size cap is enforced upstream in the multipart parser; here we only validate
+    type + containment per part."""
+    if not parts:
+        raise UploadRejected(422, "malformed_multipart")
+
+    if len(parts) == 1:
+        filename, body = parts[0]
+        files_index = _extract_single_body(filename, body, settings)
+        original_filename = _safe_single_name(filename)
+        detect_filename = filename
     else:
-        if _looks_binary(body):
-            raise UploadRejected(415, "binary_not_allowed")
-        files_index = [(_safe_single_name(filename), body)]
+        files_index = _extract_loose_batch(parts, settings)
+        original_filename = _batch_original_filename(parts)
+        detect_filename = files_index[0][0] if files_index else "artifact"
 
-    detected_kind, detected_name = _detect(files_index, filename)
+    detected_kind, detected_name = _detect(files_index, detect_filename)
     return ExtractedUpload(
         files_index=files_index,
-        original_filename=_safe_single_name(filename),
+        original_filename=original_filename,
         detected_kind=detected_kind,
         detected_name=detected_name,
     )
+
+
+def _extract_single_body(filename: str, body: bytes, settings: Settings) -> list[tuple[str, bytes]]:
+    """The original single-file / single-`.zip` logic, factored out unchanged:
+    a `.zip` extracts with the full safety-cap set; any other allowed extension
+    is one text file (binaries rejected)."""
+    ext = _ext(filename)
+    if ext not in settings.upload_allowed_extensions:
+        raise UploadRejected(415, "unsupported_type")
+    if ext == ".zip":
+        return _extract_zip(body, settings)
+    if _looks_binary(body):
+        raise UploadRejected(415, "binary_not_allowed")
+    return [(_safe_single_name(filename), body)]
+
+
+def _extract_loose_batch(
+    parts: list[tuple[str, bytes]], settings: Settings
+) -> list[tuple[str, bytes]]:
+    """Extract N loose file parts into a structured file index — "scan it like a
+    repo". Per part: forbid archives (`nesting`, mirroring no-archive-in-archive),
+    enforce the extension allowlist + binary sniff, sanitize the path via the
+    shared `_safe_relpath`, and reject casefold-duplicates (`dup_path`). Relative
+    paths are preserved so `skill/SKILL.md` + `skill/script.py` discover as one
+    subtree."""
+    files_index: list[tuple[str, bytes]] = []
+    seen_folded: set[str] = set()
+
+    # The tempdir is the canonical containment base for the Zip-Slip check (same
+    # as `_extract_zip`); we never write bytes to it.
+    with tempfile.TemporaryDirectory() as tmp:
+        real_tmp = os.path.realpath(tmp)
+        for filename, body in parts:
+            ext = _ext(filename)
+            if filename.lower().endswith(_NESTED_ARCHIVE_SUFFIXES):
+                raise UploadRejected(422, "archive_rejected", "nesting")
+            if ext not in settings.upload_allowed_extensions:
+                raise UploadRejected(415, "unsupported_type")
+            if _looks_binary(body):
+                raise UploadRejected(415, "binary_not_allowed")
+
+            posix = _safe_relpath(filename, real_tmp)
+            if posix is None:
+                continue  # top-level .git/ — dropped
+
+            folded = posix.casefold()
+            if folded in seen_folded:
+                raise UploadRejected(422, "archive_rejected", "dup_path")
+            seen_folded.add(folded)
+            files_index.append((posix, body))
+
+    if not files_index:
+        raise UploadRejected(422, "malformed_multipart")
+    return files_index
 
 
 def _extract_zip(body: bytes, settings: Settings) -> list[tuple[str, bytes]]:
@@ -143,31 +225,17 @@ def _extract_zip(body: bytes, settings: Settings) -> list[tuple[str, bytes]]:
             if info.is_dir():
                 continue
 
-            name = unicodedata.normalize("NFC", info.filename)
-
             # Symlink entries (defeats containment) → reject.
             if (info.external_attr >> 16) & 0o170000 == 0o120000:
                 raise UploadRejected(422, "archive_rejected", "zip_slip")
 
-            posix = name.replace("\\", "/")
-            lower = posix.lower()
-            if lower.endswith(_NESTED_ARCHIVE_SUFFIXES):
+            if info.filename.replace("\\", "/").lower().endswith(_NESTED_ARCHIVE_SUFFIXES):
                 raise UploadRejected(422, "archive_rejected", "nesting")
 
-            # Containment: absolute, `..`, or escaping the tempdir → Zip-Slip.
-            parts = PurePosixPath(posix).parts
-            dest = os.path.realpath(os.path.join(real_tmp, posix))
-            escapes = not (dest == real_tmp or dest.startswith(real_tmp + os.sep))
-            if posix.startswith("/") or ".." in parts or escapes:
-                raise UploadRejected(422, "archive_rejected", "zip_slip")
-
-            if len(posix) > _PATH_MAX:
-                raise UploadRejected(422, "archive_rejected", "bad_path")
-
-            # Dotfile policy: keep committed dotfiles (.env etc.), but drop VCS
-            # internals under a top-level .git/ (noise, never capability content).
-            if parts and parts[0] == ".git":
-                continue
+            # Shared containment + sanitization (NFC, Zip-Slip, path-length, .git).
+            posix = _safe_relpath(info.filename, real_tmp)
+            if posix is None:
+                continue  # top-level .git/ — dropped
 
             folded = posix.casefold()
             if folded in seen_folded:

@@ -1,30 +1,96 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CatalogItemSummary, CatalogListResponse } from '../../src/lib/api/items'
 import type { CatalogHit } from '../../src/lib/catalog-search'
-import { groupByKind, searchCatalog } from '../../src/lib/catalog-search'
+
+// Mock at the HTTP-client boundary — unit tests never hit the network
+// (`.claude/rules/testing.md` § Async / network discipline).
+const { listCatalogItems } = vi.hoisted(() => ({ listCatalogItems: vi.fn() }))
+vi.mock('../../src/lib/api/items', () => ({ listCatalogItems }))
+
+const { groupByKind, searchCatalog } = await import('../../src/lib/catalog-search')
+
+function summary(over: Partial<CatalogItemSummary>): CatalogItemSummary {
+  return {
+    id: 'id',
+    slug: 'slug',
+    kind: 'skill',
+    display_name: 'name',
+    github_org: 'org',
+    github_repo: 'repo',
+    source_kind: 'github',
+    popularity_tier: 'indexed',
+    popularity_score: 0,
+    latest_scan_score: 80,
+    latest_scan_tier: 'green',
+    findings_count: 0,
+    registries: [],
+    agent_compatibility: ['claude-code'],
+    updated_at: '2026-06-02T00:00:00Z',
+    ...over,
+  }
+}
+
+function listResponse(data: CatalogItemSummary[]): CatalogListResponse {
+  return {
+    data,
+    next_cursor: null,
+    total_count: data.length,
+    page: 1,
+    total_pages: 1,
+    page_size: data.length,
+  }
+}
 
 describe('searchCatalog', () => {
-  it('returns empty for empty / whitespace query', async () => {
+  beforeEach(() => {
+    listCatalogItems.mockReset()
+    listCatalogItems.mockResolvedValue(listResponse([]))
+  })
+
+  it('returns empty for empty / whitespace query without hitting the API', async () => {
     expect(await searchCatalog('')).toHaveLength(0)
     expect(await searchCatalog('   ')).toHaveLength(0)
+    expect(listCatalogItems).not.toHaveBeenCalled()
   })
 
-  it('matches case-insensitively on display_name', async () => {
-    const hits = await searchCatalog('CLAUDE')
-    expect(hits.length).toBeGreaterThan(0)
-    for (const h of hits) {
-      expect(h.display_name.toLowerCase()).toContain('claude')
-    }
+  it('passes the trimmed query to the live catalog API', async () => {
+    await searchCatalog('  claude  ')
+    expect(listCatalogItems).toHaveBeenCalledWith(expect.objectContaining({ q: 'claude' }))
   })
 
-  it('returns zero hits for nonsense queries', async () => {
-    const hits = await searchCatalog('zzzzzzzz')
-    expect(hits).toHaveLength(0)
+  it('maps API summaries to dropdown hits', async () => {
+    listCatalogItems.mockResolvedValue(
+      listResponse([
+        summary({ slug: 'github-mcp', kind: 'mcp_server', latest_scan_tier: 'orange' }),
+      ])
+    )
+    const [hit] = await searchCatalog('mcp')
+    expect(hit).toMatchObject({
+      slug: 'github-mcp',
+      kind: 'mcp_server',
+      editor: 'claude-code',
+      scan_score: 80,
+      severity: 'medium',
+    })
   })
 
-  it('matches substrings across kinds', async () => {
-    const hits = await searchCatalog('mcp')
-    const kinds = new Set(hits.map((h) => h.kind))
-    expect(kinds.has('mcp_server')).toBe(true)
+  // Regression: a public UPLOAD-sourced item must surface in the hero
+  // typeahead. Before the fix this searched a static mock that excluded
+  // every real/uploaded catalog row.
+  it('surfaces a public upload-sourced item', async () => {
+    listCatalogItems.mockResolvedValue(
+      listResponse([
+        summary({
+          slug: 'upload--a121b2d8--skill-canvas-design',
+          display_name: 'canvas-design',
+          source_kind: 'upload',
+          latest_scan_score: 100,
+        }),
+      ])
+    )
+    const hits = await searchCatalog('canvas')
+    expect(hits).toHaveLength(1)
+    expect(hits[0].display_name).toBe('canvas-design')
   })
 
   it('honours an aborted signal', async () => {
@@ -33,6 +99,7 @@ describe('searchCatalog', () => {
     await expect(searchCatalog('claude', ctrl.signal)).rejects.toMatchObject({
       name: 'AbortError',
     })
+    expect(listCatalogItems).not.toHaveBeenCalled()
   })
 })
 

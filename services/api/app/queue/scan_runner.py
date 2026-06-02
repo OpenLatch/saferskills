@@ -301,7 +301,7 @@ async def scan_run_upload(
     try:
         await _emit(run_id, "fetch", 5, "running", {"target": "upload"}, scan_run_id=run_id)
 
-        repo = engine.run_repo_scan_from_index(files_index, rubric_version)
+        repo = engine.run_repo_scan_from_index(files_index, rubric_version, source_kind="upload")
 
         await _emit(
             run_id,

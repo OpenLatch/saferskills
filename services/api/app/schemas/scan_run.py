@@ -39,6 +39,16 @@ class CapabilityRow(OrmBaseModel):
     sub_scores: dict[str, int]
     findings_summary: FindingsSummary
     findings: list[FindingResponse]
+    # Per-capability rich-report extras (I-3.5 multi-file upload tabs). Each
+    # capability carries its own primary manifest (Source tab) + `.zip` pointer
+    # so a multi-file upload renders one rich report per file. Null for repo-scan
+    # capabilities (the cap-table body has no per-row source viewer).
+    manifest: ManifestSource | None = None
+    download: DownloadInfo | None = None
+    # sha256 of this capability's own primary file (the fanned-out upload file),
+    # so each per-file tab shows its own provenance hash. Null when the capability
+    # has no single primary file (binary / whole-repo).
+    content_hash: str | None = None
 
 
 class ScanRunReportDetail(OrmBaseModel):

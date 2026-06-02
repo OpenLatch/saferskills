@@ -276,12 +276,103 @@ def _infer_fallback_kind(file_index: list[tuple[str, bytes]]) -> str:
     return KIND_SKILL
 
 
-def discover_capabilities(file_index: list[tuple[str, bytes]]) -> list[Capability]:
+def _infer_file_kind(path: str) -> str:
+    """Per-file kind inference for the flat-upload fan-out (I-3.5).
+
+    A loose uploaded file carries no directory anchor, so its kind is inferred
+    from its name/extension alone. Mirrors the anchor vocabulary in
+    `_detect_components` / `upload.py::_detect` where it can. Default `skill`
+    (today's whole-repo fallback kind)."""
+    base = _basename(_posix(path)).lower()
+    if base in (".cursorrules", ".windsurfrules") or base.endswith((".mdc", ".rules")):
+        return KIND_RULES
+    if base.endswith(".sh") or "hook" in base:
+        return KIND_HOOK
+    if base == "server.json" or ("mcp" in base and base.endswith(".json")):
+        return KIND_MCP
+    # SKILL.md / *.md / everything else → skill (the dominant single-file shape).
+    return KIND_SKILL
+
+
+def _upload_file_kind_name(path: str, content: bytes) -> tuple[str, str]:
+    """Per-file (kind, name) for a flat-upload capability (I-3.5).
+
+    A top-level uploaded file that is itself a recognized single-file manifest
+    (`SKILL.md`, `mcp.json`, `plugin.json`) keeps its **declared** name (the
+    frontmatter / JSON `name`) and kind — so a lone `SKILL.md` upload still reads
+    as its real skill name, not the filename stem. Everything else falls back to
+    `_infer_file_kind` + the filename stem."""
+    base = _basename(_posix(path)).lower()
+    stem = _stem(path)
+    if base == "skill.md":
+        return KIND_SKILL, _frontmatter_name(content) or stem
+    if base in ("mcp.json", ".mcp.json"):
+        return KIND_MCP, _json_str(content, "name") or stem
+    if base == "plugin.json":
+        return KIND_PLUGIN, _json_str(content, "name") or stem
+    return _infer_file_kind(path), stem
+
+
+def _upload_loose_fanout(file_index: list[tuple[str, bytes]]) -> list[Capability] | None:
+    """Fan a **flat** upload's top-level files into one capability per file (I-3.5).
+
+    "One tab per uploaded file" — each non-repo-wide top-level file becomes its
+    own capability (`component_path=<path>`, declared-or-stem `name`, detected
+    `kind`) whose `file_subset` is that file unioned with the repo-wide files
+    (LICENSE/README/…) so the kind-scoped transparency rules still fire.
+
+    Returns None (→ fall through to normal directory-based discovery) when the
+    batch is **not flat** — any non-repo-wide file lives in a subdirectory, i.e.
+    a structured `.zip` whose subtree forms a real single capability (a `skill/`
+    dir with `SKILL.md` + helpers stays one capability) — or when every file is
+    repo-wide (no loose file to tab on → single whole-repo fallback).
+    """
+    repo_wide = [(p, b) for p, b in file_index if _is_repo_wide(p)]
+    repo_wide_paths = {_posix(p) for p, _ in repo_wide}
+    loose = [(p, b) for p, b in file_index if _posix(p) not in repo_wide_paths]
+    if not loose:
+        return None
+    # Flat batch only — a nested path signals a structured zip (normal discovery).
+    if any("/" in _posix(p) for p, _ in loose):
+        return None
+
+    comps: list[_Component] = []
+    for path, content in loose:
+        kind, name = _upload_file_kind_name(path, content)
+        comps.append(_Component(kind, name, path, is_dir=False))
+    _disambiguate_names(comps)  # rule 3 — distinct slugs on same-(kind,name) files
+
+    capabilities = [
+        Capability(
+            kind=comp.kind,
+            name=comp.name,
+            component_path=comp.component_path,
+            file_subset=[(path, content), *repo_wide],
+        )
+        for comp, (path, content) in zip(comps, loose, strict=True)
+    ]
+    capabilities.sort(key=lambda c: (c.kind, c.name, c.component_path))
+    return capabilities
+
+
+def discover_capabilities(
+    file_index: list[tuple[str, bytes]], *, source_kind: str | None = None
+) -> list[Capability]:
     """Split a repo file tree into one or more scannable capabilities.
 
     Always returns ≥1 capability — a repo with no capability signal yields a
-    single synthetic whole-repo capability (rule 4).
+    single synthetic whole-repo capability (rule 4). For an **upload**
+    (`source_kind="upload"`) that is a **flat** batch of top-level files, each
+    file is fanned into its own capability (so a multi-file upload renders per-file
+    tabs — even when one file is a recognized anchor like `SKILL.md`); a structured
+    `.zip` with subdirectories falls through to normal directory-based discovery.
+    GitHub scans pass `source_kind=None` → byte-for-byte unchanged.
     """
+    if source_kind == "upload":
+        fanned = _upload_loose_fanout(file_index)
+        if fanned is not None:
+            return fanned
+
     components = _detect_components(file_index)
 
     if not components:

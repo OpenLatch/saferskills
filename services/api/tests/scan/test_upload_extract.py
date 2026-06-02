@@ -11,7 +11,6 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from collections.abc import AsyncIterator
 
 import pytest
 
@@ -32,11 +31,6 @@ from app.scan.upload import (
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)+$")
 
 
-async def _aiter(*chunks: bytes) -> AsyncIterator[bytes]:
-    for c in chunks:
-        yield c
-
-
 def _zip(entries: dict[str, bytes], *, compression: int = zipfile.ZIP_DEFLATED) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression) as zf:
@@ -46,7 +40,13 @@ def _zip(entries: dict[str, bytes], *, compression: int = zipfile.ZIP_DEFLATED) 
 
 
 async def _extract(body: bytes, filename: str):
-    return await extract_upload(_aiter(body), filename, settings=get_settings())
+    """Single-part extraction (one file or one `.zip`)."""
+    return extract_upload([(filename, body)], settings=get_settings())
+
+
+async def _extract_parts(parts: list[tuple[str, bytes]]):
+    """N-part (loose batch) extraction."""
+    return extract_upload(parts, settings=get_settings())
 
 
 # ── Happy paths ───────────────────────────────────────────────────────────────
@@ -76,15 +76,72 @@ async def test_zip_skips_top_level_git_dir() -> None:
     assert [p for p, _ in extracted.files_index] == ["SKILL.md"]
 
 
-# ── Rejection matrix (§13.2 + P1-3) ───────────────────────────────────────────
+# ── Multi-file loose batch (N parts) ──────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_too_large() -> None:
-    big = b"x" * (get_settings().upload_max_bytes + 1)
+async def test_loose_batch_happy_path() -> None:
+    extracted = await _extract_parts(
+        [
+            ("SKILL.md", b"---\nname: pdf-extract\n---\n# Skill\n\nDoes things.\n"),
+            ("script.py", b"print('hi')\n"),
+        ]
+    )
+    paths = {p for p, _ in extracted.files_index}
+    assert paths == {"SKILL.md", "script.py"}
+    assert extracted.original_filename == "2 files"
+    assert extracted.detected_kind == "skill"
+    assert extracted.detected_name == "pdf-extract"
+
+
+@pytest.mark.asyncio
+async def test_loose_batch_preserves_relative_paths() -> None:
+    extracted = await _extract_parts([("skill/SKILL.md", b"# a"), ("skill/run.py", b"print(1)\n")])
+    assert {p for p, _ in extracted.files_index} == {"skill/SKILL.md", "skill/run.py"}
+
+
+@pytest.mark.asyncio
+async def test_loose_batch_zip_in_batch_is_nesting() -> None:
     with pytest.raises(UploadRejected) as ei:
-        await _extract(big, "a.md")
-    assert (ei.value.status, ei.value.code) == (413, "upload_too_large")
+        await _extract_parts([("SKILL.md", b"# a"), ("inner.zip", b"PK\x03\x04rest")])
+    assert (ei.value.status, ei.value.code, ei.value.reason) == (422, "archive_rejected", "nesting")
+
+
+@pytest.mark.asyncio
+async def test_loose_batch_duplicate_basename() -> None:
+    with pytest.raises(UploadRejected) as ei:
+        await _extract_parts([("README.md", b"a"), ("readme.md", b"b")])
+    assert ei.value.reason == "dup_path"
+
+
+@pytest.mark.asyncio
+async def test_loose_batch_binary_part() -> None:
+    with pytest.raises(UploadRejected) as ei:
+        await _extract_parts([("SKILL.md", b"# a"), ("data.txt", b"text\x00more")])
+    assert (ei.value.status, ei.value.code) == (415, "binary_not_allowed")
+
+
+@pytest.mark.asyncio
+async def test_loose_batch_bad_extension() -> None:
+    with pytest.raises(UploadRejected) as ei:
+        await _extract_parts([("SKILL.md", b"# a"), ("evil.exe", b"x")])
+    assert (ei.value.status, ei.value.code) == (415, "unsupported_type")
+
+
+@pytest.mark.asyncio
+async def test_loose_batch_path_traversal() -> None:
+    with pytest.raises(UploadRejected) as ei:
+        await _extract_parts([("SKILL.md", b"# a"), ("../escape.md", b"x")])
+    assert ei.value.reason == "zip_slip"
+
+
+# ── Rejection matrix (§13.2 + P1-3) ───────────────────────────────────────────
+
+
+# NOTE: the cumulative 10 MiB cap is enforced in the multipart parser
+# (`scans.py::_read_multipart_upload`, across ALL parts) — not in `extract_upload`,
+# which receives already-read bytes. The byte-accounting test lives at the route
+# level: `tests/routers/test_upload_routes.py::test_upload_total_cap_across_parts`.
 
 
 @pytest.mark.asyncio

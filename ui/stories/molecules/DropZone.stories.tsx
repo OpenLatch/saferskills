@@ -5,21 +5,39 @@ import DropZone, { type DropZoneState } from '../../components/molecules/DropZon
 const ACCEPT = ['.zip', '.md', '.json', '.yaml', '.yml', '.toml', '.txt', '.js', '.ts', '.py', '.sh']
 const MAX = 10 * 1024 * 1024
 const FILE = { name: 'SKILL.md', size: 3277, kind: 'Skill' }
+const FILES = [
+  { name: 'SKILL.md', size: 3277, kind: 'Skill' },
+  { name: 'extract.py', size: 1840, kind: 'Script' },
+  { name: 'config.json', size: 512, kind: 'Config' },
+]
 
 export const Idle: Story = () => (
   <div style={{ maxWidth: 520 }}>
-    <DropZone onFileSelected={() => {}} accept={ACCEPT} maxBytes={MAX} state="idle" />
+    <DropZone onFilesSelected={() => {}} accept={ACCEPT} maxBytes={MAX} state="idle" />
   </div>
 )
 
 export const Selected: Story = () => (
   <div style={{ maxWidth: 520 }}>
     <DropZone
-      onFileSelected={() => {}}
+      onFilesSelected={() => {}}
       accept={ACCEPT}
       maxBytes={MAX}
       state="selected"
-      selectedFile={FILE}
+      selectedFiles={[FILE]}
+      onRemove={() => {}}
+    />
+  </div>
+)
+
+export const MultiSelected: Story = () => (
+  <div style={{ maxWidth: 520 }}>
+    <DropZone
+      onFilesSelected={() => {}}
+      accept={ACCEPT}
+      maxBytes={MAX}
+      state="selected"
+      selectedFiles={FILES}
       onRemove={() => {}}
     />
   </div>
@@ -34,11 +52,11 @@ export const Uploading: Story = () => {
   return (
     <div style={{ maxWidth: 520 }}>
       <DropZone
-        onFileSelected={() => {}}
+        onFilesSelected={() => {}}
         accept={ACCEPT}
         maxBytes={MAX}
         state="uploading"
-        selectedFile={FILE}
+        selectedFiles={FILES}
         progress={p}
       />
     </div>
@@ -48,7 +66,7 @@ export const Uploading: Story = () => {
 export const ErrorState: Story = () => (
   <div style={{ maxWidth: 520 }}>
     <DropZone
-      onFileSelected={() => {}}
+      onFilesSelected={() => {}}
       accept={ACCEPT}
       maxBytes={MAX}
       state="error"
@@ -59,7 +77,7 @@ export const ErrorState: Story = () => (
 
 export const Compact: Story = () => (
   <div style={{ maxWidth: 360 }}>
-    <DropZone onFileSelected={() => {}} accept={['.zip', '.md']} maxBytes={MAX} state="idle" compact />
+    <DropZone onFilesSelected={() => {}} accept={['.zip', '.md']} maxBytes={MAX} state="idle" compact />
   </div>
 )
 
@@ -94,12 +112,12 @@ export const StateMachine: Story = () => {
         ))}
       </div>
       <DropZone
-        onFileSelected={() => {}}
+        onFilesSelected={() => {}}
         accept={ACCEPT}
         maxBytes={MAX}
         state={state}
         progress={progress}
-        selectedFile={state === 'selected' || state === 'uploading' ? FILE : undefined}
+        selectedFiles={state === 'selected' || state === 'uploading' ? FILES : undefined}
         error={state === 'error' ? { code: 'archive_rejected', message: 'Archive rejected: ratio cap exceeded.' } : undefined}
         onRemove={() => setState('idle')}
       />

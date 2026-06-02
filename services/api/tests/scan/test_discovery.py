@@ -153,3 +153,117 @@ def test_package_json_mcp_servers_detected() -> None:
     assert len(caps) == 1
     assert caps[0].kind == KIND_MCP
     assert caps[0].name == "srv"
+
+
+# ── upload anchorless fan-out (I-3.5) ────────────────────────────────────────
+
+
+def test_upload_loose_files_fan_into_per_file_capabilities() -> None:
+    # Three anchorless loose files — no SKILL.md/mcp.json/hooks dir/etc. As an
+    # UPLOAD they each become their own capability (one tab per file).
+    files = [
+        ("prompt.md", _b("# Prompt\nhello")),
+        ("install.sh", _b("#!/bin/sh\necho hi")),
+        ("server.json", _b('{"name": "x"}')),
+        ("README.md", _b("# readme")),  # repo-wide → unioned into each, not a tab
+    ]
+    caps = discover_capabilities(files, source_kind="upload")
+    by_path = {c.component_path: c for c in caps}
+    assert set(by_path) == {"prompt.md", "install.sh", "server.json"}
+    # Inferred kinds per name/ext.
+    assert by_path["prompt.md"].kind == KIND_SKILL
+    assert by_path["install.sh"].kind == KIND_HOOK
+    assert by_path["server.json"].kind == KIND_MCP
+    # name = file stem; each subset = own file + repo-wide README.
+    assert by_path["install.sh"].name == "install"
+    assert _paths(by_path["prompt.md"]) == {"prompt.md", "README.md"}
+
+
+def test_upload_single_loose_file_is_one_capability() -> None:
+    caps = discover_capabilities([("notes.md", _b("# hi"))], source_kind="upload")
+    assert len(caps) == 1
+    assert caps[0].kind == KIND_SKILL
+    assert caps[0].component_path == "notes.md"
+    assert caps[0].name == "notes"
+
+
+def test_upload_cursorrules_infers_rules_kind() -> None:
+    caps = discover_capabilities(
+        [(".cursorrules", _b("be nice")), ("agent.mdc", _b("x"))],
+        source_kind="upload",
+    )
+    assert {c.kind for c in caps} == {KIND_RULES}
+
+
+def test_upload_all_repo_wide_falls_back_to_single_whole_repo() -> None:
+    # No loose file to tab on → keep the single whole-repo fallback (≥1 cap).
+    caps = discover_capabilities(
+        [("README.md", _b("# hi")), ("LICENSE", _b("MIT"))], source_kind="upload"
+    )
+    assert len(caps) == 1
+    assert caps[0].component_path == ""
+    assert caps[0].kind == KIND_SKILL
+
+
+def test_github_anchorless_repo_still_single_fallback_not_fanned() -> None:
+    # The fan-out is UPLOAD-only — a GitHub repo with no anchors stays 1:1.
+    files = [
+        ("prompt.md", _b("# p")),
+        ("install.sh", _b("echo")),
+        ("README.md", _b("# r")),
+    ]
+    caps = discover_capabilities(files)  # source_kind defaults to None (github)
+    assert len(caps) == 1
+    assert caps[0].component_path == ""
+
+
+def test_upload_structured_zip_subtree_stays_one_capability() -> None:
+    # A `.zip` upload whose files live in a SUBDIRECTORY (a real skill subtree)
+    # is NOT flat → normal directory discovery → one capability (SKILL.md + its
+    # helper belong together). The flat fan-out must not split a structured zip.
+    files = [
+        ("skill/SKILL.md", _b("---\nname: real\n---\n")),
+        ("skill/run.py", _b("print(1)")),
+    ]
+    caps = discover_capabilities(files, source_kind="upload")
+    assert len(caps) == 1
+    assert caps[0].kind == KIND_SKILL
+    assert caps[0].name == "real"
+    assert caps[0].component_path == "skill"
+
+
+def test_upload_flat_skill_md_plus_loose_file_fans_out() -> None:
+    # The reported bug: uploading SKILL.md + fake.md (both top-level) must give
+    # ONE TAB PER FILE — even though SKILL.md is a recognized anchor. The flat
+    # batch fans out; SKILL.md keeps its declared frontmatter name (not the stem).
+    files = [
+        ("SKILL.md", _b("---\nname: canvas-design\n---\n# Canvas Design")),
+        ("fake.md", _b("# fake")),
+    ]
+    caps = discover_capabilities(files, source_kind="upload")
+    assert len(caps) == 2
+    by_path = {c.component_path: c for c in caps}
+    assert by_path["SKILL.md"].name == "canvas-design"  # declared name, not "SKILL"
+    assert by_path["SKILL.md"].kind == KIND_SKILL
+    assert by_path["fake.md"].name == "fake"
+
+
+def test_upload_single_flat_skill_md_keeps_declared_name() -> None:
+    # A lone flat SKILL.md upload fans to one cap but keeps its frontmatter name
+    # (single-file report identity must not regress to the filename stem).
+    caps = discover_capabilities(
+        [("SKILL.md", _b("---\nname: my-skill\n---\n# X"))], source_kind="upload"
+    )
+    assert len(caps) == 1
+    assert caps[0].kind == KIND_SKILL
+    assert caps[0].name == "my-skill"
+
+
+def test_upload_flat_mcp_json_keeps_declared_name() -> None:
+    caps = discover_capabilities(
+        [("mcp.json", _b('{"name": "gh-mcp"}')), ("notes.md", _b("# n"))],
+        source_kind="upload",
+    )
+    by_path = {c.component_path: c for c in caps}
+    assert by_path["mcp.json"].kind == KIND_MCP
+    assert by_path["mcp.json"].name == "gh-mcp"

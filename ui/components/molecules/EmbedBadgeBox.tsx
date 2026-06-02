@@ -1,77 +1,87 @@
-import { useState } from 'react'
+import Toast, { flashToast } from '../atoms/Toast'
 
-import CopyButton from '../atoms/CopyButton'
+type Tier = 'green' | 'yellow' | 'orange' | 'red'
 
 interface Props {
   scanId: string
   score: number
+  /** Scored tier; colors the preview pill. null/undefined → unscored. */
+  tier?: Tier | null
   slug?: string
   /** Base URL of the public site. Defaults to https://saferskills.ai */
   origin?: string
   /** PostHog callback per D-FE-19. */
-  onCopy?: (format: 'markdown' | 'html' | 'preview') => void
+  onCopy?: (format: 'markdown' | 'html') => void
 }
-
-type Format = 'markdown' | 'html' | 'preview'
 
 /**
  * Embed-badge box shown on /scans/<id> + /items/<slug>.
  *
- * 3 tabs (Markdown / HTML / Preview). Markdown + HTML render the copy-pasteable
- * snippet; Preview renders the live SVG served by the Phase-C badge endpoint.
- * Origin resolves to the current site at runtime so the preview loads in dev.
+ * Renders a macOS terminal window (README.md chrome) with the syntax-colored
+ * markdown snippet + two header copy buttons ("⧉ Copy to MD" / "⧉ Copy as
+ * HTML"), then a CSS-rendered badge pill preview. The preview is a pure-CSS
+ * pill (no network fetch) so it always renders, including for upload runs whose
+ * badge SVG 404s.
  */
-export default function EmbedBadgeBox({ scanId, score, slug, origin, onCopy }: Props) {
-  const [format, setFormat] = useState<Format>('markdown')
+export default function EmbedBadgeBox({ scanId, score, tier, slug, origin, onCopy }: Props) {
   const resolvedOrigin =
     origin ?? (typeof window !== 'undefined' ? window.location.origin : 'https://saferskills.ai')
   const badgeUrl = `${resolvedOrigin}/badge/${scanId}/${score}.svg`
   const linkUrl = slug ? `${resolvedOrigin}/items/${slug}` : `${resolvedOrigin}/scans/${scanId}`
 
-  const snippets: Record<Format, string> = {
-    markdown: `[![SaferSkills ${score}/100](${badgeUrl})](${linkUrl})`,
-    html: `<a href="${linkUrl}"><img src="${badgeUrl}" alt="SaferSkills ${score}/100"></a>`,
-    preview: '',
-  }
+  const markdown = `[![SaferSkills ${score}/100](${badgeUrl})](${linkUrl})`
+  const html = `<a href="${linkUrl}"><img src="${badgeUrl}" alt="SaferSkills ${score}/100"></a>`
 
-  function handleSectionClick(e: React.MouseEvent<HTMLElement>) {
-    if (!onCopy) return
-    const target = e.target as HTMLElement
-    if (target.closest('button[data-copy]')) onCopy(format)
+  async function copy(format: 'markdown' | 'html', snippet: string) {
+    onCopy?.(format)
+    try {
+      await navigator.clipboard.writeText(snippet)
+      flashToast('Copied to clipboard')
+    } catch {
+      flashToast('Copy failed — please copy manually')
+    }
   }
 
   return (
-    <section className="embed-badge-box" aria-label="Embed badge" onClick={handleSectionClick}>
-      <header className="embed-badge-box-head">
-        <span className="eyebrow eyebrow-rule">EMBED · SAFERSKILLS BADGE</span>
-        <div className="embed-badge-box-tabs" role="tablist">
-          {(['markdown', 'html', 'preview'] as Format[]).map((f) => (
-            <button
-              key={f}
-              type="button"
-              className={format === f ? 'embed-badge-box-tab active' : 'embed-badge-box-tab'}
-              onClick={() => setFormat(f)}
-              role="tab"
-              aria-selected={format === f}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </header>
-      {format === 'preview' ? (
-        <div className="embed-badge-box-preview">
-          <img src={badgeUrl} alt={`SaferSkills score ${score} of 100`} width={280} height={60} />
-          <span className="embed-badge-box-note">Live SVG — exactly what the badge URL serves.</span>
-        </div>
-      ) : (
-        <pre className="embed-badge-box-pre">
-          <code>{snippets[format]}</code>
-          <span data-copy>
-            <CopyButton value={snippets[format]} label="Copy" />
+    <div className="embed-badge" aria-label="Embed README badge">
+      <div className="badge-term">
+        <div className="bt-chrome">
+          <span className="mac-traffic">
+            <span className="l-r" />
+            <span className="l-y" />
+            <span className="l-g" />
           </span>
-        </pre>
-      )}
-    </section>
+          <span className="bt-title">README.md</span>
+          <div className="bt-copy-group">
+            <button type="button" className="bt-copy" onClick={() => copy('markdown', markdown)}>
+              <span aria-hidden="true">⧉</span> Copy to MD
+            </button>
+            <button type="button" className="bt-copy" onClick={() => copy('html', html)}>
+              <span aria-hidden="true">⧉</span> Copy as HTML
+            </button>
+          </div>
+        </div>
+        <div className="bt-body">
+          <code>
+            <span className="md-punc">[![</span>
+            <span className="md-alt">SaferSkills {score}/100</span>
+            <span className="md-punc">](</span>
+            <span className="md-url">{badgeUrl}</span>
+            <span className="md-punc">)](</span>
+            <span className="md-link">{linkUrl}</span>
+            <span className="md-punc">)</span>
+          </code>
+        </div>
+      </div>
+      <div className="bt-actions">
+        <div className={`badge-preview tier-${tier ?? 'unscoped'}`} aria-label="Badge preview">
+          <span className="lf">saferskills</span>
+          <span className="rg">
+            {score} · {tier ?? 'unscored'}
+          </span>
+        </div>
+      </div>
+      <Toast />
+    </div>
   )
 }

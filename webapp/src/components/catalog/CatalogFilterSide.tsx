@@ -1,3 +1,5 @@
+import Checkbox from '@ui/components/atoms/Checkbox'
+import RangeSlider from '@ui/components/atoms/RangeSlider'
 import type { CatalogFacets } from '@/lib/api/items'
 import {
   AGENT_OPTIONS,
@@ -7,7 +9,6 @@ import {
   SCAN_TIER_OPTIONS,
   SOURCE_OPTIONS,
 } from './constants'
-import ScoreRangeSlider from './ScoreRangeSlider'
 
 interface Props {
   state: CatalogState
@@ -16,11 +17,6 @@ interface Props {
   onSource: (value: string) => void
   onScore: (min: number, max: number) => void
   onClear: () => void
-}
-
-function Count({ n }: { n: number | undefined }) {
-  if (n == null) return null
-  return <span className="ct">{n.toLocaleString()}</span>
 }
 
 export default function CatalogFilterSide({
@@ -40,105 +36,85 @@ export default function CatalogFilterSide({
     <aside className="cat-side" aria-label="Catalog filters">
       <div className="grp">
         <h6>Source</h6>
-        {SOURCE_OPTIONS.map((opt) => {
-          const on = state.artifactSource === opt.value
-          return (
-            <button
-              type="button"
-              key={opt.value || 'all'}
-              className={`opt${on ? ' on' : ''}`}
-              aria-pressed={on}
-              onClick={() => onSource(opt.value)}
-            >
-              <span className="box box-radio" aria-hidden="true" />
-              <span>{opt.label}</span>
-              <Count n={sourceCount(opt.value)} />
-            </button>
-          )
-        })}
+        {SOURCE_OPTIONS.map((opt) => (
+          <Checkbox
+            key={opt.value || 'all'}
+            variant="radio"
+            block
+            checked={state.artifactSource === opt.value}
+            onChange={() => onSource(opt.value)}
+            label={opt.label}
+            count={sourceCount(opt.value)}
+          />
+        ))}
       </div>
 
       <div className="grp">
         <h6>Type</h6>
-        {KIND_OPTIONS.map((opt) => {
-          const on = state.kind.includes(opt.value)
-          return (
-            <button
-              type="button"
-              key={opt.value}
-              className={`opt${on ? ' on' : ''}`}
-              aria-pressed={on}
-              onClick={() => onToggle('kind', opt.value)}
-            >
-              <span className="box" aria-hidden="true" />
-              <span>{opt.label}</span>
-              <Count n={facets?.kind[opt.value]} />
-            </button>
-          )
-        })}
+        {KIND_OPTIONS.map((opt) => (
+          <Checkbox
+            key={opt.value}
+            block
+            checked={state.kind.includes(opt.value)}
+            onChange={() => onToggle('kind', opt.value)}
+            label={opt.label}
+            count={facets?.kind[opt.value]}
+          />
+        ))}
       </div>
 
       <div className="grp">
         <h6>Agent compatibility</h6>
-        {AGENT_OPTIONS.map((opt) => {
-          const on = state.agent.includes(opt.value)
-          return (
-            <button
-              type="button"
-              key={opt.value}
-              className={`opt${on ? ' on' : ''}`}
-              aria-pressed={on}
-              onClick={() => onToggle('agent', opt.value)}
-            >
-              <span className="box" aria-hidden="true" />
-              <span>{opt.label}</span>
-              <Count n={facets?.agent[opt.value]} />
-            </button>
-          )
-        })}
+        {AGENT_OPTIONS.map((opt) => (
+          <Checkbox
+            key={opt.value}
+            block
+            checked={state.agent.includes(opt.value)}
+            onChange={() => onToggle('agent', opt.value)}
+            label={opt.label}
+            count={facets?.agent[opt.value]}
+          />
+        ))}
       </div>
 
-      <ScoreRangeSlider min={state.scoreMin} max={state.scoreMax} onChange={onScore} />
+      <div className="grp">
+        <h6>Score range</h6>
+        <RangeSlider
+          min={state.scoreMin}
+          max={state.scoreMax}
+          onChange={onScore}
+          minAriaLabel="Minimum score"
+          maxAriaLabel="Maximum score"
+        />
+      </div>
 
       <div className="grp">
         <h6>Band</h6>
-        {BAND_OPTIONS.map((opt) => {
-          const on = state.scanTier.includes(opt.value)
-          return (
-            <button
-              type="button"
-              key={opt.value}
-              className={`opt${on ? ' on' : ''}`}
-              aria-pressed={on}
-              onClick={() => onToggle('scanTier', opt.value)}
-            >
-              <span className="box" aria-hidden="true" />
-              <span className={`band-dot ${opt.band}`} aria-hidden="true" />
-              <span>{opt.label}</span>
-              <Count n={facets?.tier[opt.value]} />
-            </button>
-          )
-        })}
+        {BAND_OPTIONS.map((opt) => (
+          <Checkbox
+            key={opt.value}
+            block
+            checked={state.scanTier.includes(opt.value)}
+            onChange={() => onToggle('scanTier', opt.value)}
+            label={opt.label}
+            count={facets?.tier[opt.value]}
+            adornment={<span className={`band-dot ${opt.band}`} aria-hidden="true" />}
+          />
+        ))}
       </div>
 
       <div className="grp">
         <h6>Scan tier</h6>
-        {SCAN_TIER_OPTIONS.map((opt) => {
-          const on = state.popularityTier.includes(opt.value)
-          return (
-            <button
-              type="button"
-              key={opt.value}
-              className={`opt${on ? ' on' : ''}`}
-              aria-pressed={on}
-              onClick={() => onToggle('popularityTier', opt.value)}
-            >
-              <span className="box" aria-hidden="true" />
-              <span>{opt.label}</span>
-              <Count n={facets?.popularity_tier[opt.value]} />
-            </button>
-          )
-        })}
+        {SCAN_TIER_OPTIONS.map((opt) => (
+          <Checkbox
+            key={opt.value}
+            block
+            checked={state.popularityTier.includes(opt.value)}
+            onChange={() => onToggle('popularityTier', opt.value)}
+            label={opt.label}
+            count={facets?.popularity_tier[opt.value]}
+          />
+        ))}
       </div>
 
       <button type="button" className="clear-link" onClick={onClear}>

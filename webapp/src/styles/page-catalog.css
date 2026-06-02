@@ -95,161 +95,31 @@ html.dark .cat-side {
   height: 1px;
   background: currentColor;
 }
-.cat-side .opt {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  font-size: 13px;
-  color: var(--fg-2);
-  cursor: pointer;
-  transition: color var(--dur-xs);
-  width: 100%;
-  background: none;
-  border: 0;
-  text-align: left;
-  font-family: var(--font-sans);
-}
-.cat-side .opt:hover {
-  color: var(--color-ink);
-}
-html.dark .cat-side .opt:hover {
-  color: var(--fg-1);
-}
-.cat-side .opt .box {
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--color-ink);
-  background: var(--color-paper);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--brand-primary);
-  flex-shrink: 0;
-}
-html.dark .cat-side .opt .box {
-  border-color: var(--fg-2);
-  background: transparent;
-}
-.cat-side .opt.on .box {
-  background: var(--brand-primary);
-  border-color: var(--brand-primary);
-  color: var(--color-paper);
-}
-.cat-side .opt.on .box::before {
-  content: "✓";
-}
-.cat-side .opt .ct {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-3);
-}
-.cat-side .opt.on .ct {
-  color: var(--brand-primary);
-}
-.cat-side .opt .band-dot {
+/* Filter rows are the DS `Checkbox` atom (ui/components/atoms/Checkbox.tsx);
+   its `.ds-check*` CSS — incl. the dark-correct checked state — is DS-owned in
+   ui/styles/components.css. Only the band color-swatch adornment is catalog-
+   specific and stays here. */
+.cat-side .band-dot {
   width: 10px;
   height: 10px;
   display: inline-block;
   flex-shrink: 0;
 }
-.cat-side .opt .band-dot.g {
+.cat-side .band-dot.g {
   background: var(--score-green);
 }
-.cat-side .opt .band-dot.y {
+.cat-side .band-dot.y {
   background: var(--score-yellow);
 }
-.cat-side .opt .band-dot.o {
+.cat-side .band-dot.o {
   background: var(--score-orange);
 }
-.cat-side .opt .band-dot.r {
+.cat-side .band-dot.r {
   background: var(--score-red);
 }
 
-/* score range — accessible dual-thumb slider */
-.cat-side .score-slider {
-  position: relative;
-  height: 24px;
-  margin-top: 4px;
-}
-.cat-side .score-slider .track {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 24px;
-  transform: translateY(-50%);
-  background-image:
-    linear-gradient(90deg, var(--color-ink) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
-  background-size:
-    100% 24px,
-    10% 24px;
-  background-position: 0 50%;
-  background-repeat: no-repeat, repeat-x;
-  pointer-events: none;
-}
-.cat-side .score-slider .fill {
-  position: absolute;
-  top: 50%;
-  height: 2px;
-  background: var(--brand-primary);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-.cat-side .score-slider input[type="range"] {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 24px;
-  margin: 0;
-  background: transparent;
-  -webkit-appearance: none;
-  appearance: none;
-  pointer-events: none;
-}
-.cat-side .score-slider input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  background: var(--color-paper);
-  border: 2px solid var(--brand-primary);
-  cursor: pointer;
-  pointer-events: auto;
-}
-.cat-side .score-slider input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: var(--color-paper);
-  border: 2px solid var(--brand-primary);
-  border-radius: 0;
-  cursor: pointer;
-  pointer-events: auto;
-}
-.cat-side .score-slider input[type="range"]:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: 2px;
-}
-.cat-side .slider-cap {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--fg-3);
-}
-.cat-side .slider-cap b {
-  color: var(--color-ink);
-  font-weight: 700;
-}
-html.dark .cat-side .slider-cap b {
-  color: var(--fg-1);
-}
+/* .score-slider / .slider-cap moved to ui/styles/components.css (rendered by
+   the DS RangeSlider atom, re-rooted off .cat-side — CSS-ownership one-way rule). */
 
 .cat-side .clear-link {
   font-family: var(--font-sans);
@@ -356,17 +226,6 @@ html.dark .cat-row .nm .desc .tag-mini {
   border-color: color-mix(in srgb, var(--brand-primary) 45%, transparent);
   background: color-mix(in srgb, var(--brand-primary) 8%, transparent);
 }
-/* Source filter is single-select — render the box as a radio (round, dot). */
-.cat-side .opt .box.box-radio {
-  border-radius: var(--radius-pill);
-}
-.cat-side .opt.on .box.box-radio::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--color-paper);
-}
 .cat-row .scr {
   display: flex;
   align-items: baseline;
@@ -467,19 +326,6 @@ html.dark .cat-row .install-hex:hover {
 .cat-row.featured .rank {
   color: var(--brand-primary);
   font-weight: 700;
-}
-.cat-row.featured::after {
-  content: "TOP";
-  position: absolute;
-  top: 12px;
-  right: 32px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.3em;
-  color: var(--brand-primary);
-  background: var(--color-paper);
-  border: 1px solid var(--brand-primary);
-  padding: 2px 8px;
 }
 
 /* empty state */
@@ -585,38 +431,8 @@ html.dark .cat-pagination .pg-ct b {
   text-transform: uppercase;
   color: var(--fg-3);
 }
-.cat-pagination .sort .picker {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
-  background: var(--color-paper);
-  border: 1px solid var(--color-ink);
-  color: var(--color-ink);
-  letter-spacing: 0.04em;
-  font-size: 11px;
-  text-transform: none;
-  font-family: var(--font-mono);
-  cursor: pointer;
-}
-html.dark .cat-pagination .sort .picker {
-  background: var(--color-paper-deep);
-  border-color: var(--color-line);
-  color: var(--fg-1);
-}
-.cat-pagination .sort .picker select {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  font-family: var(--font-mono);
-}
-.cat-pagination .sort .picker svg {
-  pointer-events: none;
-}
+/* The sort control is the DS `Select` atom (ui/components/atoms/Select.tsx);
+   its trigger + menu CSS is DS-owned in ui/styles/components.css (`.ds-select*`). */
 
 /* ============================================================
    RESPONSIVE — stack at ≤980px (mockup L5053)
@@ -637,8 +453,5 @@ html.dark .cat-pagination .sort .picker {
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 16px;
-  }
-  .cat-row.featured::after {
-    right: 16px;
   }
 }

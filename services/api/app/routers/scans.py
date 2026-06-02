@@ -332,14 +332,16 @@ async def submit_scan(
 
 async def _read_multipart_upload(
     request: Request, *, max_bytes: int
-) -> tuple[str, list[bytes], dict[str, str]]:
+) -> tuple[list[tuple[str, bytes]], dict[str, str]]:
     """Stream-parse a `multipart/form-data` body, aborting at `max_bytes` BEFORE
-    buffering the whole body (D-UP-07 / P1-1).
+    buffering the whole body (D-UP-07 / P1-1). Returns one `(filename, bytes)`
+    tuple per file part + the non-file form fields.
 
     ONE concrete path: `request.stream()` fed to python-multipart's `MultipartParser`
     with bounded callbacks. We never call `request.form()` (it spools the part to a
-    temp file, buffering past the cap). The file-part tally raises `UploadRejected`
-    mid-stream from inside `on_part_data`, which `parser.write()` propagates.
+    temp file, buffering past the cap). The cumulative tally (`st["total"]` spans
+    ALL file parts) raises `UploadRejected` mid-stream from inside `on_part_data`,
+    which `parser.write()` propagates — so the 10 MiB cap is across the batch.
     """
     ctype, opts = parse_options_header(request.headers.get("content-type", ""))
     if ctype != b"multipart/form-data" or b"boundary" not in opts:
@@ -347,12 +349,13 @@ async def _read_multipart_upload(
     boundary = opts[b"boundary"]
 
     fields: dict[str, str] = {}
-    file_chunks: list[bytes] = []
+    file_parts: list[tuple[str, bytes]] = []
     st: dict[str, object] = {
         "total": 0,
-        "filename": None,
         "is_file": False,
         "field_name": None,
+        "cur_name": None,
+        "cur_buf": bytearray(),
         "hfield": bytearray(),
         "hvalue": bytearray(),
         "headers": {},
@@ -363,6 +366,8 @@ async def _read_multipart_upload(
         st.update(
             is_file=False,
             field_name=None,
+            cur_name=None,
+            cur_buf=bytearray(),
             headers={},
             fbuf=bytearray(),
             hfield=bytearray(),
@@ -390,7 +395,7 @@ async def _read_multipart_upload(
         st["field_name"] = field.decode("latin-1") if field else None
         if fname is not None:
             st["is_file"] = True
-            st["filename"] = fname.decode("utf-8", "replace")
+            st["cur_name"] = fname.decode("utf-8", "replace")
 
     def on_part_data(data: bytes, start: int, end: int) -> None:
         chunk = data[start:end]
@@ -398,12 +403,14 @@ async def _read_multipart_upload(
             st["total"] = int(st["total"]) + len(chunk)  # type: ignore[arg-type]
             if int(st["total"]) > max_bytes:  # type: ignore[arg-type]
                 raise UploadRejected(413, "upload_too_large")
-            file_chunks.append(bytes(chunk))
+            st["cur_buf"] += chunk  # type: ignore[operator]
         elif st["field_name"]:
             st["fbuf"] += chunk  # type: ignore[operator]
 
     def on_part_end() -> None:
-        if not st["is_file"] and st["field_name"]:
+        if st["is_file"] and st["cur_name"] is not None:
+            file_parts.append((str(st["cur_name"]), bytes(cast("bytearray", st["cur_buf"]))))
+        elif st["field_name"]:
             fields[str(st["field_name"])] = bytes(st["fbuf"]).decode("utf-8", "replace").strip()  # type: ignore[arg-type]
 
     parser = MultipartParser(
@@ -422,14 +429,9 @@ async def _read_multipart_upload(
         parser.write(chunk)
     parser.finalize()
 
-    if st["filename"] is None:
+    if not file_parts:
         raise UploadRejected(422, "malformed_multipart")
-    return str(st["filename"]), file_chunks, fields
-
-
-async def _aiter_chunks(chunks: list[bytes]):
-    for c in chunks:
-        yield c
+    return file_parts, fields
 
 
 @router.post(
@@ -442,7 +444,8 @@ async def submit_upload(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> ScanUploadResponse:
-    """Upload a single capability file or a `.zip` (≤10 MiB) → scan it like a repo.
+    """Upload one file, one `.zip`, or N loose files (combined ≤10 MiB) → scan it
+    like a repo.
 
     The upload is a second front-end to the unchanged engine: extraction yields
     the same in-memory file index a GitHub fetch produces. Shares the `scan_submit`
@@ -456,9 +459,7 @@ async def submit_upload(
         )
 
     try:
-        filename, file_chunks, fields = await _read_multipart_upload(
-            request, max_bytes=settings.upload_max_bytes
-        )
+        parts, fields = await _read_multipart_upload(request, max_bytes=settings.upload_max_bytes)
         visibility = fields.get("visibility", "public")
         if visibility not in ("public", "unlisted"):
             raise UploadRejected(422, "invalid_visibility")
@@ -466,9 +467,7 @@ async def submit_upload(
         if kind_hint is not None and kind_hint not in _KINDS:
             raise UploadRejected(422, "invalid_kind")
 
-        extracted: ExtractedUpload = await extract_upload(
-            _aiter_chunks(file_chunks), filename, settings=settings
-        )
+        extracted: ExtractedUpload = extract_upload(parts, settings=settings)
     except UploadRejected as exc:
         _emit_upload_rejected(exc)
         raise _upload_http_error(exc) from exc
@@ -515,7 +514,7 @@ async def submit_upload(
     )
     await session.commit()
 
-    total_bytes = sum(len(c) for c in file_chunks)
+    total_bytes = sum(len(b) for _, b in parts)
     emit_scan_submitted(
         source="submission",
         idempotency_cache_hit=False,
@@ -594,18 +593,14 @@ def _is_live_unlisted(run: ScanRun | None) -> bool:
     return not (run.expires_at is not None and run.expires_at < datetime.now(UTC))
 
 
-async def _single_capability_extras(
-    session: AsyncSession,
-    capabilities: list[tuple[Scan, CatalogItem, list[Finding]]],
+async def _capability_extras(
+    session: AsyncSession, scan: Scan
 ) -> tuple[ManifestSource | None, DownloadInfo | None]:
-    """Primary manifest + `.zip` pointer for a SINGLE-capability run (the rich
-    upload report, mockups 3/4). Multi-capability runs render the cap-list body
-    and get neither (None). The bytes come from the storage-split resolver, so
-    this works for public uploads (`artifact_blobs`) and unlisted uploads
-    (`upload_files`) alike."""
-    if len(capabilities) != 1:
-        return None, None
-    scan = capabilities[0][0]
+    """Primary manifest + `.zip` pointer for ONE capability scan — the rich-report
+    Source viewer + download. Carried per-capability so a multi-file upload renders
+    one rich report per file (I-3.5). The bytes come from the storage-split
+    resolver, so this works for public uploads (`artifact_blobs`) and unlisted
+    uploads (`upload_files`) alike."""
     manifest: ManifestSource | None = None
     if scan.manifest_source:
         manifest = ManifestSource(
@@ -619,6 +614,28 @@ async def _single_capability_extras(
         if size > 0:
             download = DownloadInfo(scan_id=str(scan.id), byte_size=size)
     return manifest, download
+
+
+async def _run_capability_extras(
+    session: AsyncSession,
+    capabilities: list[tuple[Scan, CatalogItem, list[Finding]]],
+) -> tuple[
+    dict[str, tuple[ManifestSource | None, DownloadInfo | None]],
+    ManifestSource | None,
+    DownloadInfo | None,
+]:
+    """Per-capability extras map + the single-capability run-level (manifest,
+    download). The run-level pair is kept ONLY for a single-capability run (the
+    rich single-file upload report); multi-file uploads read each capability's own
+    extras off its `CapabilityRow`."""
+    extras: dict[str, tuple[ManifestSource | None, DownloadInfo | None]] = {}
+    for scan, _item, _findings in capabilities:
+        extras[str(scan.id)] = await _capability_extras(session, scan)
+    if len(capabilities) == 1:
+        manifest, download = extras[str(capabilities[0][0].id)]
+    else:
+        manifest, download = None, None
+    return extras, manifest, download
 
 
 @router.get(
@@ -656,7 +673,7 @@ async def get_unlisted_run(
     assert run is not None
 
     capabilities = await _load_run_capabilities(session, run.id)
-    manifest, download = await _single_capability_extras(session, capabilities)
+    extras, manifest, download = await _run_capability_extras(session, capabilities)
     _set_unlisted_headers(response)
     return build_scan_run_report(
         run,
@@ -664,6 +681,7 @@ async def get_unlisted_run(
         share_url=_share_url(get_settings(), run.share_token),
         manifest=manifest,
         download=download,
+        capability_extras=extras,
     )
 
 
@@ -817,8 +835,10 @@ async def get_scan_run(
         raise HTTPException(status_code=404, detail="scan run not found")
 
     capabilities = await _load_run_capabilities(session, run_id)
-    manifest, download = await _single_capability_extras(session, capabilities)
-    return build_scan_run_report(run, capabilities, manifest=manifest, download=download)
+    extras, manifest, download = await _run_capability_extras(session, capabilities)
+    return build_scan_run_report(
+        run, capabilities, manifest=manifest, download=download, capability_extras=extras
+    )
 
 
 @router.get(

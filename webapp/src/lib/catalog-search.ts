@@ -1,4 +1,4 @@
-import mock from '@/data/catalog-mock.json'
+import { type CatalogItemSummary, listCatalogItems, type ScanTier } from '@/lib/api/items'
 
 export type CatalogKind = 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
 export type Severity = 'info' | 'low' | 'medium' | 'high' | 'critical'
@@ -17,29 +17,52 @@ export interface CatalogGroup {
   hits: CatalogHit[]
 }
 
-const ALL: readonly CatalogHit[] = (mock.data as CatalogHit[]) ?? []
-
 const GROUP_ORDER: readonly CatalogKind[] = ['skill', 'mcp_server', 'hook', 'plugin', 'rules']
 
 const MAX_PER_GROUP = 8
 
+/** Number of catalog rows the typeahead pulls per keystroke (≥ 5 groups × 8). */
+const SEARCH_LIMIT = 40
+
+/** Coarse tier → severity bucket for the dropdown row's tint + label. The
+ *  list API exposes the aggregate `latest_scan_tier`, not a per-finding
+ *  severity, so the preview pill mirrors the score band. */
+const TIER_SEVERITY: Record<ScanTier, Severity> = {
+  green: 'info',
+  yellow: 'low',
+  orange: 'medium',
+  red: 'high',
+  unscoped: 'info',
+}
+
+function toHit(item: CatalogItemSummary): CatalogHit {
+  return {
+    kind: item.kind,
+    slug: item.slug,
+    display_name: item.display_name,
+    editor: item.agent_compatibility[0] ?? '—',
+    scan_score: item.latest_scan_score ?? 0,
+    severity: TIER_SEVERITY[item.latest_scan_tier ?? 'unscoped'],
+  }
+}
+
 /**
- * Substring-match the catalog by display_name. Case-insensitive.
- * Returned hits are grouped by kind in the canonical group order so the
- * dropdown can render `<Command.Group>`s without re-sorting.
- *
- * At W1 this filters the mock JSON in-memory. At W2 swap the body for a
- * `fetch('/api/v1/catalog/search?q=...', { signal })` call — the public
- * shape (`CatalogHit[]`, snake_case keys) is the locked wire contract so
- * the dropdown component does not change.
+ * Search the live public catalog by query (name + full-text), returning hits
+ * mapped to the dropdown's `CatalogHit` shape. Case-insensitive ranking is the
+ * backend's (`GET /api/v1/items?q=`); every public query hard-filters
+ * `visibility='public'`, so public uploads surface here too.
  */
 export async function searchCatalog(query: string, signal?: AbortSignal): Promise<CatalogHit[]> {
   if (signal?.aborted) {
     throw new DOMException('aborted', 'AbortError')
   }
-  const q = query.trim().toLowerCase()
+  const q = query.trim()
   if (!q) return []
-  return ALL.filter((item) => item.display_name.toLowerCase().includes(q))
+  const res = await listCatalogItems({ q, limit: SEARCH_LIMIT })
+  if (signal?.aborted) {
+    throw new DOMException('aborted', 'AbortError')
+  }
+  return res.data.map(toHit)
 }
 
 /**

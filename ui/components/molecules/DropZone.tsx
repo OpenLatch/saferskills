@@ -2,8 +2,15 @@ import { type CSSProperties, type DragEvent, useState } from 'react'
 
 export type DropZoneState = 'idle' | 'dragover' | 'selected' | 'uploading' | 'error'
 
+export interface SelectedFile {
+  name: string
+  size: number
+  kind?: string
+}
+
 interface DropZoneProps {
-  onFileSelected: (file: File) => void
+  /** Report the newly-picked files. Append semantics live in the parent. */
+  onFilesSelected: (files: File[]) => void
   /** Extension allowlist — drives the picker `accept` + the subtext copy. */
   accept: string[]
   /** Client pre-check ceiling (server is authoritative) — drives the subtext copy. */
@@ -13,11 +20,13 @@ interface DropZoneProps {
   hint?: string
   /** Controlled machine state (parent owns idle/selected/uploading/error). */
   state?: DropZoneState
-  /** 0..1 for the `uploading` determinate bar + byte counter. */
+  /** 0..1 for the `uploading` determinate bar + aggregate byte counter. */
   progress?: number
-  selectedFile?: { name: string; size: number; kind?: string }
+  /** The accumulated files (the parent owns the list; DropZone renders it). */
+  selectedFiles?: SelectedFile[]
   error?: { code: string; message: string }
-  onRemove?: () => void
+  /** Remove the file at `index` from the parent's list. */
+  onRemove?: (index: number) => void
   /** Compact row layout (homepage audit panel). */
   compact?: boolean
 }
@@ -34,17 +43,17 @@ function humanBytes(n: number): string {
 /**
  * Drag-and-drop + click-to-browse upload affordance — the animated D-UP-ANIM
  * state machine (CSS in `ui/styles/components.css` under `.dropzone--*`). Fully
- * controlled: the parent owns `state`/`selectedFile`/`progress`/`error`; this
+ * controlled: the parent owns `state`/`selectedFiles`/`progress`/`error`; this
  * component overlays a transient `dragover` look while a drag is in flight.
  */
 export default function DropZone({
-  onFileSelected,
+  onFilesSelected,
   accept,
   maxBytes,
   hint,
   state = 'idle',
   progress = 0,
-  selectedFile,
+  selectedFiles,
   error,
   onRemove,
   compact,
@@ -52,15 +61,18 @@ export default function DropZone({
   const [dragging, setDragging] = useState(false)
 
   const effState: DropZoneState = dragging && state === 'idle' ? 'dragover' : state
+  const files = selectedFiles ?? []
+  const uploading = state === 'uploading'
 
-  function pick(file: File | undefined) {
-    if (file) onFileSelected(file)
+  function pick(picked: FileList | null) {
+    if (!picked || picked.length === 0) return
+    onFilesSelected(Array.from(picked))
   }
 
   function onDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault()
     setDragging(false)
-    pick(e.dataTransfer.files?.[0])
+    pick(e.dataTransfer.files)
   }
   function onDragOver(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault()
@@ -75,19 +87,23 @@ export default function DropZone({
     setDragging(false)
   }
 
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0)
+  const fileCount = files.length
+
   const liveMsg =
     effState === 'error' && error
       ? `Upload error: ${error.message}`
-      : state === 'uploading'
-        ? `Uploading ${selectedFile?.name ?? 'file'}, ${Math.round(progress * 100)} percent`
-        : selectedFile
-          ? `Selected ${selectedFile.name}${selectedFile.kind ? `, detected ${selectedFile.kind}` : ''}`
+      : uploading
+        ? `Uploading ${fileCount} file${fileCount === 1 ? '' : 's'}, ${Math.round(progress * 100)} percent`
+        : fileCount > 0
+          ? `${fileCount} file${fileCount === 1 ? '' : 's'} selected`
           : ''
 
   return (
     <div className={`dropzone${compact ? ' dropzone--compact' : ''}`} data-state={effState}>
       {/* A <label> wraps the real file input: native click-to-open + a
-          keyboard-focusable control, with no nested-interactive violation. */}
+          keyboard-focusable control, with no nested-interactive violation.
+          The zone stays a drop/click target while files are selected (add more). */}
       <label
         className="dz-zone"
         onDrop={onDrop}
@@ -97,11 +113,12 @@ export default function DropZone({
       >
         <input
           type="file"
+          multiple
           accept={accept.join(',')}
-          aria-label="Upload a file — drag and drop or browse"
+          aria-label="Upload files — drag and drop or browse"
           className="sr-only"
           onChange={(e) => {
-            pick(e.target.files?.[0])
+            pick(e.target.files)
             e.target.value = ''
           }}
         />
@@ -111,39 +128,59 @@ export default function DropZone({
         <p className="dz-main">
           Drag a file or .zip here, or <span className="dz-browse">click to browse</span>
         </p>
+        {/* The sub-line collapses (grid-rows 1fr→0fr) once files are picked,
+            shrinking the zone to glyph + sentence — see components.css. */}
         <p className="dz-sub">
-          Single file or .zip · max {humanBytes(maxBytes)} · {hint ?? accept.join(' ')}
+          <span>
+            One file, a .zip, or several files · max {humanBytes(maxBytes)} ·{' '}
+            {hint ?? accept.join(' ')}
+          </span>
         </p>
       </label>
 
-      {selectedFile && (
-        <div className="dz-file">
-          {state === 'uploading' && <span className="dz-sweep" aria-hidden="true" />}
-          <span className="ff-ic" aria-hidden="true">
-            <FileGlyph />
-          </span>
-          <span className="ff-name">{selectedFile.name}</span>
-          <span className="ff-size">{humanBytes(selectedFile.size)}</span>
-          {state === 'uploading' ? (
-            <span className="dz-bytes">
-              {humanBytes(Math.min(selectedFile.size, Math.round(progress * selectedFile.size)))} /{' '}
-              {humanBytes(selectedFile.size)}
-            </span>
-          ) : (
-            <>
-              {selectedFile.kind && <span className="ff-kind">{selectedFile.kind}</span>}
-              {onRemove && (
-                <button type="button" className="ff-x" aria-label="Remove file" onClick={onRemove}>
-                  ×
-                </button>
+      {fileCount > 0 && (
+        <ul className="dz-files" aria-label="Selected files">
+          {files.map((f, i) => (
+            <li
+              className="dz-file"
+              key={`${f.name}-${i}`}
+              style={{ '--dz-i': i } as CSSProperties}
+            >
+              <span className="ff-ic" aria-hidden="true">
+                <FileGlyph />
+              </span>
+              <span className="ff-name">{f.name}</span>
+              <span className="ff-size">{humanBytes(f.size)}</span>
+              {!uploading && (
+                <>
+                  {f.kind && <span className="ff-kind">{f.kind}</span>}
+                  {onRemove && (
+                    <button
+                      type="button"
+                      className="ff-x"
+                      aria-label={`Remove ${f.name}`}
+                      onClick={() => onRemove(i)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </>
               )}
-            </>
-          )}
-          {state === 'uploading' && (
-            <span className="dz-progress" aria-hidden="true">
-              <i style={{ '--dz-frac': Math.max(0, Math.min(1, progress)) } as CSSProperties} />
-            </span>
-          )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {uploading && fileCount > 0 && (
+        <div className="dz-upload">
+          <span className="dz-sweep" aria-hidden="true" />
+          <span className="dz-bytes">
+            {humanBytes(Math.min(totalBytes, Math.round(progress * totalBytes)))} /{' '}
+            {humanBytes(totalBytes)}
+          </span>
+          <span className="dz-progress" aria-hidden="true">
+            <i style={{ '--dz-frac': Math.max(0, Math.min(1, progress)) } as CSSProperties} />
+          </span>
         </div>
       )}
 

@@ -70,15 +70,31 @@ html.dark .scan-form-pane {
   flex-direction: column;
   gap: 18px;
 }
-.scan-console .p1-input {
+/* Repo mode (Scan-repo tab) accents the input ORANGE — but ONLY while it is
+   selected (`:focus-within`); unfocused it keeps the DS-neutral chrome. The DS
+   teal focus rules tie these on specificity in light mode and outrank them in
+   dark (via the extra `html.dark` element+class), so the selectors below raise
+   specificity by one class to win the focused state deterministically. */
+.scan-console .p1-input:focus-within {
   border-color: var(--brand-accent);
 }
-.scan-console .p1-input .p1-icon {
+.scan-console .p1-input:focus-within .p1-icon {
   background: var(--brand-accent);
   color: #fff;
   border-right-color: var(--brand-accent);
 }
 .scan-console .p1-input:focus-within .caret {
+  background: var(--brand-accent);
+}
+html.dark .scan-console .p1-input:focus-within {
+  border-color: var(--brand-accent);
+}
+html.dark .scan-console .p1-input:focus-within .p1-icon {
+  background: var(--brand-accent);
+  color: #fff;
+  border-right-color: var(--brand-accent);
+}
+html.dark .scan-console .p1-input:focus-within .caret {
   background: var(--brand-accent);
 }
 .scan-console .p1-submit {
@@ -314,6 +330,7 @@ html.dark .scan-recents {
   grid-template-columns: repeat(4, 1fr);
 }
 .scan-recent .rs-cell {
+  position: relative;
   padding: 16px 18px;
   display: flex;
   flex-direction: column;
@@ -321,12 +338,38 @@ html.dark .scan-recents {
   border-right: 1px dashed var(--color-line);
   text-decoration: none;
   color: inherit;
-  transition:
-    background var(--dur-xs) var(--ease-std),
-    transform var(--dur-sm) var(--ease-out);
+  transition: background var(--dur-xs) var(--ease-std);
 }
-.scan-recent .rs-cell:hover {
+/* Signature brand top-bar affordance — mirrors .docs-cta-card (page-docs.css):
+   a surface-color lift with NO movement (a translateY would reveal the 1px
+   --color-line seam on the dashed grid), plus a brand-primary bar that scales
+   in so the hovered card is unmistakable even on a subtle bg shift. */
+.scan-recent .rs-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--brand-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-sm) var(--ease-out);
+}
+.scan-recent .rs-cell:hover,
+.scan-recent .rs-cell:focus-visible {
   background: var(--color-paper-deep);
+}
+.scan-recent .rs-cell:hover::after,
+.scan-recent .rs-cell:focus-visible::after {
+  transform: scaleX(1);
+}
+.scan-recent .rs-cell:hover .nm,
+.scan-recent .rs-cell:focus-visible .nm {
+  color: var(--brand-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-recent .rs-cell::after {
+    transition: none;
+  }
 }
 .scan-recent .rs-cell:nth-child(4n) {
   border-right: 0;
@@ -474,13 +517,13 @@ html.dark .scan-method-pane {
     transform: none;
   }
 
-  /* Recent cards fade in place — transform stays free for the hover lift. */
+  /* Recent cards fade in place — no translate, so the dashed grid seams stay
+     flush (the hover affordance is the brand top-bar, not a lift). */
   .js-anim .rs-cell[data-reveal] {
     transform: none;
     transition:
       opacity var(--dur-lg) var(--ease-out) var(--reveal-delay, 0ms),
-      background var(--dur-xs) var(--ease-std),
-      transform var(--dur-sm) var(--ease-out);
+      background var(--dur-xs) var(--ease-std);
   }
 
   /* Title highlight "draws" in left→right once the title settles — echoes the
@@ -503,13 +546,6 @@ html.dark .scan-method-pane {
   }
   .js-anim .scan-method-pane[data-reveal].is-visible .weight-bars .wb-fill {
     transform: scaleX(var(--wb-frac, 1));
-  }
-}
-
-/* Recent-card hover lift — snappy, gated to real hover devices. */
-@media (hover: hover) and (pointer: fine) {
-  .scan-recent .rs-cell:hover {
-    transform: translateY(-2px);
   }
 }
 

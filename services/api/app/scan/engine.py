@@ -499,17 +499,20 @@ def _score_file_index(
     file_index: list[tuple[str, bytes]],
     rubric_version: str,
     ref_sha: str,
+    *,
+    source_kind: str | None = None,
 ) -> tuple[list[CapabilityResult], int, str, dict[str, int]]:
     """Discover + score a file index into (scored caps, repo aggregate, tier, tally).
 
     The source-agnostic core shared by `run_repo_scan` (GitHub) and
     `run_repo_scan_from_index` (upload). No I/O, no timing — callers own those —
     so the GitHub path stays byte-identical (same discover/score/aggregate calls,
-    same order).
+    same order). `source_kind` is forwarded to discovery so a flat upload fans
+    its top-level files into per-file capabilities; GitHub passes None.
     """
     from app.scan.discovery import discover_capabilities
 
-    capabilities = discover_capabilities(file_index)
+    capabilities = discover_capabilities(file_index, source_kind=source_kind)
     if not capabilities:  # discovery guarantees ≥1; defensive belt-and-braces.
         raise RuntimeError("discovery returned zero capabilities")
 
@@ -564,17 +567,20 @@ def run_repo_scan_from_index(
     rubric_version: str,
     *,
     ref_sha: str = "0" * 40,
+    source_kind: str | None = None,
 ) -> RepoScanResult:
     """Scan a pre-extracted in-memory file index (the upload front-end, I-3.5).
 
     The engine is source-agnostic: an uploaded artifact produces the identical
     `list[(path, bytes)]` index the GitHub fetch path produces, so discovery →
     scoring → aggregation are unchanged. `ref_sha` defaults to the 40-zero
-    sentinel (uploads have no git ref). Synchronous — no fetch, no I/O.
+    sentinel (uploads have no git ref). `source_kind="upload"` lets discovery fan
+    a flat upload's top-level files into per-file capabilities. Synchronous —
+    no fetch, no I/O.
     """
     started = time.monotonic()
     scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
-        file_index, rubric_version, ref_sha
+        file_index, rubric_version, ref_sha, source_kind=source_kind
     )
     latency_ms = int((time.monotonic() - started) * 1000)
 

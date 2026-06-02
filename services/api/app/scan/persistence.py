@@ -33,6 +33,7 @@ from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan, ScanEvent
 from app.models.scan_run import ScanRun
 from app.models.upload_file import UploadFile
+from app.scan.discovery import _is_repo_wide  # pyright: ignore[reportPrivateUsage]
 from app.scan.engine import CapabilityResult, RepoScanResult, ScanResult
 from app.scan.fetch import GithubRef, parse_github_url
 from app.services.agent_compat import agent_compatibility_for
@@ -180,6 +181,15 @@ def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str
             path, content = hit
             text = content[:_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
             return path, text
+
+    # Fallback (I-3.5): a loose single-file capability (install.sh / server.json /
+    # .cursorrules) has no preferred manifest — surface its own bytes so the Source
+    # tab isn't empty. Only when exactly one non-repo-wide text file is in scope.
+    non_wide = [(p, c) for p, c in files_index if not _is_repo_wide(p) and not _looks_binary(c)]
+    if len(non_wide) == 1:
+        path, content = non_wide[0]
+        text = content[:_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
+        return path, text
     return None
 
 

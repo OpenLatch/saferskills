@@ -1,7 +1,7 @@
+import Dialog from '@ui/components/atoms/Dialog'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import { useId, useRef, useState } from 'react'
 
-import ConfirmDialog from '@/components/scan/ConfirmDialog'
 import { track } from '@/lib/analytics'
 import { deleteUnlisted, promoteUnlisted } from '@/lib/api/scans'
 
@@ -128,7 +128,7 @@ export default function UnlistedManageBar({ token, shareUrl }: Props) {
       </div>
       <p className="manage-warn">Anyone with this link can also delete or publish it.</p>
 
-      <ConfirmDialog
+      <Dialog
         dialogRef={promoteRef}
         titleId={promoteTitle}
         title="Promote to public?"
@@ -140,7 +140,7 @@ export default function UnlistedManageBar({ token, shareUrl }: Props) {
         onConfirm={confirmPromote}
       />
 
-      <ConfirmDialog
+      <Dialog
         dialogRef={deleteRef}
         titleId={deleteTitle}
         title="Delete this report?"

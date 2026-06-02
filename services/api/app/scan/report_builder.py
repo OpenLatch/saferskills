@@ -105,6 +105,7 @@ def build_scan_run_report(
     share_url: str | None = None,
     manifest: ManifestSource | None = None,
     download: DownloadInfo | None = None,
+    capability_extras: dict[str, tuple[ManifestSource | None, DownloadInfo | None]] | None = None,
 ) -> ScanRunReportDetail:
     """Build the repo-scan report DTO: rollup + one `CapabilityRow` per scan.
 
@@ -112,25 +113,41 @@ def build_scan_run_report(
     ordered by the caller (kind then name). The item-detail report
     (`build_scan_report_detail`) is unchanged — it reuses each capability's scan.
 
+    `capability_extras` maps `scan_id → (manifest, download)` so each
+    `CapabilityRow` carries its own source viewer + `.zip` pointer (the multi-file
+    upload tabs render one rich report per file). The run-level `manifest`/
+    `download` are kept for the single-capability upload path.
+
     `share_url` is supplied ONLY by the unlisted `/scans/r/<token>` route — it is
     never set when the report is served from a public surface (the field stays a
     detail-only contract, never in a list payload).
     """
-    rows = [
-        CapabilityRow(
-            kind=item.kind,  # type: ignore[arg-type]
-            name=item.display_name,
-            component_path=scan.component_path,
-            aggregate_score=scan.aggregate_score,
-            tier=scan.tier,  # type: ignore[arg-type]
-            scan_id=str(scan.id),
-            catalog_slug=item.slug,
-            sub_scores=dict(scan.sub_scores),
-            findings_summary=_findings_summary(findings),
-            findings=[_finding_dict(f) for f in findings],  # type: ignore[arg-type]
+    extras = capability_extras or {}
+    rows: list[CapabilityRow] = []
+    for scan, item, findings in capabilities:
+        cap_manifest, cap_download = extras.get(str(scan.id), (None, None))
+        # Per-file provenance hash — the sha256 of this capability's own primary
+        # file (the fanned-out upload file is keyed by its component_path).
+        content_hash: str | None = None
+        if scan.component_path and scan.file_hashes:
+            content_hash = scan.file_hashes.get(scan.component_path)
+        rows.append(
+            CapabilityRow(
+                kind=item.kind,  # type: ignore[arg-type]
+                name=item.display_name,
+                component_path=scan.component_path,
+                aggregate_score=scan.aggregate_score,
+                tier=scan.tier,  # type: ignore[arg-type]
+                scan_id=str(scan.id),
+                catalog_slug=item.slug,
+                sub_scores=dict(scan.sub_scores),
+                findings_summary=_findings_summary(findings),
+                findings=[_finding_dict(f) for f in findings],  # type: ignore[arg-type]
+                manifest=cap_manifest,
+                download=cap_download,
+                content_hash=content_hash,
+            )
         )
-        for scan, item, findings in capabilities
-    ]
     return ScanRunReportDetail.model_validate(
         {
             "id": str(run.id),

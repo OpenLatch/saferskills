@@ -530,6 +530,7 @@ html.dark .cap-id .nm {
 .cap-note .find {
   display: inline-block;
   margin-top: 5px;
+  margin-left: 6px;
   font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
@@ -897,6 +898,11 @@ html.dark .badge-band {
   gap: 48px;
   align-items: start;
 }
+/* Let the right column shrink so the README terminal's bt-body overflow-x
+   scrolls long badge URLs instead of blowing out the grid track. */
+.badge-band .bw-r {
+  min-width: 0;
+}
 .badge-band .bw-l h3 {
   font-family: var(--font-sans);
   font-size: 24px;
@@ -923,6 +929,60 @@ html.dark .badge-band .bw-l h3 {
   letter-spacing: 0.04em;
   line-height: 1.6;
 }
+
+/* ---- "Share this result" band: blueprint surface mirroring the homepage
+   install-band texture so the README terminal sits on a brand surface. The
+   band is THEME-AWARE — a light gray-on-paper blueprint in light mode, a deep
+   slate lavender-on-dark blueprint in dark mode — and the text colors fall
+   through to the theme-flipping base .badge-band rules (no on-dark pins). The
+   grid rides a ::before overlay (like .page-section--grid) so the base
+   `html.dark .badge-band { background: … }` shorthand can't wipe it. ---- */
+.badge-band--share {
+  position: relative;
+  border-top: 0;
+  background-color: var(--color-paper-deep);
+  overflow: hidden;
+}
+html.dark .badge-band--share {
+  background-color: var(--ol-slate-900);
+}
+.badge-band--share::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(15,23,42,0.07)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size:
+    120px 120px,
+    120px 120px,
+    120px 120px;
+  background-position: center top;
+}
+html.dark .badge-band--share::before {
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(247,235,255,0.12)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
+    linear-gradient(rgba(247, 235, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247, 235, 255, 0.05) 1px, transparent 1px);
+}
+.badge-band--share > .container {
+  position: relative;
+  z-index: 1;
+}
+/* RidgeFlow variant: fade the report body into the share band, theme-aware —
+   paper → paper-deep in light, paper → deep-slate in dark. The default
+   RidgeFlow label is already theme-correct (paper/ink flip). Page-specific
+   override of the DS ridge. */
+.ridge-flow--share {
+  background: linear-gradient(to bottom, var(--color-paper) 0%, var(--color-paper-deep) 100%);
+  border-top: 0;
+}
+html.dark .ridge-flow--share {
+  background: linear-gradient(to bottom, var(--color-paper) 0%, var(--ol-slate-900) 100%);
+}
+
 .badge-band .badge-locked {
   display: flex;
   gap: 14px;
@@ -970,58 +1030,168 @@ html.dark .badge-band .badge-locked p b {
   color: var(--brand-primary);
 }
 
-/* ---- Confirm dialog (native <dialog> — focus-trap + Esc + focus-restore free) ---- */
-.confirm-dialog {
-  border: 1px solid var(--color-ink);
-  border-radius: 0;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  padding: 26px 28px;
-  max-width: 440px;
-  width: calc(100% - 32px);
-  box-shadow: var(--shadow-stamp);
-  /* Centre the modal — a global reset zeroes the UA `dialog` auto-margin. */
-  margin: auto;
+/* Confirm-dialog CSS moved to ui/styles/components.css (rendered by the
+   DS Dialog atom — CSS-ownership one-way rule). */
+
+/* SHA-256 value + inline CopyIconButton (Provenance row + Artifact pkg card) —
+   keeps the hash and its discreet copy glyph on one line, right-aligned. */
+.sha-cell {
+  display: inline-flex;
+  align-items: center;
 }
-html.dark .confirm-dialog {
+
+/* ============================================================ MULTI-FILE UPLOAD — FILE TAB STRIP ============================================================ */
+/* Page-specific tablist for a multi-file upload report (I-3.5). Grounded in the
+   DS underline-tabs look, extended per tab with a kind glyph + filename + tier
+   dot + tier-colored score. A page-specific composition (rendered by the
+   webapp-side UploadReport/FileTabStrip), so the CSS lives here, not in
+   components.css — same rationale as `.cap-filter` (design-system.md
+   § CSS ownership). Token-only, both themes, reduced-motion guarded. */
+.mf-nav {
+  background: var(--color-paper);
+  padding: 18px 0 0;
+}
+html.dark .mf-nav {
+  background: transparent;
+}
+
+.mf-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  /* overflow-x:auto forces overflow-y to compute to auto — the active tab's
+     -1px overhang then triggers a spurious vertical scrollbar. Pin it hidden so
+     only the horizontal axis scrolls. */
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--color-ink);
+  scrollbar-width: thin;
+}
+html.dark .mf-tabs {
   border-color: var(--color-line);
+}
+.mf-tabs::-webkit-scrollbar {
+  height: 7px;
+}
+.mf-tabs::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+}
+
+.mf-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  color: var(--fg-2);
+  font: 600 13px / 1 var(--font-sans);
+  white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.mf-tab:hover {
+  color: var(--color-ink);
+  background: var(--color-paper-deep);
+}
+html.dark .mf-tab:hover {
+  color: var(--fg-1);
+  background: var(--bg-surface-mute);
+}
+.mf-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.mf-tab.on {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .mf-tab.on {
   color: var(--fg-1);
 }
-.confirm-dialog::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+.mf-tab.on.band-g {
+  border-bottom-color: var(--score-green);
 }
-.confirm-dialog h3 {
-  font-family: var(--font-sans);
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  margin: 0 0 10px;
+.mf-tab.on.band-y {
+  border-bottom-color: var(--score-yellow);
 }
-.confirm-dialog p {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--fg-2);
-  margin: 0 0 18px;
-  text-wrap: pretty;
+.mf-tab.on.band-o {
+  border-bottom-color: var(--score-orange);
 }
-.confirm-dialog .confirm-error {
-  color: var(--score-red);
-  font-family: var(--font-mono);
-  font-size: 12px;
+.mf-tab.on.band-r {
+  border-bottom-color: var(--score-red);
 }
-.confirm-dialog .confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-.confirm-dialog .btn.danger {
-  background: var(--score-red);
+
+.mf-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  font: 700 9.5px / 1 var(--font-mono);
+  letter-spacing: 0.02em;
+  background: var(--color-ink);
   color: var(--color-paper);
+  flex: 0 0 auto;
 }
-.confirm-dialog .btn[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
+html.dark .mf-glyph {
+  background: var(--fg-2);
+  color: var(--bg-page);
+}
+
+.mf-name {
+  font-weight: 600;
+}
+.mf-tab.on .mf-name {
+  font-weight: 700;
+}
+
+.mf-dot {
+  font-size: 9px;
+  line-height: 1;
+}
+.mf-dot.dot-g {
+  color: var(--score-green);
+}
+.mf-dot.dot-y {
+  color: var(--score-yellow);
+}
+.mf-dot.dot-o {
+  color: var(--score-orange);
+}
+.mf-dot.dot-r {
+  color: var(--score-red);
+}
+
+.mf-score {
+  font: 800 12px / 1 var(--font-loud);
+  letter-spacing: 0.02em;
+  color: var(--fg-2);
+}
+.mf-tab.band-g .mf-score {
+  color: var(--score-green);
+}
+.mf-tab.band-y .mf-score {
+  color: var(--score-yellow);
+}
+.mf-tab.band-o .mf-score {
+  color: var(--score-orange);
+}
+.mf-tab.band-r .mf-score {
+  color: var(--score-red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf-tab {
+    transition: none;
+  }
 }
 
 /* ============================================================ RESPONSIVE ============================================================ */

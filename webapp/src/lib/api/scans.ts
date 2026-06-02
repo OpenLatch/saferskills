@@ -116,6 +116,12 @@ export interface CapabilityRow {
   sub_scores: Record<string, number>
   findings_summary: FindingsSummary
   findings: Finding[]
+  /** Per-capability rich-report source viewer (multi-file upload tabs). */
+  manifest?: ManifestSource | null
+  /** Per-capability `.zip` pointer (scan_id + uncompressed byte_size). */
+  download?: DownloadInfo | null
+  /** sha256 of this capability's own primary file (per-file provenance hash). */
+  content_hash?: string | null
 }
 
 export type Visibility = 'public' | 'unlisted'
@@ -258,17 +264,20 @@ function mapUploadError(xhr: XMLHttpRequest): UploadError {
 
 /**
  * POST /api/v1/scans/upload (multipart). Uses XMLHttpRequest for upload-progress
- * events. Buckets: 413 upload_too_large · 415 unsupported_type|binary_not_allowed
- * · 422 archive_rejected (+reason) · 429 rate_limit_exceeded.
+ * events. Accepts one file, one `.zip`, or N loose files (each appended as a
+ * `file` part — combined ≤10 MiB, the backend scans the batch as one repo).
+ * Progress is aggregate across all parts. Buckets: 413 upload_too_large ·
+ * 415 unsupported_type|binary_not_allowed · 422 archive_rejected (+reason) ·
+ * 429 rate_limit_exceeded.
  */
 export function submitUpload(
-  file: File,
+  files: File[],
   opts: { visibility: Visibility; kind?: string },
   onProgress?: (loaded: number, total: number) => void
 ): Promise<ScanUploadResponse> {
   return new Promise((resolve, reject) => {
     const form = new FormData()
-    form.append('file', file)
+    for (const f of files) form.append('file', f)
     form.append('visibility', opts.visibility)
     if (opts.kind) form.append('kind', opts.kind)
 

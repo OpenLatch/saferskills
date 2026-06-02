@@ -42,7 +42,9 @@ const SHELL_FILES = [
 // (`style={{ '--wb-frac': r.weight / 100 }}`), consumed as scaleX(var(--wb-frac, 1)).
 // `--dz-frac`: DropZone upload progress fraction set inline by the DropZone
 // molecule (`style={{ '--dz-frac': progress }}`), consumed as scaleX(var(--dz-frac, 0)).
-const RUNTIME_VARS = new Set(['--search-dropdown-max-h', '--wb-frac', '--dz-frac'])
+// `--dz-i`: DropZone file-card index set inline (`style={{ '--dz-i': i }}`),
+// consumed as the per-card stagger `animation-delay: calc(var(--dz-i, 0) * 50ms)`.
+const RUNTIME_VARS = new Set(['--search-dropdown-max-h', '--wb-frac', '--dz-frac', '--dz-i'])
 
 function listCss(dir) {
   const abs = path.join(ROOT, dir)

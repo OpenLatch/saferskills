@@ -7,7 +7,6 @@ vi.mock('@/lib/api/scans', async (importActual) => {
   return { ...actual, submitUpload: vi.fn(), submitScan: vi.fn() }
 })
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
-vi.mock('@/lib/upload-handoff', () => ({ takePendingUpload: vi.fn().mockResolvedValue(null) }))
 
 import ScanConsole from '@/components/scan/ScanConsole'
 import { submitUpload, UploadError } from '@/lib/api/scans'

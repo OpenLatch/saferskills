@@ -1,23 +1,13 @@
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import Toggle from '@ui/components/atoms/Toggle'
-import DropZone, { type DropZoneState } from '@ui/components/molecules/DropZone'
+import DropZone from '@ui/components/molecules/DropZone'
 import { useEffect, useState } from 'react'
 import { track } from '@/lib/analytics'
-import { submitScan, submitUpload, UploadError, type Visibility } from '@/lib/api/scans'
-import {
-  guessKind,
-  precheckFile,
-  SCAN_TABS,
-  UPLOAD_ACCEPT,
-  UPLOAD_HINT,
-  UPLOAD_MAX_BYTES,
-  uploadErrorMessage,
-} from '@/lib/upload'
-import { takePendingUpload } from '@/lib/upload-handoff'
-
-const VALID_URL = /^(https?:\/\/)?(www\.)?github\.com\/[^\s/]+\/[^\s/]+(\/.*)?\/?$/
-const VALID_SLUG = /^[^\s/]+\/[^\s/]+$/
+import type { Visibility } from '@/lib/api/scans'
+import { useRepoScanFlow } from '@/lib/hooks/useRepoScanFlow'
+import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
+import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 
 const VIS_EXPLAINER =
   'Public: listed in the catalog, permanent. Private: unlisted — only people with the link can see it, expires in 90 days.'
@@ -45,19 +35,13 @@ export default function ScanConsole() {
   const [tab, setTab] = useState<Tab>('upload')
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [handoff, setHandoff] = useState(false)
-  const [busy, setBusy] = useState(false)
 
-  // Upload state.
-  const [file, setFile] = useState<File | null>(null)
-  const [dzState, setDzState] = useState<DropZoneState>('idle')
-  const [progress, setProgress] = useState(0)
-  const [dzError, setDzError] = useState<{ code: string; message: string } | null>(null)
+  // Shared one-source-of-truth flows (also used on the homepage panel).
+  const upload = useUploadFlow()
+  const repo = useRepoScanFlow()
 
-  // URL state.
-  const [urlValue, setUrlValue] = useState('')
-  const [urlError, setUrlError] = useState<string | null>(null)
-
-  // Pick up a homepage handoff (a stashed File) or a ?prefill= GitHub URL.
+  // Pick up a ?prefill= GitHub URL (+ ?visibility= / ?deleted=). The homepage
+  // upload + repo paths now run inline there — there is no File handoff anymore.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     // Landed here after deleting an unlisted report (D-UP-26) — confirm + clean the URL.
@@ -70,107 +54,28 @@ export default function ScanConsole() {
     if (params.get('visibility') === 'unlisted') setVisibility('unlisted')
     const prefill = params.get('prefill')
     if (prefill) {
-      setUrlValue(prefill)
+      repo.setUrlValue(prefill)
       setTab('url')
     }
-    const m = window.location.hash.match(/pending=([a-f0-9]+)/)
-    if (!m) return
-    history.replaceState(null, '', window.location.pathname + window.location.search)
-    takePendingUpload(m[1]).then((pending) => {
-      if (!pending) return
-      setFile(pending.file)
-      setVisibility(pending.visibility)
-      setDzState('selected')
-      setTab('upload')
-    })
-  }, [])
-
-  function onFile(f: File) {
-    const pre = precheckFile(f)
-    if (!pre.ok) {
-      setFile(null)
-      setDzError({ code: pre.code, message: pre.message })
-      setDzState('error')
-      return
-    }
-    setFile(f)
-    setDzError(null)
-    setDzState('selected')
-  }
-
-  function onRemove() {
-    setFile(null)
-    setDzError(null)
-    setDzState('idle')
-  }
+  }, [repo.setUrlValue])
 
   function navigateToResult(res: { id: string; share_url?: string | null }) {
     const dest = visibility === 'unlisted' && res.share_url ? res.share_url : `/scans/${res.id}`
     navigateWithHandoff(dest, () => setHandoff(true))
   }
 
-  async function submitUploadPath() {
-    if (!file) {
-      // onFile already pre-checks before setting `file`, so reaching here means no file.
-      setDzError({ code: 'no_file', message: uploadErrorMessage('no_file') })
-      setDzState('error')
-      return
-    }
-    setBusy(true)
-    setDzError(null)
-    setProgress(0)
-    setDzState('uploading')
-    try {
-      const res = await submitUpload(file, { visibility }, (loaded, total) =>
-        setProgress(total ? loaded / total : 0)
-      )
-      setProgress(1)
-      navigateToResult(res)
-    } catch (e) {
-      setBusy(false)
-      if (e instanceof UploadError) {
-        setDzError({ code: e.code, message: uploadErrorMessage(e.code, e.reason) })
-      } else {
-        setDzError({ code: 'upload_failed', message: uploadErrorMessage('upload_failed') })
-      }
-      setDzState('error')
-    }
-  }
-
-  async function submitUrlPath() {
-    setUrlError(null)
-    const raw = urlValue.trim()
-    const githubUrl = VALID_SLUG.test(raw) ? `https://github.com/${raw}` : raw
-    if (!VALID_URL.test(githubUrl)) {
-      setUrlError('Paste a public github.com URL: `github.com/<org>/<repo>`')
-      return
-    }
-    setBusy(true)
-    try {
-      const res = await submitScan({ github_url: githubUrl, visibility })
-      navigateToResult(res)
-    } catch (e) {
-      setBusy(false)
-      if (e instanceof Error && e.message === 'rate_limit_exceeded') {
-        setUrlError(uploadErrorMessage('rate_limit_exceeded'))
-      } else if (e instanceof Error && e.message === 'invalid_url') {
-        setUrlError("The URL didn't resolve to a public GitHub repository.")
-      } else {
-        setUrlError('Scan submission failed. Try again in a moment.')
-      }
-    }
-  }
+  const inFlight = repo.submitting || upload.uploading
 
   function handleSubmit() {
-    if (busy) return
+    if (inFlight) return
     // FE intent signal (closed-enum only — no URL/filename/bytes/token). The
     // backend emits the authoritative `scan_submitted` on the server side.
     track('homepage_scan_submitted', {
       artifact_source: tab === 'upload' ? 'upload' : 'github',
       visibility,
     })
-    if (tab === 'upload') submitUploadPath()
-    else submitUrlPath()
+    if (tab === 'upload') void upload.submit({ visibility, onResult: navigateToResult })
+    else void repo.submit({ visibility, onResult: navigateToResult })
   }
 
   return (
@@ -195,17 +100,15 @@ export default function ScanConsole() {
           className="scan-pane"
         >
           <DropZone
-            onFileSelected={onFile}
+            onFilesSelected={upload.onFiles}
             accept={[...UPLOAD_ACCEPT]}
             maxBytes={UPLOAD_MAX_BYTES}
             hint={UPLOAD_HINT}
-            state={dzState}
-            progress={progress}
-            selectedFile={
-              file ? { name: file.name, size: file.size, kind: guessKind(file) } : undefined
-            }
-            error={dzError ?? undefined}
-            onRemove={onRemove}
+            state={upload.dzState}
+            progress={upload.progress}
+            selectedFiles={upload.selectedFiles}
+            error={upload.dzError ?? undefined}
+            onRemove={upload.onRemove}
           />
         </div>
       ) : (
@@ -216,7 +119,7 @@ export default function ScanConsole() {
           className="scan-pane"
         >
           <div className="scan-console audit">
-            <div className={`p1-input${urlValue ? ' has-value' : ''}`}>
+            <div className={`p1-input${repo.urlValue ? ' has-value' : ''}`}>
               <span className="p1-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
                   <title>Scan</title>
@@ -231,8 +134,8 @@ export default function ScanConsole() {
                   placeholder="github.com/anthropic/claude-mcp"
                   autoComplete="off"
                   aria-label="GitHub repository to scan"
-                  value={urlValue}
-                  onChange={(e) => setUrlValue(e.target.value)}
+                  value={repo.urlValue}
+                  onChange={(e) => repo.setUrlValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -245,19 +148,19 @@ export default function ScanConsole() {
                 type="button"
                 className="p1-submit"
                 aria-label="Scan repository"
-                disabled={busy}
+                disabled={inFlight}
                 onClick={handleSubmit}
               >
                 <span className="p1-submit-ret" aria-hidden="true">
-                  {busy ? '…' : '↵'}
+                  {inFlight ? '…' : '↵'}
                 </span>
               </button>
             </div>
           </div>
           <div className="hint">
-            {urlError ? (
+            {repo.urlError ? (
               <span role="alert" className="scan-error">
-                {urlError}
+                {repo.urlError}
               </span>
             ) : (
               <>
@@ -296,7 +199,7 @@ export default function ScanConsole() {
         type="button"
         className="scan-go"
         data-mode={tab}
-        disabled={busy}
+        disabled={inFlight}
         onClick={handleSubmit}
       >
         Scan now{' '}

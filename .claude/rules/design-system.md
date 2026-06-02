@@ -45,8 +45,12 @@ ui/
 │   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, Chip, Badge, BandPill,
 │   │                 # ScoreNumber, DotStrip, Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
 │   │                 # RidgeFlow, RidgePixel, ThemeToggle, RotatingHeadline, Toast, CopyButton,
+│   │                 # CopyIconButton (discreet icon-only copy — sha/scan-id, self-contained check flash),
 │   │                 # EmailCaptureForm (retained — reused by I-06 magic-link surface),
-│   │                 # SegmentedTabs, Toggle (I-3.5)
+│   │                 # SegmentedTabs, Toggle (I-3.5), Select (DS listbox — replaces native <select>),
+│   │                 # Checkbox (DS checkbox/radio — token-driven, dark-correct),
+│   │                 # Dialog (native <dialog> modal — was webapp ConfirmDialog),
+│   │                 # RangeSlider (dual-thumb — was catalog ScoreRangeSlider)
 │   ├── molecules/    # NavBar, CtaBand, AgentMarquee, WhyRow, InstallTabs, ActionCard,
 │   │                 # RecentScanCard, TrendScanCard (Phase A1)
 │   │                 # CatalogToolbar, CatalogFilterSide, CatalogResultsRow, ScanSplit,
@@ -55,6 +59,8 @@ ui/
 │   │                 # ScoreHistoryChart, InstallActivity, RelatedItems, EmbedBadgeBox,
 │   │                 # VendorResponseCard (Phase C)
 │   │                 # DropZone (I-3.5 — animated upload state machine, D-UP-ANIM)
+│   │                 # ScoreBreakdownTable, MarkdownSourceViewer, CheckGroupList
+│   │                 # (audit extraction — shared by ItemTabs + CapabilityReportTabs)
 │   └── organisms/    # (composition shells if needed)
 ├── styles/
 │   ├── tokens.css    # Token SSOT + dark-mode block + Tailwind v4 @theme
@@ -112,9 +118,34 @@ Three DS components back the dual-mode `/scan` + homepage upload affordance. All
 
 - **`SegmentedTabs`** (atom) — accessible roving-tabindex tablist (←/→/Home/End move, Enter/Space activate). Two variants: `underline` (the `.sk-tabs/.sk-tab` look — now DS-owned, see below) and `segmented` (the boxed `.seg/.seg-tab` control with a per-tab `teal`/`orange` active accent). Pair a tabpanel's `id` with `panelId(idBase, tabId)`.
 - **`Toggle`** (atom) — self-contained `role="switch"` (no Radix). Teal track ON, `tone="orange"` for URL/repo mode, `compact` for the homepage. Thumb slides on `transform` (reduced-motion → instant).
-- **`DropZone`** (molecule) — drag-and-drop + click-to-browse upload affordance built on a `<label>` + file input (no nested-interactive). Controlled by a `state` prop driving the **`D-UP-ANIM`** 5-state machine (`idle → dragover → selected → uploading → error`): teal scan-line sweep + `scaleX` progress while uploading, stamp-in file card, chip overshoot pop. **Transform/opacity only; every state has a `prefers-reduced-motion: reduce` short-circuit** (`.dropzone--*` CSS). `compact` variant for the homepage panel.
+- **`DropZone`** (molecule) — drag-and-drop + click-to-browse **multi-file** upload affordance built on a `<label>` + `<input multiple>` (no nested-interactive). Reports the picked `File[]` via `onFilesSelected`; the parent owns the accumulated list (`selectedFiles`) + `onRemove(index)` — append/remove semantics live in `useUploadFlow`. Controlled by a `state` prop driving the **`D-UP-ANIM`** 5-state machine (`idle → dragover → selected → uploading → error`): the zone **collapses** to glyph + sentence once files are picked (the `.dz-sub` sub-line collapses via the grid-rows `1fr → 0fr` + `overflow:hidden` + opacity technique, plus reduced zone padding/gap), file cards stamp-in (staggered ~50ms when several land at once), and uploading shows **one** aggregate teal scan-line sweep + `scaleX` progress bar under the list. **Transform/opacity only — the collapse is the sanctioned size-changing exception to that rule, and every state (incl. the collapse: grid-rows/padding snap, cards fade only) has a `prefers-reduced-motion: reduce` short-circuit** (`.dropzone--*` CSS). `compact` variant for the homepage panel.
 
 The `.sk-tabs/.sk-tab/.t-ct` CSS was **moved** from `webapp/src/styles/page-item.css` into `ui/styles/components.css` (CSS-ownership rule) when `ItemTabs` adopted `SegmentedTabs variant="underline"` — `/items/<slug>` renders byte-identical.
+
+## Capability/item report molecules (audit extraction)
+
+`ItemTabs` (item-detail report) and `CapabilityReportTabs` (single-capability upload report) previously hand-rolled the same score table, checklist, and source viewer, with all CSS living only in `webapp/src/styles/page-item.css` (which the scan pages imported cross-page). Three shared molecules now own that vocabulary in `ui/`, with their CSS in `ui/styles/components.css` (§ Capability/Item report vocabulary):
+
+- **`ScoreBreakdownTable`** — the `.score-cats` weight/score/contribution table. Pure render from `categories` + `subScores`; owns the `sk-bar-grow` bar-growth entrance.
+- **`MarkdownSourceViewer`** — the `.md-*` macOS-chrome source viewer with the Rendered/Raw toggle + copy. Renderer-agnostic: the caller passes pre-rendered markdown as `renderedHtml: ReactNode` (`renderMarkdown` stays in `webapp/` — `ui/` must not import a markdown renderer).
+- **`CheckGroupList`** — the `.chk-*` grouped pass/warn/fail checklist (`score × empty-category` copy via `emptyScanNoun`).
+
+### `FindingRow` vs `CheckGroupList` — deliberately distinct, do NOT consolidate
+
+Both render scan findings but model different surfaces and must stay separate:
+
+- **`FindingRow`** is the link-rich evidence `<li>` for the **repo-level** report (rendered inside `SubScoreAccordion`): severity `BandPill`, a rule-id link to the methodology, a category column, the finding text + matched-content hash, and a GitHub `blob/<sha>#L<line>` evidence href.
+- **`CheckGroupList`** is the terse **per-capability** checklist: one `.chk-group` per score axis, a green "all checks passed" row for empty categories, and a compact warn/fail glyph row (no links, no GitHub href) per finding.
+
+They are NOT interchangeable — a future "consolidate the finding components" pass should reaffirm this divergence, not merge them.
+
+### `.cap-filter` is a filter group, NOT `SegmentedTabs`
+
+The repo scan report's capability type-filter (`.cap-filter`/`.cf`/`.ct` in `ScanReportView`) is intentionally a `role="group"` of toggle buttons, **not** a `SegmentedTabs` (`role="tablist"`). It filters one results region (`.cap-list`) — "All / Skill / MCP / …" all render the same table with a filtered subset, and "All" is a superset, not a peer tab. There are no per-option `tabpanel`s to wire, so a tablist would misrepresent the semantics to assistive tech. It is also a page-specific composition (rendered by the webapp-side `ScanReportView`), so its CSS correctly stays in `webapp/src/styles/page-scan-report.css` (not `components.css`). A future pass should leave it as-is — adopting `SegmentedTabs` here was evaluated and declined.
+
+### `.mf-*` file-tab strip is a page-specific tablist (I-3.5)
+
+The multi-file upload report's file-tab strip (`.mf-nav`/`.mf-tabs`/`.mf-tab`/`.mf-glyph`/`.mf-dot`/`.mf-score` in `FileTabStrip`) is a genuine `role="tablist"` (one tab per scanned file, each swapping the per-file `tabpanel` body in `UploadReport`). It is **not** `SegmentedTabs` because each tab renders rich, non-label content — a kind glyph + filename + tier dot + tier-colored score — that `SegmentedTabs`' label-only API can't express; it mirrors `SegmentedTabs`' roving-tabindex keyboard model (←/→/↑/↓/Home/End, automatic activation) by hand. Like `.cap-filter`, it is a page-specific composition (rendered by webapp-side `FileTabStrip`/`UploadReport`), so its CSS lives in `webapp/src/styles/page-scan-report.css` (token-only, both themes, reduced-motion guarded) — **not** `components.css`. A future "lift to a DS tablist" pass should extend `SegmentedTabs` with a render-slot before merging, or leave this as-is.
 
 ## Page-head pattern
 
