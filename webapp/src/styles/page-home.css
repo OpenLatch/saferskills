@@ -455,6 +455,13 @@ html.dark .hero-band {
      gives them room inside the clip box; the em-anchored gradient above keeps
      the citron highlight visually unchanged. */
   padding: 0 10px 0.18em;
+  /* overflow:hidden makes an inline-block take its baseline from the bottom
+     margin edge (CSS2 §10.8.1), so the bottom pad above would drag the
+     baseline — and the trailing "." sibling — down by 0.18em. Cancel that with
+     a matching negative bottom margin: the clip box keeps its descender room
+     (margin doesn't clip), but the baseline (and the ".") returns to where it
+     was, with descenders hanging below it as they should. */
+  margin-bottom: -0.18em;
   /* The JS measures pure text width; without content-box the 10px side
      padding would eat into that width (Tailwind's default border-box) and
      clip the trailing letter of longer nouns. */

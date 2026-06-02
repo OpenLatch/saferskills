@@ -4530,8 +4530,13 @@ html.dark .seg-tab {
 }
 .toggle-thumb {
   position: absolute;
-  top: var(--toggle-pad);
-  left: var(--toggle-pad);
+  /* Subtract the 1px track border: the thumb is positioned from the padding
+     box (inside the border), so a bare var(--toggle-pad) leaves an asymmetric
+     gap (border+pad on top, border-only on the bottom). Offsetting by the
+     border re-centers the thumb within the visible (border-box) track for
+     every variant. The slide distance below is unaffected (symmetric). */
+  top: calc(var(--toggle-pad) - 1px);
+  left: calc(var(--toggle-pad) - 1px);
   width: var(--toggle-thumb);
   height: var(--toggle-thumb);
   background: var(--toggle-thumb-bg);
