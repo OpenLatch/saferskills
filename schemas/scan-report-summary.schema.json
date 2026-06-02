@@ -26,8 +26,8 @@
     },
     "slug": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$",
-      "description": "CatalogItem slug — `<org>--<repo>[--<kind>-<name>]` for GitHub scans, `upload--<arthash8>--<kind>-<name>` for public uploads (multi-`--`; grammar widened to match catalog-item.schema.json). Unlisted shadow slugs never appear here (list payloads are public-only)."
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)+$",
+      "description": "CatalogItem slug — `<org>--<repo>[--<kind>-<name>]` for GitHub scans, `upload--<arthash8>--<kind>-<name>` for public uploads (multi-`--`; widened to allow ≥1 `--` segment, keeping the original linear/ReDoS-safe form). Unlisted shadow slugs never appear here (list payloads are public-only)."
     },
     "aggregateScore": {
       "type": "integer",

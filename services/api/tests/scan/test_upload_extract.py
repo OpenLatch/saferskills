@@ -26,8 +26,10 @@ from app.scan.upload import (
     upload_content_hash,
 )
 
-# Mirrors schemas/catalog-item.schema.json `slug` pattern.
-_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$")
+# Validates the generated slug shape (a subset of the catalog-item grammar),
+# using a linear/unambiguous pattern — the `[a-z0-9-]*` form overlaps the `--`
+# separator and backtracks exponentially (CodeQL js/redos), so it is avoided here.
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)+$")
 
 
 async def _aiter(*chunks: bytes) -> AsyncIterator[bytes]:

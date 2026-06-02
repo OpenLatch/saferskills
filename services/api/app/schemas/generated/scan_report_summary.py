@@ -38,9 +38,11 @@ class ScanReportSummary(BaseModel):
         alias="githubUrl",
         description="Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub provenance).",
     )
-    slug: constr(pattern=r"^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$") = Field(
+    slug: constr(
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)+$"
+    ) = Field(
         ...,
-        description="CatalogItem slug — `<org>--<repo>[--<kind>-<name>]` for GitHub scans, `upload--<arthash8>--<kind>-<name>` for public uploads (multi-`--`; grammar widened to match catalog-item.schema.json). Unlisted shadow slugs never appear here (list payloads are public-only).",
+        description="CatalogItem slug — `<org>--<repo>[--<kind>-<name>]` for GitHub scans, `upload--<arthash8>--<kind>-<name>` for public uploads (multi-`--`; widened to allow ≥1 `--` segment, keeping the original linear/ReDoS-safe form). Unlisted shadow slugs never appear here (list payloads are public-only).",
     )
     aggregate_score: conint(ge=0, le=100) = Field(
         ...,
