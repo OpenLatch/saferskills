@@ -17,6 +17,14 @@ class ScanSubmitRequest(OrmBaseModel):
         default=False,
         description="If true, bypass idempotency cache and queue a new scan.",
     )
+    visibility: Literal["public", "unlisted"] = Field(
+        default="public",
+        description=(
+            "Listing posture. `public` (default) caches + appears in the catalog; "
+            "`unlisted` never caches (nonce-salted), mints a share token, and is "
+            "reachable only via its capability URL (I-3.5)."
+        ),
+    )
 
 
 class ScanSubmitResponse(OrmBaseModel):
@@ -25,6 +33,24 @@ class ScanSubmitResponse(OrmBaseModel):
     cached: bool = False
     rubric_version: str
     submitted_at: datetime
+    # Present (non-null) only when the submission was `unlisted`.
+    share_url: str | None = None
+
+
+class ScanUploadResponse(OrmBaseModel):
+    """202 result of POST /api/v1/scans/upload (D-UP-06).
+
+    `slug` is populated once known for a public upload (or omitted until the run
+    completes — the FE polls the run report). `share_url` is the capability URL,
+    present ONLY for an unlisted upload.
+    """
+
+    id: str
+    status: Literal["pending", "running", "completed", "failed"]
+    source_kind: Literal["github", "upload"] = "upload"
+    visibility: Literal["public", "unlisted"]
+    slug: str | None = None
+    share_url: str | None = None
 
 
 class FindingResponse(OrmBaseModel):
@@ -44,7 +70,7 @@ class FindingResponse(OrmBaseModel):
 
 class ScanReportDetail(OrmBaseModel):
     id: str
-    github_url: str
+    github_url: str | None = None
     slug: str
     display_name: str
     aggregate_score: int = Field(..., ge=0, le=100)
@@ -58,7 +84,7 @@ class ScanReportDetail(OrmBaseModel):
     latency_ms: int
     source: str
     status: Literal["pending", "running", "completed", "failed"] = "completed"
-    ref_sha: str
+    ref_sha: str | None = None
     # Per-capability context (optional → no item-detail break). Populated when the
     # scan belongs to a repo scan run (one capability of several in the repo).
     component_path: str | None = None

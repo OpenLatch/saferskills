@@ -42,7 +42,7 @@ class CapabilityRow(OrmBaseModel):
 
 class ScanRunReportDetail(OrmBaseModel):
     id: str
-    github_url: str
+    github_url: str | None = None
     repo_aggregate_score: int = Field(..., ge=0, le=100)
     repo_tier: ScanTier
     kind_tally: dict[str, int]
@@ -55,3 +55,33 @@ class ScanRunReportDetail(OrmBaseModel):
     source: str
     status: Literal["pending", "running", "completed", "failed"] = "completed"
     ref_sha: str | None = None
+    # Upload / visibility provenance (I-3.5). `share_url` is populated ONLY when the
+    # report is served via the unlisted `/scans/r/<token>` route — never in a list.
+    visibility: Literal["public", "unlisted"] = "public"
+    source_kind: Literal["github", "upload"] = "github"
+    artifact_sha256: str | None = None
+    uploaded_filename: str | None = None
+    expires_at: datetime | None = None
+    share_url: str | None = None
+
+
+class PromotedItem(OrmBaseModel):
+    """One capability promoted from unlisted → public (D-UP-31)."""
+
+    slug: str
+    kind: Literal["skill", "mcp_server", "hook", "plugin", "rules"]
+    display_name: str
+    merged: bool = False
+
+
+class PromoteRunResponse(OrmBaseModel):
+    """Structured 200 result of POST /scans/r/<token>/promote — never a 301.
+
+    `promoted` is True on the first (effective) promote, False on an idempotent
+    re-promote of an already-public run.
+    """
+
+    promoted: bool
+    run_id: str
+    visibility: Literal["public", "unlisted"]
+    items: list[PromotedItem]

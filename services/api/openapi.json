@@ -186,12 +186,26 @@
             "type": "integer"
           },
           "github_org": {
-            "title": "Github Org",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Org"
           },
           "github_repo": {
-            "title": "Github Repo",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Repo"
           },
           "github_url": {
             "anyOf": [
@@ -314,8 +328,6 @@
           "slug",
           "kind",
           "display_name",
-          "github_org",
-          "github_repo",
           "popularity_tier",
           "updated_at"
         ],
@@ -353,12 +365,26 @@
             "type": "integer"
           },
           "github_org": {
-            "title": "Github Org",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Org"
           },
           "github_repo": {
-            "title": "Github Repo",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Repo"
           },
           "github_url": {
             "anyOf": [
@@ -461,8 +487,6 @@
           "slug",
           "kind",
           "display_name",
-          "github_org",
-          "github_repo",
           "popularity_tier",
           "updated_at"
         ],
@@ -1132,6 +1156,78 @@
         "title": "PlatformStats",
         "type": "object"
       },
+      "PromoteRunResponse": {
+        "description": "Structured 200 result of POST /scans/r/<token>/promote \u2014 never a 301.\n\n`promoted` is True on the first (effective) promote, False on an idempotent\nre-promote of an already-public run.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PromotedItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "promoted": {
+            "title": "Promoted",
+            "type": "boolean"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "promoted",
+          "run_id",
+          "visibility",
+          "items"
+        ],
+        "title": "PromoteRunResponse",
+        "type": "object"
+      },
+      "PromotedItem": {
+        "description": "One capability promoted from unlisted \u2192 public (D-UP-31).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "merged": {
+            "default": false,
+            "title": "Merged",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "kind",
+          "display_name"
+        ],
+        "title": "PromotedItem",
+        "type": "object"
+      },
       "RelatedItem": {
         "description": "One card in the related-items grid.",
         "properties": {
@@ -1307,8 +1403,15 @@
             "type": "array"
           },
           "github_url": {
-            "title": "Github Url",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Url"
           },
           "id": {
             "title": "Id",
@@ -1319,8 +1422,15 @@
             "type": "integer"
           },
           "ref_sha": {
-            "title": "Ref Sha",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Sha"
           },
           "rubric_version": {
             "title": "Rubric Version",
@@ -1387,7 +1497,6 @@
         },
         "required": [
           "id",
-          "github_url",
           "slug",
           "display_name",
           "aggregate_score",
@@ -1399,8 +1508,7 @@
           "rubric_version",
           "engine_version",
           "latency_ms",
-          "source",
-          "ref_sha"
+          "source"
         ],
         "title": "ScanReportDetail",
         "type": "object"
@@ -1431,8 +1539,15 @@
             "type": "integer"
           },
           "github_url": {
-            "title": "Github Url",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Url"
           },
           "id": {
             "description": "Scan UUID rendered as string.",
@@ -1473,7 +1588,6 @@
         },
         "required": [
           "id",
-          "github_url",
           "slug",
           "aggregate_score",
           "tier",
@@ -1484,6 +1598,17 @@
       },
       "ScanRunReportDetail": {
         "properties": {
+          "artifact_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Sha256"
+          },
           "capabilities": {
             "items": {
               "$ref": "#/components/schemas/CapabilityRow"
@@ -1499,9 +1624,28 @@
             "title": "Engine Version",
             "type": "string"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
           "github_url": {
-            "title": "Github Url",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Url"
           },
           "id": {
             "title": "Id",
@@ -1555,8 +1699,28 @@
             "title": "Scanned At",
             "type": "string"
           },
+          "share_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Url"
+          },
           "source": {
             "title": "Source",
+            "type": "string"
+          },
+          "source_kind": {
+            "default": "github",
+            "enum": [
+              "github",
+              "upload"
+            ],
+            "title": "Source Kind",
             "type": "string"
           },
           "status": {
@@ -1569,11 +1733,30 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "uploaded_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded Filename"
+          },
+          "visibility": {
+            "default": "public",
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "github_url",
           "repo_aggregate_score",
           "repo_tier",
           "kind_tally",
@@ -1600,6 +1783,16 @@
             "description": "If true, bypass idempotency cache and queue a new scan.",
             "title": "Rescan",
             "type": "boolean"
+          },
+          "visibility": {
+            "default": "public",
+            "description": "Listing posture. `public` (default) caches + appears in the catalog; `unlisted` never caches (nonce-salted), mints a share token, and is reachable only via its capability URL (I-3.5).",
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
           }
         },
         "required": [
@@ -1622,6 +1815,17 @@
           "rubric_version": {
             "title": "Rubric Version",
             "type": "string"
+          },
+          "share_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Url"
           },
           "status": {
             "enum": [
@@ -1646,6 +1850,71 @@
           "submitted_at"
         ],
         "title": "ScanSubmitResponse",
+        "type": "object"
+      },
+      "ScanUploadResponse": {
+        "description": "202 result of POST /api/v1/scans/upload (D-UP-06).\n\n`slug` is populated once known for a public upload (or omitted until the run\ncompletes \u2014 the FE polls the run report). `share_url` is the capability URL,\npresent ONLY for an unlisted upload.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "share_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Url"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "source_kind": {
+            "default": "upload",
+            "enum": [
+              "github",
+              "upload"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "visibility"
+        ],
+        "title": "ScanUploadResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -2065,6 +2334,28 @@
                 }
               ],
               "title": "Scan Tier"
+            }
+          },
+          {
+            "description": "Provenance filter on the catalog item's source_kind. NOT named `source` (that is the scan TRIGGER enum) \u2014 P1-4.",
+            "in": "query",
+            "name": "artifact_source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "github",
+                    "upload"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Provenance filter on the catalog item's source_kind. NOT named `source` (that is the scan TRIGGER enum) \u2014 P1-4.",
+              "title": "Artifact Source"
             }
           },
           {
@@ -2745,6 +3036,126 @@
         ]
       }
     },
+    "/api/v1/scans/r/{token}": {
+      "delete": {
+        "description": "Delete an unlisted run + everything it owns (ordered cascade). Only\nunlisted runs are token-deletable (public \u2192 generic 404). Token \u2192 404.",
+        "operationId": "delete_unlisted_run_api_v1_scans_r__token__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete an unlisted run by its capability-URL token.",
+        "tags": [
+          "scans"
+        ]
+      },
+      "get": {
+        "description": "View an unlisted run via its share token. Invalid / expired / deleted /\nnot-unlisted ALL \u2192 generic 404 (no oracle). A promoted (now public) run\n307-redirects to the run report.",
+        "operationId": "get_unlisted_run_api_v1_scans_r__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanRunReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read an unlisted scan report by its capability-URL token.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/r/{token}/promote": {
+      "post": {
+        "description": "Promote unlisted \u2192 public, one-way. Returns a structured 200 (never a 301).\nIdempotent: an already-public run returns `promoted=False`.",
+        "operationId": "promote_unlisted_run_api_v1_scans_r__token__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoteRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote an unlisted run to public (one-way).",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
     "/api/v1/scans/runs/{run_id}": {
       "get": {
         "description": "The repo scan surface: consolidated repo score + by-kind tally + one row\nper discovered capability (each its own catalog item) with its findings.",
@@ -2784,6 +3195,28 @@
           }
         },
         "summary": "Read the full repo scan report (all discovered capabilities) for a run ID.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/upload": {
+      "post": {
+        "description": "Upload a single capability file or a `.zip` (\u226410 MiB) \u2192 scan it like a repo.\n\nThe upload is a second front-end to the unchanged engine: extraction yields\nthe same in-memory file index a GitHub fetch produces. Shares the `scan_submit`\nper-IP daily bucket (loopback exempt). `visibility` defaults to `public`.",
+        "operationId": "submit_upload_api_v1_scans_upload_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Submit an uploaded artifact for scanning.",
         "tags": [
           "scans"
         ]

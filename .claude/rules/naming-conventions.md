@@ -64,7 +64,9 @@ The regex (validated in `schemas/rubric-rule.schema.json` + `schemas/finding.sch
 One catalog_item = one capability (Skill/MCP/Hook/Plugin/Rules); several capabilities can share one GitHub repo. The slug is the `/items/<slug>` permalink key and stays UNIQUE.
 
 - **Per-capability slug**: `<org>--<repo>--<kind>-<name>[-<hash6>]` (e.g. `acme--devtools-agent-kit--skill-pdf-extract`). `<kind>` is the `catalog_item.kind` enum with underscores hyphenated (`mcp_server` → `mcp-server`, since the grammar disallows `_`); `<name>` is slugified; same-`(kind, name)` collisions within a repo get a `-<hash6>` of the capability's `component_path` (allocated in `app.scan.discovery`).
-- **Legacy repo-level slug** `<org>--<repo>` stays valid — the grammar was **widened, not replaced**: `^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$`. Source: `schemas/catalog-item.schema.json` (flows to generated Pydantic/Zod/TS). Built in `app/scan/persistence.py::capability_slug`.
+- **Public upload slug** (I-3.5): `upload--<arthash8>--<kind>-<name>` — `<arthash8>` is `scan_runs.content_hash_sha256[:8]` (no repo coordinates for an upload). Built in `app/scan/persistence.py::upload_capability_slug`.
+- **Unlisted shadow slug** (I-3.5): `unlisted--<run8>--<kind>-<name>` — `<run8>` is `str(run_id)[:8]`. Per-run shadow rows are never served from the public catalog. Built in `app/scan/persistence.py::unlisted_capability_slug`.
+- **Legacy repo-level slug** `<org>--<repo>` stays valid — the grammar was **widened, not replaced**: `^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$`. Source: `schemas/catalog-item.schema.json` (flows to generated Pydantic/Zod/TS). Built in `app/scan/persistence.py::capability_slug`. The upload + unlisted slugs above satisfy this **same** grammar — **no regex change** (the `mcp_server` → `mcp-server` hyphenation still applies, since the grammar disallows `_`).
 
 ## Severity tiers
 
@@ -86,3 +88,4 @@ info | low | medium | high | critical
 | New severity tier | "Severity tiers" + `methodology.md` § Sub-scores and aggregate + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | New DB-naming exception | "Database" |
 | Catalog slug grammar change | "Catalog slugs" + `schemas/catalog-item.schema.json` regex + `app/scan/persistence.py::capability_slug` |
+| New slug variant (e.g. upload / unlisted) | "Catalog slugs" + the builder in `app/scan/persistence.py` — confirm it satisfies the existing widened grammar |

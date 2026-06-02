@@ -75,6 +75,13 @@ Every appeal gets a **substantive public response** that engages the vendor's sp
 
 Each state transition is an audit event (cf. `security.md` § "Audit Trail").
 
+## Uploaded artifacts — no right-of-reply (I-3.5)
+
+The right-of-reply above is a **vendor** contract — it presumes a scanned artifact with a discoverable upstream owner (a GitHub repo). **Directly uploaded artifacts have NO vendor right-of-reply**: there is no repo to verify ownership against (`.saferskills/verify.txt`), no upstream maintainer record, and no auto-rescan path.
+
+- **Unlisted uploads** self-delete via `DELETE /api/v1/scans/r/{token}` (the submitter holds the only link) and auto-expire after 90 days — no appeal needed.
+- **Public uploads** are the only case requiring a removal path. The only such path is the manual SQL **operator runbook** at `docs/runbooks/operator-upload-deletion.md` (brainstorm handoff id `outbox/04`), which deletes the run via `delete_run_cascade(..., allow_public=True)`. There is **no** new takedown endpoint, **no** automated takedown, and **no** Slack alert — abusive-public-upload removal is a deliberate manual operator action.
+
 ## Escalation — `appeals@openlatch.ai`
 
 The email inbox is for cases the GitHub form cannot serve:
@@ -104,3 +111,4 @@ The inbox is monitored by the maintainer team. Replies move the appeal back to a
 | SLA change | "1-hour re-scan SLA" — re-verify whether SLA is still operationally feasible |
 | Web form ships (W6) | Move "Web form" status to Live + add `services/api/app/appeals/**` to the paths block |
 | Banned-reason added | "Banned reasons for rejection" |
+| Upload removal path changes (e.g. an automated takedown lands) | "Uploaded artifacts — no right-of-reply" + `docs/runbooks/operator-upload-deletion.md` |

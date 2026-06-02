@@ -12,12 +12,17 @@ GitHub URL — prevents scanned-artifact content from leaking to Sentry.
 import structlog
 
 from app.core.config import Settings
-from app.observability.events import scrub_sentry_breadcrumb
+from app.core.log_redaction import install_log_redaction
+from app.observability.events import scrub_sentry_breadcrumb, scrub_sentry_event
 
 logger = structlog.get_logger(__name__)
 
 
 async def init_observability(settings: Settings) -> None:
+    # Always-on: redact the unlisted capability token from access/app logs
+    # (D-UP-32(a)) — independent of Sentry/OTel being configured.
+    install_log_redaction()
+
     if settings.sentry_dsn:
         try:
             import sentry_sdk  # type: ignore[import-not-found]
@@ -33,6 +38,7 @@ async def init_observability(settings: Settings) -> None:
                 send_default_pii=False,
                 traces_sample_rate=0.0,  # bumped per-environment from Fly secrets later
                 before_breadcrumb=scrub_sentry_breadcrumb,
+                before_send=scrub_sentry_event,  # pyright: ignore[reportArgumentType]
             )
             logger.info("sentry.initialised", env=settings.env)
         except Exception as exc:  # observability must never break the app

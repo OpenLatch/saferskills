@@ -100,12 +100,18 @@ def build_scan_report_detail(
 def build_scan_run_report(
     run: ScanRun,
     capabilities: Sequence[tuple[Scan, CatalogItem, Sequence[Finding]]],
+    *,
+    share_url: str | None = None,
 ) -> ScanRunReportDetail:
     """Build the repo-scan report DTO: rollup + one `CapabilityRow` per scan.
 
     `capabilities` is `(scan, catalog_item, findings)` per discovered capability,
     ordered by the caller (kind then name). The item-detail report
     (`build_scan_report_detail`) is unchanged — it reuses each capability's scan.
+
+    `share_url` is supplied ONLY by the unlisted `/scans/r/<token>` route — it is
+    never set when the report is served from a public surface (the field stays a
+    detail-only contract, never in a list payload).
     """
     rows = [
         CapabilityRow(
@@ -138,5 +144,11 @@ def build_scan_run_report(
             "source": run.source,
             "status": run.status,
             "ref_sha": run.ref_sha,
+            "visibility": run.visibility,
+            "source_kind": run.source_kind,
+            "artifact_sha256": run.content_hash_sha256,
+            "uploaded_filename": run.original_filename,
+            "expires_at": run.expires_at,
+            "share_url": share_url,
         }
     )

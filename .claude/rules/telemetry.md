@@ -48,11 +48,11 @@ Closed-enum + bucketed-numeric values only. **No PII, no source-content hashes i
 
 ## Event allowlist — scan engine (W2+)
 
-The scan engine emits a closed enum of 14 events (per locked decision D-30). The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside that module are a regression.
+The scan engine emits a closed enum of 16 events (per locked decision D-30, +2 from I-3.5). The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside that module are a regression.
 
 | # | Event | Properties (all bucketed / closed-enum) |
 |---|---|---|
-| 1 | `scan_submitted` | `source` ∈ {`submission`, `ingestion`, `rescan_drift`, `rescan_appeal`}; `idempotency_cache_hit` (bool) |
+| 1 | `scan_submitted` | `source` ∈ {`submission`, `ingestion`, `rescan_drift`, `rescan_appeal`} (the trigger enum — **distinct from** `artifact_source`); `idempotency_cache_hit` (bool); `artifact_source` ∈ {`github`, `upload`}; `visibility` ∈ {`public`, `unlisted`}; `upload_size_bucket` ∈ {`<100KB`, `100KB-1MB`, `1-5MB`, `5-10MB`} (uploads only) |
 | 2 | `scan_started` | `scan_id_bucket` (hash%16) |
 | 3 | `scan_completed` | `scan_id_bucket`; `tier` ∈ {`green`,`yellow`,`orange`,`red`,`unscoped`}; `latency_ms_bucket`; `findings_count_bucket` |
 | 4 | `scan_failed` | `scan_id_bucket`; `failure_class` ∈ {`fetch_timeout`,`tar_oversize`,`rule_panic`,`unknown`} |
@@ -66,8 +66,10 @@ The scan engine emits a closed enum of 14 events (per locked decision D-30). The
 | 12 | `vendor_verification_succeeded` | `catalog_item_id_bucket` (hash%16) |
 | 13 | `vendor_response_submitted` | `catalog_item_id_bucket`; `body_length_bucket` ∈ {`<500`,`500-1000`,`1000-2000`} |
 | 14 | `rescan_triggered_drift` | `catalog_item_id_bucket`; `hash_delta_files_count_bucket` ∈ {`1`,`2-5`,`6-20`,`21+`} |
+| 15 | `promote_to_public` | `catalog_item_id_bucket` (hash%16) |
+| 16 | `upload_rejected` | `reason` ∈ {`too_big`,`bad_type`,`binary`,`archive_rejected`,`rate_limited`}; optional `archive_sub` (the zip-safety sub-reason) |
 
-No raw IPs, no emails, no URLs, no `matched_content` strings. Bucketing helpers (`hash_to_bucket`, `latency_bucket`, `count_bucket`) live alongside the emit-helpers in `services/api/app/observability/events.py`.
+No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the capability `share_token` or any path/filename content** (uploads). Bucketing helpers (`hash_to_bucket`, `latency_bucket`, `count_bucket`) live alongside the emit-helpers in `services/api/app/observability/events.py`.
 
 ## Sentry
 
@@ -104,7 +106,7 @@ The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes 
 | Change | Updates here |
 |---|---|
 | New event prefix added | "Closed-enum event names" table + `webapp/src/lib/analytics.ts` |
-| New scan-engine event | "Event allowlist — scan engine" table + `services/api/app/observability/events.py` typed helper |
+| New scan-engine event | "Event allowlist — scan engine" table (bump the event count) + `services/api/app/observability/events.py` typed helper |
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |
 | Sentry sample rate / scope change | "Sentry" |
 | New OTel exporter / endpoint | "OpenTelemetry" + `environment-config.md` |

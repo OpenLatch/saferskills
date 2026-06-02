@@ -285,6 +285,114 @@ async def scan_run_repo(
             logger.exception("scan_run %s final emit also failed", run_id)
 
 
+async def scan_run_upload(
+    run_id: UUID,
+    files_index: list[tuple[str, bytes]],
+    rubric_version: str,
+) -> None:
+    """Drive one UPLOAD repo scan to completion (I-3.5).
+
+    Identical to `scan_run_repo` except the engine scores the pre-extracted
+    in-memory file index instead of fetching from GitHub (re-fetching is
+    impossible for uploads). Streams the same `scan_progress_<run_id>` events and
+    persists via the same fork in `persist_completed_scan_run`; `files_index` is
+    threaded through so unlisted uploads can store their bytes per-run.
+    """
+    try:
+        await _emit(run_id, "fetch", 5, "running", {"target": "upload"}, scan_run_id=run_id)
+
+        repo = engine.run_repo_scan_from_index(files_index, rubric_version)
+
+        await _emit(
+            run_id,
+            "fetch",
+            15,
+            "completed",
+            {"file_count": repo.file_count, "ref_sha": repo.ref_sha},
+            scan_run_id=run_id,
+        )
+        await _emit(
+            run_id,
+            "index",
+            25,
+            "completed",
+            {"file_count": repo.file_count, "capability_count": repo.capability_count},
+            scan_run_id=run_id,
+        )
+
+        for sub_score, target_pct in zip(STAGES_SCORING, (50, 65, 75, 85, 90), strict=True):
+            count = sum(
+                1
+                for cap in repo.capabilities
+                for f in cap.result.findings
+                if f.sub_score == sub_score
+            )
+            await _emit(
+                run_id,
+                sub_score,
+                target_pct,
+                "completed",
+                {"findings_count": count},
+                scan_run_id=run_id,
+            )
+
+        await _emit(
+            run_id,
+            "score",
+            98,
+            "completed",
+            {
+                "repo_aggregate_score": repo.repo_aggregate_score,
+                "repo_tier": repo.repo_tier,
+                "kind_tally": repo.kind_tally,
+            },
+            scan_run_id=run_id,
+        )
+
+        async with AsyncSessionLocal() as session:
+            run = (
+                await session.execute(select(ScanRun).where(ScanRun.id == run_id))
+            ).scalar_one_or_none()
+            if run is None:
+                logger.warning("scan_run %s vanished mid-run; skipping commit", run_id)
+            else:
+                await persistence.persist_completed_scan_run(
+                    session, run, repo, full_files_index=files_index
+                )
+                await session.commit()
+
+        await _emit(run_id, "sign", 100, "completed", scan_run_id=run_id)
+        await _emit(run_id, "done", 100, "completed", scan_run_id=run_id)
+
+    except Exception as exc:
+        logger.exception("scan_run_upload %s failed", run_id)
+        try:
+            async with AsyncSessionLocal() as session:
+                run = (
+                    await session.execute(select(ScanRun).where(ScanRun.id == run_id))
+                ).scalar_one_or_none()
+                if run is not None:
+                    run.status = "failed"
+                    await session.commit()
+        except Exception:
+            logger.exception("scan_run_upload %s failed-status update also failed", run_id)
+        try:
+            await _emit(
+                run_id,
+                "done",
+                100,
+                "failed",
+                {
+                    "error_class": type(exc).__name__,
+                    "error_message": str(exc),
+                    "traceback_tail": traceback.format_exc(limit=3),
+                },
+                scan_run_id=run_id,
+            )
+        except Exception:
+            logger.exception("scan_run_upload %s final emit also failed", run_id)
+
+
 async def recover_stale_scans() -> None:
     """Startup hook: re-enqueue any scan whose status is `pending` or whose last
     progress event is older than 5 min and not in a terminal state.

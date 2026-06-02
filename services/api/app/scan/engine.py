@@ -495,6 +495,37 @@ def score_capability(
     )
 
 
+def _score_file_index(
+    file_index: list[tuple[str, bytes]],
+    rubric_version: str,
+    ref_sha: str,
+) -> tuple[list[CapabilityResult], int, str, dict[str, int]]:
+    """Discover + score a file index into (scored caps, repo aggregate, tier, tally).
+
+    The source-agnostic core shared by `run_repo_scan` (GitHub) and
+    `run_repo_scan_from_index` (upload). No I/O, no timing — callers own those —
+    so the GitHub path stays byte-identical (same discover/score/aggregate calls,
+    same order).
+    """
+    from app.scan.discovery import discover_capabilities
+
+    capabilities = discover_capabilities(file_index)
+    if not capabilities:  # discovery guarantees ≥1; defensive belt-and-braces.
+        raise RuntimeError("discovery returned zero capabilities")
+
+    scored = [score_capability(cap, rubric_version, ref_sha) for cap in capabilities]
+
+    scores = [c.result.aggregate_score for c in scored]
+    repo_aggregate = round(sum(scores) / len(scores))
+    repo_tier = tier_for(repo_aggregate)
+
+    kind_tally: dict[str, int] = {}
+    for cap in scored:
+        kind_tally[cap.kind] = kind_tally.get(cap.kind, 0) + 1
+
+    return scored, repo_aggregate, repo_tier, kind_tally
+
+
 async def run_repo_scan(
     github_url: str,
     rubric_version: str,
@@ -505,25 +536,13 @@ async def run_repo_scan(
     repo yields ≥1 capability (the discovery layer's whole-repo fallback), so a
     plain single-artifact repo stays 1:1 with today's behaviour.
     """
-    from app.scan.discovery import discover_capabilities
-
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
     file_index: list[tuple[str, bytes]] = list(fetch.walk_files(result.directory))
 
-    capabilities = discover_capabilities(file_index)
-    if not capabilities:  # discovery guarantees ≥1; defensive belt-and-braces.
-        raise RuntimeError("discovery returned zero capabilities")
-
-    scored = [score_capability(cap, rubric_version, result.ref_sha) for cap in capabilities]
-
-    scores = [c.result.aggregate_score for c in scored]
-    repo_aggregate = round(sum(scores) / len(scores))
-    repo_tier = tier_for(repo_aggregate)
-
-    kind_tally: dict[str, int] = {}
-    for cap in scored:
-        kind_tally[cap.kind] = kind_tally.get(cap.kind, 0) + 1
+    scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
+        file_index, rubric_version, result.ref_sha
+    )
 
     latency_ms = int((time.monotonic() - started) * 1000)
 
@@ -537,4 +556,36 @@ async def run_repo_scan(
         file_count=result.file_count,
         latency_ms=latency_ms,
         skipped_files=result.skipped_oversized_files,
+    )
+
+
+def run_repo_scan_from_index(
+    file_index: list[tuple[str, bytes]],
+    rubric_version: str,
+    *,
+    ref_sha: str = "0" * 40,
+) -> RepoScanResult:
+    """Scan a pre-extracted in-memory file index (the upload front-end, I-3.5).
+
+    The engine is source-agnostic: an uploaded artifact produces the identical
+    `list[(path, bytes)]` index the GitHub fetch path produces, so discovery →
+    scoring → aggregation are unchanged. `ref_sha` defaults to the 40-zero
+    sentinel (uploads have no git ref). Synchronous — no fetch, no I/O.
+    """
+    started = time.monotonic()
+    scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
+        file_index, rubric_version, ref_sha
+    )
+    latency_ms = int((time.monotonic() - started) * 1000)
+
+    return RepoScanResult(
+        capabilities=scored,
+        repo_aggregate_score=repo_aggregate,
+        repo_tier=repo_tier,
+        kind_tally=kind_tally,
+        capability_count=len(scored),
+        ref_sha=ref_sha,
+        file_count=len(file_index),
+        latency_ms=latency_ms,
+        skipped_files=[],
     )

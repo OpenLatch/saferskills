@@ -17,11 +17,10 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.artifact_blob import ArtifactBlob
 from app.models.scan import Scan
+from app.services.artifact_bytes import resolve_snapshot
 
 # Bound the work an anonymous caller can trigger.
 _MAX_LINES_PER_FILE = 2000  # beyond this, collapse the file to a summary entry
@@ -60,22 +59,12 @@ class DiffResult:
 async def load_snapshot(session: AsyncSession, scan: Scan) -> dict[str, bytes | None]:
     """Resolve `scans.file_hashes` → `{path: bytes|None}` for one scan.
 
-    `None` = the file is known-but-not-stored (binary / oversize sentinel in the
-    map). A missing blob (referenced sha absent) also resolves to `None`.
+    Delegates to the storage-split resolver (`artifact_blobs` for public bytes,
+    `upload_files` for unlisted-upload bytes), so diff/render/zip stay uniform
+    across both stores. `None` = known-but-not-stored (binary / oversize) or a
+    missing blob.
     """
-    file_hashes: dict[str, str | None] = scan.file_hashes or {}
-    shas = {sha for sha in file_hashes.values() if sha}
-    blobs: dict[str, bytes] = {}
-    if shas:
-        rows = (
-            await session.execute(
-                select(ArtifactBlob.sha256, ArtifactBlob.content).where(
-                    ArtifactBlob.sha256.in_(shas)
-                )
-            )
-        ).all()
-        blobs = {sha: bytes(content) for sha, content in rows}
-    return {path: (blobs.get(sha) if sha else None) for path, sha in file_hashes.items()}
+    return await resolve_snapshot(session, scan)
 
 
 def _decode(content: bytes) -> list[str]:

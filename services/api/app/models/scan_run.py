@@ -21,6 +21,7 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.scan import Scan
+    from app.models.upload_file import UploadFile
 
 
 class ScanRun(Base):
@@ -30,7 +31,8 @@ class ScanRun(Base):
         PgUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    github_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Nullable since I-3.5: uploads have no GitHub URL.
+    github_url: Mapped[str | None] = mapped_column(String(500))
     ref_sha: Mapped[str | None] = mapped_column(String(40))
     repo_aggregate_score: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     repo_tier: Mapped[str] = mapped_column(String(20), nullable=False, server_default="'unscoped'")
@@ -44,6 +46,14 @@ class ScanRun(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     file_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="'pending'")
+    # ── Upload / visibility (I-3.5) ───────────────────────────────────────────
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="'public'")
+    source_kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default="'github'")
+    share_token: Mapped[str | None] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    original_filename: Mapped[str | None] = mapped_column(String(255))
+    # Durable artifactSha256 source (sha256 of the sorted {path: sha256} map).
+    content_hash_sha256: Mapped[str | None] = mapped_column(String(64))
     scanned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -55,3 +65,6 @@ class ScanRun(Base):
     )
 
     scans: Mapped[list[Scan]] = relationship(back_populates="scan_run")
+    upload_files: Mapped[list[UploadFile]] = relationship(
+        back_populates="scan_run", cascade="all, delete-orphan", passive_deletes=True
+    )

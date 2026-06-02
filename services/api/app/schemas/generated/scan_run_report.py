@@ -32,6 +32,24 @@ class Status(StrEnum):
     failed = "failed"
 
 
+class Visibility(StrEnum):
+    """
+    Listing posture of the run. `unlisted` runs are reachable only via their capability URL and never appear in any public feed.
+    """
+
+    public = "public"
+    unlisted = "unlisted"
+
+
+class SourceKind(StrEnum):
+    """
+    Origin of the scanned bytes — `github` or `upload`.
+    """
+
+    github = "github"
+    upload = "upload"
+
+
 class Kind(StrEnum):
     """
     Capability taxonomy — drives the row's type glyph.
@@ -181,8 +199,10 @@ class ScanRunReport(BaseModel):
         ...,
         description="Server-assigned scan_runs UUID. Keys the `/scans/<id>` page + the SSE channel.",
     )
-    github_url: AnyUrl = Field(
-        ..., alias="githubUrl", description="Canonical GitHub repo URL scanned."
+    github_url: AnyUrl | None = Field(
+        None,
+        alias="githubUrl",
+        description="Canonical GitHub repo URL scanned. Null for uploaded artifacts (`sourceKind = 'upload'`).",
     )
     repo_aggregate_score: conint(ge=0, le=100) = Field(
         ...,
@@ -235,5 +255,34 @@ class ScanRunReport(BaseModel):
     ref_sha: str | None = Field(
         None,
         alias="refSha",
-        description="Resolved HEAD SHA of the scanned ref. Null until the engine resolves it.",
+        description="Resolved HEAD SHA of the scanned ref. Null until the engine resolves it (and always null for uploads).",
+    )
+    visibility: Visibility | None = Field(
+        "public",
+        description="Listing posture of the run. `unlisted` runs are reachable only via their capability URL and never appear in any public feed.",
+    )
+    source_kind: SourceKind | None = Field(
+        "github",
+        alias="sourceKind",
+        description="Origin of the scanned bytes — `github` or `upload`.",
+    )
+    artifact_sha256: constr(pattern=r"^[a-f0-9]{64}$") | None = Field(
+        None,
+        alias="artifactSha256",
+        description="Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs.",
+    )
+    uploaded_filename: constr(max_length=255) | None = Field(
+        None,
+        alias="uploadedFilename",
+        description="Original filename of the uploaded artifact (e.g. `SKILL.md`, `my-skill.zip`). Null for GitHub scans.",
+    )
+    expires_at: AwareDatetime | None = Field(
+        None,
+        alias="expiresAt",
+        description="Auto-expiry timestamp for an unlisted run (90 days). Null for public runs.",
+    )
+    share_url: AnyUrl | None = Field(
+        None,
+        alias="shareUrl",
+        description="The capability URL `/scans/r/<token>` — present only on the unlisted detail response served via the token route. NEVER present in any list payload.",
     )

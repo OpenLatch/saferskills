@@ -25,11 +25,13 @@ _UNSCOPED = "unscoped"
 
 
 async def count_catalog_total(session: AsyncSession) -> int:
-    """Non-archived catalog item count."""
+    """Non-archived, public catalog item count (unlisted shadows excluded)."""
     return int(
         (
             await session.execute(
-                select(func.count(CatalogItem.id)).where(CatalogItem.archived.is_(False))
+                select(func.count(CatalogItem.id)).where(
+                    CatalogItem.archived.is_(False), CatalogItem.visibility == "public"
+                )
             )
         ).scalar_one()
     )
@@ -61,6 +63,8 @@ async def latest_scan_tier_distribution(session: AsyncSession) -> dict[str, int]
                     Scan.scanned_at == latest_per_item.c.max_scanned_at,
                 ),
             )
+            .join(CatalogItem, CatalogItem.id == Scan.catalog_item_id)
+            .where(CatalogItem.visibility == "public")
             .group_by(Scan.tier)
         )
     ).all()
@@ -71,9 +75,9 @@ async def median_completed_score(session: AsyncSession) -> int | None:
     """Median (P50) aggregate score over completed scans. None when empty."""
     value = (
         await session.execute(
-            select(func.percentile_cont(0.5).within_group(Scan.aggregate_score.asc())).where(
-                Scan.tier != _UNSCOPED
-            )
+            select(func.percentile_cont(0.5).within_group(Scan.aggregate_score.asc()))
+            .join(CatalogItem, CatalogItem.id == Scan.catalog_item_id)
+            .where(Scan.tier != _UNSCOPED, CatalogItem.visibility == "public")
         )
     ).scalar_one_or_none()
     return round(value) if value is not None else None
@@ -91,7 +95,7 @@ async def latency_stats_ms(session: AsyncSession) -> tuple[int | None, int | Non
             select(
                 func.percentile_cont(0.95).within_group(ScanRun.latency_ms.asc()),
                 func.avg(ScanRun.latency_ms),
-            ).where(ScanRun.status == "completed")
+            ).where(ScanRun.status == "completed", ScanRun.visibility == "public")
         )
     ).first()
     if row is None:

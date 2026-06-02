@@ -117,19 +117,24 @@ def _to_summary(
 
 @router.get("/facets", response_model=CatalogFacets)
 async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFacets:
-    total = (await session.execute(select(func.count(CatalogItem.id)))).scalar_one()
+    # Public-only catalog: unlisted shadow rows never contribute to any facet.
+    total = (
+        await session.execute(
+            select(func.count(CatalogItem.id)).where(CatalogItem.visibility == "public")
+        )
+    ).scalar_one()
 
     kind_rows = (
         await session.execute(
             select(CatalogItem.kind, func.count(CatalogItem.id))
-            .where(CatalogItem.archived.is_(False))
+            .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
             .group_by(CatalogItem.kind)
         )
     ).all()
     popularity_rows = (
         await session.execute(
             select(CatalogItem.popularity_tier, func.count(CatalogItem.id))
-            .where(CatalogItem.archived.is_(False))
+            .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
             .group_by(CatalogItem.popularity_tier)
         )
     ).all()
@@ -149,7 +154,7 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
         await session.execute(
             select(agent_fn.c.value, func.count(CatalogItem.id))
             .select_from(CatalogItem, agent_fn)
-            .where(CatalogItem.archived.is_(False))
+            .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
             .group_by(agent_fn.c.value)
         )
     ).all()
@@ -175,6 +180,13 @@ async def list_items(
     score_min: int = Query(default=0, ge=0, le=100),
     score_max: int = Query(default=100, ge=0, le=100),
     scan_tier: list[str] | None = Query(default=None),
+    artifact_source: Literal["github", "upload"] | None = Query(
+        default=None,
+        description=(
+            "Provenance filter on the catalog item's source_kind. NOT named "
+            "`source` (that is the scan TRIGGER enum) — P1-4."
+        ),
+    ),
     q: str | None = Query(default=None, max_length=200),
     sort: SortKey = Query(default="most_installed"),
     limit: int = Query(default=25, ge=1, le=100),
@@ -227,9 +239,12 @@ async def list_items(
             isouter=True,
         )
         .join(findings_sub, findings_sub.c.scan_id == Scan.id, isouter=True)
-        .where(CatalogItem.archived.is_(False))
+        # Public-only catalog: unlisted shadow rows are never listed (D-UP-19).
+        .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
     )
 
+    if artifact_source:
+        stmt = stmt.where(CatalogItem.source_kind == artifact_source)
     if kind:
         stmt = stmt.where(CatalogItem.kind.in_(kind))
     if popularity_tier:
@@ -510,6 +525,7 @@ async def _related_items(
             .where(CatalogItem.kind == kind)
             .where(CatalogItem.id != exclude_id)
             .where(CatalogItem.archived.is_(False))
+            .where(CatalogItem.visibility == "public")
             .where(or_(latest_scan_sub.c.rn == 1, latest_scan_sub.c.rn.is_(None)))
             .order_by(desc(func.coalesce(latest_scan_sub.c.score, 0)), CatalogItem.slug)
             .limit(limit)
@@ -558,7 +574,9 @@ async def _vendor_responses(session: AsyncSession, item: CatalogItem) -> list[Ve
 
 @router.get("/{slug}", response_model=ItemDetailResponse)
 async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> ItemDetailResponse:
-    stmt = select(CatalogItem).where(CatalogItem.slug == slug)
+    # Public-only detail: an unlisted shadow slug 404s here (reachable only via
+    # its capability URL, never the public catalog surface — D-UP-19).
+    stmt = select(CatalogItem).where(CatalogItem.slug == slug, CatalogItem.visibility == "public")
     item = (await session.execute(stmt)).scalar_one_or_none()
     if item is None:
         raise HTTPException(status_code=404, detail="item not found")
@@ -663,8 +681,12 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
 
 
 async def _require_item(session: AsyncSession, slug: str) -> CatalogItem:
+    # Public-only: unlisted shadow slugs 404 on /diff + /download too (their bytes
+    # are token-gated via /scans/r/<token>, never the public item surface).
     item = (
-        await session.execute(select(CatalogItem).where(CatalogItem.slug == slug))
+        await session.execute(
+            select(CatalogItem).where(CatalogItem.slug == slug, CatalogItem.visibility == "public")
+        )
     ).scalar_one_or_none()
     if item is None:
         raise HTTPException(status_code=404, detail="item not found")

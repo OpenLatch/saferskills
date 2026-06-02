@@ -42,6 +42,13 @@ class Settings(BaseSettings):
         default=["http://localhost:4321", "http://localhost:5173"],
         description="Comma-separated origin list. Source-of-truth for CORS middleware.",
     )
+    public_base_url: str = Field(
+        default="http://localhost:4321",
+        description=(
+            "Public origin of the webapp. Used to build capability `share_url`s "
+            "(`/scans/r/<token>`) and upload `sources[].registryUrl`."
+        ),
+    )
 
     # ── Observability (all optional at W1) ────────────────────────────────
     sentry_dsn: str | None = Field(default=None, description="Sentry DSN; None disables.")
@@ -106,6 +113,72 @@ class Settings(BaseSettings):
             "Loopback callers (trusted local seeding) are exempt."
         ),
     )
+    private_lookup_daily_limit: int = Field(
+        default=60,
+        ge=1,
+        description=(
+            "Maximum unlisted capability-URL (`/scans/r/{token}`) lookups per IP "
+            "per 24h window. Denies an enumeration oracle (D-UP-15). Loopback exempt."
+        ),
+    )
+
+    # ── Upload intake (I-3.5) ──────────────────────────────────────────────
+    upload_max_bytes: int = Field(
+        default=10_485_760,  # 10 MiB
+        ge=1,
+        description="Max accepted upload body size (streaming cap → 413).",
+    )
+    upload_extract_max_per_file_bytes: int = Field(
+        default=5_242_880,  # 5 MiB
+        ge=1,
+        description="Max uncompressed bytes per file inside an uploaded .zip.",
+    )
+    upload_extract_max_total_bytes: int = Field(
+        default=52_428_800,  # 50 MiB
+        ge=1,
+        description="Max total uncompressed bytes across an uploaded .zip.",
+    )
+    upload_extract_max_ratio: int = Field(
+        default=100,
+        ge=1,
+        description="Max per-entry compression ratio (zip-bomb guard, incremental).",
+    )
+    upload_extract_max_entries: int = Field(
+        default=1000,
+        ge=1,
+        description="Max file entries inside an uploaded .zip.",
+    )
+    upload_allowed_extensions: list[str] = Field(
+        default=[
+            ".zip",
+            ".md",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".txt",
+            ".js",
+            ".ts",
+            ".py",
+            ".sh",
+        ],
+        description="Allowlist of accepted upload file extensions (else 415).",
+    )
+    unlisted_retention_days: int = Field(
+        default=90,
+        ge=1,
+        description="Days an unlisted run is retained before the expiry sweep deletes it.",
+    )
+    upload_rescan_window_days: int = Field(
+        default=90,
+        ge=1,
+        description="Window within which a public upload may be rescanned.",
+    )
+    sweep_interval_seconds: int = Field(
+        default=3600,
+        ge=60,
+        description="Interval between unlisted-run expiry sweeps (in-process loop).",
+    )
 
     # ── Vendor right-of-reply ──────────────────────────────────────────────
     # HS256 signing key for the short-lived `ss_vendor_session` JWT minted on
@@ -123,6 +196,18 @@ class Settings(BaseSettings):
     def _parse_cors_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("upload_allowed_extensions", mode="before")
+    @classmethod
+    def _parse_allowed_extensions(cls, value: object) -> object:
+        """Parse a comma-separated env string into a normalized extension list.
+
+        Each entry is lowercased and dot-prefixed (`md` and `.MD` both → `.md`).
+        """
+        if isinstance(value, str):
+            parts = [p.strip().lower() for p in value.split(",") if p.strip()]
+            return [p if p.startswith(".") else f".{p}" for p in parts]
         return value
 
     @field_validator("database_url", mode="after")
