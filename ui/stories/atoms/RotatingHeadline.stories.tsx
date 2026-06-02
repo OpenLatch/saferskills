@@ -5,14 +5,14 @@ const NOUNS = ['Secrets Leaks', 'Prompt Injection', 'Supply-Chain Attacks', 'Too
 
 export const Default: Story = () => (
   <RotatingHeadline
-    base="Every AI skill, independently audited against"
+    base="Every AI capability, independently audited against"
     nouns={NOUNS}
   />
 )
 
 export const Fast: Story = () => (
   <RotatingHeadline
-    base="Every AI skill, audited against"
+    base="Every AI capability, audited against"
     nouns={NOUNS}
     cycleMs={1500}
   />
@@ -20,7 +20,7 @@ export const Fast: Story = () => (
 
 export const Single: Story = () => (
   <RotatingHeadline
-    base="Every AI skill, audited against"
+    base="Every AI capability, audited against"
     nouns={['Prompt Injection']}
   />
 )

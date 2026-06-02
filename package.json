@@ -2,7 +2,7 @@
   "name": "saferskills",
   "version": "0.0.0-foundation",
   "private": true,
-  "description": "Every AI skill, independently scanned. Public, open-source trust scoring for skills, MCP servers, hooks, and plugins across every agent platform.",
+  "description": "Every AI capability, independently scanned. Public, open-source trust scoring for skills, MCP servers, hooks, and plugins across every agent platform.",
   "homepage": "https://saferskills.ai",
   "repository": {
     "type": "git",

@@ -186,7 +186,7 @@ html.dark .scan-form-pane .hint b {
   left: 50%;
   bottom: calc(100% + 8px);
   transform: translateX(-50%);
-  width: 260px;
+  width: 280px;
   padding: 11px 13px;
   background: var(--color-ink);
   color: var(--color-paper);
@@ -208,7 +208,9 @@ html.dark .scan-form-pane .hint b {
   margin-top: 10px;
   font-family: var(--font-mono);
   font-size: 11.5px;
-  color: var(--brand-primary);
+  /* P2-3: teal --brand-primary on paper is ~3.9:1 (fails AA). The darker
+     --brand-primary-dark clears AA (~4.8:1) while staying on-brand. */
+  color: var(--brand-primary-dark);
 }
 .pv-note::before {
   content: "";
@@ -216,7 +218,7 @@ html.dark .scan-form-pane .hint b {
   width: 7px;
   height: 7px;
   margin-right: 8px;
-  background: var(--brand-primary);
+  background: var(--brand-primary-dark);
   vertical-align: baseline;
 }
 
@@ -246,6 +248,11 @@ html.dark .scan-form-pane .hint b {
 }
 .scan-go[data-mode="url"] {
   background: var(--brand-accent);
+  /* P2-3: the mockup uses near-white text on #F97316 (~2.3:1, fails AA). Orange
+     can't darken without losing identity, so dark ink on orange (~6.8:1) is the
+     a11y-correct deviation. A fixed palette ink (not theme-flipping --color-ink)
+     keeps it dark in BOTH themes — the orange accent is constant across modes. */
+  color: var(--ol-slate-900);
 }
 .scan-go:not(:disabled):hover {
   background: var(--brand-primary-dark);

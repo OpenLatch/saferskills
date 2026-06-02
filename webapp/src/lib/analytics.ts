@@ -2,7 +2,19 @@ import posthog from 'posthog-js'
 
 type EventMap = {
   homepage_search_submitted: { query_length_bucket: '<10' | '<25' | '<50' | '>=50' }
-  homepage_scan_submitted: { url_domain_class: 'github' | 'other' }
+  // Dual-mode scan submit from the /scan console (I-3.5). Closed-enum only —
+  // never the URL, filename, bytes, or share_token (telemetry.md). The backend
+  // emits the authoritative `scan_submitted`; this is the FE intent signal.
+  homepage_scan_submitted: {
+    artifact_source: 'github' | 'upload'
+    visibility: 'public' | 'unlisted'
+  }
+  // Homepage audit-panel affordance: the user picked a file / hit ↵ and is being
+  // navigated to /scan to confirm (P1-5 — the panel never submits inline).
+  homepage_scan_panel_started: {
+    artifact_source: 'github' | 'upload'
+    visibility: 'public' | 'unlisted'
+  }
   catalog_filter_changed: {
     filter_type: 'type' | 'agent' | 'score_range' | 'scan_tier' | 'recency'
     action: 'add' | 'remove'

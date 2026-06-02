@@ -112,7 +112,7 @@ export default function NavBar({
               live. This is the single top bar; do not hand-roll another. */}
           <GhStar count={ghCount} />
           <a href={scanHref} className="btn primary sm">
-            Scan a repo
+            Scan a capability
           </a>
         </div>
 
@@ -154,7 +154,7 @@ export default function NavBar({
         <div className="nav-drawer-cta">
           <GhStar count={ghCount} />
           <a href={scanHref} className="btn primary sm" onClick={() => setOpen(false)}>
-            Scan a repo
+            Scan a capability
           </a>
         </div>
       </div>

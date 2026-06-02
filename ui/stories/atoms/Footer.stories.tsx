@@ -26,7 +26,7 @@ export const Default: Story = () => (
             SaferSkills
           </span>
           <p style={{ color: '#CBD5E1', maxWidth: 360, marginTop: 14, fontSize: 15 }}>
-            Every AI skill, independently audited. Public, open-source trust scoring across every agent platform.
+            Every AI capability, independently audited. Public, open-source trust scoring across every agent platform.
           </p>
           <p style={{ color: '#64748B', marginTop: 20, fontFamily: 'monospace', fontSize: 11 }}>
             Stewarded by OpenLatch

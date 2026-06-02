@@ -8,6 +8,9 @@ interface DropZoneProps {
   accept: string[]
   /** Client pre-check ceiling (server is authoritative) — drives the subtext copy. */
   maxBytes: number
+  /** Optional descriptive subtext (after "Single file or .zip · max N MiB · ").
+   *  Defaults to the raw extension list — callers pass domain copy. */
+  hint?: string
   /** Controlled machine state (parent owns idle/selected/uploading/error). */
   state?: DropZoneState
   /** 0..1 for the `uploading` determinate bar + byte counter. */
@@ -38,6 +41,7 @@ export default function DropZone({
   onFileSelected,
   accept,
   maxBytes,
+  hint,
   state = 'idle',
   progress = 0,
   selectedFile,
@@ -108,7 +112,7 @@ export default function DropZone({
           Drag a file or .zip here, or <span className="dz-browse">click to browse</span>
         </p>
         <p className="dz-sub">
-          Single file or .zip · max {humanBytes(maxBytes)} · {accept.join(' ')}
+          Single file or .zip · max {humanBytes(maxBytes)} · {hint ?? accept.join(' ')}
         </p>
       </label>
 

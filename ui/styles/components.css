@@ -2851,6 +2851,9 @@ html.dark .rescan-btn:hover {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* Grow to absorb the grid-stretch slack so the foot always pins to the card
+     bottom — keeps the FIND/AUDIT foot rows aligned when one body is shorter. */
+  flex: 1;
 }
 
 .p1-card .p1-title {
@@ -4564,6 +4567,54 @@ html.dark .seg-tab {
 }
 
 /* ============================================================
+   HOME SCAN PANEL — layout glue for the AUDIT hero card
+   (HomeScanPanel.tsx). Renders on both / and /404, so this
+   lives in the DS sheet per the CSS-ownership one-way rule
+   (design-system.md § CSS ownership) — same precedent as
+   .sk-tabs. The DS SegmentedTabs/Toggle/DropZone atoms own
+   their own look above; this is positioning glue only.
+
+   The v2 mockup floats the compact tabs inline-right with the
+   "Scan a new skill." title (no pipeline bar; card height ~=
+   the FIND card). The .p1-body is the positioning context; the
+   tabs are pulled up beside the headline.
+   ============================================================ */
+.p1-card.audit .p1-body {
+  position: relative;
+  /* Match the v2 mockup card chrome (26px top / 24px bottom) so the audit
+     content aligns with the headline band; the grid stretches the FIND card to
+     match (FIND internals untouched). */
+  padding: 26px 28px 24px;
+}
+.hs-panel {
+  /* The body flex-gap is 14px; the mockup's title→dropzone gap is 18px. The
+     absolute .seg below is unaffected (out of flow). */
+  margin-top: 4px;
+}
+.hs-panel .seg {
+  position: absolute;
+  top: 22px;
+  right: 28px;
+  width: auto;
+  /* content-sized columns (the /scan tabs are equal 1fr; here they hug labels) */
+  grid-auto-columns: auto;
+  margin-bottom: 0;
+}
+/* Compact tabs beside the headline (mockup: content-sized, 7px 15px). */
+.hs-panel .seg-tab {
+  padding: 7px 15px;
+}
+.hs-vis {
+  margin-top: 12px;
+}
+.hs-vis-help {
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+
+/* ============================================================
    DROPZONE — DS molecule (ui/components/molecules/DropZone.tsx)
    The animated upload state machine (D-UP-ANIM): the SaferSkills
    "audit sweep" brand moment. Transform/opacity only; every state
@@ -4587,9 +4638,9 @@ html.dark .seg-tab {
   text-align: center;
   width: 100%;
   padding: 44px 28px;
-  border: 1.5px dashed var(--color-line);
-  background: var(--color-paper-deep);
-  background-image: var(--bg-plus-grid-soft);
+  border: 1px dashed var(--color-line);
+  background-color: var(--color-paper-deep);
+  background-image: none;
   cursor: pointer;
   transition:
     border-color var(--dur-xs) var(--ease-out),
@@ -4610,6 +4661,8 @@ html.dark .seg-tab {
   border-color: var(--brand-primary);
   border-style: solid;
   background-color: var(--color-paper);
+  /* The plus-grid intensifies in from nothing on dragover (D-UP-ANIM). */
+  background-image: var(--bg-plus-grid-soft);
   transform: scale(1.01);
 }
 .dropzone[data-state='dragover'] .dz-glyph {
@@ -4621,13 +4674,14 @@ html.dark .seg-tab {
   place-items: center;
   width: 46px;
   height: 46px;
-  border: 1.5px solid var(--color-ink);
+  border: 1px solid var(--color-ink);
   color: var(--fg-1);
 }
 .dz-main {
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--fg-1);
 }
 .dz-browse {
@@ -4772,19 +4826,25 @@ html.dark .dz-file {
   vertical-align: baseline;
 }
 
-/* Compact variant — homepage audit panel (kept near the input-row height). */
+/* Compact variant — homepage audit panel (kept near the input-row height).
+   Matches the v2 mockup .p1-drop: slate-500 dashed border, an unboxed inline
+   glyph (no 1px ring), centered row. */
 .dropzone--compact .dz-zone {
   flex-direction: row;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
+  min-height: 60px;
   padding: 14px 16px;
   text-align: left;
+  border-color: var(--color-slate-soft);
 }
 .dropzone--compact .dz-glyph {
-  width: 30px;
-  height: 30px;
+  width: auto;
+  height: auto;
+  border: 0;
 }
 .dropzone--compact .dz-main {
-  font-size: 13px;
+  font-size: 14px;
 }
 .dropzone--compact .dz-sub {
   display: none;

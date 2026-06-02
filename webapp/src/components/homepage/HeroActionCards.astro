@@ -1,0 +1,75 @@
+---
+import ActionCard from '@ui/components/molecules/ActionCard.tsx'
+import HeroInputBar from '@/components/homepage/HeroInputBar.tsx'
+import HomeScanPanel from '@/components/home/HomeScanPanel.tsx'
+
+import type { PopularChip } from '@/data/launch-fallbacks'
+import type { HomepageData } from '@/lib/homepage'
+import { formatCount, formatSeconds } from '@/lib/format'
+
+interface Props {
+  /** Resolved homepage view-model (live-with-fallback) — see lib/homepage.ts. */
+  data: HomepageData
+}
+
+const { data } = Astro.props
+
+// Popular-chip score swatch class (CSS supports green/yellow/orange; red→orange).
+const scClass = (tier: PopularChip['tier']): string =>
+  tier === 'green' ? 'green' : tier === 'yellow' ? 'yellow' : 'orange'
+
+// Hero action-card foot meta — passed as HTML strings (rendered via
+// dangerouslySetInnerHTML inside ActionCard) so the `<b>` emphasis ports
+// across the React-island serialization boundary. `data-live-stat` marks the
+// nodes the HomepageLive island patches with fresh values (homepage only).
+const findMetaHtml = `<b data-live-stat="catalog_total">${formatCount(data.catalogTotal)}</b> indexed · <b data-live-stat="registries">${data.registriesCount}</b> registries`
+const auditMetaHtml = `avg <b data-live-stat="avg">${formatSeconds(data.avgLatencyMs)}</b>`
+---
+<ActionCard
+  client:visible
+  index="01"
+  kicker="Find"
+  liveLabel="Indexing"
+  title="Search the catalog."
+  lede="All the skills, MCPs, and plugins indexed from every public registries. One unified search to find them all."
+  variant="find"
+  foot={{
+    cta: { label: 'Browse catalog →', href: '/catalog' },
+    metaHtml: findMetaHtml,
+  }}
+>
+  <HeroInputBar
+    client:idle
+    kind="find"
+    initialPlaceholder="ripgrep, supabase, linear..."
+    ariaLabel="Search the catalog"
+    submitAriaLabel="Submit search"
+    shortcutKey="k"
+  />
+  <div class="p1-tabs" data-live-popular>
+    <span class="lbl">Popular</span>
+    {data.popular.map((chip) => (
+      <button class="p1-chip" type="button">
+        <span class="kbd">Tab</span>
+        <span class="nm">{chip.name}</span>
+        <span class={`sc ${scClass(chip.tier)}`}>{chip.score}</span>
+      </button>
+    ))}
+  </div>
+</ActionCard>
+
+<ActionCard
+  client:visible
+  index="02"
+  kicker="Audit"
+  liveLabel="Running"
+  title="Scan a new skill."
+  lede="Drop a SKILL.md or .zip, or paste a public GitHub URL. Full security report in ~30s. Free. No account."
+  variant="audit"
+  foot={{
+    cta: { label: 'Scan a skill →', href: '/scan' },
+    metaHtml: auditMetaHtml,
+  }}
+>
+  <HomeScanPanel client:idle />
+</ActionCard>

@@ -1,7 +1,7 @@
 {
   "name": "SaferSkills",
   "short_name": "SaferSkills",
-  "description": "Every AI skill, independently scanned. Public, open-source trust scoring for skills, MCP servers, hooks, and plugins across every AI agent platform.",
+  "description": "Every AI capability, independently scanned. Public, open-source trust scoring for skills, MCP servers, hooks, and plugins across every AI agent platform.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",

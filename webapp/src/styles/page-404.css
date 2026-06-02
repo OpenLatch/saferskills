@@ -1,112 +1,139 @@
-/* Per-page CSS for /404 (PRD §4.12).
+/* Per-page CSS for /404.
  *
- * Centered fallback page with search input + scan input + take-me-home link.
- * Visual treatment matches the hi-fi system (eyebrow + display title + actions).
+ * The 404 reuses the homepage "Clean Studio" chrome (NavBar + Footer + the
+ * FIND/AUDIT hero cards via HeroActionCards); only this hero band is bespoke.
+ * The cards + their inner controls (.p1-*, .seg, .toggle, .dropzone, .hs-*)
+ * are DS-owned in ui/styles/components.css — this file owns ONLY the band.
+ *
+ * Token-only (design-system.md § CSS token discipline). The #hex inside the
+ * plus-grid url() data-URLs is the lone exempt case (compositing inside url()).
  */
 
-.not-found {
-  min-height: 60vh;
-  padding: 120px 0 96px;
-  display: flex;
-  align-items: center;
-  background: var(--color-paper);
+/* ---------- 404 hero band ---------- */
+.nf-band {
   position: relative;
   overflow: hidden;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - 72px);
 }
-.not-found::before {
+.nf-band::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.10'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
   background-size: 40px 40px;
-  opacity: 0.85;
+  opacity: 0.9;
   pointer-events: none;
 }
-html.dark .not-found::before {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23F8FAFC' stroke-width='1' stroke-linecap='square' opacity='0.10'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
+html.dark .nf-band::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23F8FAFC' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
 }
-.not-found .container {
+.nf-band > .container {
   position: relative;
   z-index: 1;
-  max-width: 720px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 40px;
+  padding-bottom: 72px;
+  gap: 22px;
 }
 
+/* eyebrow with orange leading rule */
 .nf-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--score-orange);
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 0 18px;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--brand-accent);
 }
 .nf-eyebrow::before {
   content: "";
-  width: 28px;
-  height: 1px;
-  background: currentColor;
+  width: 40px;
+  height: 2px;
+  background: var(--brand-accent);
 }
 
-.nf-title {
+.nf-band h1 {
   font-family: var(--font-sans);
-  font-size: clamp(36px, 5vw, 56px);
+  font-size: clamp(40px, 5.6vw, 80px);
   font-weight: 800;
+  line-height: 0.98;
   letter-spacing: -0.045em;
-  line-height: 1.02;
-  margin: 0 0 16px;
-  color: var(--fg-1);
+  margin: 0;
+  max-width: 16ch;
   text-wrap: balance;
+  color: var(--fg-1);
 }
+.nf-band h1 .mk {
+  background-image: linear-gradient(
+    transparent 64%,
+    var(--brand-highlight) 64%,
+    var(--brand-highlight) 94%,
+    transparent 94%
+  );
+  padding: 0 4px;
+}
+
 .nf-lede {
   font-family: var(--font-sans);
   font-size: 18px;
   line-height: 1.55;
   color: var(--fg-2);
-  margin: 0 0 36px;
+  margin: 0;
   max-width: 560px;
+  text-wrap: pretty;
 }
 
-.nf-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.nf-search,
-.nf-scan {
+/* ---------- cards grid (each card is supplied by HeroActionCards) ---------- */
+.nf-cards {
+  width: 100%;
+  max-width: 1100px;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: stretch;
-}
-.nf-search .input,
-.nf-scan .input {
-  flex: 1;
-}
-.nf-home {
-  margin-top: 12px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--brand-primary);
-  text-decoration: none;
-}
-.nf-home:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  text-align: left;
+  margin-top: 14px;
 }
 
-html.dark .not-found {
-  background: var(--bg-page);
+/* ---------- take-me-home row — DS Button atom (.btn) + arrow slide ---------- */
+.nf-home-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+.nf-home .nf-arrow {
+  font-family: var(--font-mono);
+  transition: transform var(--dur-xs) var(--ease-std);
+}
+.nf-home:hover .nf-arrow {
+  transform: translateX(-4px);
 }
 
-@media (max-width: 640px) {
-  .not-found {
-    padding: 80px 0 64px;
-  }
-  .nf-search,
-  .nf-scan {
+/* ---------- responsive ---------- */
+@media (max-width: 920px) {
+  .nf-cards {
     grid-template-columns: 1fr;
+    gap: 20px;
+    max-width: 560px;
+  }
+  .nf-band > .container {
+    min-height: 0;
+    padding-top: 40px;
+    padding-bottom: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-home .nf-arrow {
+    transition: none;
   }
 }

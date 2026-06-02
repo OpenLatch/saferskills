@@ -19,6 +19,10 @@ export const UPLOAD_ACCEPT = [
 
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024 // 10 MiB — matches UPLOAD_MAX_BYTES
 
+/** DropZone subtext descriptor (after "Single file or .zip · max 10 MiB · "). */
+export const UPLOAD_HINT =
+  'SKILL.md, MCP manifest, hooks, plugin, rules (.zip .md .json .yaml .toml .txt .js .ts .py .sh)'
+
 /** The dual-mode scan tabs — shared by /scan (ScanConsole) + the homepage panel. */
 export const SCAN_TABS = [
   { id: 'upload', label: 'Upload', accent: 'teal' as const },

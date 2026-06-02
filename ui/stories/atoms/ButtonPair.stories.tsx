@@ -4,7 +4,7 @@ import ButtonPair from '../../components/atoms/ButtonPair'
 
 export const Default: Story = () => (
   <ButtonPair>
-    <Button variant="primary">Scan a repo</Button>
+    <Button variant="primary">Scan a capability</Button>
     <Button variant="paper">Browse catalog</Button>
   </ButtonPair>
 )
