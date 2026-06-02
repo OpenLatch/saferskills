@@ -50,7 +50,7 @@ class VersionPoint(OrmBaseModel):
 
     tag: str | None = None
     scan_id: str
-    ref_sha: str
+    ref_sha: str | None = None
     scanned_at: datetime
     aggregate_score: int = Field(..., ge=0, le=100)
     tier: ScanTier

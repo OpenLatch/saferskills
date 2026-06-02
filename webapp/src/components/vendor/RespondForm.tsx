@@ -1,4 +1,5 @@
 import Button from '@ui/components/atoms/Button'
+import Checkbox from '@ui/components/atoms/Checkbox'
 import Eyebrow from '@ui/components/atoms/Eyebrow'
 import { useState } from 'react'
 
@@ -103,14 +104,11 @@ export default function RespondForm({ slug, githubOrg, githubRepo }: Props) {
               </div>
             )}
 
-            <label className="form-checkbox">
-              <input
-                type="checkbox"
-                checked={triggerRescan}
-                onChange={(e) => setTriggerRescan(e.currentTarget.checked)}
-              />
-              Trigger an immediate re-scan after submission
-            </label>
+            <Checkbox
+              checked={triggerRescan}
+              onChange={setTriggerRescan}
+              label="Trigger an immediate re-scan after submission"
+            />
 
             {error && (
               <div className="form-error" role="alert">

@@ -1,20 +1,18 @@
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import Toggle from '@ui/components/atoms/Toggle'
-import DropZone, { type DropZoneState } from '@ui/components/molecules/DropZone'
+import DropZone from '@ui/components/molecules/DropZone'
 import { useEffect, useState } from 'react'
 import { track } from '@/lib/analytics'
-import { submitScan, submitUpload, UploadError, type Visibility } from '@/lib/api/scans'
+import { submitScan, type Visibility } from '@/lib/api/scans'
+import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
 import {
-  guessKind,
-  precheckFile,
   SCAN_TABS,
   UPLOAD_ACCEPT,
   UPLOAD_HINT,
   UPLOAD_MAX_BYTES,
   uploadErrorMessage,
 } from '@/lib/upload'
-import { takePendingUpload } from '@/lib/upload-handoff'
 
 const VALID_URL = /^(https?:\/\/)?(www\.)?github\.com\/[^\s/]+\/[^\s/]+(\/.*)?\/?$/
 const VALID_SLUG = /^[^\s/]+\/[^\s/]+$/
@@ -47,17 +45,15 @@ export default function ScanConsole() {
   const [handoff, setHandoff] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  // Upload state.
-  const [file, setFile] = useState<File | null>(null)
-  const [dzState, setDzState] = useState<DropZoneState>('idle')
-  const [progress, setProgress] = useState(0)
-  const [dzError, setDzError] = useState<{ code: string; message: string } | null>(null)
+  // Upload state — shared one-source-of-truth hook (also used on the homepage).
+  const upload = useUploadFlow()
 
   // URL state.
   const [urlValue, setUrlValue] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
 
-  // Pick up a homepage handoff (a stashed File) or a ?prefill= GitHub URL.
+  // Pick up a ?prefill= GitHub URL (+ ?visibility= / ?deleted=). The homepage
+  // upload path now runs inline there — there is no File handoff anymore.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     // Landed here after deleting an unlisted report (D-UP-26) — confirm + clean the URL.
@@ -73,68 +69,15 @@ export default function ScanConsole() {
       setUrlValue(prefill)
       setTab('url')
     }
-    const m = window.location.hash.match(/pending=([a-f0-9]+)/)
-    if (!m) return
-    history.replaceState(null, '', window.location.pathname + window.location.search)
-    takePendingUpload(m[1]).then((pending) => {
-      if (!pending) return
-      setFile(pending.file)
-      setVisibility(pending.visibility)
-      setDzState('selected')
-      setTab('upload')
-    })
   }, [])
-
-  function onFile(f: File) {
-    const pre = precheckFile(f)
-    if (!pre.ok) {
-      setFile(null)
-      setDzError({ code: pre.code, message: pre.message })
-      setDzState('error')
-      return
-    }
-    setFile(f)
-    setDzError(null)
-    setDzState('selected')
-  }
-
-  function onRemove() {
-    setFile(null)
-    setDzError(null)
-    setDzState('idle')
-  }
 
   function navigateToResult(res: { id: string; share_url?: string | null }) {
     const dest = visibility === 'unlisted' && res.share_url ? res.share_url : `/scans/${res.id}`
     navigateWithHandoff(dest, () => setHandoff(true))
   }
 
-  async function submitUploadPath() {
-    if (!file) {
-      // onFile already pre-checks before setting `file`, so reaching here means no file.
-      setDzError({ code: 'no_file', message: uploadErrorMessage('no_file') })
-      setDzState('error')
-      return
-    }
-    setBusy(true)
-    setDzError(null)
-    setProgress(0)
-    setDzState('uploading')
-    try {
-      const res = await submitUpload(file, { visibility }, (loaded, total) =>
-        setProgress(total ? loaded / total : 0)
-      )
-      setProgress(1)
-      navigateToResult(res)
-    } catch (e) {
-      setBusy(false)
-      if (e instanceof UploadError) {
-        setDzError({ code: e.code, message: uploadErrorMessage(e.code, e.reason) })
-      } else {
-        setDzError({ code: 'upload_failed', message: uploadErrorMessage('upload_failed') })
-      }
-      setDzState('error')
-    }
+  function submitUploadPath() {
+    void upload.submit({ visibility, onResult: navigateToResult })
   }
 
   async function submitUrlPath() {
@@ -161,8 +104,10 @@ export default function ScanConsole() {
     }
   }
 
+  const inFlight = busy || upload.uploading
+
   function handleSubmit() {
-    if (busy) return
+    if (inFlight) return
     // FE intent signal (closed-enum only — no URL/filename/bytes/token). The
     // backend emits the authoritative `scan_submitted` on the server side.
     track('homepage_scan_submitted', {
@@ -195,17 +140,15 @@ export default function ScanConsole() {
           className="scan-pane"
         >
           <DropZone
-            onFileSelected={onFile}
+            onFilesSelected={upload.onFiles}
             accept={[...UPLOAD_ACCEPT]}
             maxBytes={UPLOAD_MAX_BYTES}
             hint={UPLOAD_HINT}
-            state={dzState}
-            progress={progress}
-            selectedFile={
-              file ? { name: file.name, size: file.size, kind: guessKind(file) } : undefined
-            }
-            error={dzError ?? undefined}
-            onRemove={onRemove}
+            state={upload.dzState}
+            progress={upload.progress}
+            selectedFiles={upload.selectedFiles}
+            error={upload.dzError ?? undefined}
+            onRemove={upload.onRemove}
           />
         </div>
       ) : (
@@ -245,11 +188,11 @@ export default function ScanConsole() {
                 type="button"
                 className="p1-submit"
                 aria-label="Scan repository"
-                disabled={busy}
+                disabled={inFlight}
                 onClick={handleSubmit}
               >
                 <span className="p1-submit-ret" aria-hidden="true">
-                  {busy ? '…' : '↵'}
+                  {inFlight ? '…' : '↵'}
                 </span>
               </button>
             </div>
@@ -296,7 +239,7 @@ export default function ScanConsole() {
         type="button"
         className="scan-go"
         data-mode={tab}
-        disabled={busy}
+        disabled={inFlight}
         onClick={handleSubmit}
       >
         Scan now{' '}

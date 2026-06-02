@@ -31,3 +31,9 @@ if (typeof globalThis !== 'undefined' && !('ResizeObserver' in globalThis)) {
   }
   (globalThis as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverPolyfill;
 }
+
+// jsdom doesn't implement scrollIntoView — cmdk calls it on the selected
+// command item at mount. Provide a no-op so listbox rows render under test.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = vi.fn();
+}

@@ -2194,8 +2194,15 @@
             "type": "boolean"
           },
           "ref_sha": {
-            "title": "Ref Sha",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Sha"
           },
           "scan_id": {
             "title": "Scan Id",
@@ -2238,7 +2245,6 @@
         },
         "required": [
           "scan_id",
-          "ref_sha",
           "scanned_at",
           "aggregate_score",
           "tier"
@@ -3288,7 +3294,7 @@
     },
     "/api/v1/scans/upload": {
       "post": {
-        "description": "Upload a single capability file or a `.zip` (\u226410 MiB) \u2192 scan it like a repo.\n\nThe upload is a second front-end to the unchanged engine: extraction yields\nthe same in-memory file index a GitHub fetch produces. Shares the `scan_submit`\nper-IP daily bucket (loopback exempt). `visibility` defaults to `public`.",
+        "description": "Upload one file, one `.zip`, or N loose files (combined \u226410 MiB) \u2192 scan it\nlike a repo.\n\nThe upload is a second front-end to the unchanged engine: extraction yields\nthe same in-memory file index a GitHub fetch produces. Shares the `scan_submit`\nper-IP daily bucket (loopback exempt). `visibility` defaults to `public`.",
         "operationId": "submit_upload_api_v1_scans_upload_post",
         "responses": {
           "202": {

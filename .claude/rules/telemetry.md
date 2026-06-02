@@ -69,7 +69,7 @@ The scan engine emits a closed enum of 16 events (per locked decision D-30, +2 f
 | 13 | `vendor_response_submitted` | `catalog_item_id_bucket`; `body_length_bucket` ∈ {`<500`,`500-1000`,`1000-2000`} |
 | 14 | `rescan_triggered_drift` | `catalog_item_id_bucket`; `hash_delta_files_count_bucket` ∈ {`1`,`2-5`,`6-20`,`21+`} |
 | 15 | `promote_to_public` | `catalog_item_id_bucket` (hash%16) |
-| 16 | `upload_rejected` | `reason` ∈ {`too_big`,`bad_type`,`binary`,`archive_rejected`,`rate_limited`}; optional `archive_sub` (the zip-safety sub-reason) |
+| 16 | `upload_rejected` | `reason` ∈ {`too_big`,`bad_type`,`binary`,`archive_rejected`,`rate_limited`}; optional `archive_sub` (the zip-safety / multi-file-batch sub-reason — `archive_rejected` now also covers multi-file batches: `nesting`/`dup_path`/`zip_slip`/`bad_path`) |
 
 No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the capability `share_token` or any path/filename content** (uploads). Bucketing helpers (`hash_to_bucket`, `latency_bucket`, `count_bucket`) live alongside the emit-helpers in `services/api/app/observability/events.py`.
 

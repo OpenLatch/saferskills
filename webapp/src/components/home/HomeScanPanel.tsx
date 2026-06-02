@@ -1,42 +1,47 @@
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toggle from '@ui/components/atoms/Toggle'
-import DropZone, { type DropZoneState } from '@ui/components/molecules/DropZone'
+import DropZone from '@ui/components/molecules/DropZone'
 import { useState } from 'react'
 import { track } from '@/lib/analytics'
-import type { Visibility } from '@/lib/api/scans'
-import { precheckFile, SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/lib/upload'
-import { stashPendingUpload } from '@/lib/upload-handoff'
+import type { ScanUploadResponse, Visibility } from '@/lib/api/scans'
+import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
+import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 
 type Tab = 'upload' | 'url'
 
 /**
- * Homepage audit-panel affordance (D-UP-25). It does NOT submit inline — on a
- * file drop it stashes the File (IndexedDB) and navigates to /scan#pending=<nonce>;
- * on a URL it navigates to /scan?prefill=<url>. The full submit ceremony lives on
- * /scan, where the user confirms (P1-5 — never auto-submit on arrival).
+ * Homepage / 404 audit-panel affordance (D-UP-25). The Upload path now runs
+ * **inline** (no /scan redirect, no IndexedDB handoff): pick files → the compact
+ * DropZone collapses + shows progress → on success we navigate to the result.
+ * The URL path still redirects to /scan?prefill=<url> (the full repo-scan
+ * ceremony lives there). `homepage_scan_panel_started` fires on the first pick;
+ * `homepage_scan_submitted` fires on the actual inline submit.
  */
 export default function HomeScanPanel() {
   const [tab, setTab] = useState<Tab>('upload')
   const [visibility, setVisibility] = useState<Visibility>('public')
-  const [dzState, setDzState] = useState<DropZoneState>('idle')
-  const [dzError, setDzError] = useState<{ code: string; message: string } | null>(null)
   const [urlValue, setUrlValue] = useState('')
+  const [started, setStarted] = useState(false)
 
-  async function onFile(f: File) {
-    const pre = precheckFile(f)
-    if (!pre.ok) {
-      setDzError({ code: pre.code, message: pre.message })
-      setDzState('error')
-      return
+  const upload = useUploadFlow()
+
+  function onFiles(files: File[]) {
+    if (!started) {
+      track('homepage_scan_panel_started', { artifact_source: 'upload', visibility })
+      setStarted(true)
     }
-    setDzError(null)
-    track('homepage_scan_panel_started', { artifact_source: 'upload', visibility })
-    try {
-      const nonce = await stashPendingUpload(f, visibility)
-      window.location.assign(`/scan#pending=${nonce}`)
-    } catch {
-      window.location.assign('/scan')
-    }
+    upload.onFiles(files)
+  }
+
+  function navigateToResult(res: ScanUploadResponse) {
+    const dest = visibility === 'unlisted' && res.share_url ? res.share_url : `/scans/${res.id}`
+    window.location.assign(dest)
+  }
+
+  function submitUpload() {
+    if (upload.uploading || upload.files.length === 0) return
+    track('homepage_scan_submitted', { artifact_source: 'upload', visibility })
+    void upload.submit({ visibility, onResult: navigateToResult })
   }
 
   function goUrl() {
@@ -64,12 +69,28 @@ export default function HomeScanPanel() {
         <div id={panelId('hs', 'upload')} role="tabpanel" aria-labelledby="hs-tab-upload">
           <DropZone
             compact
-            onFileSelected={onFile}
+            onFilesSelected={onFiles}
             accept={[...UPLOAD_ACCEPT]}
             maxBytes={UPLOAD_MAX_BYTES}
-            state={dzState}
-            error={dzError ?? undefined}
+            state={upload.dzState}
+            progress={upload.progress}
+            selectedFiles={upload.selectedFiles}
+            error={upload.dzError ?? undefined}
+            onRemove={upload.onRemove}
           />
+          {upload.files.length > 0 && (
+            <button
+              type="button"
+              className="hs-scan"
+              disabled={upload.uploading}
+              onClick={submitUpload}
+            >
+              {upload.uploading ? 'Scanning…' : 'Scan now'}{' '}
+              <span className="kbd" aria-hidden="true">
+                ↵
+              </span>
+            </button>
+          )}
         </div>
       ) : (
         <div id={panelId('hs', 'url')} role="tabpanel" aria-labelledby="hs-tab-url">

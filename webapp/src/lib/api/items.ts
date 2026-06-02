@@ -77,7 +77,8 @@ export interface VendorResponsePublic {
 export interface VersionPoint {
   tag: string | null
   scan_id: string
-  ref_sha: string
+  /** Null for uploads — no git ref (no synthetic sentinel). */
+  ref_sha: string | null
   scanned_at: string
   aggregate_score: number
   tier: ScanTier

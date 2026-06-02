@@ -47,6 +47,62 @@ async def test_upload_single_md_returns_202(db_client: AsyncClient) -> None:
     assert body["share_url"] is None
 
 
+def _multi(*entries: tuple[str, bytes]) -> list[tuple[str, tuple[str, bytes, str]]]:
+    """httpx multi-part: several parts all named `file` (the multi-file batch)."""
+    return [("file", (name, body, "text/plain")) for name, body in entries]
+
+
+@pytest.mark.asyncio
+async def test_upload_multi_file_returns_202(db_client: AsyncClient) -> None:
+    files = _multi(("SKILL.md", b"---\nname: t\n---\n# t\n"), ("run.py", b"print(1)\n"))
+    r = await db_client.post("/api/v1/scans/upload", files=files, data={"visibility": "public"})
+    assert r.status_code == 202
+    assert r.json()["source_kind"] == "upload"
+
+
+@pytest.mark.asyncio
+async def test_upload_total_cap_across_parts(db_client: AsyncClient) -> None:
+    """The 10 MiB cap is cumulative — two parts each under the cap but summing
+    over it → 413 (byte-accounting spans ALL parts)."""
+    cap = get_settings().upload_max_bytes
+    half = b"x" * (cap // 2 + 1024)
+    files = _multi(("a.txt", half), ("b.txt", half))
+    r = await db_client.post("/api/v1/scans/upload", files=files)
+    assert r.status_code == 413 and r.json()["detail"]["error"] == "upload_too_large"
+
+
+@pytest.mark.asyncio
+async def test_upload_zip_in_batch_rejected(db_client: AsyncClient) -> None:
+    files = _multi(("SKILL.md", b"# a"), ("inner.zip", b"PK\x03\x04rest"))
+    r = await db_client.post("/api/v1/scans/upload", files=files)
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["error"] == "archive_rejected" and detail["reason"] == "nesting"
+
+
+@pytest.mark.asyncio
+async def test_upload_dup_basename_in_batch_rejected(db_client: AsyncClient) -> None:
+    files = _multi(("README.md", b"a"), ("readme.md", b"b"))
+    r = await db_client.post("/api/v1/scans/upload", files=files)
+    assert r.status_code == 422 and r.json()["detail"]["reason"] == "dup_path"
+
+
+@pytest.mark.asyncio
+async def test_upload_single_zip_returns_202(db_client: AsyncClient) -> None:
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("SKILL.md", b"---\nname: z\n---\n# z\n")
+    r = await db_client.post(
+        "/api/v1/scans/upload",
+        files={"file": ("bundle.zip", buf.getvalue(), "application/zip")},
+        data={"visibility": "public"},
+    )
+    assert r.status_code == 202 and r.json()["source_kind"] == "upload"
+
+
 @pytest.mark.asyncio
 async def test_upload_rejections(db_client: AsyncClient) -> None:
     too_big = b"x" * (get_settings().upload_max_bytes + 1)

@@ -5,78 +5,84 @@ import DropZone from '../../../components/molecules/DropZone'
 
 const ACCEPT = ['.zip', '.md', '.json']
 const MAX = 10 * 1024 * 1024
-const FILE = { name: 'SKILL.md', size: 3277, kind: 'Skill' }
 
 function makeFile(name = 'SKILL.md') {
   return new File(['# skill'], name, { type: 'text/markdown' })
 }
 
+const FILES = [
+  { name: 'SKILL.md', size: 3277, kind: 'Skill' },
+  { name: 'extract.py', size: 1024, kind: 'Script' },
+]
+
 describe('DropZone', () => {
   it('renders the idle prompt with allowed-type + size subtext', () => {
-    render(<DropZone onFileSelected={() => {}} accept={ACCEPT} maxBytes={MAX} state="idle" />)
+    render(<DropZone onFilesSelected={() => {}} accept={ACCEPT} maxBytes={MAX} state="idle" />)
     expect(screen.getByText(/click to browse/i)).toBeInTheDocument()
     expect(screen.getByText(/max 10 MiB/i)).toBeInTheDocument()
   })
 
-  it('emits onFileSelected from the file input', () => {
-    const onFileSelected = vi.fn()
+  it('emits onFilesSelected from the file input (multiple)', () => {
+    const onFilesSelected = vi.fn()
     const { container } = render(
-      <DropZone onFileSelected={onFileSelected} accept={ACCEPT} maxBytes={MAX} state="idle" />,
+      <DropZone onFilesSelected={onFilesSelected} accept={ACCEPT} maxBytes={MAX} state="idle" />,
     )
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
-    fireEvent.change(input, { target: { files: [makeFile()] } })
-    expect(onFileSelected).toHaveBeenCalledTimes(1)
-    expect(onFileSelected.mock.calls[0][0].name).toBe('SKILL.md')
+    expect(input.multiple).toBe(true)
+    fireEvent.change(input, { target: { files: [makeFile('a.md'), makeFile('b.md')] } })
+    expect(onFilesSelected).toHaveBeenCalledTimes(1)
+    expect(onFilesSelected.mock.calls[0][0].map((f: File) => f.name)).toEqual(['a.md', 'b.md'])
   })
 
-  it('emits onFileSelected on drop and clears the dragover state', () => {
-    const onFileSelected = vi.fn()
+  it('emits onFilesSelected on drop with all dropped files', () => {
+    const onFilesSelected = vi.fn()
     const { container } = render(
-      <DropZone onFileSelected={onFileSelected} accept={ACCEPT} maxBytes={MAX} state="idle" />,
+      <DropZone onFilesSelected={onFilesSelected} accept={ACCEPT} maxBytes={MAX} state="idle" />,
     )
     const zone = container.querySelector('.dz-zone') as HTMLElement
     fireEvent.dragEnter(zone)
-    fireEvent.drop(zone, { dataTransfer: { files: [makeFile('mcp.json')] } })
-    expect(onFileSelected).toHaveBeenCalledTimes(1)
-    expect(onFileSelected.mock.calls[0][0].name).toBe('mcp.json')
+    fireEvent.drop(zone, { dataTransfer: { files: [makeFile('mcp.json'), makeFile('run.py')] } })
+    expect(onFilesSelected).toHaveBeenCalledTimes(1)
+    expect(onFilesSelected.mock.calls[0][0].map((f: File) => f.name)).toEqual(['mcp.json', 'run.py'])
   })
 
-  it('shows the selected-file card with kind chip + remove', () => {
+  it('renders a list of selected-file cards with remove by index', () => {
     const onRemove = vi.fn()
     render(
       <DropZone
-        onFileSelected={() => {}}
+        onFilesSelected={() => {}}
         accept={ACCEPT}
         maxBytes={MAX}
         state="selected"
-        selectedFile={FILE}
+        selectedFiles={FILES}
         onRemove={onRemove}
       />,
     )
     expect(screen.getByText('SKILL.md')).toBeInTheDocument()
-    expect(screen.getByText('Skill')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /remove file/i }))
-    expect(onRemove).toHaveBeenCalled()
+    expect(screen.getByText('extract.py')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /remove extract\.py/i }))
+    expect(onRemove).toHaveBeenCalledWith(1)
   })
 
-  it('shows a byte counter while uploading', () => {
+  it('shows an aggregate byte counter while uploading', () => {
     render(
       <DropZone
-        onFileSelected={() => {}}
+        onFilesSelected={() => {}}
         accept={ACCEPT}
         maxBytes={MAX}
         state="uploading"
-        selectedFile={FILE}
+        selectedFiles={FILES}
         progress={0.5}
       />,
     )
-    expect(screen.getByText(/\/ 3\.2 KiB/)).toBeInTheDocument()
+    // 3277 + 1024 = 4301 bytes ≈ 4.2 KiB total.
+    expect(screen.getByText(/\/ 4\.2 KiB/)).toBeInTheDocument()
   })
 
   it('renders the bucketed error message', () => {
     render(
       <DropZone
-        onFileSelected={() => {}}
+        onFilesSelected={() => {}}
         accept={ACCEPT}
         maxBytes={MAX}
         state="error"
@@ -91,11 +97,11 @@ describe('DropZone', () => {
   it('is accessible (vitest-axe)', async () => {
     const { container } = render(
       <DropZone
-        onFileSelected={() => {}}
+        onFilesSelected={() => {}}
         accept={ACCEPT}
         maxBytes={MAX}
         state="selected"
-        selectedFile={FILE}
+        selectedFiles={FILES}
         onRemove={() => {}}
       />,
     )

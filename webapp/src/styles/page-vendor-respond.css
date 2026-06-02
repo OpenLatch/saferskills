@@ -298,16 +298,8 @@
 .md-render a {
   color: var(--brand-primary);
 }
-.form-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--fg-2);
-}
-.form-checkbox input {
-  accent-color: var(--brand-primary);
-}
+/* The re-scan consent checkbox is the DS `Checkbox` atom (`.ds-check*` in
+   ui/styles/components.css). */
 .form-actions {
   display: flex;
   align-items: center;

@@ -218,3 +218,67 @@ async def test_item_detail_previous_sub_scores(
     assert body["versions"][0]["aggregate_score"] == 87
     assert body["versions"][1]["aggregate_score"] == 80
     assert body["versions"][0]["sub_scores"]["security"] == 92
+
+
+@pytest.mark.asyncio
+async def test_item_detail_public_upload_no_ref_sha(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Regression: a public upload item (no github coords, NULL ref_sha) must
+    render — previously the item-detail 500'd because VersionPoint.ref_sha was
+    a required str but uploads legitimately have no git ref (no synthetic
+    sentinel — D-UP P0-2)."""
+    import uuid
+    from datetime import datetime
+
+    suffix = uuid.uuid4().hex[:8]
+    item = CatalogItem(
+        kind="skill",
+        slug=f"upload--{suffix}--skill-canvas-design",
+        display_name="canvas-design",
+        github_url=None,
+        github_org=None,
+        github_repo=None,
+        default_branch=None,
+        popularity_tier="on_demand",
+        popularity_score=0,
+        visibility="public",
+        source_kind="upload",
+        agent_compatibility=["claude-code"],
+        sources=[{"registryId": "upload", "registryUrl": "http://x/scans/1"}],
+    )
+    db_session.add(item)
+    await db_session.flush()
+    db_session.add(
+        Scan(
+            catalog_item_id=item.id,
+            idempotency_key=uuid.uuid4().hex,
+            github_url=None,
+            ref_sha=None,
+            aggregate_score=100,
+            tier="green",
+            sub_scores={
+                "security": 100,
+                "supply_chain": 100,
+                "maintenance": 100,
+                "transparency": 100,
+                "community": 100,
+            },
+            score_breakdown={},
+            rubric_version="abc1234",
+            engine_version="def5678",
+            latency_ms=9,
+            source="submission",
+            scanned_at=datetime.now(tz=UTC),
+        )
+    )
+    await db_session.flush()
+
+    resp = await db_client.get(f"/api/v1/items/{item.slug}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["item"]["github_org"] is None
+    assert body["item"]["source_kind"] == "upload"
+    assert body["item"]["agent_compatibility"] == ["claude-code"]
+    assert len(body["versions"]) == 1
+    assert body["versions"][0]["ref_sha"] is None

@@ -55,7 +55,7 @@ The stored-public-artifact-snapshot feature persists the raw bytes of scanned **
 
 ## Upload + visibility (`upload_files`, migration 0008)
 
-I-3.5 adds direct artifact upload + private (unlisted) scans. Uploads are a second front-end producing the same per-capability file index; visibility (`public` | `unlisted`) and `source_kind` (`github` | `upload`) are orthogonal columns on `scan_runs` + `catalog_items`.
+I-3.5 adds direct artifact upload + private (unlisted) scans. Uploads are a second front-end producing the same per-capability file index; visibility (`public` | `unlisted`) and `source_kind` (`github` | `upload`) are orthogonal columns on `scan_runs` + `catalog_items`. An upload may be **one file, one `.zip`, or N loose files** — all three resolve to the same combined `files_index` the engine scans like a repo, so the schema is unchanged. For a multi-file batch `scan_runs.original_filename` is the display label `"{n} files"` (the durable `content_hash_sha256` is computed from `files_index`, so the public-upload idempotency cache is unaffected by the label).
 
 ### Schema additions
 

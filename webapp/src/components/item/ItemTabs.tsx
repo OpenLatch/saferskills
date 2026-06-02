@@ -1,4 +1,7 @@
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
+import CheckGroupList from '@ui/components/molecules/CheckGroupList'
+import MarkdownSourceViewer from '@ui/components/molecules/MarkdownSourceViewer'
+import ScoreBreakdownTable from '@ui/components/molecules/ScoreBreakdownTable'
 import { useEffect, useState } from 'react'
 
 import {
@@ -17,6 +20,12 @@ interface Props {
   scan: ScanReportDetail
   versions: VersionPoint[]
   manifest: ManifestSource | null
+}
+
+/** Short label for a version row: release tag → short ref SHA → short scan id
+ *  (uploads have neither tag nor ref SHA, so they fall back to the scan id). */
+function versionTag(v: VersionPoint): string {
+  return v.tag ?? (v.ref_sha ? v.ref_sha.slice(0, 7) : v.scan_id.slice(0, 7))
 }
 
 type TabKey = 'score' | 'versions' | 'source'
@@ -39,8 +48,6 @@ function vband(tier: string): string {
 export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
   const [tab, setTab] = useState<TabKey>('score')
   const [vi, setVi] = useState(0)
-  const [mdRaw, setMdRaw] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   const sub = scan.sub_scores
   const findings = scan.findings
@@ -69,80 +76,21 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
         aria-labelledby="itemtabs-tab-score"
         hidden={tab !== 'score'}
       >
-        <div className="score-cats">
-          <div className="sc-row sc-head">
-            <span>Category</span>
-            <span>Weight</span>
-            <span>Category score</span>
-            <span style={{ textAlign: 'right' }}>Contribution</span>
-          </div>
-          {CATS.map((c) => {
-            const cs = sub[c.key] ?? 0
-            const contrib = ((cs * c.weight) / 100).toFixed(1)
-            return (
-              <div className="sc-row" key={c.key}>
-                <div className="sc-cat">
-                  <b>{c.name}</b>
-                  <span>{c.detectors}</span>
-                </div>
-                <div className="sc-weight">{c.weight}%</div>
-                <div className="sc-bar">
-                  <span className="num">{cs}</span>
-                  <span className="track">
-                    <i style={{ width: `${cs}%` }} />
-                  </span>
-                </div>
-                <div className="sc-contrib">
-                  <b>{contrib}</b> pts
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <ScoreBreakdownTable categories={CATS} subScores={sub} />
 
-        <p className="score-checks-head">Findings &amp; checks · {findings.length} flagged</p>
-        {CATS.map((c) => {
-          const catFindings = findings.filter((f) => f.sub_score === c.key)
-          return (
-            <div className="chk-group" key={c.key}>
-              <div className="chk-head">
-                <span className="cg-name">{c.name}</span>
-                <span className="cg-meta">
-                  score {sub[c.key] ?? 0} · {catFindings.length} finding
-                  {catFindings.length === 1 ? '' : 's'}
-                </span>
-              </div>
-              {catFindings.length === 0 ? (
-                <div className="chk-row pass">
-                  <span className="chk-st">✓</span>
-                  <span className="chk-id">—</span>
-                  <span className="chk-tt">
-                    All {c.name.toLowerCase()} checks passed
-                    <em>No findings in this category for the latest scan.</em>
-                  </span>
-                  <span className="chk-res">pass</span>
-                </div>
-              ) : (
-                catFindings.map((f) => {
-                  const fail = f.severity === 'high' || f.severity === 'critical'
-                  return (
-                    <div className={`chk-row ${fail ? 'fail' : 'warn'}`} key={f.id}>
-                      <span className="chk-st">{fail ? '✕' : '⚠'}</span>
-                      <span className="chk-id">{f.rule_id}</span>
-                      <span className="chk-tt">
-                        {f.severity} finding
-                        <em>
-                          {f.file_path}:{f.line_start}
-                        </em>
-                      </span>
-                      <span className="chk-res">{f.severity}</span>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          )
-        })}
+        <CheckGroupList
+          categories={CATS}
+          subScores={sub}
+          findings={findings.map((f) => ({
+            id: f.id,
+            ruleId: f.rule_id,
+            severity: f.severity,
+            subScore: f.sub_score,
+            filePath: f.file_path,
+            lineStart: f.line_start,
+          }))}
+          emptyScanNoun="the latest scan"
+        />
       </div>
 
       {/* ===== VERSION HISTORY ===== */}
@@ -168,12 +116,12 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
               {versions.map((v, i) => (
                 <button
                   type="button"
-                  key={v.ref_sha + v.scanned_at}
+                  key={v.scan_id}
                   className={`ver-row${i === vi ? ' on' : ''}`}
                   onClick={() => setVi(i)}
                 >
                   <div className="v-top">
-                    <span className="v-tag">{v.tag ?? v.ref_sha.slice(0, 7)}</span>
+                    <span className="v-tag">{versionTag(v)}</span>
                     {i === 0 && <span className="v-latest">latest</span>}
                   </div>
                   <span className="v-date">{fmtDate(v.scanned_at)}</span>
@@ -207,47 +155,12 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
           {manifest && <span className="sk-block-meta">{manifest.path} · 1 file</span>}
         </div>
         {manifest ? (
-          <div className="md-viewer">
-            <div className="md-bar">
-              <span className="md-dot r" />
-              <span className="md-dot y" />
-              <span className="md-dot g" />
-              <span className="md-file">{manifest.path}</span>
-              <span className="md-bytes">{(manifest.bytes / 1024).toFixed(1)} KB · Markdown</span>
-              <div className="md-tools">
-                <button
-                  type="button"
-                  className={`md-tab${mdRaw ? '' : ' on'}`}
-                  onClick={() => setMdRaw(false)}
-                >
-                  Rendered
-                </button>
-                <button
-                  type="button"
-                  className={`md-tab${mdRaw ? ' on' : ''}`}
-                  onClick={() => setMdRaw(true)}
-                >
-                  Raw
-                </button>
-                <button
-                  type="button"
-                  className="md-copy"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(manifest.content)
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 1500)
-                  }}
-                >
-                  {copied ? '✓ Copied' : '⧉ Copy'}
-                </button>
-              </div>
-            </div>
-            {mdRaw ? (
-              <pre className="md-raw">{manifest.content}</pre>
-            ) : (
-              <div className="md-body">{renderMarkdown(manifest.content)}</div>
-            )}
-          </div>
+          <MarkdownSourceViewer
+            path={manifest.path}
+            bytes={manifest.bytes}
+            content={manifest.content}
+            renderedHtml={renderMarkdown(manifest.content)}
+          />
         ) : (
           <p className="panel-desc">Source manifest not captured for this scan yet.</p>
         )}
@@ -408,7 +321,7 @@ function VersionDiff({
   selected: VersionPoint
   older: VersionPoint | null
 }) {
-  const selTag = selected.tag ?? selected.ref_sha.slice(0, 7)
+  const selTag = versionTag(selected)
   if (!older) {
     return (
       <div className="diff-panel">
@@ -423,7 +336,7 @@ function VersionDiff({
       </div>
     )
   }
-  const oldTag = older.tag ?? older.ref_sha.slice(0, 7)
+  const oldTag = versionTag(older)
   const d = selected.aggregate_score - older.aggregate_score
   const dCls = d > 0 ? 'up' : d < 0 ? 'dn' : 'flat'
   const chips = CATS.map((c) => {

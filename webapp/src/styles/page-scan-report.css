@@ -970,59 +970,8 @@ html.dark .badge-band .badge-locked p b {
   color: var(--brand-primary);
 }
 
-/* ---- Confirm dialog (native <dialog> — focus-trap + Esc + focus-restore free) ---- */
-.confirm-dialog {
-  border: 1px solid var(--color-ink);
-  border-radius: 0;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  padding: 26px 28px;
-  max-width: 440px;
-  width: calc(100% - 32px);
-  box-shadow: var(--shadow-stamp);
-  /* Centre the modal — a global reset zeroes the UA `dialog` auto-margin. */
-  margin: auto;
-}
-html.dark .confirm-dialog {
-  border-color: var(--color-line);
-  color: var(--fg-1);
-}
-.confirm-dialog::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
-}
-.confirm-dialog h3 {
-  font-family: var(--font-sans);
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  margin: 0 0 10px;
-}
-.confirm-dialog p {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--fg-2);
-  margin: 0 0 18px;
-  text-wrap: pretty;
-}
-.confirm-dialog .confirm-error {
-  color: var(--score-red);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.confirm-dialog .confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-.confirm-dialog .btn.danger {
-  background: var(--score-red);
-  color: var(--color-paper);
-}
-.confirm-dialog .btn[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+/* Confirm-dialog CSS moved to ui/styles/components.css (rendered by the
+   DS Dialog atom — CSS-ownership one-way rule). */
 
 /* ============================================================ RESPONSIVE ============================================================ */
 @media (max-width: 980px) {

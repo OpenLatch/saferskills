@@ -1,5 +1,6 @@
+import Select from '@ui/components/atoms/Select'
 import type { CatalogSort } from '@/lib/api/items'
-import { SORT_OPTIONS, sortLabel } from './constants'
+import { SORT_OPTIONS } from './constants'
 
 interface Props {
   page: number
@@ -95,31 +96,12 @@ export default function CatalogPagination({
       </div>
       <span className="sort">
         <span>Sort by</span>
-        <span className="picker">
-          {sortLabel(sort)}
-          <svg
-            width="9"
-            height="6"
-            viewBox="0 0 9 6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            aria-hidden="true"
-          >
-            <path d="M1 1l3.5 3L8 1" />
-          </svg>
-          <select
-            value={sort}
-            aria-label="Sort catalog"
-            onChange={(e) => onSortChange(e.target.value as CatalogSort)}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </span>
+        <Select
+          value={sort}
+          options={SORT_OPTIONS}
+          ariaLabel="Sort catalog"
+          onChange={(v) => onSortChange(v as CatalogSort)}
+        />
       </span>
     </nav>
   )
