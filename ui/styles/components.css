@@ -2569,35 +2569,172 @@ html.dark .ds-select-opt[aria-selected='true'] {
   flex-direction: column;
 }
 
+/* A finding as a forensic evidence record (FindingRow molecule). Two stacked,
+   wrapping rows — never a fixed-column grid — so long file paths ellipsize
+   instead of spilling outside the table. */
 .finding-row {
-  display: grid;
-  grid-template-columns: 90px 200px 150px 1fr 200px;
-  gap: 0.75rem;
-  align-items: baseline;
-  padding: 0.6rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--border-2);
   font-size: 0.85rem;
 }
 
-@media (max-width: 1024px) {
-  .finding-row {
-    grid-template-columns: 1fr;
-    border-bottom: 1px solid var(--border-2);
-    padding: 0.75rem 0;
-  }
+.fr-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
-
-.finding-row-rule code,
-.finding-row-evidence code,
-.finding-row-hash {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.78rem;
+.fr-sev {
+  flex: none;
 }
-
-.finding-row-rule a,
-.finding-row-evidence a {
-  color: var(--brand-primary);
+.fr-rule {
   text-decoration: none;
+  flex: none;
+}
+.fr-rule code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  border-bottom: 1px dashed color-mix(in srgb, var(--brand-primary) 50%, transparent);
+  padding-bottom: 1px;
+}
+.fr-rule:hover code {
+  border-bottom-style: solid;
+}
+.fr-rule:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.fr-cat {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.fr-desc {
+  margin: 0;
+  color: var(--fg-2);
+  line-height: 1.5;
+  max-width: 72ch;
+}
+
+.fr-evidence {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+/* Location: file path ellipsizes; the :lines suffix never shrinks. */
+.fr-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--fg-2);
+}
+.fr-loc > svg {
+  flex: none;
+  opacity: 0.55;
+}
+.fr-loc-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.fr-loc-lines {
+  flex: none;
+  color: var(--fg-3);
+}
+
+/* Content-hash evidence chip + inline copy. */
+.fr-sha {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-paper-deep);
+  flex: none;
+}
+.fr-sha code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--fg-2);
+}
+.fr-copy {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition:
+    color var(--dur-xs) var(--ease-out),
+    background var(--dur-xs) var(--ease-out);
+}
+.fr-copy:hover {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+}
+.fr-copy:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* "View on GitHub" — square hairline button (DS button vocabulary: no radius,
+   hover is a background fill, never a brutalist offset shadow). */
+.fr-gh {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  padding: 5px 11px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  transition:
+    background var(--dur-xs) var(--ease-out),
+    color var(--dur-xs) var(--ease-out);
+}
+.fr-gh > svg {
+  flex: none;
+}
+.fr-gh:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.fr-gh:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+html.dark .fr-gh {
+  border-color: var(--color-line);
+  color: var(--fg-1);
+}
+html.dark .fr-gh:hover {
+  background: var(--fg-1);
+  color: var(--color-paper);
 }
 
 .subscore-floor {
@@ -4826,6 +4963,14 @@ html.dark .seg-tab {
   font-size: 10.5px;
   color: var(--fg-3);
 }
+/* Inline repo-scan validation/submit error (homepage Scan-repo tab). */
+.hs-url-error {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--status-danger);
+}
 /* Inline "Scan now" for the homepage upload path (appears once files land).
    brand-primary-dark for WCAG-AA white text on this unmasked rect CTA, mirroring
    .scan-go on /scan. */
@@ -5822,4 +5967,536 @@ html.dark .confirm-dialog {
 }
 html.dark .slider-cap b {
   color: var(--fg-1);
+}
+
+/* ============================================================ CAPABILITY/ITEM REPORT — RICH LAYOUT CHROME ============================================================ */
+/* Moved verbatim from webapp/src/styles/page-item.css so /scans/<id> +
+   /scans/r/<token> (which render this chrome via ScanRunReport.astro +
+   CapabilityReportTabs) resolve it without importing the item page's CSS.
+   The item page (/items/<slug>) also consumes these from here now. */
+
+.sk-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+.sk-head-meta b {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .sk-head-meta b {
+  color: var(--fg-1);
+}
+.sk-head-meta .by {
+  color: var(--fg-2);
+}
+.sk-head-meta a {
+  color: var(--brand-primary);
+  border-bottom: 1px solid currentColor;
+}
+.sk-head-meta .dot {
+  opacity: 0.4;
+}
+.sk-stat-band {
+  background: var(--color-paper);
+  padding: 30px 0 16px;
+  border-top: 1px solid var(--color-ink);
+}
+html.dark .sk-stat-band {
+  /* Solid surface (not transparent) so the body's plus-grid texture doesn't
+     show through behind the score/install cards — flat like light mode. */
+  background: var(--color-paper);
+  border-top-color: var(--color-line);
+}
+.sk-stat-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 32px;
+  align-items: stretch;
+}
+.sk-scorebox {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  border: 1px solid var(--color-ink);
+}
+html.dark .sk-scorebox {
+  border-color: var(--color-line);
+}
+.sk-scorebox .sb-score {
+  position: relative;
+  padding: 26px 28px;
+  border-right: 1px solid var(--color-ink);
+  background-image: var(--bg-plus-grid);
+  background-size: 40px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  align-items: flex-start;
+}
+html.dark .sk-scorebox .sb-score {
+  border-right-color: var(--color-line);
+  background-image: none;
+}
+.sk-scorebox .sb-score::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--score-green);
+}
+.sb-score.y::before {
+  background: var(--score-yellow);
+}
+.sb-score.o::before {
+  background: var(--score-orange);
+}
+.sb-score.r::before {
+  background: var(--score-red);
+}
+.sb-big {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 78px;
+  line-height: 0.84;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  display: flex;
+  align-items: baseline;
+}
+html.dark .sb-big {
+  color: var(--fg-1);
+}
+.sb-big .sb-denom {
+  font-family: var(--font-mono);
+  font-stretch: normal;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--fg-3);
+  margin-left: 3px;
+}
+.sb-score .dots {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  letter-spacing: 2px;
+}
+/* `.rescan-btn` base + hover + dark rules are DS-owned (ui/styles/components.css)
+   — rendered by both this page and /scans/<id>. Only the item-page-specific
+   offset below it (flush under the dot strip) stays local. */
+.sk-scorebox .sb-score .rescan-btn {
+  margin-top: 8px;
+}
+.sk-scorebox .sb-facts {
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+}
+.sb-facts .sb-eyebrow {
+  margin-bottom: 12px;
+}
+.sb-facts .fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-line-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.sb-facts .fact b {
+  color: var(--color-ink);
+  font-weight: 700;
+  font-size: 13px;
+}
+html.dark .sb-facts .fact b {
+  color: var(--fg-1);
+}
+.sb-facts .sb-method {
+  margin-top: 15px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--brand-primary);
+  border-bottom: 1px solid currentColor;
+  align-self: flex-start;
+}
+.sk-installbox {
+  border: 1px solid var(--color-ink);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+html.dark .sk-installbox {
+  border-color: var(--color-line);
+}
+.sk-installbox .sb-eyebrow {
+  margin-bottom: 6px;
+}
+.sk-installbox .ins-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-line-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.sk-installbox .ins-row b {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 21px;
+  color: var(--color-ink);
+}
+html.dark .sk-installbox .ins-row b {
+  color: var(--fg-1);
+}
+.sk-installbox .ins-distrib {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-line);
+}
+.sk-installbox .ins-distrib .bar {
+  display: flex;
+  height: 8px;
+  background: var(--color-paper-deep);
+  overflow: hidden;
+}
+.sk-installbox .ins-distrib .bar i {
+  display: block;
+  height: 100%;
+}
+.sk-installbox .ins-distrib .bar i.a {
+  background: var(--brand-primary);
+}
+.sk-installbox .ins-distrib .bar i.b {
+  background: var(--color-azure-mid);
+}
+.sk-installbox .ins-distrib .bar i.c {
+  background: var(--fg-3);
+}
+.sk-installbox .ins-distrib .legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+/* ============================================================ MAIN GRID + TABS ============================================================ */
+.sk-main {
+  background: var(--color-paper);
+  /* No top border — the stat band flows straight into the main section on
+     open whitespace (the bordered score/install cards provide the framing). */
+  border-bottom: 1px solid var(--color-ink);
+  padding: 48px 0 64px;
+}
+html.dark .sk-main {
+  border-bottom-color: var(--color-line);
+}
+.sk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 32px;
+  align-items: start;
+}
+.sk-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-ink);
+}
+html.dark .sk-block-head {
+  border-color: var(--color-line);
+}
+.sk-block-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.panel-desc {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+.panel-desc code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--color-line-soft);
+  color: var(--color-ink-soft);
+  padding: 1px 5px;
+}
+/* .sk-tabs / .sk-tab / .t-ct moved to ui/styles/components.css (CSS-ownership
+   rule — they are now rendered by the DS SegmentedTabs atom, variant="underline").
+   See .claude/rules/design-system.md § CSS ownership. */
+.sk-panel .sk-block-head {
+  margin-bottom: 18px;
+}
+/* ============================================================ SIDEBAR ============================================================ */
+.sk-col-side {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  /* Drop the column so the first card's top border lines up with the tab-bar
+     bottom rule on the left (.sk-tabs is 13px pad + content + 13px pad + 1px
+     border ≈ this height). Reset when the grid collapses below 1080px. */
+  margin-top: 47px;
+}
+.side-card {
+  border: 1px solid var(--color-ink);
+  padding: 22px 22px 24px;
+  background: var(--color-paper);
+}
+html.dark .side-card {
+  border-color: var(--color-line);
+}
+.side-card h4 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.side-card h4::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: currentColor;
+}
+/* The install command box uses the shared DS `.sk-term` terminal
+   (ui/styles/components.css) — markup in InstallCard.tsx. */
+.install-card .install-note {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+  margin: 12px 0 16px;
+}
+.install-card .install-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.install-card .install-cta .btn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+.install-card .install-cta .zip-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  text-align: center;
+}
+.install-card .install-count {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.install-card .install-count .ic-num {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+html.dark .install-card .install-count .ic-num {
+  color: var(--fg-1);
+}
+.install-card .install-count .ic-lbl {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.pkg-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pkg-dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+.pkg-dl > div:last-of-type {
+  border-bottom: 0;
+}
+.pkg-dl dt {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  flex-shrink: 0;
+}
+.pkg-dl dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--color-ink);
+  text-align: right;
+  word-break: break-word;
+}
+html.dark .pkg-dl dd {
+  color: var(--fg-1);
+}
+.pkg-dl dd a {
+  color: var(--brand-primary);
+  border-bottom: 1px solid currentColor;
+}
+.pkg-dl dd .verified {
+  color: var(--score-green);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.pkg-gh {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: background var(--dur-xs);
+}
+.pkg-gh svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.pkg-gh:hover {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+html.dark .pkg-gh {
+  background: var(--fg-1);
+  color: var(--color-paper);
+  border-color: var(--fg-1);
+}
+html.dark .pkg-gh:hover {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+/* ----- rich-layout responsive collapses (moved with the chrome) ----- */
+@media (max-width: 1080px) {
+  .sk-stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .sk-grid {
+    grid-template-columns: 1fr;
+  }
+  .sk-col-side {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    /* No tab bar to align with once the grid is single-column. */
+    margin-top: 0;
+  }
+  .sk-col-side .side-card {
+    flex: 1 1 300px;
+  }
+}
+
+@media (max-width: 760px) {
+  .sk-scorebox {
+    grid-template-columns: 1fr;
+  }
+  .sk-scorebox .sb-score {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-ink);
+  }
+  html.dark .sk-scorebox .sb-score {
+    border-bottom-color: var(--color-line);
+  }
+}
+
+/* ===== ENTRANCE MOTION (rich-layout chrome) =====
+   sk-reveal-up + the rich-chrome reveal cascade, moved with the chrome so the
+   scan-report rich layout keeps its entrance once it drops page-item.css. */
+@keyframes sk-reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sk-scorebox,
+.sk-installbox,
+.sk-col-main,
+.sk-col-side {
+  animation: sk-reveal-up var(--dur-md) var(--ease-out) backwards;
+}
+.sk-scorebox {
+  animation-delay: 120ms;
+}
+.sk-installbox {
+  animation-delay: 180ms;
+}
+.sk-col-main {
+  animation-delay: 200ms;
+}
+.sk-col-side {
+  animation-delay: 280ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-scorebox,
+  .sk-installbox,
+  .sk-col-main,
+  .sk-col-side {
+    animation: none;
+  }
 }
