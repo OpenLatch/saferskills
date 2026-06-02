@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AwareDatetime, ConfigDict, Field, constr
 
 
 class State(StrEnum):
@@ -20,7 +21,7 @@ class State(StrEnum):
     revoked = "revoked"
 
 
-class VendorVerification(BaseModel):
+class VendorVerification(OrmBaseModel):
     """
     Vendor maintainer-verification token lifecycle (D-05 / D-06 / D-07 / D-08). A maintainer claims a catalog item by committing the token to `.saferskills/verify.txt` on the repo default branch; the server fetches, constant-time-compares the sha256, marks verified, then weekly-polls for drift (does not revoke on drift).
     """

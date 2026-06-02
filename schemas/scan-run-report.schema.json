@@ -2,8 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/scan-run-report.schema.json",
   "title": "ScanRunReport",
-  "description": "Full report for one repo scan (a `scan_runs` row): the consolidated repo score, the by-kind tally, and every capability discovered in the repo with its own independent score + findings. Backs GET /api/v1/scans/runs/<run_id> and the `/scans/<id>` page. Wire-only (never persisted as its own table).",
-  "x-postgresql-skip": true,
+  "description": "Full report for one repo scan (a `scan_runs` row): the consolidated repo score, the by-kind tally, and every capability discovered in the repo with its own independent score + findings. Backs GET /api/v1/scans/runs/<run_id> and the `/scans/<id>` page. The wire shape is report-flavoured (nested `capabilities`); the `scan_runs` table columns are the scalar fields here plus the x-postgresql-extra-columns below.",
+  "x-postgresql-classname": "ScanRun",
+  "x-postgresql-tablename": "scan_runs",
+  "x-postgresql-indexes": [
+    { "name": "idx_scan_runs_expires_at", "columns": ["expires_at"], "where": "visibility = 'unlisted'" }
+  ],
+  "x-postgresql-extra-columns": [
+    { "name": "idempotency_key", "type": "varchar", "length": 64, "nullable": false, "unique": true },
+    { "name": "file_count", "type": "integer", "nullable": false, "default": "0" },
+    { "name": "content_hash_sha256", "type": "varchar", "length": 64, "nullable": true },
+    { "name": "original_filename", "type": "varchar", "length": 255, "nullable": true },
+    { "name": "share_token", "type": "varchar", "length": 64, "nullable": true, "unique": true },
+    { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+    { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+  ],
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,6 +37,8 @@
     "id": {
       "type": "string",
       "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
       "description": "Server-assigned scan_runs UUID. Keys the `/scans/<id>` page + the SSE channel."
     },
     "githubUrl": {
@@ -35,31 +50,38 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 100,
+      "x-postgresql-default": "0",
       "description": "Consolidated repo score — the rounded mean of the per-capability aggregate scores."
     },
     "repoTier": {
       "type": "string",
       "enum": ["green", "yellow", "orange", "red", "unscoped"],
+      "x-postgresql-enum-type": "tier",
+      "x-postgresql-default": "'unscoped'",
       "description": "5-tier badge for the consolidated repo score."
     },
     "kindTally": {
       "type": "object",
       "additionalProperties": {"type": "integer", "minimum": 0},
+      "x-postgresql-default": "'{}'::jsonb",
       "description": "Count of discovered capabilities by kind, e.g. `{\"skill\": 3, \"hook\": 2, \"mcp_server\": 1}`."
     },
     "capabilityCount": {
       "type": "integer",
       "minimum": 1,
+      "x-postgresql-default": "0",
       "description": "Number of capabilities discovered in the repo (always ≥1 — the whole-repo fallback)."
     },
     "capabilities": {
       "type": "array",
       "items": {"$ref": "#/$defs/capabilityRow"},
+      "x-postgresql-skip": true,
       "description": "Each capability discovered in the repo, with its own independent score + findings."
     },
     "scannedAt": {
       "type": "string",
       "format": "date-time",
+      "x-postgresql-default": "now()",
       "description": "When the repo scan completed (UTC ISO-8601)."
     },
     "rubricVersion": {
@@ -73,15 +95,19 @@
     "latencyMs": {
       "type": "integer",
       "minimum": 0,
+      "x-postgresql-default": "0",
       "description": "Wall-clock latency of the repo scan in milliseconds."
     },
     "source": {
       "type": "string",
+      "x-postgresql-enum-type": "scan_source",
       "description": "Scan trigger source (submission / ingestion / rescan_drift / rescan_appeal)."
     },
     "status": {
       "type": "string",
       "enum": ["pending", "running", "completed", "failed"],
+      "x-postgresql-enum-type": "scan_run_status",
+      "x-postgresql-default": "'pending'",
       "description": "Run lifecycle state. A pending/running run renders the live progress board."
     },
     "refSha": {
@@ -92,23 +118,31 @@
       "type": "string",
       "enum": ["public", "unlisted"],
       "default": "public",
+      "x-postgresql-enum-type": "visibility",
+      "x-postgresql-default": "'public'",
+      "x-postgresql-nullable": false,
       "description": "Listing posture of the run. `unlisted` runs are reachable only via their capability URL and never appear in any public feed."
     },
     "sourceKind": {
       "type": "string",
       "enum": ["github", "upload"],
       "default": "github",
+      "x-postgresql-enum-type": "source_kind",
+      "x-postgresql-default": "'github'",
+      "x-postgresql-nullable": false,
       "description": "Origin of the scanned bytes — `github` or `upload`."
     },
     "artifactSha256": {
       "type": ["string", "null"],
       "pattern": "^[a-f0-9]{64}$",
-      "description": "Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs."
+      "x-postgresql-skip": true,
+      "description": "Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs. (Persisted as the `content_hash_sha256` column — see x-postgresql-extra-columns.)"
     },
     "uploadedFilename": {
       "type": ["string", "null"],
       "maxLength": 255,
-      "description": "Original filename of the uploaded artifact (e.g. `SKILL.md`, `my-skill.zip`). Null for GitHub scans."
+      "x-postgresql-skip": true,
+      "description": "Original filename of the uploaded artifact (e.g. `SKILL.md`, `my-skill.zip`). Null for GitHub scans. (Persisted as the `original_filename` column — see x-postgresql-extra-columns.)"
     },
     "expiresAt": {
       "type": ["string", "null"],
@@ -118,6 +152,7 @@
     "shareUrl": {
       "type": ["string", "null"],
       "format": "uri",
+      "x-postgresql-skip": true,
       "description": "The capability URL `/scans/r/<token>` — present only on the unlisted detail response served via the token route. NEVER present in any list payload."
     }
   },

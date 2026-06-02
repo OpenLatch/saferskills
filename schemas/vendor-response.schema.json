@@ -3,6 +3,13 @@
   "$id": "https://saferskills.ai/schemas/vendor-response.schema.json",
   "title": "VendorResponse",
   "description": "Verified-vendor public response on a catalog item (PRD §11.2). Transparency over erasure — old versions retained; the latest version renders on the report page. Body is Markdown, 2000-char cap per PRD B-8.",
+  "x-postgresql-tablename": "vendor_responses",
+  "x-postgresql-indexes": [
+    { "name": "idx_vendor_responses_catalog_item_version_desc", "columns": ["catalog_item_id", "version"] }
+  ],
+  "x-postgresql-extra-columns": [
+    { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+  ],
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,34 +25,42 @@
     "id": {
       "type": "string",
       "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
       "description": "Server-assigned UUID (gen_random_uuid())."
     },
     "catalogItemId": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "x-foreign-key": { "table": "catalog_items", "column": "id", "ondelete": "CASCADE" }
     },
     "vendorVerificationId": {
       "type": "string",
       "format": "uuid",
+      "x-foreign-key": { "table": "vendor_verifications", "column": "id", "ondelete": "CASCADE" },
       "description": "FK to the verification that authorised this response."
     },
     "bodyMarkdown": {
       "type": "string",
       "minLength": 1,
       "maxLength": 2000,
+      "x-postgresql-type": "TEXT",
       "description": "Markdown body. Server-rendered; safe-listed Markdown (CommonMark + tables, no raw HTML)."
     },
     "submittedAt": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "x-postgresql-default": "now()"
     },
     "updatedAt": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "x-postgresql-default": "now()"
     },
     "version": {
       "type": "integer",
       "minimum": 1,
+      "x-postgresql-default": "1",
       "description": "Monotonic version per catalog item — old versions retained for the public audit trail."
     }
   },

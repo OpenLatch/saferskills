@@ -5,15 +5,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    confloat,
-    conint,
-    constr,
-)
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AwareDatetime, ConfigDict, Field, confloat, conint, constr
 
 
 class Decision(StrEnum):
@@ -24,7 +17,7 @@ class Decision(StrEnum):
     deferred_engine_unavailable = "deferred_engine_unavailable"
 
 
-class PerRuleItem(BaseModel):
+class PerRuleItem(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -44,7 +37,7 @@ class PerRuleItem(BaseModel):
     decision: Decision
 
 
-class FpAuditReport(BaseModel):
+class FpAuditReport(OrmBaseModel):
     """
     Output of `tools/fp-audit/` runner (D-21). Per-rule FP rate against the 100-item hand-labeled fixture (50 known-good + 50 known-bad). Promotion gate at 10% FP rate per rule. x-postgresql-skip: true — this is a tool report shape, not a persisted entity.
     """

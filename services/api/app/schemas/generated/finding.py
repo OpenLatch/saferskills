@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AnyUrl, ConfigDict, Field, conint, constr
 
 
 class Severity(StrEnum):
@@ -42,7 +43,7 @@ class StatusAtScan(StrEnum):
     active = "active"
 
 
-class Finding(BaseModel):
+class Finding(OrmBaseModel):
     """
     A single rule fire on a scanned artifact. Hashed-only evidence (matchedContentSha256) — never raw scanned content per .claude/rules/security.md § Scan-trace transparency. 5-tier severity (D-02); 5-axis sub_score (D-01); shadow/active status per rule lifecycle (D-14).
     """

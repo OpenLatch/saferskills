@@ -3,6 +3,23 @@
   "$id": "https://saferskills.ai/schemas/catalog-item.schema.json",
   "title": "CatalogItem",
   "description": "A single capability in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item = one capability; a capability may link to a GitHub repo, and several capabilities can share one repo (a repo scan discovers + scores each independently).",
+  "x-postgresql-tablename": "catalog_items",
+  "x-postgresql-indexes": [
+    { "name": "idx_catalog_items_kind", "columns": ["kind"] },
+    { "name": "idx_catalog_items_popularity_tier", "columns": ["popularity_tier"] },
+    { "name": "idx_catalog_items_active", "columns": ["popularity_tier", "updated_at"], "where": "archived = false" },
+    { "name": "idx_catalog_items_github_url", "columns": ["github_url"] },
+    { "name": "idx_catalog_items_visibility", "columns": ["visibility"] },
+    { "name": "idx_catalog_items_owner_run_id", "columns": ["owner_run_id"], "where": "owner_run_id IS NOT NULL" }
+  ],
+  "x-postgresql-extra-columns": [
+    {
+      "name": "owner_run_id",
+      "type": "uuid",
+      "nullable": true,
+      "foreign_key": { "table": "scan_runs", "column": "id", "ondelete": "CASCADE" }
+    }
+  ],
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,11 +38,14 @@
     "id": {
       "type": "string",
       "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
       "description": "Server-assigned UUID (gen_random_uuid())."
     },
     "kind": {
       "type": "string",
       "enum": ["skill", "mcp_server", "hook", "plugin", "rules"],
+      "x-postgresql-enum-type": "kind",
       "description": "Artifact taxonomy. `rules` covers Cursor / Windsurf-style rule files."
     },
     "slug": {
@@ -33,6 +53,7 @@
       "pattern": "^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$",
       "minLength": 5,
       "maxLength": 255,
+      "x-postgresql-unique": true,
       "description": "URL-safe slug, double-dash-separated segments. A legacy repo-level slug is `<org>--<repo>`; a per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]`. Public uploads use `upload--<arthash8>--<kind>-<name>`; per-run unlisted shadow rows use `unlisted--<run8>--<kind>-<name>`. Used in `/items/<slug>` permalinks (unlisted shadow slugs 404 on the public surface)."
     },
     "displayName": {
@@ -65,29 +86,39 @@
       "type": "string",
       "enum": ["public", "unlisted"],
       "default": "public",
+      "x-postgresql-enum-type": "visibility",
+      "x-postgresql-default": "'public'",
+      "x-postgresql-nullable": false,
       "description": "Listing posture (denormalized from the owning scan_run). `public` rows appear in the catalog; `unlisted` shadow rows are excluded from every public query and reachable only via their capability URL. Never an access-control mechanism — see security.md."
     },
     "sourceKind": {
       "type": "string",
       "enum": ["github", "upload"],
       "default": "github",
+      "x-postgresql-enum-type": "source_kind",
+      "x-postgresql-default": "'github'",
+      "x-postgresql-nullable": false,
       "description": "Origin of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact)."
     },
     "popularityTier": {
       "type": "string",
       "enum": ["indexed", "lite", "deep", "on_demand"],
+      "x-postgresql-enum-type": "popularity_tier",
       "description": "PRD §6.2 scan-tier assignment. `indexed`: metadata only. `lite`: shallow scan, weekly rescan. `deep`: full scan, hourly rescan. `on_demand`: user-submitted, hourly rescan."
     },
     "popularityScore": {
       "type": "integer",
       "minimum": 0,
       "maximum": 100,
+      "x-postgresql-default": "0",
       "description": "Weekly-recomputed popularity rank within the artifact kind. Drives popularityTier assignment."
     },
     "agentCompatibility": {
       "type": "array",
       "default": [],
       "uniqueItems": true,
+      "x-postgresql-nullable": false,
+      "x-postgresql-default": "'[]'::jsonb",
       "items": {
         "type": "string",
         "enum": [
@@ -131,11 +162,14 @@
     "archived": {
       "type": "boolean",
       "default": false,
+      "x-postgresql-default": "false",
       "description": "True when the upstream repo is deleted or marked archived on GitHub. Archived items are excluded from re-scans but their last verdict stays public."
     },
     "sources": {
       "type": "array",
       "minItems": 1,
+      "x-postgresql-nullable": false,
+      "x-postgresql-default": "'[]'::jsonb",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -183,11 +217,13 @@
     "createdAt": {
       "type": "string",
       "format": "date-time",
+      "x-postgresql-default": "now()",
       "description": "First indexed-at timestamp (ISO 8601 with timezone)."
     },
     "updatedAt": {
       "type": "string",
       "format": "date-time",
+      "x-postgresql-default": "now()",
       "description": "Last-modified timestamp."
     },
     "metadata": {

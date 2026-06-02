@@ -1,0 +1,46 @@
+# DO NOT EDIT — regenerate via: pnpm run generate (scripts/generate_sqlalchemy_models.py)
+"""{{ model.class_name }} SQLAlchemy model — maps to the `{{ model.tablename }}` table."""
+
+{% if model.needs_datetime %}
+from datetime import datetime
+{% endif %}
+{% if model.needs_jsonb %}
+from typing import Any
+{% endif %}
+{% if model.needs_uuid %}
+from uuid import UUID
+{% endif %}
+
+import sqlalchemy as sa
+{% if model.needs_jsonb %}
+from sqlalchemy.dialects.postgresql import JSONB
+{% endif %}
+{% if model.needs_uuid %}
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
+{% endif %}
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.generated._base import Base{{ model.base_imports }}
+
+
+class {{ model.class_name }}(Base):
+    """{{ model.description }}"""
+
+    __tablename__ = "{{ model.tablename }}"
+{% if model.table_args %}
+
+    __table_args__ = (
+{% for arg in model.table_args %}
+        {{ arg }},
+{% endfor %}
+    )
+{% endif %}
+{% for col in model.columns %}
+
+    {{ col.name }}: Mapped[{{ col.mapped_type }}] = mapped_column(
+        {{ col.column_args | join(',\n        ') }},
+    )
+{% endfor %}
+
+    def __repr__(self) -> str:
+        return {{ model.repr_string }}

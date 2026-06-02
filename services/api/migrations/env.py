@@ -9,7 +9,6 @@ Phase B SQLAlchemy generator emits real (non-stub) models.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from logging.config import fileConfig
 
 from alembic import context
@@ -18,17 +17,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
 
-# Import Base so that target_metadata is non-empty after the model package's
-# __init__ imports its generated members. Side-effect imports keep autogenerate
-# aware of every table without a hand-maintained registry.
-from app.models.base import Base
-
-# Best-effort import of the generated models package so its side-effects
-# register tables on Base.metadata. The package may be empty on a fresh
-# checkout before `pnpm run generate` runs — that's fine, hand-written
-# migrations still work.
-with contextlib.suppress(ImportError):
-    import app.models.generated  # noqa: F401
+# Import the full model registry so `target_metadata` is aware of every table
+# (the six generated schema-backed models + the five internal hand-written ones
+# + the attached relationships). `app.models.__init__` registers all of them on
+# `Base.metadata`.
+from app.models import Base
 
 config = context.config
 

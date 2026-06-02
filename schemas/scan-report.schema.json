@@ -3,6 +3,25 @@
   "$id": "https://saferskills.ai/schemas/scan-report.schema.json",
   "title": "ScanReport",
   "description": "Public scan report for a CatalogItem. PRD-locked 5-axis sub-score taxonomy and 5-tier severity ladder per locked decisions D-01 / D-02 / D-13. The aggregate score is a deterministic, closed-form weighted sum of sub-scores with critical-floor application; every report renders the explicit math.",
+  "x-postgresql-classname": "Scan",
+  "x-postgresql-tablename": "scans",
+  "x-postgresql-indexes": [
+    { "name": "idx_scans_catalog_item_id_scanned_at", "columns": ["catalog_item_id", "scanned_at"] },
+    { "name": "idx_scans_tier", "columns": ["tier"] }
+  ],
+  "x-postgresql-extra-columns": [
+    {
+      "name": "scan_run_id",
+      "type": "uuid",
+      "nullable": true,
+      "foreign_key": { "table": "scan_runs", "column": "id", "ondelete": "SET NULL" }
+    },
+    { "name": "component_path", "type": "varchar", "length": 1024, "nullable": true },
+    { "name": "manifest_path", "type": "varchar", "length": 255, "nullable": true },
+    { "name": "manifest_source", "type": "text", "nullable": true },
+    { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+    { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+  ],
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,25 +46,31 @@
     "id": {
       "type": "string",
       "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
       "description": "Server-assigned UUID (gen_random_uuid())."
     },
     "catalogItemId": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "x-foreign-key": { "table": "catalog_items", "column": "id", "ondelete": "CASCADE" }
     },
     "idempotencyKey": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$",
+      "x-postgresql-unique": true,
       "description": "SHA-256 of `(github_url || ref_sha || rubric_version)`. Same key → cached scan."
     },
     "githubUrl": {
       "type": "string",
       "format": "uri",
+      "x-postgresql-nullable": true,
       "description": "Canonical GitHub URL scanned."
     },
     "refSha": {
       "type": "string",
       "pattern": "^[a-f0-9]{40}$",
+      "x-postgresql-nullable": true,
       "description": "Commit SHA resolved at scan time."
     },
     "aggregateScore": {
@@ -57,6 +82,7 @@
     "tier": {
       "type": "string",
       "enum": ["green", "yellow", "orange", "red", "unscoped"],
+      "x-postgresql-enum-type": "tier",
       "description": "Trust badge: green 80-100, yellow 60-79, orange 40-59, red 0-39, unscoped (e.g. closed-source)."
     },
     "subScores": {
@@ -115,17 +141,20 @@
     "findings": {
       "type": "array",
       "items": {"$ref": "#/$defs/finding"},
+      "x-postgresql-skip": true,
       "description": "Normalised findings (one per rule fire). Mirrors finding.schema.json — kept inline so datamodel-codegen can emit single-file Pydantic without cross-file resolution."
     },
     "traceTruncated": {
       "type": "boolean",
       "default": false,
+      "x-postgresql-default": "false",
       "description": "True if scan-trace total exceeded 256 KiB and was truncated (D-31)."
     },
     "omittedFindingsCount": {
       "type": "integer",
       "minimum": 0,
       "default": 0,
+      "x-postgresql-default": "0",
       "description": "Count of findings dropped due to trace truncation."
     },
     "fileHashes": {
@@ -148,7 +177,8 @@
     },
     "scannedAt": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "x-postgresql-default": "now()"
     },
     "latencyMs": {
       "type": "integer",
@@ -158,6 +188,8 @@
     "source": {
       "type": "string",
       "enum": ["submission", "ingestion", "rescan_drift", "rescan_appeal"],
+      "x-postgresql-enum-type": "scan_source",
+      "x-postgresql-nullable": false,
       "description": "What triggered this scan."
     }
   },
