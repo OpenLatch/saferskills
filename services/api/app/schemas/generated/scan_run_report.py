@@ -43,7 +43,7 @@ class Visibility(StrEnum):
 
 class SourceKind(StrEnum):
     """
-    Provenance of the scanned bytes — `github` or `upload`.
+    Origin of the scanned bytes — `github` or `upload`.
     """
 
     github = "github"
@@ -264,12 +264,12 @@ class ScanRunReport(BaseModel):
     source_kind: SourceKind | None = Field(
         "github",
         alias="sourceKind",
-        description="Provenance of the scanned bytes — `github` or `upload`.",
+        description="Origin of the scanned bytes — `github` or `upload`.",
     )
     artifact_sha256: constr(pattern=r"^[a-f0-9]{64}$") | None = Field(
         None,
         alias="artifactSha256",
-        description="Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable identity of an uploaded artifact. Null for legacy runs.",
+        description="Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs.",
     )
     uploaded_filename: constr(max_length=255) | None = Field(
         None,

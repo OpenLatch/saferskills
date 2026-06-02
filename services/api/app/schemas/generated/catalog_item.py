@@ -33,7 +33,7 @@ class Visibility(StrEnum):
 
 class SourceKind(StrEnum):
     """
-    Provenance of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact).
+    Origin of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact).
     """
 
     github = "github"
@@ -138,12 +138,12 @@ class CatalogItem(BaseModel):
     github_url: AnyUrl | None = Field(
         None,
         alias="githubUrl",
-        description="Canonical GitHub URL on the default branch. Null for non-GitHub sources — uploaded artifacts (`sourceKind = 'upload'`) have no GitHub provenance.",
+        description="Canonical GitHub URL on the default branch. Null for non-GitHub sources — uploaded artifacts (`sourceKind = 'upload'`) have no GitHub origin.",
     )
     github_org: constr(max_length=100) | None = Field(
         None,
         alias="githubOrg",
-        description="GitHub organisation or user that owns the repo. Null for uploaded artifacts (no GitHub provenance).",
+        description="GitHub organisation or user that owns the repo. Null for uploaded artifacts (no GitHub origin).",
     )
     github_repo: constr(max_length=100) | None = Field(
         None,
@@ -162,7 +162,7 @@ class CatalogItem(BaseModel):
     source_kind: SourceKind | None = Field(
         "github",
         alias="sourceKind",
-        description="Provenance of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact).",
+        description="Origin of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact).",
     )
     popularity_tier: PopularityTier = Field(
         ...,

@@ -22,7 +22,7 @@
     "githubUrl": {
       "type": ["string", "null"],
       "format": "uri",
-      "description": "Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub provenance)."
+      "description": "Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub origin)."
     },
     "slug": {
       "type": "string",

@@ -98,12 +98,12 @@
       "type": "string",
       "enum": ["github", "upload"],
       "default": "github",
-      "description": "Provenance of the scanned bytes — `github` or `upload`."
+      "description": "Origin of the scanned bytes — `github` or `upload`."
     },
     "artifactSha256": {
       "type": ["string", "null"],
       "pattern": "^[a-f0-9]{64}$",
-      "description": "Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable identity of an uploaded artifact. Null for legacy runs."
+      "description": "Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs."
     },
     "uploadedFilename": {
       "type": ["string", "null"],

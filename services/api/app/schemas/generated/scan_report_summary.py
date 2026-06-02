@@ -36,7 +36,7 @@ class ScanReportSummary(BaseModel):
     github_url: AnyUrl | None = Field(
         None,
         alias="githubUrl",
-        description="Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub provenance).",
+        description="Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub origin).",
     )
     slug: constr(
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)+$"

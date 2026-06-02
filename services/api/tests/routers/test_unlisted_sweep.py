@@ -11,8 +11,8 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import asyncpg
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.sweeps import _SWEEP_LOCK_KEY, sweep_unlisted  # pyright: ignore[reportPrivateUsage]
@@ -67,22 +67,19 @@ async def test_sweep_ignores_public_with_past_expiry(db_session: AsyncSession) -
 
 
 @pytest.mark.asyncio
-async def test_sweep_skips_when_lock_held(db_session: AsyncSession) -> None:
+async def test_sweep_skips_when_lock_held(db_session: AsyncSession, db_engine: Any) -> None:
     expired = await _seed_run(db_session, visibility="unlisted", days=-1)
 
-    # Hold the sweep advisory lock on a separate connection → sweep must skip.
-    dsn = "postgresql://postgres:dev@localhost:5432/saferskills_dev_test"
-    holder: Any = await asyncpg.connect(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        dsn
-    )
-    try:
-        got = await holder.fetchval(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            "SELECT pg_try_advisory_lock($1)", _SWEEP_LOCK_KEY
-        )
+    # Hold the sweep advisory lock on a SEPARATE connection from the same test
+    # engine (so the DSN matches whatever CI/dev configured) → sweep must skip.
+    async with db_engine.connect() as holder:  # pyright: ignore[reportUnknownMemberType]
+        got = (
+            await holder.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _SWEEP_LOCK_KEY})
+        ).scalar_one()
         assert got is True
-        swept = await sweep_unlisted(db_session)
-        assert swept == 0  # lock held elsewhere → no-op
-        assert await db_session.get(ScanRun, expired.id) is not None
-    finally:
-        await holder.execute("SELECT pg_advisory_unlock($1)", _SWEEP_LOCK_KEY)  # pyright: ignore[reportUnknownMemberType]
-        await holder.close()  # pyright: ignore[reportUnknownMemberType]
+        try:
+            swept = await sweep_unlisted(db_session)
+            assert swept == 0  # lock held elsewhere → no-op
+            assert await db_session.get(ScanRun, expired.id) is not None
+        finally:
+            await holder.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _SWEEP_LOCK_KEY})
