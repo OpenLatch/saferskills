@@ -511,6 +511,22 @@ html.dark .hero-band {
   margin-top: 88px;
 }
 
+/* Homepage audit-panel scan affordance (HomeScanPanel) — compact dual-mode
+   selection control inside the AUDIT card. The DS SegmentedTabs/Toggle/DropZone
+   atoms own their look in components.css; this is layout glue only. */
+.hs-panel .seg {
+  margin-bottom: 12px;
+}
+.hs-vis {
+  margin-top: 12px;
+}
+.hs-vis-help {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+
 /* inline mono stat strip below cards */
 .hero-stats {
   list-style: none;

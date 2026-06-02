@@ -121,6 +121,160 @@ html.dark .scan-form-pane .hint b {
 }
 
 /* ============================================================
+   DUAL-MODE CONSOLE (ScanConsole, D-UP-24) — composition glue around
+   the DS SegmentedTabs / Toggle / DropZone atoms (whose CSS is DS-owned
+   in ui/styles/components.css). Mockup 2 submit card.
+   ============================================================ */
+.scan-console-shell {
+  transition: opacity var(--dur-md) var(--ease-out);
+}
+.scan-console-shell.is-handoff {
+  opacity: 0;
+}
+.scan-console-shell .seg {
+  margin: 20px 0;
+}
+.scan-pane {
+  margin-bottom: 4px;
+}
+
+/* Privacy row — toggle + info tooltip + private note. */
+.scan-privacy {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-line);
+}
+.pv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pv-info {
+  position: relative;
+  display: inline-flex;
+}
+.pv-info-btn {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color var(--dur-xs) var(--ease-out);
+}
+.pv-info-btn:hover,
+.pv-info-btn:focus-visible {
+  color: var(--brand-primary);
+}
+.pv-info-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.pv-info-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.pv-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: 260px;
+  padding: 11px 13px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-xs) var(--ease-out);
+  z-index: 5;
+  pointer-events: none;
+}
+.pv-info:hover .pv-tip,
+.pv-info:focus-within .pv-tip {
+  opacity: 1;
+  visibility: visible;
+}
+.pv-note {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--brand-primary);
+}
+.pv-note::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  background: var(--brand-primary);
+  vertical-align: baseline;
+}
+
+/* Primary submit — teal, orange in repo (URL) mode. */
+.scan-go {
+  width: 100%;
+  margin-top: 20px;
+  padding: 17px 24px;
+  border: 0;
+  background: var(--brand-cta);
+  color: var(--brand-cta-fg);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background var(--dur-xs) var(--ease-out),
+    transform var(--dur-xs) var(--ease-out);
+}
+.scan-go .kbd {
+  font-family: var(--font-mono);
+  opacity: 0.8;
+}
+.scan-go[data-mode="url"] {
+  background: var(--brand-accent);
+}
+.scan-go:not(:disabled):hover {
+  background: var(--brand-primary-dark);
+  transform: translateY(-1px);
+}
+.scan-go[data-mode="url"]:not(:disabled):hover {
+  background: var(--brand-accent);
+  transform: translateY(-1px);
+}
+.scan-go:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.scan-go:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Passive consent line (PRD lock; muted, under the button). */
+.scan-consent {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+.scan-consent a {
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ============================================================
    RECENTS · 03 — full-width band below the split. The recent-scan
    gallery, lifted out of the methodology pane into its own row.
    ============================================================ */
@@ -201,95 +355,6 @@ html.dark .scan-recent .rs-cell .scn {
   font-size: 10.5px;
   color: var(--fg-3);
   letter-spacing: 0.04em;
-}
-
-/* BUDGET & LIMITS — bordered spec box. Replaces the old cramped 4-up trust
-   strip (orphan first divider, lines too tight, no budget framing). Full-height
-   hairline dividers BETWEEN cells, generous padding, mono header naming the
-   budget. */
-.scan-budget {
-  margin-top: 32px;
-  border: 1px solid var(--color-ink);
-  background: var(--color-paper);
-}
-html.dark .scan-budget {
-  border-color: var(--color-line);
-  background: var(--color-paper-deep);
-}
-.scan-budget-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--color-line);
-  background: var(--color-paper-deep);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-html.dark .scan-budget-head {
-  background: rgba(255, 255, 255, 0.04);
-}
-.scan-budget-head .t {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--fg-2);
-}
-.scan-budget-head .t::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  background: var(--brand-accent);
-  flex-shrink: 0;
-}
-.scan-budget-head .n {
-  /* the inherited --fg-3 (slate-500) only hits 4.34:1 at this 10px size on the
-     light --color-paper-deep surface; slate-600 clears WCAG AA (≥4.5:1). */
-  color: var(--ol-slate-600);
-}
-html.dark .scan-budget-head .n {
-  /* dark surface already passes with the inherited muted slate. */
-  color: var(--fg-3);
-}
-.scan-budget-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-}
-.budget-cell {
-  padding: 16px 18px;
-  border-left: 1px solid var(--color-line);
-}
-.budget-cell:first-child {
-  border-left: 0;
-}
-.budget-cell .lbl {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-.budget-cell .val {
-  margin-top: 8px;
-  font-family: var(--font-loud);
-  font-stretch: 125%;
-  font-weight: 800;
-  font-size: 26px;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  color: var(--color-ink);
-}
-html.dark .budget-cell .val {
-  color: var(--fg-1);
-}
-.budget-cell .sub {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--fg-3);
-  margin-top: 5px;
 }
 
 /* ============================================================
@@ -374,18 +439,6 @@ html.dark .scan-method-pane {
   }
   .scan-recent .rs-cell:not(:last-child) {
     border-bottom: 1px dashed var(--color-line);
-  }
-  .scan-budget-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  /* 2×2: the top-left + bottom-left cells start a row, so drop their left
-     dividers and add a hairline between the two rows. */
-  .budget-cell:nth-child(3) {
-    border-left: 0;
-  }
-  .budget-cell:nth-child(3),
-  .budget-cell:nth-child(4) {
-    border-top: 1px solid var(--color-line);
   }
 }
 

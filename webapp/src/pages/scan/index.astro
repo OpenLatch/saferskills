@@ -7,7 +7,7 @@ import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import RidgeRuler from '@ui/components/atoms/RidgeRuler.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
-import ScanSubmitForm from '@/components/scan/ScanSubmitForm.tsx'
+import ScanConsole from '@/components/scan/ScanConsole.tsx'
 import ScanMethodologyPreview from '@/components/scan/ScanMethodologyPreview.astro'
 import ScanRecents from '@/components/scan/ScanRecents.astro'
 import { listRecentSubmissionScans } from '@/lib/api/scans'
@@ -39,10 +39,10 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
   <header class="page-head">
     <div class="container">
       <div class="ph-eyebrow" data-reveal>SCAN · 03 · /SCAN</div>
-      <h1 class="ph-title" data-reveal style="--reveal-delay: 90ms">Paste a GitHub URL.<br />We do <span class="mark">the rest</span>.<span class="script">— ~30s</span></h1>
+      <h1 class="ph-title" data-reveal style="--reveal-delay: 90ms">Scan a repo — or <span class="mark">your own files</span>.<span class="script">— ~30s</span></h1>
       <p class="ph-lede" data-reveal style="--reveal-delay: 170ms">
-        Independent audit across {ruleCount} detection rules. Free. No account. Bookmarkable
-        report. Persists for 90 days.
+        Drop a SKILL.md or a .zip, or paste a public GitHub URL. Independent audit across {ruleCount}
+        detection rules. Free. No account. Public by default — go private with one toggle.
       </p>
     </div>
   </header>
@@ -51,7 +51,7 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 
   <div class="scan-split">
     <section class="scan-form-pane" data-reveal>
-      <ScanSubmitForm client:load />
+      <ScanConsole client:load />
     </section>
     <aside class="scan-method-pane" data-reveal style="--reveal-delay: 120ms">
       <ScanMethodologyPreview />

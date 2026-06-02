@@ -202,6 +202,22 @@
   --ease-out:    cubic-bezier(0, 0, 0.2, 1);
 
   /* ============================================================
+     INTERACTIVE-CONTROL TOKENS — Toggle / DropZone / SegmentedTabs
+     (I-3.5 dual-mode scan). Shape stays 0-radius hairline; teal is
+     the "public/on" tone, orange the URL-mode alternate.
+     ============================================================ */
+  --focus-ring: 0 0 0 2px var(--brand-primary);
+
+  --toggle-w:          44px;
+  --toggle-h:          24px;
+  --toggle-thumb:      18px;
+  --toggle-pad:        2px;
+  --toggle-track-on:   var(--brand-primary);
+  --toggle-track-on-alt: var(--brand-accent);   /* URL-mode (orange) */
+  --toggle-track-off:  var(--color-line);
+  --toggle-thumb-bg:   var(--color-white);
+
+  /* ============================================================
      LAYOUT
      ============================================================ */
   --container-max: 1550px;

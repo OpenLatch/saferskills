@@ -117,10 +117,14 @@ export interface CapabilityRow {
   findings: Finding[]
 }
 
+export type Visibility = 'public' | 'unlisted'
+export type ArtifactSource = 'github' | 'upload'
+
 /** GET /api/v1/scans/runs/<run_id> — the repo scan report (all capabilities). */
 export interface ScanRunReportDetail {
   id: string
-  github_url: string
+  /** Null for uploads (no repo coordinates) — P0-9. */
+  github_url: string | null
   repo_aggregate_score: number
   repo_tier: ScanTier
   kind_tally: Record<string, number>
@@ -133,6 +137,15 @@ export interface ScanRunReportDetail {
   source: string
   status: 'pending' | 'running' | 'completed' | 'failed'
   ref_sha?: string | null
+  // --- I-3.5 upload + visibility additions ---
+  visibility?: Visibility
+  source_kind?: ArtifactSource
+  artifact_sha256?: string | null
+  uploaded_filename?: string | null
+  /** Unlisted only — ISO timestamp. */
+  expires_at?: string | null
+  /** Present only on upload/unlisted responses — never logged. */
+  share_url?: string | null
 }
 
 export async function fetchScanRunById(runId: string): Promise<ScanRunReportDetail | null> {
@@ -147,6 +160,8 @@ export async function fetchScanRunById(runId: string): Promise<ScanRunReportDeta
 export interface ScanSubmitRequest {
   github_url: string
   rescan?: boolean
+  /** I-3.5 — public (default) or unlisted listing posture. */
+  visibility?: Visibility
 }
 
 export interface ScanSubmitResponse {
@@ -155,6 +170,8 @@ export interface ScanSubmitResponse {
   cached: boolean
   rubric_version: string
   submitted_at: string
+  /** Present only when visibility='unlisted' — never logged. */
+  share_url?: string | null
 }
 
 export async function submitScan(body: ScanSubmitRequest): Promise<ScanSubmitResponse> {
@@ -167,4 +184,157 @@ export async function submitScan(body: ScanSubmitRequest): Promise<ScanSubmitRes
   if (res.status === 422) throw new Error('invalid_url')
   if (!res.ok) throw new Error(`API ${res.status}`)
   return (await res.json()) as ScanSubmitResponse
+}
+
+// ============================================================================
+// I-3.5 — direct upload + unlisted (capability-URL) lifecycle.
+// Types mirror PR1's Pydantic DTOs (services/api/app/schemas/*) — the repo's
+// established hand-written-wire-type pattern (the openapi→TS generator emits
+// nothing consumable here). snake_case keys per naming-conventions.md.
+// ============================================================================
+
+/** 202 body of POST /api/v1/scans/upload. */
+export interface ScanUploadResponse {
+  id: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  source_kind: 'upload'
+  visibility: Visibility
+  /** Omitted for multi-capability uploads — the FE lands on the run report. */
+  slug?: string | null
+  /** Unlisted only — never logged. */
+  share_url?: string | null
+}
+
+export interface PromotedItem {
+  slug: string
+  kind: string
+  display_name: string
+  merged: boolean
+}
+
+/** 200 body of POST /api/v1/scans/r/{token}/promote (never a 301 — D-UP-31). */
+export interface PromoteRunResponse {
+  promoted: boolean
+  run_id: string
+  visibility: 'public'
+  items: PromotedItem[]
+}
+
+/** Structured upload-rejection so the DropZone can render the right bucketed copy. */
+export class UploadError extends Error {
+  constructor(
+    public code: string,
+    public httpStatus: number,
+    public reason?: string
+  ) {
+    super(code)
+    this.name = 'UploadError'
+  }
+}
+
+function mapUploadError(xhr: XMLHttpRequest): UploadError {
+  let code = 'upload_failed'
+  let reason: string | undefined
+  try {
+    const detail = JSON.parse(xhr.responseText)?.detail
+    if (detail && typeof detail === 'object') {
+      code = typeof detail.error === 'string' ? detail.error : code
+      reason = typeof detail.reason === 'string' ? detail.reason : undefined
+    } else if (typeof detail === 'string') {
+      code = detail
+    }
+  } catch {
+    /* non-JSON body */
+  }
+  if (xhr.status === 429) code = 'rate_limit_exceeded'
+  else if (xhr.status === 413 && code === 'upload_failed') code = 'upload_too_large'
+  return new UploadError(code, xhr.status, reason)
+}
+
+/**
+ * POST /api/v1/scans/upload (multipart). Uses XMLHttpRequest for upload-progress
+ * events. Buckets: 413 upload_too_large · 415 unsupported_type|binary_not_allowed
+ * · 422 archive_rejected (+reason) · 429 rate_limit_exceeded.
+ */
+export function submitUpload(
+  file: File,
+  opts: { visibility: Visibility; kind?: string },
+  onProgress?: (loaded: number, total: number) => void
+): Promise<ScanUploadResponse> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('visibility', opts.visibility)
+    if (opts.kind) form.append('kind', opts.kind)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${env.PUBLIC_API_URL}/api/v1/scans/upload`)
+    xhr.responseType = 'text'
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(e.loaded, e.total)
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status === 202 || xhr.status === 200) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as ScanUploadResponse)
+        } catch {
+          reject(new UploadError('bad_response', xhr.status))
+        }
+        return
+      }
+      reject(mapUploadError(xhr))
+    }
+    xhr.onerror = () => reject(new UploadError('network_error', 0))
+    xhr.send(form)
+  })
+}
+
+export type UnlistedReportResult =
+  | { status: 'ok'; report: ScanRunReportDetail }
+  /** A promoted run — caller should redirect to the public run report. */
+  | { status: 'promoted'; runReportPath: string }
+  | { status: 'not_found' }
+
+/**
+ * GET /api/v1/scans/r/{token}. A promoted run answers 307 → the public run
+ * report; we read the Location with redirect:'manual' and hand back a webapp
+ * path so SSR doesn't silently follow the redirect to the API origin (P0-12).
+ * Invalid/expired/deleted → generic not_found (no oracle).
+ */
+export async function fetchUnlistedReport(token: string): Promise<UnlistedReportResult> {
+  const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/scans/r/${encodeURIComponent(token)}`, {
+    headers: { Accept: 'application/json' },
+    redirect: 'manual',
+  })
+  if (res.status === 307 || res.status === 308 || res.type === 'opaqueredirect') {
+    const loc = res.headers.get('Location') ?? ''
+    const runId = loc.match(/\/runs\/([^/?#]+)/)?.[1]
+    return { status: 'promoted', runReportPath: runId ? `/scans/${runId}` : '/' }
+  }
+  if (res.status === 404) return { status: 'not_found' }
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return { status: 'ok', report: (await res.json()) as ScanRunReportDetail }
+}
+
+/** POST /api/v1/scans/r/{token}/promote — 200 structured (never 301). */
+export async function promoteUnlisted(token: string): Promise<PromoteRunResponse> {
+  const res = await fetch(
+    `${env.PUBLIC_API_URL}/api/v1/scans/r/${encodeURIComponent(token)}/promote`,
+    { method: 'POST', headers: { Accept: 'application/json' } }
+  )
+  if (res.status === 404) throw new Error('not_found')
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return (await res.json()) as PromoteRunResponse
+}
+
+/** DELETE /api/v1/scans/r/{token} — eager self-delete (token → generic 404 after). */
+export async function deleteUnlisted(token: string): Promise<void> {
+  const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/scans/r/${encodeURIComponent(token)}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  })
+  if (res.status === 404) return
+  if (!res.ok) throw new Error(`API ${res.status}`)
 }

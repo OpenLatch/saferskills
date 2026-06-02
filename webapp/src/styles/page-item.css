@@ -411,63 +411,9 @@ html.dark .sk-block-head {
   color: var(--color-ink-soft);
   padding: 1px 5px;
 }
-.sk-tabs {
-  display: flex;
-  gap: 0;
-  align-items: stretch;
-  border-bottom: 1px solid var(--color-ink);
-  margin-bottom: 24px;
-}
-html.dark .sk-tabs {
-  border-color: var(--color-line);
-}
-.sk-tab {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 500;
-  padding: 13px 20px;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: var(--fg-3);
-  transition:
-    color var(--dur-xs),
-    border-color var(--dur-xs);
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-}
-.sk-tab:hover {
-  color: var(--color-ink);
-}
-html.dark .sk-tab:hover {
-  color: var(--fg-1);
-}
-.sk-tab.on {
-  color: var(--color-ink);
-  border-bottom-color: var(--brand-primary);
-  font-weight: 700;
-}
-html.dark .sk-tab.on {
-  color: var(--fg-1);
-}
-.sk-tab .t-ct {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  padding: 2px 6px;
-  background: var(--color-line-soft);
-  color: var(--fg-3);
-  letter-spacing: 0.04em;
-}
-.sk-tab.on .t-ct {
-  background: var(--brand-primary);
-  color: #fff;
-}
+/* .sk-tabs / .sk-tab / .t-ct moved to ui/styles/components.css (CSS-ownership
+   rule — they are now rendered by the DS SegmentedTabs atom, variant="underline").
+   See .claude/rules/design-system.md § CSS ownership. */
 .sk-panel .sk-block-head {
   margin-bottom: 18px;
 }

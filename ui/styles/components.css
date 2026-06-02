@@ -4334,3 +4334,505 @@ html.dark .weight-bars .wb-bar {
   transform: scaleX(var(--wb-frac, 1));
   background: var(--brand-primary);
 }
+
+/* ============================================================
+   SEGMENTED TABS — DS atom (ui/components/atoms/SegmentedTabs.tsx)
+   Two variants:
+     • underline — moved verbatim from webapp/src/styles/page-item.css
+       (the /items/<slug> tab look; rendered as .sk-tabs/.sk-tab).
+     • segmented — the boxed control from the dual-mode /scan mockup
+       (.seg/.seg-tab), per-tab teal/orange active accent.
+   ============================================================ */
+
+/* --- underline variant (.sk-tabs/.sk-tab) — DS-owned, was in page-item.css --- */
+.sk-tabs {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-ink);
+  margin-bottom: 24px;
+}
+html.dark .sk-tabs {
+  border-color: var(--color-line);
+}
+.sk-tab {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 13px 20px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--fg-3);
+  transition:
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.sk-tab:hover {
+  color: var(--color-ink);
+}
+html.dark .sk-tab:hover {
+  color: var(--fg-1);
+}
+.sk-tab.on {
+  color: var(--color-ink);
+  border-bottom-color: var(--brand-primary);
+  font-weight: 700;
+}
+html.dark .sk-tab.on {
+  color: var(--fg-1);
+}
+.sk-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.sk-tab .t-ct {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  padding: 2px 6px;
+  background: var(--color-line-soft);
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.sk-tab.on .t-ct {
+  background: var(--brand-primary);
+  color: #fff;
+}
+
+/* --- segmented variant (.seg/.seg-tab) — boxed control, /scan + homepage --- */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 1px solid var(--color-line);
+  background: var(--color-paper-deep);
+}
+.seg-tab {
+  --seg-accent: var(--brand-primary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 11px 18px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: var(--fg-3);
+  transition:
+    color var(--dur-xs) var(--ease-out),
+    background var(--dur-xs) var(--ease-out);
+}
+.seg-tab + .seg-tab {
+  border-left: 1px solid var(--color-line);
+}
+.seg-tab[data-accent='orange'] {
+  --seg-accent: var(--brand-accent);
+}
+.seg-tab:hover {
+  color: var(--fg-1);
+}
+.seg-tab.on {
+  color: var(--fg-1);
+  background: var(--color-paper);
+  box-shadow: inset 0 -2px 0 var(--seg-accent);
+}
+.seg-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.seg-tab.on:focus-visible {
+  box-shadow: var(--focus-ring), inset 0 -2px 0 var(--seg-accent);
+}
+.seg-tab .t-ct {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: var(--color-line-soft);
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.seg-tab.on .t-ct {
+  background: var(--seg-accent);
+  color: var(--color-white);
+}
+
+/* Screen-reader-only utility — for aria-live announcement regions. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   TOGGLE — DS atom (ui/components/atoms/Toggle.tsx)
+   role="switch" track+thumb. Teal track when on (public);
+   orange tone for URL mode; --compact for the homepage panel.
+   ============================================================ */
+.toggle-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.toggle {
+  flex: none;
+  position: relative;
+  width: var(--toggle-w);
+  height: var(--toggle-h);
+  padding: 0;
+  border: 1px solid var(--toggle-track-off);
+  background: var(--toggle-track-off);
+  cursor: pointer;
+  transition:
+    background var(--dur-xs) var(--ease-out),
+    border-color var(--dur-xs) var(--ease-out);
+}
+.toggle[aria-checked='true'] {
+  background: var(--toggle-track-on);
+  border-color: var(--toggle-track-on);
+}
+.toggle[data-tone='orange'][aria-checked='true'] {
+  background: var(--toggle-track-on-alt);
+  border-color: var(--toggle-track-on-alt);
+}
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.toggle-thumb {
+  position: absolute;
+  top: var(--toggle-pad);
+  left: var(--toggle-pad);
+  width: var(--toggle-thumb);
+  height: var(--toggle-thumb);
+  background: var(--toggle-thumb-bg);
+  transition: transform var(--dur-xs) var(--ease-out);
+}
+.toggle[aria-checked='true'] .toggle-thumb {
+  transform: translateX(calc(var(--toggle-w) - var(--toggle-thumb) - var(--toggle-pad) * 2));
+}
+.toggle-label {
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+}
+.toggle--compact {
+  --toggle-w: 36px;
+  --toggle-h: 18px;
+  --toggle-thumb: 12px;
+}
+.toggle--compact + .toggle-label,
+.toggle-field--compact .toggle-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seg-tab,
+  .toggle,
+  .toggle-thumb {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   DROPZONE — DS molecule (ui/components/molecules/DropZone.tsx)
+   The animated upload state machine (D-UP-ANIM): the SaferSkills
+   "audit sweep" brand moment. Transform/opacity only; every state
+   short-circuits under prefers-reduced-motion. State is driven by
+   the [data-state] attribute (idle|dragover|selected|uploading|error).
+   ============================================================ */
+.dropzone {
+  --dz-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* The dashed drop/click target. */
+.dz-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  width: 100%;
+  padding: 44px 28px;
+  border: 1.5px dashed var(--color-line);
+  background: var(--color-paper-deep);
+  background-image: var(--bg-plus-grid-soft);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-xs) var(--ease-out),
+    background-color var(--dur-xs) var(--ease-out),
+    transform var(--dur-xs) var(--ease-out);
+}
+.dz-zone:focus-within {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dz-zone:hover {
+    border-color: var(--brand-primary);
+    background-color: var(--color-paper);
+  }
+}
+.dropzone[data-state='dragover'] .dz-zone {
+  border-color: var(--brand-primary);
+  border-style: solid;
+  background-color: var(--color-paper);
+  transform: scale(1.01);
+}
+.dropzone[data-state='dragover'] .dz-glyph {
+  animation: dz-bob 1.2s var(--ease-std) infinite;
+}
+
+.dz-glyph {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--color-ink);
+  color: var(--fg-1);
+}
+.dz-main {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+.dz-browse {
+  text-decoration: underline;
+  text-decoration-color: var(--brand-primary);
+  text-underline-offset: 3px;
+}
+.dz-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--fg-3);
+  max-width: 46ch;
+}
+
+/* Selected-file card — stamps in on selection. */
+.dz-file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+  overflow: hidden;
+  animation: dz-stamp 240ms var(--ease-out) both;
+}
+html.dark .dz-file {
+  border-color: var(--color-line);
+}
+.dz-file .ff-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--fg-3);
+}
+.dz-file .ff-name {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dz-file .ff-size {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  flex: none;
+}
+.dz-file .ff-kind {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 40%, transparent);
+  animation: dz-chip-pop 180ms var(--dz-overshoot) both;
+}
+.dz-file .ff-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color var(--dur-xs) var(--ease-out);
+}
+.dz-file .ff-x:hover {
+  color: var(--fg-1);
+}
+.dz-file .ff-x:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Uploading — teal scan-line sweep + determinate scaleX bar + byte counter. */
+.dz-sweep {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--brand-primary) 22%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: dz-sweep 1.1s linear infinite;
+}
+.dz-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--color-line-soft);
+}
+.dz-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--brand-primary);
+  transform-origin: left center;
+  transform: scaleX(var(--dz-frac, 0));
+  transition: transform 120ms linear;
+}
+.dz-bytes {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+/* Error — bucketed message + shake. */
+.dropzone[data-state='error'] .dz-zone {
+  border-color: var(--status-danger);
+  animation: dz-shake 300ms var(--ease-std) both;
+}
+.dz-error {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--status-danger);
+}
+.dz-error::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  background: var(--status-danger);
+  vertical-align: baseline;
+}
+
+/* Compact variant — homepage audit panel (kept near the input-row height). */
+.dropzone--compact .dz-zone {
+  flex-direction: row;
+  gap: 12px;
+  padding: 14px 16px;
+  text-align: left;
+}
+.dropzone--compact .dz-glyph {
+  width: 30px;
+  height: 30px;
+}
+.dropzone--compact .dz-main {
+  font-size: 13px;
+}
+.dropzone--compact .dz-sub {
+  display: none;
+}
+
+@keyframes dz-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes dz-stamp {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes dz-chip-pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes dz-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+@keyframes dz-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dz-zone,
+  .dropzone[data-state='dragover'] .dz-zone {
+    transition: border-color var(--dur-xs) var(--ease-out),
+      background-color var(--dur-xs) var(--ease-out);
+    transform: none;
+  }
+  .dropzone[data-state='dragover'] .dz-glyph,
+  .dz-sweep {
+    animation: none;
+  }
+  .dz-file {
+    animation: none;
+  }
+  .dz-file .ff-kind {
+    animation: dz-chip-fade 180ms var(--ease-out) both;
+  }
+  .dropzone[data-state='error'] .dz-zone {
+    animation: none;
+  }
+  .dz-sweep {
+    display: none;
+  }
+}
+@keyframes dz-chip-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

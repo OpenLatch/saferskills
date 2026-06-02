@@ -1,3 +1,4 @@
+import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import { useEffect, useState } from 'react'
 
 import {
@@ -56,35 +57,28 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
 
   return (
     <div className="sk-col-main">
-      <div className="sk-tabs" role="tablist">
-        <button
-          type="button"
-          className={`sk-tab${tab === 'score' ? ' on' : ''}`}
-          role="tab"
-          onClick={() => setTab('score')}
-        >
-          Score breakdown<span className="t-ct">{findings.length}</span>
-        </button>
-        <button
-          type="button"
-          className={`sk-tab${tab === 'versions' ? ' on' : ''}`}
-          role="tab"
-          onClick={() => setTab('versions')}
-        >
-          Version history<span className="t-ct">{versions.length}</span>
-        </button>
-        <button
-          type="button"
-          className={`sk-tab${tab === 'source' ? ' on' : ''}`}
-          role="tab"
-          onClick={() => setTab('source')}
-        >
-          Source
-        </button>
-      </div>
+      <SegmentedTabs
+        variant="underline"
+        idBase="itemtabs"
+        ariaLabel="Item report sections"
+        value={tab}
+        onChange={(id) => setTab(id as TabKey)}
+        tabs={[
+          { id: 'score', label: 'Score breakdown', count: findings.length },
+          { id: 'versions', label: 'Version history', count: versions.length },
+          { id: 'source', label: 'Source' },
+        ]}
+      />
 
       {/* ===== SCORE BREAKDOWN ===== */}
-      <div className="sk-panel" data-panel="score" hidden={tab !== 'score'}>
+      <div
+        className="sk-panel"
+        data-panel="score"
+        id={panelId('itemtabs', 'score')}
+        role="tabpanel"
+        aria-labelledby="itemtabs-tab-score"
+        hidden={tab !== 'score'}
+      >
         <div className="score-cats">
           <div className="sc-row sc-head">
             <span>Category</span>
@@ -162,7 +156,14 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
       </div>
 
       {/* ===== VERSION HISTORY ===== */}
-      <div className="sk-panel" data-panel="versions" hidden={tab !== 'versions'}>
+      <div
+        className="sk-panel"
+        data-panel="versions"
+        id={panelId('itemtabs', 'versions')}
+        role="tabpanel"
+        aria-labelledby="itemtabs-tab-versions"
+        hidden={tab !== 'versions'}
+      >
         <div className="sk-block-head">
           <p className="panel-desc">
             Every scanned point with the score it earned and what moved between them.
@@ -201,7 +202,14 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
       </div>
 
       {/* ===== SOURCE ===== */}
-      <div className="sk-panel" data-panel="source" hidden={tab !== 'source'}>
+      <div
+        className="sk-panel"
+        data-panel="source"
+        id={panelId('itemtabs', 'source')}
+        role="tabpanel"
+        aria-labelledby="itemtabs-tab-source"
+        hidden={tab !== 'source'}
+      >
         <div className="sk-block-head">
           <p className="panel-desc">
             The primary manifest — the file an agent reads to learn what this artifact does.
