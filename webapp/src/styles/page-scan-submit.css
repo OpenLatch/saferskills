@@ -226,7 +226,11 @@ html.dark .scan-form-pane .hint b {
   margin-top: 20px;
   padding: 17px 24px;
   border: 0;
-  background: var(--brand-cta);
+  /* brand-primary-dark (not --brand-cta) so white text clears WCAG AA on this
+     unmasked full-width button — the DS hex-cap .btn.primary escapes the axe
+     contrast check via its mask, but this rectangular CTA is evaluated. P2-3:
+     a11y beats the mockup's exact #0D9488 (subtle teal-darken, both themes). */
+  background: var(--brand-primary-dark);
   color: var(--brand-cta-fg);
   font-family: var(--font-sans);
   font-size: 15px;

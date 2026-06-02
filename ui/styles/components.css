@@ -4426,10 +4426,16 @@ html.dark .sk-tab.on {
   cursor: pointer;
   background: transparent;
   border: 0;
-  color: var(--fg-3);
+  /* slate-600 (not --fg-3 slate-500) so the bold 10.5px inactive label clears
+     WCAG AA 4.5:1 on the paper-deep .seg surface; dark mode keeps the lighter
+     muted slate (passes on the dark surface). */
+  color: var(--ol-slate-600);
   transition:
     color var(--dur-xs) var(--ease-out),
     background var(--dur-xs) var(--ease-out);
+}
+html.dark .seg-tab {
+  color: var(--fg-3);
 }
 .seg-tab + .seg-tab {
   border-left: 1px solid var(--color-line);
