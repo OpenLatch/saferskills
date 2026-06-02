@@ -5,7 +5,6 @@ import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import RotatingHeadline from '@ui/components/atoms/RotatingHeadline.tsx'
 import CrosshairGrid from '@ui/components/atoms/CrosshairGrid.tsx'
-import ActionCard from '@ui/components/molecules/ActionCard.tsx'
 import RidgePixel from '@ui/components/atoms/RidgePixel.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import RidgeFlow from '@ui/components/atoms/RidgeFlow.tsx'
@@ -20,12 +19,10 @@ import WaveBand from '@/components/homepage/WaveBand.astro'
 import FeedsMosaic from '@/components/homepage/FeedsMosaic.astro'
 import DetectionBand from '@/components/homepage/DetectionBand.astro'
 import PixelWave from '@/components/homepage/PixelWave.astro'
-import HeroInputBar from '@/components/homepage/HeroInputBar.tsx'
-import HomeScanPanel from '@/components/home/HomeScanPanel.tsx'
+import HeroActionCards from '@/components/homepage/HeroActionCards.astro'
 import HomepageLive from '@/components/homepage/HomepageLive.tsx'
 
 import { SUPPORTED_AGENTS } from '@/data/homepage-constants'
-import type { PopularChip } from '@/data/launch-fallbacks'
 import { getHomepageData } from '@/lib/homepage'
 import { formatCount, formatSeconds } from '@/lib/format'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
@@ -36,20 +33,9 @@ import '@/styles/page-home.css'
 // correct even with an empty catalog + JS disabled). The `HomepageLive` island
 // re-runs the same view-model on the client to keep it fresh between deploys.
 const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
-
-// Popular-chip score swatch class (CSS supports green/yellow/orange; red→orange).
-const scClass = (tier: PopularChip['tier']): string =>
-  tier === 'green' ? 'green' : tier === 'yellow' ? 'yellow' : 'orange'
-
-// Hero action-card foot meta — passed as HTML strings (rendered via
-// dangerouslySetInnerHTML inside ActionCard) so the `<b>` emphasis ports
-// across the React-island serialization boundary. `data-live-stat` marks the
-// nodes the client island patches with fresh values.
-const findMetaHtml = `<b data-live-stat="catalog_total">${formatCount(data.catalogTotal)}</b> indexed · <b data-live-stat="registries">${data.registriesCount}</b> registries`
-const auditMetaHtml = `avg <b data-live-stat="avg">${formatSeconds(data.avgLatencyMs)}</b>`
 ---
 <Base
-  title="SaferSkills — Every AI skill, independently audited."
+  title="SaferSkills — Every AI capability, independently audited."
   bodyClass="va"
 >
   <NavBar client:idle ghCount={data.githubStars} activePath={Astro.url.pathname} />
@@ -71,7 +57,7 @@ const auditMetaHtml = `avg <b data-live-stat="avg">${formatSeconds(data.avgLaten
 
       <RotatingHeadline
         client:load
-        base="Every AI skill, independently audited against"
+        base="Every AI capability, independently audited against"
         nouns={[
           'Prompt Injection',
           'PII Leaks',
@@ -88,69 +74,12 @@ const auditMetaHtml = `avg <b data-live-stat="avg">${formatSeconds(data.avgLaten
       />
 
       <p class="hero-lede">
-        Paste a public GitHub URL — get a transparent security report in thirty seconds.
-        One unified catalog. One install command across eight agents.
+        Send an AI Skill, MCP or Hook — get a transparent security report in thirty seconds.
+        One unified catalog. One install command to manage capabilities across eight agents.
       </p>
 
       <div class="hero-cards">
-        <ActionCard
-          client:visible
-          index="01"
-          kicker="Find"
-          liveLabel="Indexing"
-          title="Search the catalog."
-          lede="All the skills, MCPs, and plugins indexed from every public registries. One unified search to find them all."
-          variant="find"
-          foot={{
-            cta: { label: 'Browse catalog →', href: '/catalog' },
-            metaHtml: findMetaHtml,
-          }}
-        >
-          <HeroInputBar
-            client:idle
-            kind="find"
-            initialPlaceholder="ripgrep, supabase, linear..."
-            ariaLabel="Search the catalog"
-            submitAriaLabel="Submit search"
-            shortcutKey="k"
-          />
-          <div class="p1-tabs" data-live-popular>
-            <span class="lbl">Popular</span>
-            {data.popular.map((chip) => (
-              <button class="p1-chip" type="button">
-                <span class="kbd">Tab</span>
-                <span class="nm">{chip.name}</span>
-                <span class={`sc ${scClass(chip.tier)}`}>{chip.score}</span>
-              </button>
-            ))}
-          </div>
-        </ActionCard>
-
-        <ActionCard
-          client:visible
-          index="02"
-          kicker="Audit"
-          liveLabel="Running"
-          title="Scan a new skill."
-          lede="Drop a SKILL.md or .zip, or paste a public GitHub URL. Full security report in ~30s. Free. No account."
-          variant="audit"
-          foot={{
-            cta: { label: 'Scan a skill →', href: '/scan' },
-            metaHtml: auditMetaHtml,
-          }}
-        >
-          <HomeScanPanel client:idle />
-          <div class="p1-progress">
-            <div class="row"><span>Audit pipeline</span><span><b>3</b> / 4 stages</span></div>
-            <div class="bar"></div>
-            <div class="steps">
-              <span class="ok">Fetch</span>
-              <span class="ok">Lint</span>
-              <span class="cur">Score</span>
-              <span class="pen">Sign</span>
-            </div>
-          </div>
-        </ActionCard>
+        <HeroActionCards data={data} />
       </div>
 
       <ul class="hero-stats" aria-label="Headline stats">
@@ -334,10 +263,10 @@ const auditMetaHtml = `avg <b data-live-stat="avg">${formatSeconds(data.avgLaten
        ───────────────────────────────────────────────────────── */}
   <CtaBand
     client:visible
-    title="Scan a repo. Read the report. Decide."
-    titleLines={['Scan a repo.', 'Read the report.', 'Decide.']}
+    title="Scan a capability. Read the report. Decide."
+    titleLines={['Scan a capability.', 'Read the report.', 'Decide.']}
     lead="~30 seconds. Free. No account. The report URL is bookmarkable and persists for 90 days."
-    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
+    primaryAction={{ label: 'Submit a capability →', href: '/scan' }}
     secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
   />
 

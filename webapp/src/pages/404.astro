@@ -3,50 +3,45 @@ export const prerender = true
 
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
-import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
-import Input from '@ui/components/atoms/Input.tsx'
+import Button from '@ui/components/atoms/Button.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
+import HeroActionCards from '@/components/homepage/HeroActionCards.astro'
+import { getHomepageData } from '@/lib/homepage'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
+
 import '@/styles/page-404.css'
+
+// Same resolved view-model the homepage uses — live-with-fallback, so the FIND
+// + AUDIT cards render correct values even with an empty catalog or a missing
+// API. An error page needs no live-refresh island; build-time-with-fallback is
+// authoritative here.
+const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
 ---
 <Base
   title="Page not found — SaferSkills"
-  description="We can't find that skill, MCP, or page. Try a catalog search, scan a new GitHub URL, or take me home."
+  description="We can't find that skill, MCP, or page. Search the catalog, scan a new skill, or head back home."
+  bodyClass="va"
 >
-  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
+  <NavBar client:idle ghCount={data.githubStars} activePath={Astro.url.pathname} />
 
-  <main class="not-found">
+  <main class="nf-band">
     <div class="container">
-      <span class="nf-eyebrow">404 · NOT FOUND</span>
-      <h1 class="nf-title">We can't find that skill, MCP, or page.</h1>
+      <div class="nf-eyebrow">404 · Not Found</div>
+      <h1>We can't find that <span class="mk">skill, MCP, or page</span>.</h1>
       <p class="nf-lede">
-        Try a catalog search, scan a new GitHub URL, or take me home.
+        It may have been moved, renamed, or never existed. Search the catalog,
+        scan a new skill, or head back home.
       </p>
 
-      <div class="nf-actions">
-        <form class="nf-search" action="/catalog" method="GET" role="search">
-          <Input
-            client:idle
-            prefix="search"
-            name="q"
-            placeholder="Search the catalog..."
-            aria-label="Search the catalog"
-          />
-          <button type="submit" class="btn paper">Search →</button>
-        </form>
+      <div class="nf-cards">
+        <HeroActionCards data={data} />
+      </div>
 
-        <form class="nf-scan" action="/scan" method="GET">
-          <Input
-            client:idle
-            prefix="https://"
-            name="url"
-            placeholder="github.com/owner/repo"
-            aria-label="GitHub repository URL to scan"
-          />
-          <button type="submit" class="btn primary">Scan →</button>
-        </form>
-
-        <a class="nf-home" href="/">Or take me home →</a>
+      <div class="nf-home-row">
+        <Button as="a" href="/" size="lg" className="nf-home">
+          <span class="nf-arrow" aria-hidden="true">←</span> Or take me back home
+        </Button>
       </div>
     </div>
   </main>

@@ -10,6 +10,7 @@ import {
   precheckFile,
   SCAN_TABS,
   UPLOAD_ACCEPT,
+  UPLOAD_HINT,
   UPLOAD_MAX_BYTES,
   uploadErrorMessage,
 } from '@/lib/upload'
@@ -147,7 +148,6 @@ export default function ScanConsole() {
     setBusy(true)
     try {
       const res = await submitScan({ github_url: githubUrl, visibility })
-      track('homepage_scan_submitted', { url_domain_class: 'github' })
       navigateToResult(res)
     } catch (e) {
       setBusy(false)
@@ -163,6 +163,12 @@ export default function ScanConsole() {
 
   function handleSubmit() {
     if (busy) return
+    // FE intent signal (closed-enum only — no URL/filename/bytes/token). The
+    // backend emits the authoritative `scan_submitted` on the server side.
+    track('homepage_scan_submitted', {
+      artifact_source: tab === 'upload' ? 'upload' : 'github',
+      visibility,
+    })
     if (tab === 'upload') submitUploadPath()
     else submitUrlPath()
   }
@@ -192,6 +198,7 @@ export default function ScanConsole() {
             onFileSelected={onFile}
             accept={[...UPLOAD_ACCEPT]}
             maxBytes={UPLOAD_MAX_BYTES}
+            hint={UPLOAD_HINT}
             state={dzState}
             progress={progress}
             selectedFile={

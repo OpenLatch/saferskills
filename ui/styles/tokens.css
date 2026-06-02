@@ -211,11 +211,11 @@
   --toggle-w:          44px;
   --toggle-h:          24px;
   --toggle-thumb:      18px;
-  --toggle-pad:        2px;
+  --toggle-pad:        3px;                       /* centers the 18px thumb in the 24px track; 20px travel */
   --toggle-track-on:   var(--brand-primary);
   --toggle-track-on-alt: var(--brand-accent);   /* URL-mode (orange) */
   --toggle-track-off:  var(--color-line);
-  --toggle-thumb-bg:   var(--color-white);
+  --toggle-thumb-bg:   var(--ol-slate-50);
 
   /* ============================================================
      LAYOUT

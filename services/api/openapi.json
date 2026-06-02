@@ -2249,7 +2249,7 @@
     }
   },
   "info": {
-    "description": "Every AI skill, independently scanned \u2014 public, free, Apache-2.0 trust-scoring for skills, MCP servers, hooks, and plugins.",
+    "description": "Every AI capability, independently scanned \u2014 public, free, Apache-2.0 trust-scoring for skills, MCP servers, hooks, and plugins.",
     "title": "SaferSkills API",
     "version": "0.0.0+foundation"
   },

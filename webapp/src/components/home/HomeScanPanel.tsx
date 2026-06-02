@@ -2,6 +2,7 @@ import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toggle from '@ui/components/atoms/Toggle'
 import DropZone, { type DropZoneState } from '@ui/components/molecules/DropZone'
 import { useState } from 'react'
+import { track } from '@/lib/analytics'
 import type { Visibility } from '@/lib/api/scans'
 import { precheckFile, SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 import { stashPendingUpload } from '@/lib/upload-handoff'
@@ -29,6 +30,7 @@ export default function HomeScanPanel() {
       return
     }
     setDzError(null)
+    track('homepage_scan_panel_started', { artifact_source: 'upload', visibility })
     try {
       const nonce = await stashPendingUpload(f, visibility)
       window.location.assign(`/scan#pending=${nonce}`)
@@ -38,6 +40,7 @@ export default function HomeScanPanel() {
   }
 
   function goUrl() {
+    track('homepage_scan_panel_started', { artifact_source: 'github', visibility })
     const q = new URLSearchParams()
     const v = urlValue.trim()
     if (v) q.set('prefill', v)

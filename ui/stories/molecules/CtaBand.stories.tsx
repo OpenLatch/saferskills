@@ -3,9 +3,9 @@ import CtaBand from '../../components/molecules/CtaBand'
 
 export const Default: Story = () => (
   <CtaBand
-    title="Scan a repo. Read the report. Decide."
+    title="Scan a capability. Read the report. Decide."
     lead="Free. No account. Methodology is open source. Every verdict is appealable."
-    primaryAction={{ label: 'Scan a repo', href: '/scan' }}
+    primaryAction={{ label: 'Scan a capability', href: '/scan' }}
     secondaryAction={{ label: 'Read methodology', href: '/methodology' }}
   />
 )

@@ -442,13 +442,26 @@ html.dark .hero-band {
   vertical-align: baseline;
   overflow: hidden;
   line-height: 1;
+  /* Stops are em-from-top (not %) so they stay pinned under the word when the
+     box grows taller for descender room below — see padding-bottom. */
   background-image: linear-gradient(
-    transparent 70%,
-    var(--color-citron) 70%,
-    var(--color-citron) 94%,
-    transparent 94%
+    transparent 0.7em,
+    var(--color-citron) 0.7em,
+    var(--color-citron) 0.94em,
+    transparent 0.94em
   );
-  padding: 0 10px;
+  /* line-height:1 makes the box exactly 1em tall, so overflow:hidden clips
+     glyph descenders (the "g" in "Rogue Obfuscation"). The 0.18em bottom pad
+     gives them room inside the clip box; the em-anchored gradient above keeps
+     the citron highlight visually unchanged. */
+  padding: 0 10px 0.18em;
+  /* overflow:hidden makes an inline-block take its baseline from the bottom
+     margin edge (CSS2 §10.8.1), so the bottom pad above would drag the
+     baseline — and the trailing "." sibling — down by 0.18em. Cancel that with
+     a matching negative bottom margin: the clip box keeps its descender room
+     (margin doesn't clip), but the baseline (and the ".") returns to where it
+     was, with descenders hanging below it as they should. */
+  margin-bottom: -0.18em;
   /* The JS measures pure text width; without content-box the 10px side
      padding would eat into that width (Tailwind's default border-box) and
      clip the trailing letter of longer nouns. */
@@ -479,11 +492,11 @@ html.dark .hero-band {
     opacity 240ms ease-out;
 }
 .rotator-word.out {
-  transform: translateY(-108%);
+  transform: translateY(-120%);
   opacity: 0;
 }
 .rotator-word.in {
-  transform: translateY(108%);
+  transform: translateY(120%);
   opacity: 0;
   transition: none;
 }
@@ -513,15 +526,43 @@ html.dark .hero-band {
 
 /* Homepage audit-panel scan affordance (HomeScanPanel) — compact dual-mode
    selection control inside the AUDIT card. The DS SegmentedTabs/Toggle/DropZone
-   atoms own their look in components.css; this is layout glue only. */
+   atoms own their look in components.css; this is layout glue only.
+   NOTE: re-added below the generated mockup CSS — build-page-home.py strips
+   hand-added blocks, so this lives after the generated region intentionally. */
+/* The v2 mockup floats the compact tabs inline-right with the "Scan a new
+   skill." title (no pipeline bar; card height ~= the FIND card). The audit
+   body is the positioning context; the tabs are pulled up beside the headline. */
+.p1-card.audit .p1-body {
+  position: relative;
+  /* Match the v2 mockup card chrome (26px top / 24px bottom) so the audit
+     content aligns with the headline band; the grid stretches the FIND card to
+     match (FIND internals untouched). */
+  padding: 26px 28px 24px;
+}
+.hs-panel {
+  /* The body flex-gap is 14px; the mockup's title→dropzone gap is 18px. The
+     absolute .seg below is unaffected (out of flow). */
+  margin-top: 4px;
+}
 .hs-panel .seg {
-  margin-bottom: 12px;
+  position: absolute;
+  top: 22px;
+  right: 28px;
+  width: auto;
+  /* content-sized columns (the /scan tabs are equal 1fr; here they hug labels) */
+  grid-auto-columns: auto;
+  margin-bottom: 0;
+}
+/* Compact tabs beside the headline (mockup: content-sized, 7px 15px) — a
+   legitimate single-route override of the DS .seg-tab size (design-system.md § CSS ownership). */
+.hs-panel .seg-tab {
+  padding: 7px 15px;
 }
 .hs-vis {
   margin-top: 12px;
 }
 .hs-vis-help {
-  margin-top: 6px;
+  margin-top: 1px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--fg-3);

@@ -3,12 +3,12 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./webapp/public/banner-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="./webapp/public/banner.png">
-  <img alt="SaferSkills — every AI skill, independently scanned" src="./webapp/public/banner.png">
+  <img alt="SaferSkills — every AI capability, independently scanned" src="./webapp/public/banner.png">
 </picture>
 
 # SaferSkills
 
-**Every AI skill, independently scanned.** Search, install, and verify skills, MCP servers, hooks, and plugins across every agent platform. Free. Open source. Apache 2.0.
+**Every AI capability, independently scanned.** Search, install, and verify skills, MCP servers, hooks, and plugins across every agent platform. Free. Open source. Apache 2.0.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-1E40AF.svg)](./LICENSE)
 [![CI](https://github.com/OpenLatch/saferskills/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/OpenLatch/saferskills/actions/workflows/pr-checks.yml)

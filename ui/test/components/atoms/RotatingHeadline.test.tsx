@@ -8,9 +8,9 @@ const NOUNS = ['Secrets Leaks', 'Prompt Injection', 'Supply-Chain Attacks', 'Too
 describe('RotatingHeadline', () => {
   it('renders the base + first noun inside .rotator > .rotator-word', () => {
     const { container } = render(
-      <RotatingHeadline base="Every AI skill, audited against" nouns={NOUNS} />,
+      <RotatingHeadline base="Every AI capability, audited against" nouns={NOUNS} />,
     )
-    expect(screen.getByText(/Every AI skill, audited against/)).toBeInTheDocument()
+    expect(screen.getByText(/Every AI capability, audited against/)).toBeInTheDocument()
     expect(container.querySelector('.rotator')).not.toBeNull()
     expect(container.querySelector('.rotator-word')?.textContent).toBe('Secrets Leaks')
   })

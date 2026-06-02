@@ -1,6 +1,6 @@
 # `@openlatch/saferskills` — CLI
 
-> Every AI skill, independently scanned — **coming soon, mid-2026**.
+> Every AI capability, independently scanned — **coming soon, mid-2026**.
 
 SaferSkills is a public, free, Apache-2.0 trust-scoring service for AI-agent skills, MCP servers, hooks, and plugins. Once the first functional release lands you'll use the CLI to:
 
