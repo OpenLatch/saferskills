@@ -57,6 +57,8 @@ The stored-public-artifact-snapshot feature persists the raw bytes of scanned **
 
 I-3.5 adds direct artifact upload + private (unlisted) scans. Uploads are a second front-end producing the same per-capability file index; visibility (`public` | `unlisted`) and `source_kind` (`github` | `upload`) are orthogonal columns on `scan_runs` + `catalog_items`. An upload may be **one file, one `.zip`, or N loose files** — all three resolve to the same combined `files_index` the engine scans like a repo, so the schema is unchanged. For a multi-file batch `scan_runs.original_filename` is the display label `"{n} files"` (the durable `content_hash_sha256` is computed from `files_index`, so the public-upload idempotency cache is unaffected by the label).
 
+**Multi-file fan-out (per-file tabs report) needs NO migration.** A **flat** multi-file upload (top-level files, no subdirectories) fans into **one capability per file** (`discover_capabilities(source_kind="upload")`, runtime-only) — even when one file is a recognized anchor like `SKILL.md`; a structured `.zip` with subdirectories keeps normal directory-based discovery. It persists as N `scans` + N `catalog_items` under one `scan_runs` row, exactly the existing fan-out `persist_completed_scan_run` already handles. The per-file source viewer + `.zip` are read from the pre-existing `scans.manifest_*` + `scans.file_hashes` columns (`_pick_manifest` gains a single-loose-file fallback); the report DTO carries them per-`CapabilityRow`. No new column, no head-revision bump (still `0008_add_upload_and_visibility`).
+
 ### Schema additions
 
 | Piece | Shape | Role |

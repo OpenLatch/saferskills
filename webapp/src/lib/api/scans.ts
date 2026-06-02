@@ -116,6 +116,12 @@ export interface CapabilityRow {
   sub_scores: Record<string, number>
   findings_summary: FindingsSummary
   findings: Finding[]
+  /** Per-capability rich-report source viewer (multi-file upload tabs). */
+  manifest?: ManifestSource | null
+  /** Per-capability `.zip` pointer (scan_id + uncompressed byte_size). */
+  download?: DownloadInfo | null
+  /** sha256 of this capability's own primary file (per-file provenance hash). */
+  content_hash?: string | null
 }
 
 export type Visibility = 'public' | 'unlisted'

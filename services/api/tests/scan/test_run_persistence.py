@@ -17,6 +17,32 @@ from app.scan.engine import (
 )
 from app.services.repository_metadata import RepositoryMetadata
 
+# ── _pick_manifest loose-file fallback (pure, I-3.5) ─────────────────────────
+
+
+def test_pick_manifest_falls_back_to_sole_loose_file() -> None:
+    # No preferred manifest (skill.md/readme.md/manifest.json/package.json) — a
+    # lone non-repo-wide text file surfaces its own bytes so the Source tab isn't
+    # empty (an uploaded install.sh / server.json / .cursorrules).
+    files = [("install.sh", b"#!/bin/sh\necho hi"), ("LICENSE", b"MIT")]
+    result = persistence._pick_manifest(files, "hook")  # pyright: ignore[reportPrivateUsage]
+    assert result is not None
+    path, text = result
+    assert path == "install.sh"
+    assert "echo hi" in text
+
+
+def test_pick_manifest_no_fallback_when_multiple_loose_files() -> None:
+    files = [("a.sh", b"echo a"), ("b.sh", b"echo b")]
+    assert persistence._pick_manifest(files, "hook") is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_pick_manifest_prefers_skill_md_over_loose_fallback() -> None:
+    files = [("SKILL.md", b"# real"), ("extra.cfg", b"x")]
+    result = persistence._pick_manifest(files, "skill")  # pyright: ignore[reportPrivateUsage]
+    assert result is not None
+    assert result[0] == "SKILL.md"
+
 
 def _scan_result(score: int, tier: str, findings: list[EngineFinding] | None = None) -> ScanResult:
     return ScanResult(
@@ -146,3 +172,61 @@ async def test_rescan_run_updates_in_place_no_duplicates(
     assert items == 3
     findings = (await db_session.execute(select(func.count(Finding.id)))).scalar_one()
     assert findings == 0  # clean repo result → no findings, no accumulation
+
+
+@pytest.mark.asyncio
+async def test_multifile_upload_run_report_carries_per_cap_extras(
+    db_session: AsyncSession,
+) -> None:
+    """A multi-file upload fans into N capabilities, and the run report carries a
+    per-capability manifest + download on each CapabilityRow (I-3.5 tabs)."""
+    from app.routers.scans import (
+        _load_run_capabilities,  # pyright: ignore[reportPrivateUsage]
+        _run_capability_extras,  # pyright: ignore[reportPrivateUsage]
+    )
+    from app.scan import engine
+    from app.scan.report_builder import build_scan_run_report
+
+    files = [
+        ("prompt.md", b"# Prompt\nDo the thing safely."),
+        ("install.sh", b"#!/bin/sh\necho hi"),
+        ("server.json", b'{"name": "srv"}'),
+    ]
+    repo = engine.run_repo_scan_from_index(files, "a1b2c3d", source_kind="upload")
+    assert repo.capability_count == 3  # anchorless upload fans out
+
+    run = await persistence.persist_pending_scan_run(
+        db_session,
+        idempotency_key="u" * 64,
+        github_url=None,
+        rubric_version="a1b2c3d",
+        engine_version="def5678",
+        source="submission",
+        source_kind="upload",
+        content_hash_sha256="abc123def4567890",
+        original_filename="3 files",
+    )
+    await persistence.persist_completed_scan_run(db_session, run, repo, full_files_index=files)
+    await db_session.flush()
+
+    caps = await _load_run_capabilities(db_session, run.id)
+    extras, manifest, download = await _run_capability_extras(db_session, caps)
+    report = build_scan_run_report(
+        run, caps, manifest=manifest, download=download, capability_extras=extras
+    )
+
+    assert report.capability_count == 3
+    assert report.source_kind == "upload"
+    # Every capability row carries its own manifest (loose-file fallback) + zip +
+    # its own per-file content hash (distinct per file → per-tab provenance SHA).
+    for row in report.capabilities:
+        assert row.manifest is not None, row.name
+        assert row.download is not None, row.name
+        assert row.download.scan_id == row.scan_id
+        assert row.content_hash and len(row.content_hash) == 64, row.name
+    hashes = {row.content_hash for row in report.capabilities}
+    assert len(hashes) == 3  # each file's sha256 is distinct
+    # The run-level manifest/download stay None for a multi-capability run (the
+    # single-file rich path is the only consumer of the run-level pair).
+    assert report.manifest is None
+    assert report.download is None

@@ -1,27 +1,29 @@
 ---
 // Shared COMPLETED-report body for both /scans/<run_id> (public) and
 // /scans/r/<token> (unlisted). Renders one of two layouts:
-//   • rich single-capability upload layout (mockups 3 + 4) when the run is an
-//     upload with exactly one capability — score box + provenance + source/score
-//     tabs + install/pkg cards + README/locked badge;
-//   • the multi-capability cap-list layout (mockups 5 + 6) otherwise — the
-//     unchanged I-03 GitHub report body, made visibility-aware.
+//   • UPLOADS (single OR multi-file) → <UploadReport/> (mockups 3 + 4): the rich
+//     score box + provenance + source/score tabs + install/pkg cards + badge.
+//     A multi-file upload adds a per-file tab strip; one file = no tabs (the
+//     single-file regression gate, byte-identical to the prior Astro body).
+//   • REPO scans → the multi-capability cap-list layout (mockups 5 + 6): the
+//     unchanged I-03 GitHub report body (`ScanReportView` + `ShareResultBand`),
+//     made visibility-aware.
+// `isRich` still gates the page-HEAD styling (single-file upload = rich head).
 // Unlisted runs additionally get the private banner, eyebrow, manage bar, expiry
-// pill, and (single-cap) the "badge locked until promote" band. The page owns
-// the anti-leakage headers + Base/nav/footer; this component is body-only.
+// pill, and (in <UploadReport/>) the "badge locked until promote" band. The page
+// owns the anti-leakage headers + Base/nav/footer; this component is body-only.
 import BandPill from '@ui/components/atoms/BandPill.tsx'
 import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
+import CopyIconButton from '@ui/components/atoms/CopyIconButton.tsx'
 
-import CapabilityReportTabs from '@/components/scan/CapabilityReportTabs.tsx'
-import ShareResultBand from '@/components/scan/ShareResultBand.astro'
+import ShareResultBand from '@/components/scan/ShareResultBand.tsx'
 import ScanReportView from '@/components/scan/ScanReportView.tsx'
+import UploadReport from '@/components/scan/UploadReport.tsx'
 import UnlistedManageBar from '@/components/scan/UnlistedManageBar.tsx'
 import ExpiryCountdown from '@/components/scan/ExpiryCountdown.tsx'
 import { kindTag } from '@/components/catalog/constants'
-import { itemDownloadUrl } from '@/lib/api/items'
 import type { ScanRunReportDetail } from '@/lib/api/scans'
-import { unlistedDownloadUrl } from '@/lib/api/scans'
-import { reportIdentity } from '@/lib/report-identity'
+import { reportIdentity, scanIdShort, shortHash } from '@/lib/report-identity'
 import { scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
 
 interface Props {
@@ -36,8 +38,13 @@ interface Props {
 
 const { run, shareUrl, ruleCount, unlisted = false, token } = Astro.props
 
-const { isUpload, uploadName, baseTitle } = reportIdentity(run)
+const { isUpload, baseTitle } = reportIdentity(run)
+// `isRich` still gates the page-HEAD styling (single-file upload gets the rich
+// head; the body for ALL uploads now lives in <UploadReport/>).
 const isRich = isUpload && run.capability_count === 1
+// Multi-file upload: the head meta reads as the "upload report" caption (N files
+// + combined SHA) — the FileTabStrip drops its own caption to avoid duplication.
+const isMultiUpload = isUpload && run.capability_count > 1
 const cap = run.capabilities[0] ?? null
 
 const kindLabel = cap
@@ -49,9 +56,8 @@ const kindLabel = cap
   : 'Artifact'
 
 const shaFull = run.artifact_sha256 ?? ''
-const shaShort = shaFull ? `${shaFull.slice(0, 4)}…${shaFull.slice(-4)}` : '—'
-const scanIdShort = `scn_${run.id.replace(/-/g, '').slice(0, 12)}`
-const uploadExt = (run.uploaded_filename ?? '').toLowerCase().endsWith('.zip') ? '.zip' : 'file'
+const shaShort = shortHash(shaFull)
+const scanIdLabel = scanIdShort(run.id)
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -85,25 +91,12 @@ const githubHost = run.github_url
 // Masked token for the private eyebrow — never the literal token (D-UP-14).
 const maskedToken = token ? `${token.slice(0, 10)}` : ''
 
-// .zip download target: public uploads serve via the canonical item; unlisted via
-// the token-gated route (the public /items/<slug>/download 404s for shadow rows).
-const zipHref = unlisted && token
-  ? unlistedDownloadUrl(token)
-  : cap
-    ? itemDownloadUrl(cap.catalog_slug, run.download?.scan_id ?? undefined)
-    : '#'
-const zipSizeKb = run.download ? (run.download.byte_size / 1024).toFixed(1) : null
-
-// "Share this result" band (every report). Single-capability uploads link the
-// badge at the catalog item; repos / multi-capability runs link it at the run
-// report (no single slug). Copy differs upload vs repo.
-const badgeSlug = isRich ? (cap?.catalog_slug ?? undefined) : undefined
-const shareSub = isUpload
-  ? 'Public uploads are permanent and reproducible — the badge resolves to this scan by its content hash.'
-  : 'Add the badge to your README — it links back to this SaferSkills scan and refreshes on every re-scan.'
-const shareFoot = isUpload
-  ? `Identified by content hash; reproducible by re-running rubric ${run.rubric_version.slice(0, 7)} against the same bytes.`
-  : `Reproducible by re-running rubric ${run.rubric_version.slice(0, 7)} against the same ref.`
+// "Share this result" band — REPO runs only (uploads render their own per-file
+// badge band inside <UploadReport/>). The repo badge links at the run report (no
+// single slug).
+const shareSub =
+  'Add the badge to your README — it links back to this SaferSkills scan and refreshes on every re-scan.'
+const shareFoot = `Reproducible by re-running rubric ${run.rubric_version.slice(0, 7)} against the same ref.`
 ---
 
 {unlisted && (
@@ -138,13 +131,23 @@ const shareFoot = isUpload
           <p class="ph-lede">{run.capability_count} capabilit{run.capability_count === 1 ? 'y' : 'ies'} discovered · scored against {ruleCount} detectors across 5 categories.</p>
         )}
         <div class="sr-head-meta sk-head-meta">
-          {isUpload ? (
+          {isMultiUpload ? (
+            <>
+              <span class="up-chip">Upload report</span>
+              <span class="dot">·</span>
+              <span><b>{run.capability_count}</b> files scanned</span>
+              <span class="dot">·</span>
+              <span class="sha-cell">combined SHA-256 {shaShort}{shaFull && <CopyIconButton client:visible value={shaFull} label="Copy combined SHA-256" />}</span>
+              <span class="dot">·</span>
+              <span>uploaded {fmtDate(run.scanned_at)}</span>
+            </>
+          ) : isUpload ? (
             <>
               <span class="up-chip">Uploaded artifact</span>
               <span class="dot">·</span>
               <span>{kindLabel}</span>
               <span class="dot">·</span>
-              <span>SHA-256 {shaShort}</span>
+              <span class="sha-cell">SHA-256 {shaShort}{shaFull && <CopyIconButton client:visible value={shaFull} label="Copy SHA-256" />}</span>
               <span class="dot">·</span>
               <span>uploaded {fmtDate(run.scanned_at)}</span>
             </>
@@ -180,81 +183,8 @@ const shareFoot = isUpload
   </div>
 </header>
 
-{isRich ? (
-  <>
-    <section class="sk-stat-band">
-      <div class="container">
-        <div class="sk-stat-grid">
-          <div class="sk-scorebox">
-            <div class="sb-score">
-              <span class="sb-eyebrow">Security score</span>
-              <div class="sb-big">{score}<span class="sb-denom">/100</span></div>
-              <div class="dots">
-                {tierLetter && <span class={`dot-${tierLetter}`}>{'●'.repeat(dotsFilled)}</span>}<span class="dot-off">{'○'.repeat(10 - dotsFilled)}</span>
-              </div>
-              {scored ? <BandPill tier={scored} label={`${tierName} band`} /> : <span class="band-pill unscoped">UNSCORED</span>}
-            </div>
-            <div class="sb-facts">
-              <span class="sb-eyebrow">This scan</span>
-              <div class="fact"><span>Source</span><b>Uploaded artifact</b></div>
-              <div class="fact"><span>Scanned</span><b>{fmtDate(run.scanned_at)}</b></div>
-              <div class="fact"><span>Detectors</span><b>{ruleCount} checks · 5 categories</b></div>
-              <div class="fact"><span>Findings</span><b>{warnFindings} warning{warnFindings === 1 ? '' : 's'} · {highFindings} high</b></div>
-              <div class="fact"><span>Engine</span><b>rubric {run.rubric_version.slice(0, 7)}</b></div>
-              <a class="sb-method" href="/methodology">View methodology →</a>
-            </div>
-          </div>
-
-          <div class="sk-installbox sk-installbox--meta">
-            <span class="sb-eyebrow">Provenance</span>
-            <div class="ins-row"><span>Source</span><b>Uploaded&nbsp;{uploadExt}</b></div>
-            <div class="ins-row"><span>SHA-256</span><b>{shaShort}</b></div>
-            <div class="ins-row"><span>Scan ID</span><b>{scanIdShort}</b></div>
-            <div class="ins-row"><span>Signed by</span><b>openlatch-audit-key-v1</b></div>
-            <div class="ins-distrib">
-              <div class="legend" style="justify-content:flex-start; gap:0;"><span>Content-addressed · permanent · re-scan only by re-upload</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="sk-main">
-      <div class="container">
-        <div class="sk-grid">
-          {cap && <CapabilityReportTabs client:load cap={cap} manifest={run.manifest ?? null} />}
-
-          <aside class="sk-col-side">
-            <div class="side-card install-card">
-              <h4>Scanned artifact</h4>
-              <p class="install-note">Scanned from an uploaded artifact — no install command. Download the exact bytes we scored:</p>
-              <div class="install-cta">
-                <a class="btn primary sm" href={zipHref} download>⤓ Download scanned bytes (.zip)</a>
-                <span class="zip-meta">{uploadName}{zipSizeKb ? ` · ${zipSizeKb} KB` : ''}</span>
-              </div>
-              <div class="install-count">
-                <span class="ic-num">90d+</span>
-                <span class="ic-lbl">{unlisted ? 'unlisted uploads expire after 90 days' : 'public uploads are permanent & reproducible'}</span>
-              </div>
-            </div>
-
-            <div class="side-card pkg-card">
-              <h4>Artifact</h4>
-              <dl class="pkg-dl">
-                <div><dt>Detected</dt><dd>{kindLabel}</dd></div>
-                <div><dt>SHA-256</dt><dd>{shaShort}</dd></div>
-                {zipSizeKb && <div><dt>Size</dt><dd>{zipSizeKb} KB</dd></div>}
-                <div><dt>Uploaded</dt><dd>{fmtDate(run.scanned_at)}</dd></div>
-                <div><dt>Repository</dt><dd>N/A — uploaded artifact</dd></div>
-                <div><dt>Scan ID</dt><dd>{scanIdShort}</dd></div>
-              </dl>
-              <a class="pkg-gh" href="/methodology">How scoring works →</a>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </section>
-  </>
+{isUpload ? (
+  <UploadReport client:load run={run} ruleCount={ruleCount} unlisted={unlisted} token={token} />
 ) : (
   <>
     <section class="sr-stat-band">
@@ -293,16 +223,17 @@ const shareFoot = isUpload
         </div>
       </div>
     </section>
+
+    <ShareResultBand
+      client:visible
+      unlisted={unlisted}
+      scanId={run.id}
+      score={score}
+      tier={scored}
+      slug={undefined}
+      sub={shareSub}
+      foot={shareFoot}
+      scanIdShort={scanIdLabel}
+    />
   </>
 )}
-
-<ShareResultBand
-  unlisted={unlisted}
-  scanId={run.id}
-  score={score}
-  tier={scored}
-  slug={badgeSlug}
-  sub={shareSub}
-  foot={shareFoot}
-  scanIdShort={scanIdShort}
-/>

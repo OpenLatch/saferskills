@@ -593,18 +593,14 @@ def _is_live_unlisted(run: ScanRun | None) -> bool:
     return not (run.expires_at is not None and run.expires_at < datetime.now(UTC))
 
 
-async def _single_capability_extras(
-    session: AsyncSession,
-    capabilities: list[tuple[Scan, CatalogItem, list[Finding]]],
+async def _capability_extras(
+    session: AsyncSession, scan: Scan
 ) -> tuple[ManifestSource | None, DownloadInfo | None]:
-    """Primary manifest + `.zip` pointer for a SINGLE-capability run (the rich
-    upload report, mockups 3/4). Multi-capability runs render the cap-list body
-    and get neither (None). The bytes come from the storage-split resolver, so
-    this works for public uploads (`artifact_blobs`) and unlisted uploads
-    (`upload_files`) alike."""
-    if len(capabilities) != 1:
-        return None, None
-    scan = capabilities[0][0]
+    """Primary manifest + `.zip` pointer for ONE capability scan — the rich-report
+    Source viewer + download. Carried per-capability so a multi-file upload renders
+    one rich report per file (I-3.5). The bytes come from the storage-split
+    resolver, so this works for public uploads (`artifact_blobs`) and unlisted
+    uploads (`upload_files`) alike."""
     manifest: ManifestSource | None = None
     if scan.manifest_source:
         manifest = ManifestSource(
@@ -618,6 +614,28 @@ async def _single_capability_extras(
         if size > 0:
             download = DownloadInfo(scan_id=str(scan.id), byte_size=size)
     return manifest, download
+
+
+async def _run_capability_extras(
+    session: AsyncSession,
+    capabilities: list[tuple[Scan, CatalogItem, list[Finding]]],
+) -> tuple[
+    dict[str, tuple[ManifestSource | None, DownloadInfo | None]],
+    ManifestSource | None,
+    DownloadInfo | None,
+]:
+    """Per-capability extras map + the single-capability run-level (manifest,
+    download). The run-level pair is kept ONLY for a single-capability run (the
+    rich single-file upload report); multi-file uploads read each capability's own
+    extras off its `CapabilityRow`."""
+    extras: dict[str, tuple[ManifestSource | None, DownloadInfo | None]] = {}
+    for scan, _item, _findings in capabilities:
+        extras[str(scan.id)] = await _capability_extras(session, scan)
+    if len(capabilities) == 1:
+        manifest, download = extras[str(capabilities[0][0].id)]
+    else:
+        manifest, download = None, None
+    return extras, manifest, download
 
 
 @router.get(
@@ -655,7 +673,7 @@ async def get_unlisted_run(
     assert run is not None
 
     capabilities = await _load_run_capabilities(session, run.id)
-    manifest, download = await _single_capability_extras(session, capabilities)
+    extras, manifest, download = await _run_capability_extras(session, capabilities)
     _set_unlisted_headers(response)
     return build_scan_run_report(
         run,
@@ -663,6 +681,7 @@ async def get_unlisted_run(
         share_url=_share_url(get_settings(), run.share_token),
         manifest=manifest,
         download=download,
+        capability_extras=extras,
     )
 
 
@@ -816,8 +835,10 @@ async def get_scan_run(
         raise HTTPException(status_code=404, detail="scan run not found")
 
     capabilities = await _load_run_capabilities(session, run_id)
-    manifest, download = await _single_capability_extras(session, capabilities)
-    return build_scan_run_report(run, capabilities, manifest=manifest, download=download)
+    extras, manifest, download = await _run_capability_extras(session, capabilities)
+    return build_scan_run_report(
+        run, capabilities, manifest=manifest, download=download, capability_extras=extras
+    )
 
 
 @router.get(

@@ -45,6 +45,27 @@
             ],
             "title": "Component Path"
           },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/FindingResponse"
@@ -65,6 +86,16 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManifestSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "title": "Name",

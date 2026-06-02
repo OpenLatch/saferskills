@@ -2696,6 +2696,47 @@ html.dark .ds-select-opt[aria-selected='true'] {
   box-shadow: var(--focus-ring);
 }
 
+/* CopyIconButton — discreet icon-only click-to-copy (a sha next to a label, a
+   scan id, …). Not the hex Button: a bare 18px glyph, muted until hover, teal on
+   the post-copy check flash. Inline so it sits right after the copied string. */
+.copy-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  vertical-align: middle;
+  transition:
+    color var(--dur-xs) var(--ease-out),
+    background var(--dur-xs) var(--ease-out);
+}
+.copy-icon svg {
+  width: 13px;
+  height: 13px;
+}
+.copy-icon:hover {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+}
+.copy-icon:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.copy-icon.is-copied {
+  color: var(--brand-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .copy-icon {
+    transition: none;
+  }
+}
+
 /* "View on GitHub" — square hairline button (DS button vocabulary: no radius,
    hover is a background fill, never a brutalist offset shadow). */
 .fr-gh {

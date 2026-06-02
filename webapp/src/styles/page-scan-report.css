@@ -530,6 +530,7 @@ html.dark .cap-id .nm {
 .cap-note .find {
   display: inline-block;
   margin-top: 5px;
+  margin-left: 6px;
   font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
@@ -1031,6 +1032,167 @@ html.dark .badge-band .badge-locked p b {
 
 /* Confirm-dialog CSS moved to ui/styles/components.css (rendered by the
    DS Dialog atom — CSS-ownership one-way rule). */
+
+/* SHA-256 value + inline CopyIconButton (Provenance row + Artifact pkg card) —
+   keeps the hash and its discreet copy glyph on one line, right-aligned. */
+.sha-cell {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ============================================================ MULTI-FILE UPLOAD — FILE TAB STRIP ============================================================ */
+/* Page-specific tablist for a multi-file upload report (I-3.5). Grounded in the
+   DS underline-tabs look, extended per tab with a kind glyph + filename + tier
+   dot + tier-colored score. A page-specific composition (rendered by the
+   webapp-side UploadReport/FileTabStrip), so the CSS lives here, not in
+   components.css — same rationale as `.cap-filter` (design-system.md
+   § CSS ownership). Token-only, both themes, reduced-motion guarded. */
+.mf-nav {
+  background: var(--color-paper);
+  padding: 18px 0 0;
+}
+html.dark .mf-nav {
+  background: transparent;
+}
+
+.mf-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  /* overflow-x:auto forces overflow-y to compute to auto — the active tab's
+     -1px overhang then triggers a spurious vertical scrollbar. Pin it hidden so
+     only the horizontal axis scrolls. */
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--color-ink);
+  scrollbar-width: thin;
+}
+html.dark .mf-tabs {
+  border-color: var(--color-line);
+}
+.mf-tabs::-webkit-scrollbar {
+  height: 7px;
+}
+.mf-tabs::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+}
+
+.mf-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  color: var(--fg-2);
+  font: 600 13px / 1 var(--font-sans);
+  white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.mf-tab:hover {
+  color: var(--color-ink);
+  background: var(--color-paper-deep);
+}
+html.dark .mf-tab:hover {
+  color: var(--fg-1);
+  background: var(--bg-surface-mute);
+}
+.mf-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.mf-tab.on {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .mf-tab.on {
+  color: var(--fg-1);
+}
+.mf-tab.on.band-g {
+  border-bottom-color: var(--score-green);
+}
+.mf-tab.on.band-y {
+  border-bottom-color: var(--score-yellow);
+}
+.mf-tab.on.band-o {
+  border-bottom-color: var(--score-orange);
+}
+.mf-tab.on.band-r {
+  border-bottom-color: var(--score-red);
+}
+
+.mf-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  font: 700 9.5px / 1 var(--font-mono);
+  letter-spacing: 0.02em;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  flex: 0 0 auto;
+}
+html.dark .mf-glyph {
+  background: var(--fg-2);
+  color: var(--bg-page);
+}
+
+.mf-name {
+  font-weight: 600;
+}
+.mf-tab.on .mf-name {
+  font-weight: 700;
+}
+
+.mf-dot {
+  font-size: 9px;
+  line-height: 1;
+}
+.mf-dot.dot-g {
+  color: var(--score-green);
+}
+.mf-dot.dot-y {
+  color: var(--score-yellow);
+}
+.mf-dot.dot-o {
+  color: var(--score-orange);
+}
+.mf-dot.dot-r {
+  color: var(--score-red);
+}
+
+.mf-score {
+  font: 800 12px / 1 var(--font-loud);
+  letter-spacing: 0.02em;
+  color: var(--fg-2);
+}
+.mf-tab.band-g .mf-score {
+  color: var(--score-green);
+}
+.mf-tab.band-y .mf-score {
+  color: var(--score-yellow);
+}
+.mf-tab.band-o .mf-score {
+  color: var(--score-orange);
+}
+.mf-tab.band-r .mf-score {
+  color: var(--score-red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf-tab {
+    transition: none;
+  }
+}
 
 /* ============================================================ RESPONSIVE ============================================================ */
 @media (max-width: 980px) {

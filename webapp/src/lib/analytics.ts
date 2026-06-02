@@ -34,6 +34,11 @@ type EventMap = {
   scan_report_capability_expanded: {
     kind: 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
   }
+  // Multi-file upload report — a file tab was selected. Closed-enum kind only;
+  // NEVER the filename, slug, content hash, or token (telemetry.md).
+  scan_report_file_selected: {
+    kind: 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
+  }
   item_detail_chart_explored: { interaction: 'hover' | 'click_point' }
   // I-3.5 — unlisted (capability-URL) manage-bar actions. Closed-enum action
   // only; NEVER the share_token, slug, filename, or any path content (telemetry.md).

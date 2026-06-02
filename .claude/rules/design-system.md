@@ -45,6 +45,7 @@ ui/
 │   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, Chip, Badge, BandPill,
 │   │                 # ScoreNumber, DotStrip, Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
 │   │                 # RidgeFlow, RidgePixel, ThemeToggle, RotatingHeadline, Toast, CopyButton,
+│   │                 # CopyIconButton (discreet icon-only copy — sha/scan-id, self-contained check flash),
 │   │                 # EmailCaptureForm (retained — reused by I-06 magic-link surface),
 │   │                 # SegmentedTabs, Toggle (I-3.5), Select (DS listbox — replaces native <select>),
 │   │                 # Checkbox (DS checkbox/radio — token-driven, dark-correct),
@@ -141,6 +142,10 @@ They are NOT interchangeable — a future "consolidate the finding components" p
 ### `.cap-filter` is a filter group, NOT `SegmentedTabs`
 
 The repo scan report's capability type-filter (`.cap-filter`/`.cf`/`.ct` in `ScanReportView`) is intentionally a `role="group"` of toggle buttons, **not** a `SegmentedTabs` (`role="tablist"`). It filters one results region (`.cap-list`) — "All / Skill / MCP / …" all render the same table with a filtered subset, and "All" is a superset, not a peer tab. There are no per-option `tabpanel`s to wire, so a tablist would misrepresent the semantics to assistive tech. It is also a page-specific composition (rendered by the webapp-side `ScanReportView`), so its CSS correctly stays in `webapp/src/styles/page-scan-report.css` (not `components.css`). A future pass should leave it as-is — adopting `SegmentedTabs` here was evaluated and declined.
+
+### `.mf-*` file-tab strip is a page-specific tablist (I-3.5)
+
+The multi-file upload report's file-tab strip (`.mf-nav`/`.mf-tabs`/`.mf-tab`/`.mf-glyph`/`.mf-dot`/`.mf-score` in `FileTabStrip`) is a genuine `role="tablist"` (one tab per scanned file, each swapping the per-file `tabpanel` body in `UploadReport`). It is **not** `SegmentedTabs` because each tab renders rich, non-label content — a kind glyph + filename + tier dot + tier-colored score — that `SegmentedTabs`' label-only API can't express; it mirrors `SegmentedTabs`' roving-tabindex keyboard model (←/→/↑/↓/Home/End, automatic activation) by hand. Like `.cap-filter`, it is a page-specific composition (rendered by webapp-side `FileTabStrip`/`UploadReport`), so its CSS lives in `webapp/src/styles/page-scan-report.css` (token-only, both themes, reduced-motion guarded) — **not** `components.css`. A future "lift to a DS tablist" pass should extend `SegmentedTabs` with a render-slot before merging, or leave this as-is.
 
 ## Page-head pattern
 
