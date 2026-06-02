@@ -1,4 +1,5 @@
 import { env } from '@/env'
+import type { DownloadInfo, ManifestSource } from '@/lib/api/items'
 
 export type ScanTier = 'green' | 'yellow' | 'orange' | 'red' | 'unscoped'
 
@@ -146,6 +147,10 @@ export interface ScanRunReportDetail {
   expires_at?: string | null
   /** Present only on upload/unlisted responses — never logged. */
   share_url?: string | null
+  /** Single-capability runs (uploads): primary manifest for the source viewer. */
+  manifest?: ManifestSource | null
+  /** Single-capability runs: `.zip` pointer (scan_id + uncompressed byte_size). */
+  download?: DownloadInfo | null
 }
 
 export async function fetchScanRunById(runId: string): Promise<ScanRunReportDetail | null> {
@@ -327,6 +332,11 @@ export async function promoteUnlisted(token: string): Promise<PromoteRunResponse
   if (res.status === 404) throw new Error('not_found')
   if (!res.ok) throw new Error(`API ${res.status}`)
   return (await res.json()) as PromoteRunResponse
+}
+
+/** Token-gated `.zip` of an unlisted run's scanned bytes (mockup 4 keeps it). */
+export function unlistedDownloadUrl(token: string): string {
+  return `${env.PUBLIC_API_URL}/api/v1/scans/r/${encodeURIComponent(token)}/download`
 }
 
 /** DELETE /api/v1/scans/r/{token} — eager self-delete (token → generic 404 after). */

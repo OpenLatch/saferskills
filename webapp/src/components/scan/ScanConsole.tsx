@@ -1,4 +1,5 @@
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
+import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import Toggle from '@ui/components/atoms/Toggle'
 import DropZone, { type DropZoneState } from '@ui/components/molecules/DropZone'
 import { useEffect, useState } from 'react'
@@ -58,6 +59,13 @@ export default function ScanConsole() {
   // Pick up a homepage handoff (a stashed File) or a ?prefill= GitHub URL.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    // Landed here after deleting an unlisted report (D-UP-26) — confirm + clean the URL.
+    if (params.get('deleted')) {
+      flashToast('Report deleted')
+      params.delete('deleted')
+      const qs = params.toString()
+      history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
+    }
     if (params.get('visibility') === 'unlisted') setVisibility('unlisted')
     const prefill = params.get('prefill')
     if (prefill) {
@@ -294,6 +302,8 @@ export default function ScanConsole() {
         By scanning you confirm you can share this content. Public results are published
         permanently. <a href="/privacy">See Privacy</a>.
       </p>
+
+      <Toast />
     </div>
   )
 }

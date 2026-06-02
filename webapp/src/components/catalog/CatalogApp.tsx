@@ -49,6 +49,7 @@ function paramsFor(state: CatalogState) {
     agent: state.agent,
     popularity_tier: state.popularityTier,
     scan_tier: state.scanTier,
+    artifact_source: state.artifactSource || undefined,
     score_min: state.scoreMin,
     score_max: state.scoreMax,
     q: state.q.trim() || undefined,
@@ -140,6 +141,17 @@ export default function CatalogApp({ initialState, initialData, initialFacets }:
     [state, commit]
   )
 
+  const onSource = useCallback(
+    (value: string) => {
+      track('catalog_filter_changed', {
+        filter_type: 'type',
+        action: value ? 'add' : 'remove',
+      })
+      commit({ ...state, artifactSource: value, page: 1 })
+    },
+    [state, commit]
+  )
+
   const onScore = useCallback(
     (min: number, max: number) => {
       track('catalog_filter_changed', { filter_type: 'score_range', action: 'add' })
@@ -203,6 +215,7 @@ export default function CatalogApp({ initialState, initialData, initialFacets }:
           state={state}
           facets={facets}
           onToggle={onToggle}
+          onSource={onSource}
           onScore={onScore}
           onClear={onClear}
         />

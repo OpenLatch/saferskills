@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/items'
 import type { ScanReportDetail } from '@/lib/api/scans'
 import { renderMarkdown } from '@/lib/markdown'
+import { SCORE_CATEGORIES } from '@/lib/scoring'
 import { scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
 
 interface Props {
@@ -20,20 +21,9 @@ interface Props {
 
 type TabKey = 'score' | 'versions' | 'source'
 
-// 5-axis taxonomy + locked rubric weights (35/20/15/15/15), NOT the mockup's
-// 40/20/15/15/10. Detector blurbs are descriptive config.
-const CATS: { key: string; name: string; weight: number; detectors: string }[] = [
-  { key: 'security', name: 'Security', weight: 35, detectors: 'prompt, exec, net, exfil, eval' },
-  {
-    key: 'supply_chain',
-    name: 'Supply chain',
-    weight: 20,
-    detectors: 'hash, typosquat, maintainer, lockfile',
-  },
-  { key: 'maintenance', name: 'Maintenance', weight: 15, detectors: 'staleness, pinning, CI' },
-  { key: 'transparency', name: 'Transparency', weight: 15, detectors: 'SKILL.md, perms, README' },
-  { key: 'community', name: 'Community', weight: 15, detectors: 'installs, verify, response' },
-]
+// 5-axis taxonomy + locked weights — shared with the upload report breakdown
+// (`CapabilityReportTabs`). NOT the mockup's 40/20/15/15/10.
+const CATS = SCORE_CATEGORIES
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {

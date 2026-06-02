@@ -6,22 +6,20 @@ import NavBar from '@ui/components/molecules/NavBar.tsx'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import PageHead from '@ui/components/atoms/PageHead.tsx'
 import PageRidge from '@ui/components/atoms/PageRidge.tsx'
-import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
-import BandPill from '@ui/components/atoms/BandPill.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import ScanProgressBoard from '@/components/scan/ScanProgressBoard.tsx'
-import ScanReportView from '@/components/scan/ScanReportView.tsx'
-import { kindTag } from '@/components/catalog/constants'
+import ScanRunReport from '@/components/scan/ScanRunReport.astro'
 
 import { fetchScanRunById } from '@/lib/api/scans'
-import { scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
+import { reportIdentity } from '@/lib/report-identity'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-scan-progress.css'
+import '@/styles/page-item.css'
 import '@/styles/page-scan-report.css'
 
 const { id } = Astro.params
@@ -34,48 +32,22 @@ if (!run) {
   return Astro.redirect('/404')
 }
 
+// An unlisted run is reachable ONLY via its capability URL (/scans/r/<token>),
+// never the public run-report URL — otherwise it would render without the
+// noindex/anti-leakage chrome and could be indexed. The token route is the only
+// canonical entry; here it 404s (D-UP-19/D-UP-32).
+if (run.visibility === 'unlisted') {
+  return Astro.redirect('/404')
+}
+
 const stats = await fetchOrNull(fetchPlatformStats)
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 
 const isInProgress = run.status === 'pending' || run.status === 'running'
 
-// Repo identity is derived from the scanned URL (a run groups several
-// capabilities — there is no single catalog slug for the repo). Uploads have
-// no github_url — null-guard here so the page renders (P0-9 minimal guard; the
-// full source-aware provenance UI lands in PR3 / D-UP-33).
-const isUpload = run.source_kind === 'upload'
-const uploadName = run.uploaded_filename ?? 'uploaded artifact'
-const urlPath = run.github_url ? run.github_url.replace(/^https?:\/\//, '').replace(/\/$/, '') : ''
-const repoName = urlPath ? urlPath.split('/').slice(1, 3).join('/') || urlPath : ''
-const baseTitle = isUpload ? uploadName : repoName.split('/').pop() || repoName || 'scan'
-const githubHost = urlPath
-
-// ---- consolidated facts (every value from the run DTO — no fabrication) ----
-const scored = scoredTier(run.repo_tier)
-const tierLetter = scored ? TIER_TO_STRIPE[scored] : ''
-const tierName = scored ? scored.charAt(0).toUpperCase() + scored.slice(1) : 'Unscored'
-const dotsFilled = Math.max(0, Math.min(10, Math.round(run.repo_aggregate_score / 10)))
-
-const caps = run.capabilities
-const totalFindings = caps.reduce((n, c) => n + c.findings_summary.total, 0)
-const highFindings = caps.reduce(
-  (n, c) => n + c.findings_summary.critical + c.findings_summary.high,
-  0
-)
-const lowest = caps.length
-  ? caps.reduce((a, b) => (b.aggregate_score < a.aggregate_score ? b : a))
-  : null
-
-// By-kind counts for the facts line (e.g. "2 hooks · 3 skills · 1 mcp").
-const tallyText = Object.entries(run.kind_tally)
-  .filter(([, n]) => n > 0)
-  .map(([k, n]) => `${n} ${kindTag(k).toLowerCase()}${n === 1 ? '' : 's'}`)
-  .join(' · ')
-
-const latencySeconds = Math.max(0, Math.round(run.latency_ms / 1000))
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-const rescanHref = run.github_url ? `/scan?prefill=${encodeURIComponent(run.github_url)}` : '/scan'
+// Title-only identity (the full source-aware report body lives in ScanRunReport).
+// Uploads have no github_url — `reportIdentity` null-guards (P0-9 / D-UP-33).
+const { uploadName, baseTitle } = reportIdentity(run)
 ---
 
 <Base
@@ -100,89 +72,7 @@ const rescanHref = run.github_url ? `/scan?prefill=${encodeURIComponent(run.gith
     </>
   ) : (
     <>
-      <header class="page-head sk-head sr-head">
-        <div class="container">
-          <Breadcrumb
-            items={[
-              { label: 'Scan', href: '/scan' },
-              { label: 'Repository' },
-              { label: baseTitle },
-            ]}
-          />
-          <div class="sr-head-row">
-            <div class="sr-head-l">
-              <h1 class="ph-title">{baseTitle}<span class="script">— scan complete</span></h1>
-              <p class="ph-lede">
-                {run.capability_count} capabilit{run.capability_count === 1 ? 'y' : 'ies'} discovered · scored against {ruleCount} detectors across 5 categories.
-              </p>
-              <div class="sr-head-meta">
-                <span class="by">scanned <b>{fmtDate(run.scanned_at)}</b></span>
-                <span class="dot">·</span>
-                <span>{latencySeconds}s · {ruleCount} detectors</span>
-                <span class="dot">·</span>
-                {run.github_url ? (
-                  <a href={run.github_url} target="_blank" rel="noopener">{githubHost}</a>
-                ) : (
-                  <span>uploaded · {uploadName}</span>
-                )}
-              </div>
-            </div>
-            <div class="sr-head-r">
-              <a class="rescan-btn" href={rescanHref}>
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"></path></svg>
-                <span>Re-scan</span>
-                <span class="rs-meta">~30s</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <section class="sr-stat-band">
-        <div class="container">
-          <div class="sr-stat-grid">
-            <div class={`score-cell ${tierLetter}`.trim()}>
-              <div class="sc-label"><span class="lab">Repo consolidated score</span><span class="tag">{run.capability_count} discovered</span></div>
-              <div class="sr-big">{run.repo_aggregate_score}<span class="denom">/100</span></div>
-              <div class="dots">
-                {tierLetter && <span class={`dot-${tierLetter}`}>{'●'.repeat(dotsFilled)}</span>}<span class="dot-off">{'○'.repeat(10 - dotsFilled)}</span>
-              </div>
-              {scored ? (
-                <BandPill tier={scored} label={`${tierName} band`} />
-              ) : (
-                <span class="band-pill unscoped">UNSCORED</span>
-              )}
-              <p class="sc-note">
-                Mean of the <b>{run.capability_count} capability score{run.capability_count === 1 ? '' : 's'}</b> below.
-                {lowest && <> Lowest is <b>{lowest.name} · {lowest.aggregate_score}</b>.</>}
-              </p>
-            </div>
-
-            <div class="sr-facts">
-              <span class="sb-eyebrow">This scan</span>
-              <div class="fact"><span>Capabilities</span><b>{tallyText || `${run.capability_count} discovered`}</b></div>
-              <div class="fact"><span>Detectors</span><b>{ruleCount} checks · 5 categories</b></div>
-              <div class="fact"><span>Findings</span><b>{totalFindings - highFindings} warning{totalFindings - highFindings === 1 ? '' : 's'} · {highFindings} high</b></div>
-              <div class="fact"><span>Engine</span><b>SaferSkills {run.engine_version.slice(0, 7)}</b></div>
-              <div class="fact"><span>Rubric</span><b>{run.rubric_version.slice(0, 7)}</b></div>
-              <a class="sr-method" href="/methodology">View methodology →</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="sr-main">
-        <div class="container">
-          <div class="sr-block">
-            <ScanReportView
-              client:load
-              run={run}
-              shareUrl={Astro.url.href}
-            />
-          </div>
-        </div>
-      </section>
-
+      <ScanRunReport run={run} shareUrl={Astro.url.href} ruleCount={ruleCount} />
       <CtaBand
         client:visible
         title="Scan a repo. Read the report. Decide."

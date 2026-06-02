@@ -34,7 +34,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from python_multipart.multipart import MultipartParser, parse_options_header
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,6 +61,7 @@ from app.scan.upload import (
     unlisted_idempotency_key,
     upload_content_hash,
 )
+from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.scan_report_summary import ListEnvelope, ScanReportSummary
 from app.schemas.scan_run import PromoteRunResponse, ScanRunReportDetail
 from app.schemas.scan_submit import (
@@ -69,6 +70,7 @@ from app.schemas.scan_submit import (
     ScanSubmitResponse,
     ScanUploadResponse,
 )
+from app.services.artifact_bytes import build_zip, resolve_snapshot, snapshot_byte_size
 
 logger = logging.getLogger(__name__)
 
@@ -592,6 +594,33 @@ def _is_live_unlisted(run: ScanRun | None) -> bool:
     return not (run.expires_at is not None and run.expires_at < datetime.now(UTC))
 
 
+async def _single_capability_extras(
+    session: AsyncSession,
+    capabilities: list[tuple[Scan, CatalogItem, list[Finding]]],
+) -> tuple[ManifestSource | None, DownloadInfo | None]:
+    """Primary manifest + `.zip` pointer for a SINGLE-capability run (the rich
+    upload report, mockups 3/4). Multi-capability runs render the cap-list body
+    and get neither (None). The bytes come from the storage-split resolver, so
+    this works for public uploads (`artifact_blobs`) and unlisted uploads
+    (`upload_files`) alike."""
+    if len(capabilities) != 1:
+        return None, None
+    scan = capabilities[0][0]
+    manifest: ManifestSource | None = None
+    if scan.manifest_source:
+        manifest = ManifestSource(
+            path=scan.manifest_path or "SKILL.md",
+            content=scan.manifest_source,
+            bytes=len(scan.manifest_source.encode("utf-8")),
+        )
+    download: DownloadInfo | None = None
+    if scan.file_hashes:
+        size = await snapshot_byte_size(session, scan)
+        if size > 0:
+            download = DownloadInfo(scan_id=str(scan.id), byte_size=size)
+    return manifest, download
+
+
 @router.get(
     "/r/{token}",
     response_model=ScanRunReportDetail,
@@ -627,9 +656,14 @@ async def get_unlisted_run(
     assert run is not None
 
     capabilities = await _load_run_capabilities(session, run.id)
+    manifest, download = await _single_capability_extras(session, capabilities)
     _set_unlisted_headers(response)
     return build_scan_run_report(
-        run, capabilities, share_url=_share_url(get_settings(), run.share_token)
+        run,
+        capabilities,
+        share_url=_share_url(get_settings(), run.share_token),
+        manifest=manifest,
+        download=download,
     )
 
 
@@ -705,6 +739,64 @@ async def delete_unlisted_run(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+_MAX_ZIP_BYTES = 25 * 1024 * 1024
+
+
+@router.get(
+    "/r/{token}/download",
+    summary="Download the scanned bytes (.zip) of an unlisted run by its token.",
+)
+async def download_unlisted_run(
+    token: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> StreamingResponse:
+    """Token-gated `.zip` of an unlisted run's scanned bytes (mockups 4 keep the
+    download). Same generic-404 / `private_lookup` cap / anti-leakage contract as
+    the view route — the public `/items/<slug>/download` 404s for shadow rows, so
+    unlisted bytes are reachable only here. Bytes come from the storage-split
+    resolver (`upload_files` for unlisted uploads)."""
+    ip = request.client.host if request.client else "unknown"
+    if not _is_loopback(ip):
+        await enforce_ip_rate_limit(
+            session, ip=ip, bucket="private_lookup", limit=settings_private_limit()
+        )
+
+    run = (
+        await session.execute(select(ScanRun).where(ScanRun.share_token == token))
+    ).scalar_one_or_none()
+    if not _is_live_unlisted(run):
+        raise HTTPException(status_code=404, detail="not found")
+    assert run is not None
+
+    capabilities = await _load_run_capabilities(session, run.id)
+    files: dict[str, bytes] = {}
+    for scan, _item, _findings in capabilities:
+        snapshot = await resolve_snapshot(session, scan)
+        for path, content in snapshot.items():
+            if content is not None:
+                files[path] = content
+    if not files:
+        raise HTTPException(status_code=404, detail="not found")
+
+    total = sum(len(b) for b in files.values())
+    if total > _MAX_ZIP_BYTES:
+        raise HTTPException(status_code=413, detail="snapshot exceeds the download cap")
+
+    payload = await asyncio.to_thread(build_zip, files)
+    filename = run.original_filename or "artifact"
+    if not filename.endswith(".zip"):
+        filename = f"{filename.rsplit('.', 1)[0]}.zip" if "." in filename else f"{filename}.zip"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        # Anti-leakage parity with the view route — never cache a token URL.
+        "Referrer-Policy": "no-referrer",
+        "X-Robots-Tag": "noindex, nofollow",
+        "Cache-Control": "private, no-store",
+    }
+    return StreamingResponse(iter([payload]), media_type="application/zip", headers=headers)
+
+
 def settings_private_limit() -> int:
     return get_settings().private_lookup_daily_limit
 
@@ -725,7 +817,8 @@ async def get_scan_run(
         raise HTTPException(status_code=404, detail="scan run not found")
 
     capabilities = await _load_run_capabilities(session, run_id)
-    return build_scan_run_report(run, capabilities)
+    manifest, download = await _single_capability_extras(session, capabilities)
+    return build_scan_run_report(run, capabilities, manifest=manifest, download=download)
 
 
 @router.get(

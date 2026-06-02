@@ -36,7 +36,10 @@ Coverage gates are enforced in `pr-checks.yml` (`test-fe` / `test-be` lanes). Th
 | `vendor-respond` | Load `/items/<slug>/respond`; assert the unverified verify-challenge renders. Full redeem→submit is covered by `tests/routers/test_vendor.py`. Empty catalog → skip. (I-03 Phase C) |
 | `badge-endpoint` | GET `/badge/<scan_id>/<score>.svg`; assert 200 + `image/svg+xml` + a tampered score → 400. No scans → skip. (I-03 Phase C) |
 | `og-endpoint` | GET `/og/scan/<scan_id>.png`; assert 200 + `image/png` + PNG magic. No scans → skip. (I-03 Phase C) |
-| `all` | Orchestrator — runs `doctor` → `smoke` → `homepage` → `item-detail` → `vendor-respond` → `badge-endpoint` → `og-endpoint` in sequence; fails fast on first red command. |
+| `upload-flow` | `/scan` Upload tab default + DropZone + public-default toggle + consent; if a public upload item exists, its report shows upload provenance. Empty → skip. **Staging acceptance only**, not a required pr-checks lane (I-3.5). |
+| `unlisted-flow` | Loopback-create an unlisted upload → `/scans/r/<token>` shows the private banner + manage bar + page-level `noindex` header & meta; delete → token 404s. Cap/non-loopback → skip. **Staging acceptance only** (I-3.5). |
+| `catalog-badge-filter` | An unlisted shadow slug 404s on `/items/<slug>`; `/catalog` Source filter renders; if a public upload exists, the UPLOAD badge renders under `?artifact_source=upload`. **Staging acceptance only** (I-3.5). |
+| `all` | Orchestrator — runs `doctor` → `smoke` → `homepage` → `item-detail` → `vendor-respond` → `badge-endpoint` → `og-endpoint` → `upload-flow` → `unlisted-flow` → `catalog-badge-filter` in sequence; fails fast on first red command. The I-3.5 commands skip gracefully on a fresh/empty staging, so they never hard-fail the sequence. |
 
 Run locally via:
 

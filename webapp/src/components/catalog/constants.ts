@@ -5,6 +5,7 @@ export interface CatalogState {
   agent: string[]
   popularityTier: string[] // "Scan tier" group → popularity_tier param
   scanTier: string[] // "Band" group → scan_tier param (score band)
+  artifactSource: string // '' (all) | 'github' | 'upload' → artifact_source param
   scoreMin: number
   scoreMax: number
   q: string
@@ -17,12 +18,20 @@ export const DEFAULT_STATE: CatalogState = {
   agent: [],
   popularityTier: [],
   scanTier: [],
+  artifactSource: '',
   scoreMin: 0,
   scoreMax: 100,
   q: '',
   sort: 'most_installed',
   page: 1,
 }
+
+// Provenance filter (I-3.5). `value=''` is "All" (no param sent).
+export const SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All sources' },
+  { value: 'github', label: 'GitHub' },
+  { value: 'upload', label: 'Upload' },
+]
 
 export const KIND_OPTIONS: { value: string; label: string }[] = [
   { value: 'skill', label: 'Skill' },
@@ -131,6 +140,7 @@ export function stateToSearchParams(s: CatalogState): URLSearchParams {
   for (const a of s.agent) p.append('agent', a)
   for (const t of s.scanTier) p.append('scan_tier', t)
   for (const pt of s.popularityTier) p.append('popularity_tier', pt)
+  if (s.artifactSource) p.set('artifact_source', s.artifactSource)
   if (s.scoreMin > 0) p.set('score_min', String(s.scoreMin))
   if (s.scoreMax < 100) p.set('score_max', String(s.scoreMax))
   if (s.q.trim()) p.set('q', s.q.trim())
@@ -150,11 +160,13 @@ export function stateFromSearchParams(params: URLSearchParams): CatalogState {
   }
   const sortRaw = params.get('sort') as CatalogSort | null
   const pageRaw = Number.parseInt(params.get('page') ?? '1', 10)
+  const sourceRaw = params.get('artifact_source') ?? ''
   return {
     kind: params.getAll('kind'),
     agent: params.getAll('agent'),
     popularityTier: params.getAll('popularity_tier'),
     scanTier: params.getAll('scan_tier'),
+    artifactSource: sourceRaw === 'github' || sourceRaw === 'upload' ? sourceRaw : '',
     scoreMin: num('score_min', 0),
     scoreMax: num('score_max', 100),
     q: params.get('q') ?? '',

@@ -23,6 +23,8 @@ class CatalogItemSummary(OrmBaseModel):
     # Nullable since I-3.5: uploaded artifacts have no GitHub provenance.
     github_org: str | None = None
     github_repo: str | None = None
+    # I-3.5: provenance of the scanned bytes — drives the catalog UPLOAD badge.
+    source_kind: Literal["github", "upload"] = "github"
     popularity_tier: str
     popularity_score: int = Field(default=0, ge=0)
     latest_scan_score: int | None = Field(default=None, ge=0, le=100)
@@ -56,4 +58,6 @@ class CatalogFacets(OrmBaseModel):
     tier: dict[str, int] = Field(default_factory=dict)
     registry: dict[str, int] = Field(default_factory=dict)
     agent: dict[str, int] = Field(default_factory=dict)
+    # I-3.5: provenance split (github | upload) for the catalog source filter.
+    artifact_source: dict[str, int] = Field(default_factory=dict)
     total: int = Field(default=0, ge=0)

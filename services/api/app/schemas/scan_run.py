@@ -13,6 +13,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.orm_base import OrmBaseModel
 from app.schemas.scan_report_summary import ScanTier
 from app.schemas.scan_submit import FindingResponse
@@ -63,6 +64,12 @@ class ScanRunReportDetail(OrmBaseModel):
     uploaded_filename: str | None = None
     expires_at: datetime | None = None
     share_url: str | None = None
+    # Single-capability runs (typically uploads) carry the primary manifest + a
+    # `.zip` pointer so the rich upload report (mockups 3/4) renders the source
+    # viewer + download. Null on multi-capability runs (the cap-list body has no
+    # single source). `manifest`/`download` are detail-only — never in a list.
+    manifest: ManifestSource | None = None
+    download: DownloadInfo | None = None
 
 
 class PromotedItem(OrmBaseModel):

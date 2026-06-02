@@ -223,6 +223,35 @@ const toc = [
           as a transparency record (see Section 7 and Section 11).
         </p>
 
+        <h3>3.2.1 Uploaded artifacts and unlisted (private) scans</h3>
+        <p>
+          Instead of a GitHub URL, you can <strong>upload an artifact file</strong> (a single
+          capability file or a <code>.zip</code>) to scan it directly. You choose its visibility:
+        </p>
+        <ul>
+          <li>
+            <strong>Public (default):</strong> the result is published permanently to the public
+            catalog, exactly like a GitHub scan — and, because you chose to publish it, the exact
+            <strong>bytes you uploaded are stored and reproducible</strong> (so the report can render
+            diffs and serve a <code>.zip</code>). Treat a public upload as a permanent public record.
+          </li>
+          <li>
+            <strong>Unlisted:</strong> the result is <strong>not</strong> listed in the catalog or
+            search and is reachable only at an <strong>unguessable capability link</strong>
+            (<code>/scans/r/&lt;token&gt;</code>). Its uploaded bytes are stored privately and
+            <strong>auto-deleted after 90 days</strong>. You can delete it sooner, or promote it to
+            public, using that link.
+          </li>
+        </ul>
+        <p>
+          <strong>The capability link is unguessable and unlisted — it is not access-controlled.</strong>
+          Anyone who has the link can view, delete, or publish the report. We mark the page
+          <code>noindex</code> and send no referrer, which reduces (but cannot guarantee) the chance
+          of it being indexed or leaked. <strong>If you lose the link there is no recovery</strong>, and
+          sharing the link shares full control. For abuse prevention we apply the same hashed-IP,
+          rolling-window rate limiting (Section 3.3) to capability-link lookups.
+        </p>
+
         <h3>3.3 Your IP address (abuse prevention only)</h3>
         <p>
           To prevent abuse and rate-limit scan submissions, we process the IP address of
@@ -461,6 +490,8 @@ const toc = [
             </thead>
             <tbody>
               <tr><td>Submitted GitHub URLs, scan results, findings (public catalog)</td><td><strong>Indefinite</strong> — a public transparency record</td></tr>
+              <tr><td>Public uploaded-artifact bytes (you chose to publish)</td><td><strong>Indefinite</strong> — reproducible public record</td></tr>
+              <tr><td>Unlisted (private) uploaded-artifact bytes + report</td><td><strong>90 days</strong>, then auto-deleted — or sooner if you delete via the link</td></tr>
               <tr><td>Hashed IP / rate-limit counters</td><td>~24 hours (rolling), then deleted</td></tr>
               <tr><td>Cookieless analytics events</td><td>~90 days, then retained only in aggregate</td></tr>
               <tr><td>Error / diagnostic data (Sentry)</td><td>~90 days</td></tr>

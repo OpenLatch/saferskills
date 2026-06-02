@@ -31,8 +31,9 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 |---|---|
 | `homepage_*` | Homepage CTA + hero clicks |
 | `catalog_*` | Catalog browse + filter + search — landed Phase B |
-| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy, embed badge copy, **capability type-filter + capability-row expand** on the repo scan report) — landed Phase B |
+| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy — incl. the `zip` download-bytes button on upload reports, embed badge copy, **capability type-filter + capability-row expand** on the repo scan report) — landed Phase B |
 | `item_detail_*` | Item-detail page interactions (chart hover/click) — lands Phase C |
+| `unlisted_*` | Unlisted (capability-URL) manage-bar actions — `unlisted_manage_action` `{action: copy_link\|promote\|delete}` (I-3.5). **Never** carries the `share_token`, slug, filename, or any path content. |
 | `artifact_*` | Artifact detail page interactions |
 | `rule_*` | Rubric / methodology page interactions |
 | `appeal_*` | Vendor-appeal form interactions (W5+ when the web form ships) |

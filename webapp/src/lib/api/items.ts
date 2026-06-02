@@ -3,6 +3,7 @@ import type { ScanReportDetail } from '@/lib/api/scans'
 
 export type CatalogKind = 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
 export type ScanTier = 'green' | 'yellow' | 'orange' | 'red' | 'unscoped'
+export type ArtifactSource = 'github' | 'upload'
 
 export interface CatalogItemSummary {
   id: string
@@ -13,6 +14,8 @@ export interface CatalogItemSummary {
   github_url?: string | null
   github_org: string
   github_repo: string
+  /** Provenance of the scanned bytes — drives the catalog UPLOAD badge. */
+  source_kind: ArtifactSource
   popularity_tier: string
   popularity_score: number
   latest_scan_score?: number | null
@@ -149,6 +152,8 @@ export interface CatalogFacets {
   tier: Record<string, number>
   registry: Record<string, number>
   agent: Record<string, number>
+  /** github | upload split for the source filter (I-3.5). */
+  artifact_source: Record<string, number>
   total: number
 }
 
@@ -166,6 +171,8 @@ export interface ListItemsParams {
   score_min?: number
   score_max?: number
   scan_tier?: string[]
+  /** github | upload provenance filter (NOT `source` — avoids the trigger enum). */
+  artifact_source?: string
   q?: string
   sort?: CatalogSort
   limit?: number
@@ -197,6 +204,7 @@ export async function listCatalogItems(params: ListItemsParams = {}): Promise<Ca
     score_min: params.score_min,
     score_max: params.score_max,
     scan_tier: params.scan_tier,
+    artifact_source: params.artifact_source,
     q: params.q,
     sort: params.sort,
     limit: params.limit ?? 25,

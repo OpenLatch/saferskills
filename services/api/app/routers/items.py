@@ -103,6 +103,7 @@ def _to_summary(
         github_url=item.github_url,
         github_org=item.github_org,
         github_repo=item.github_repo,
+        source_kind=item.source_kind,  # type: ignore[arg-type]
         popularity_tier=item.popularity_tier,
         popularity_score=item.popularity_score,
         latest_scan_score=latest_score,
@@ -162,12 +163,22 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
     # Tier facet: bucket by latest_scan_tier — shared with /stats (queries.py).
     tier_dist = await latest_scan_tier_distribution(session)
 
+    # Provenance facet (I-3.5): github | upload split for the source filter.
+    source_rows = (
+        await session.execute(
+            select(CatalogItem.source_kind, func.count(CatalogItem.id))
+            .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
+            .group_by(CatalogItem.source_kind)
+        )
+    ).all()
+
     return CatalogFacets(
         kind={k: int(c) for k, c in kind_rows},
         popularity_tier={k: int(c) for k, c in popularity_rows},
         tier=tier_dist,
         registry={k: int(c) for k, c in registry_rows},
         agent={k: int(c) for k, c in agent_rows},
+        artifact_source={k: int(c) for k, c in source_rows},
         total=int(total),
     )
 

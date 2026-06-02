@@ -80,8 +80,13 @@ export default function CatalogResultsList({
                 <div className="name">{item.display_name}</div>
                 <div className="desc">
                   <span className="tag-mini">{kindTag(item.kind)}</span>
+                  {item.source_kind === 'upload' && (
+                    <span className="tag-mini up" title="Scanned from a directly-uploaded artifact">
+                      UPLOAD
+                    </span>
+                  )}
                   <span>
-                    {item.github_org}
+                    {item.source_kind === 'upload' ? 'uploaded artifact' : item.github_org}
                     {item.description ? ` · ${item.description}` : ''}
                   </span>
                 </div>

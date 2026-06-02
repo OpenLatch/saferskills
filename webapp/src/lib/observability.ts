@@ -11,6 +11,17 @@
 
 let initialized = false
 
+/**
+ * Redact the unlisted capability token from any `/scans/r/<token>` URL so it
+ * never reaches Sentry (pairs with the backend access-log + Sentry scrub;
+ * D-UP-32 / security.md § Capability-URL anti-leakage). Possession of the token
+ * is full authorization — it must not leak into an error payload.
+ */
+export function redactCapabilityToken(url: string | undefined): string | undefined {
+  if (!url) return url
+  return url.replace(/(\/scans\/r\/)[^/?#]+/g, '$1<redacted>')
+}
+
 export async function initObservability(): Promise<void> {
   if (initialized) return
   initialized = true
@@ -32,6 +43,10 @@ async function initSentry(): Promise<void> {
     replaysOnErrorSampleRate: 0,
     integrations: [],
     beforeBreadcrumb(breadcrumb) {
+      // Redact the capability token from any breadcrumb URL first (D-UP-32).
+      if (typeof breadcrumb.data?.url === 'string') {
+        breadcrumb.data.url = redactCapabilityToken(breadcrumb.data.url)
+      }
       const data = breadcrumb.data
       if (data && typeof data === 'object') {
         const haystack = JSON.stringify(data)
@@ -51,6 +66,10 @@ async function initSentry(): Promise<void> {
       }
       if (event.request?.cookies) {
         event.request.cookies = undefined
+      }
+      // Never let the unlisted capability token reach Sentry (D-UP-32).
+      if (event.request?.url) {
+        event.request.url = redactCapabilityToken(event.request.url)
       }
       return event
     },

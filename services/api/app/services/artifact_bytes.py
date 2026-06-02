@@ -15,12 +15,28 @@ it tries `artifact_blobs` by sha first, then falls back to `upload_files` by
 
 from __future__ import annotations
 
+import io
+import zipfile
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.artifact_blob import ArtifactBlob
 from app.models.scan import Scan
 from app.models.upload_file import UploadFile
+
+
+def build_zip(files: dict[str, bytes]) -> bytes:
+    """Deterministic deflate zip of `{path: bytes}` — runs in a worker thread.
+
+    Shared by the public item download and the token-gated unlisted download so
+    both serve byte-identical archives.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(files):
+            archive.writestr(path, files[path])
+    return buffer.getvalue()
 
 
 async def resolve_snapshot(session: AsyncSession, scan: Scan) -> dict[str, bytes | None]:
@@ -92,3 +108,45 @@ async def resolve(session: AsyncSession, scan: Scan, path: str, sha: str | None)
         if content is not None:
             return bytes(content)
     return None
+
+
+async def snapshot_byte_size(session: AsyncSession, scan: Scan) -> int:
+    """Total uncompressed bytes of a scan's servable snapshot (store-agnostic).
+
+    Sums `artifact_blobs.byte_size` by sha, plus `upload_files.byte_size` for any
+    path not satisfied by a blob (the storage split mirrors `resolve_snapshot`).
+    Null-content (binary/oversize sentinel) rows contribute 0. Drives the `.zip`
+    size label on the upload report (mockups 3/4).
+    """
+    file_hashes: dict[str, str | None] = scan.file_hashes or {}
+    shas = {sha for sha in file_hashes.values() if sha}
+    blob_sizes: dict[str, int] = {}
+    if shas:
+        rows = (
+            await session.execute(
+                select(ArtifactBlob.sha256, ArtifactBlob.byte_size).where(
+                    ArtifactBlob.sha256.in_(shas)
+                )
+            )
+        ).all()
+        blob_sizes = {sha: int(size) for sha, size in rows}
+
+    needs_upload = any(not sha or sha not in blob_sizes for sha in file_hashes.values())
+    upload_sizes: dict[str, int] = {}
+    if needs_upload and scan.scan_run_id is not None:
+        rows = (
+            await session.execute(
+                select(UploadFile.path, UploadFile.byte_size).where(
+                    UploadFile.scan_run_id == scan.scan_run_id
+                )
+            )
+        ).all()
+        upload_sizes = {path: int(size or 0) for path, size in rows}
+
+    total = 0
+    for path, sha in file_hashes.items():
+        if sha and sha in blob_sizes:
+            total += blob_sizes[sha]
+        elif path in upload_sizes:
+            total += upload_sizes[path]
+    return total

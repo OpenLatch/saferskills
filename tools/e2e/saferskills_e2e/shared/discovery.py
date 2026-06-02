@@ -23,6 +23,21 @@ async def discover_first_item_slug(config: Config) -> str | None:
     return data[0]["slug"] if data else None
 
 
+async def discover_first_upload_item(config: Config) -> str | None:
+    """Slug of the first PUBLIC upload-sourced catalog item, or None (I-3.5).
+
+    Uses the `artifact_source=upload` filter — empty on a fresh staging until an
+    upload is published, so callers skip gracefully on `None`."""
+    async with make_client(config) as client:
+        resp = await client.get(
+            f"{config.api_url}/api/v1/items",
+            params={"limit": 1, "artifact_source": "upload"},
+        )
+    resp.raise_for_status()
+    data = resp.json().get("data", [])
+    return data[0]["slug"] if data else None
+
+
 async def discover_first_scan(config: Config) -> dict[str, Any] | None:
     """First scan summary (`id` + `aggregate_score` + …), or None when no scans."""
     async with make_client(config) as client:

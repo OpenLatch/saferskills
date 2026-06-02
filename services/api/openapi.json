@@ -117,6 +117,13 @@
             "title": "Agent",
             "type": "object"
           },
+          "artifact_source": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Artifact Source",
+            "type": "object"
+          },
           "kind": {
             "additionalProperties": {
               "type": "integer"
@@ -309,6 +316,15 @@
             "title": "Slug",
             "type": "string"
           },
+          "source_kind": {
+            "default": "github",
+            "enum": [
+              "github",
+              "upload"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
           "sources": {
             "items": {
               "additionalProperties": true,
@@ -474,6 +490,15 @@
           },
           "slug": {
             "title": "Slug",
+            "type": "string"
+          },
+          "source_kind": {
+            "default": "github",
+            "enum": [
+              "github",
+              "upload"
+            ],
+            "title": "Source Kind",
             "type": "string"
           },
           "updated_at": {
@@ -1620,6 +1645,16 @@
             "title": "Capability Count",
             "type": "integer"
           },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "engine_version": {
             "title": "Engine Version",
             "type": "string"
@@ -1661,6 +1696,16 @@
           "latency_ms": {
             "title": "Latency Ms",
             "type": "integer"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManifestSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "ref_sha": {
             "anyOf": [
@@ -3108,6 +3153,47 @@
           }
         },
         "summary": "Read an unlisted scan report by its capability-URL token.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/r/{token}/download": {
+      "get": {
+        "description": "Token-gated `.zip` of an unlisted run's scanned bytes (mockups 4 keep the\ndownload). Same generic-404 / `private_lookup` cap / anti-leakage contract as\nthe view route \u2014 the public `/items/<slug>/download` 404s for shadow rows, so\nunlisted bytes are reachable only here. Bytes come from the storage-split\nresolver (`upload_files` for unlisted uploads).",
+        "operationId": "download_unlisted_run_api_v1_scans_r__token__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download the scanned bytes (.zip) of an unlisted run by its token.",
         "tags": [
           "scans"
         ]
