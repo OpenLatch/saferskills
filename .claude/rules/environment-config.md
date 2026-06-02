@@ -27,8 +27,19 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `ENV` | yes | `development` | One of `development` / `staging` / `production` — drives Sentry env tag and log format. (Does NOT gate migrations: `alembic upgrade head` runs in-process on every boot in all envs — see `ci-cd.md` § Deployment.) |
 | `LOG_LEVEL` | no | `INFO` | Python logging level |
 | `CORS_ALLOWED_ORIGINS` | yes | `http://localhost:4321` | Comma-separated origin list |
-| `SCAN_SUBMIT_DAILY_LIMIT` | no | `10` | Max scan submissions per IP per 24h (D-FE-11). Loopback callers are exempt (trusted local seeding) — see `security.md` § Public-input handling #5. |
+| `SCAN_SUBMIT_DAILY_LIMIT` | no | `10` | Max scan submissions per IP per 24h (D-FE-11), **shared by `POST /scans` and `POST /scans/upload`**. Loopback callers are exempt (trusted local seeding) — see `security.md` § Public-input handling #5. |
 | `ARTIFACT_DOWNLOAD_DAILY_LIMIT` | no | `200` | Max stored-snapshot `.zip` downloads per IP per 24h (`GET /items/{slug}/download`). Same loopback exemption — see `security.md` § Public-input handling #6. |
+| `PUBLIC_BASE_URL` | no | `http://localhost:4321` | Public webapp origin. Builds the unlisted `share_url` + the upload source `registryUrl`. |
+| `PRIVATE_LOOKUP_DAILY_LIMIT` | no | `60` | Max unlisted-run lookups (`GET /scans/r/{token}`) per IP per 24h (bucket `private_lookup`). Same loopback exemption — see `security.md` § Public-input handling #7. |
+| `UPLOAD_MAX_BYTES` | no | `10485760` | Hard cap (10 MiB) on a `POST /scans/upload` body — enforced while streaming. |
+| `UPLOAD_EXTRACT_MAX_PER_FILE_BYTES` | no | `5242880` | Per-file cap (5 MiB) when extracting an uploaded `.zip`. |
+| `UPLOAD_EXTRACT_MAX_TOTAL_BYTES` | no | `52428800` | Total uncompressed cap (50 MiB) for an uploaded `.zip`. |
+| `UPLOAD_EXTRACT_MAX_RATIO` | no | `100` | Max compression ratio (zip-bomb guard). |
+| `UPLOAD_EXTRACT_MAX_ENTRIES` | no | `1000` | Max entry count in an uploaded `.zip`. |
+| `UPLOAD_ALLOWED_EXTENSIONS` | no | `.zip,.md,.json,.yaml,.yml,.toml,.txt,.js,.ts,.py,.sh` | Comma-separated upload extension allowlist. |
+| `UNLISTED_RETENTION_DAYS` | no | `90` | TTL for unlisted runs — sets `scan_runs.expires_at`; swept by `app/core/sweeps.py`. |
+| `UPLOAD_RESCAN_WINDOW_DAYS` | no | `90` | Window during which an upload may be re-scanned. |
+| `SWEEP_INTERVAL_SECONDS` | no | `3600` | In-process expiry-sweep loop interval (advisory lock `0x5AFE5C12`). See `database.md` § Expiry sweep. |
 | `VENDOR_SESSION_SECRET` | yes (prod) | dev-insecure default | HS256 signing key for the vendor right-of-reply session JWT (`ss_vendor_session` cookie). The API is the sole verifier — the webapp stores the JWT opaquely and forwards it as a Bearer token. 32+ random bytes in prod; rotate quarterly (rotation only invalidates in-flight 15-min sessions). I-03 Phase C. |
 | `GITHUB_TOKEN` | no | unset | Optional GitHub PAT. Raises the 60→5,000 req/h limit for scan-tarball fetches + the hourly `/api/v1/stats` `github_stars` proxy. Unauthenticated is fine for the single cached hourly call. Emits no PII (cached count only, cf. `telemetry.md`). |
 

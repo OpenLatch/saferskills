@@ -4,7 +4,9 @@ W1 surface: /api/v1/health only. The scan engine, ingestion adapters, and
 catalog/report endpoints land via Initiatives I-02 / I-03 / I-04 starting W2.
 """
 
+import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -18,7 +20,10 @@ from app.core.db_pool import close_pool, init_pool
 from app.core.middleware import StartupGuardMiddleware
 from app.core.observability import init_observability
 from app.core.startup import run_startup
+from app.core.startup_state import startup_state
 from app.routers import health, items, scans, stats, vendor
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -38,9 +43,22 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         from app.queue.scan_runner import recover_stale_scans
 
         await recover_stale_scans()
+
+    # Unlisted-run expiry sweep — only once migrations + pool are up, never in
+    # degraded mode (I-3.5, D-UP-17 / P1-7). Cancelled cleanly on shutdown.
+    sweep_task: asyncio.Task[None] | None = None
+    if startup_state.is_healthy:
+        from app.core.sweeps import run_sweep_loop
+
+        sweep_task = asyncio.create_task(run_sweep_loop())
+
     try:
         yield
     finally:
+        if sweep_task is not None:
+            sweep_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await sweep_task
         await close_pool()
 
 
@@ -67,7 +85,7 @@ _settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_settings.cors_allowed_origins,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )

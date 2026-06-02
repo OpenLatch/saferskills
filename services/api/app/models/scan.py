@@ -40,8 +40,10 @@ class Scan(Base):
     # whole-repo capability). Surfaces the scanned component on the report.
     component_path: Mapped[str | None] = mapped_column(String(1024))
     idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    github_url: Mapped[str] = mapped_column(String(500), nullable=False)
-    ref_sha: Mapped[str] = mapped_column(String(40), nullable=False)
+    # Nullable since I-3.5: upload fan-out creates scans with no GitHub URL/ref
+    # (no synthetic "upload://" sentinel — sentinels leak into the UI as links).
+    github_url: Mapped[str | None] = mapped_column(String(500))
+    ref_sha: Mapped[str | None] = mapped_column(String(40))
     aggregate_score: Mapped[int] = mapped_column(Integer, nullable=False)
     tier: Mapped[str] = mapped_column(String(20), nullable=False)
     sub_scores: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

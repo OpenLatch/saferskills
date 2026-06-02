@@ -8,9 +8,10 @@ SaferSkills ingests one of:
 
 - A GitHub repository URL (`https://github.com/<owner>/<repo>` or sub-tree)
 - A direct skill / MCP / hook / plugin / rules artifact URL (resolves to a Git ref or release artifact)
+- A **directly uploaded** artifact file or `.zip` (I-3.5) — scanned public or **unlisted** (private share via an unguessable link)
 - An `npx`-installable package name (Track C, W4+)
 
-Every submission becomes a deterministic, content-hashed catalog entry.
+Every submission becomes a deterministic, content-hashed catalog entry. An upload is a second front-end into the *same* engine — it produces the same per-capability file index and the same scoring path, never a different one.
 
 ## Capability discovery
 
@@ -123,6 +124,8 @@ CATEGORY is one of `{MCP, SKILL, RULES, HOOKS, PLUGIN}`. The 6 primitive trigger
 - `ref_sha` — commit SHA of the scanned artifact
 
 A vendor can re-derive any historical verdict by checking out `rubric_version` + `engine_version` + the artifact at `ref_sha` and re-running the scan offline. **No model. No random seed. No temperature. No LLM in the verdict path.** Deterministic, byte-for-byte.
+
+For a **directly uploaded** artifact there is no Git `ref_sha`; the durable identity is `content_hash_sha256` (sha256 of the sorted `{path → sha256}` map of the uploaded files). Re-running the same `rubric_version` against the same bytes reproduces the verdict identically. Uploads have **no auto-rescan** — there is no upstream ref to poll for drift.
 
 ## Scan-trace transparency
 

@@ -20,8 +20,9 @@ class CatalogItemSummary(OrmBaseModel):
     display_name: str
     description: str | None = None
     github_url: str | None = None
-    github_org: str
-    github_repo: str
+    # Nullable since I-3.5: uploaded artifacts have no GitHub provenance.
+    github_org: str | None = None
+    github_repo: str | None = None
     popularity_tier: str
     popularity_score: int = Field(default=0, ge=0)
     latest_scan_score: int | None = Field(default=None, ge=0, le=100)

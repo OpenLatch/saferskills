@@ -22,6 +22,24 @@ class Kind(StrEnum):
     rules = "rules"
 
 
+class Visibility(StrEnum):
+    """
+    Listing posture (denormalized from the owning scan_run). `public` rows appear in the catalog; `unlisted` shadow rows are excluded from every public query and reachable only via their capability URL. Never an access-control mechanism — see security.md.
+    """
+
+    public = "public"
+    unlisted = "unlisted"
+
+
+class SourceKind(StrEnum):
+    """
+    Provenance of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact).
+    """
+
+    github = "github"
+    upload = "upload"
+
+
 class PopularityTier(StrEnum):
     """
     PRD §6.2 scan-tier assignment. `indexed`: metadata only. `lite`: shallow scan, weekly rescan. `deep`: full scan, hourly rescan. `on_demand`: user-submitted, hourly rescan.
@@ -62,6 +80,7 @@ class RegistryId(StrEnum):
     anthropics_skills = "anthropics_skills"
     user_submission = "user_submission"
     vendor_verified = "vendor_verified"
+    upload = "upload"
 
 
 class Source(BaseModel):
@@ -109,7 +128,7 @@ class CatalogItem(BaseModel):
         max_length=255,
     ) = Field(
         ...,
-        description="URL-safe slug, double-dash-separated segments. A legacy repo-level slug is `<org>--<repo>`; a per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]` (a repo hosting several capabilities). Used in `/items/<slug>` permalinks.",
+        description="URL-safe slug, double-dash-separated segments. A legacy repo-level slug is `<org>--<repo>`; a per-capability slug is `<org>--<repo>--<kind>-<name>[-<hash6>]`. Public uploads use `upload--<arthash8>--<kind>-<name>`; per-run unlisted shadow rows use `unlisted--<run8>--<kind>-<name>`. Used in `/items/<slug>` permalinks (unlisted shadow slugs 404 on the public surface).",
     )
     display_name: constr(min_length=1, max_length=200) = Field(
         ...,
@@ -119,20 +138,31 @@ class CatalogItem(BaseModel):
     github_url: AnyUrl | None = Field(
         None,
         alias="githubUrl",
-        description="Canonical GitHub URL on the default branch. Null is reserved for non-GitHub sources (e.g. npm-only) — at W2 every catalog_item has a GitHub URL.",
+        description="Canonical GitHub URL on the default branch. Null for non-GitHub sources — uploaded artifacts (`sourceKind = 'upload'`) have no GitHub provenance.",
     )
-    github_org: constr(min_length=1, max_length=100) = Field(
-        ...,
+    github_org: constr(max_length=100) | None = Field(
+        None,
         alias="githubOrg",
-        description="GitHub organisation or user that owns the repo.",
+        description="GitHub organisation or user that owns the repo. Null for uploaded artifacts (no GitHub provenance).",
     )
-    github_repo: constr(min_length=1, max_length=100) = Field(
-        ..., alias="githubRepo", description="GitHub repository name."
+    github_repo: constr(max_length=100) | None = Field(
+        None,
+        alias="githubRepo",
+        description="GitHub repository name. Null for uploaded artifacts.",
     )
-    default_branch: constr(min_length=1, max_length=200) = Field(
-        ...,
+    default_branch: constr(max_length=200) | None = Field(
+        None,
         alias="defaultBranch",
-        description="Repo default branch resolved at first ingestion. Used as the `ref` for tarball fetches when no SHA is pinned.",
+        description="Repo default branch resolved at first ingestion. Used as the `ref` for tarball fetches when no SHA is pinned. Null for uploaded artifacts.",
+    )
+    visibility: Visibility | None = Field(
+        "public",
+        description="Listing posture (denormalized from the owning scan_run). `public` rows appear in the catalog; `unlisted` shadow rows are excluded from every public query and reachable only via their capability URL. Never an access-control mechanism — see security.md.",
+    )
+    source_kind: SourceKind | None = Field(
+        "github",
+        alias="sourceKind",
+        description="Provenance of the scanned bytes — `github` (fetched from a repo) or `upload` (a directly-uploaded artifact).",
     )
     popularity_tier: PopularityTier = Field(
         ...,

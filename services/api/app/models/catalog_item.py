@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Integer, String, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,9 +33,10 @@ class CatalogItem(Base):
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     github_url: Mapped[str | None] = mapped_column(String(500), unique=True)
-    github_org: Mapped[str] = mapped_column(String(100), nullable=False)
-    github_repo: Mapped[str] = mapped_column(String(100), nullable=False)
-    default_branch: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Nullable since I-3.5: uploaded artifacts have no GitHub provenance.
+    github_org: Mapped[str | None] = mapped_column(String(100))
+    github_repo: Mapped[str | None] = mapped_column(String(100))
+    default_branch: Mapped[str | None] = mapped_column(String(200))
     popularity_tier: Mapped[str] = mapped_column(String(20), nullable=False)
     popularity_score: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     agent_compatibility: Mapped[list[str]] = mapped_column(
@@ -51,6 +52,14 @@ class CatalogItem(Base):
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
     item_metadata: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB)
+    # ── Upload / visibility (I-3.5) ───────────────────────────────────────────
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="'public'")
+    source_kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default="'github'")
+    # Shadow-row marker: NULL on canonical public rows, set on per-run unlisted
+    # shadow rows (FK scan_runs ON DELETE CASCADE — see D-UP-27).
+    owner_run_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("scan_runs.id", ondelete="CASCADE")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

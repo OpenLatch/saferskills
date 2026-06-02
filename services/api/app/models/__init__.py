@@ -15,6 +15,7 @@ from app.models.item_source import ItemSource
 from app.models.rate_limit import RateLimit
 from app.models.scan import Finding, Scan, ScanEvent
 from app.models.scan_run import ScanRun
+from app.models.upload_file import UploadFile
 from app.models.vendor import VendorResponse, VendorVerification
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "Scan",
     "ScanEvent",
     "ScanRun",
+    "UploadFile",
     "VendorResponse",
     "VendorVerification",
 ]

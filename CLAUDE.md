@@ -4,6 +4,8 @@ SaferSkills is **"every AI skill, independently scanned"** — a public, free, A
 
 **Architecture (post-W3, Track A/B/D shipped)**: catalog ingestion (`services/api/app/ingestion/`) → scan engine (`services/api/app/scan/` + detector rules under `rubric/`) → public report surface (`webapp/` Astro SSG, indexed by `saferskills.ai/items/<slug>`) → CLI gate (`cli/` npx). Until W3, this repo is the **foundation shell** — codegen pipeline, FastAPI `/health`, Astro placeholder homepage with email capture, design-system tokens.
 
+**Submission front-ends (I-3.5)**: besides `POST /api/v1/scans` (GitHub URL), artifacts can be **uploaded directly** via `POST /api/v1/scans/upload` (multipart; `visibility` public|unlisted) — same deterministic engine, second front-end. **Unlisted** runs are reached only by an unguessable `share_token`: `GET/DELETE /api/v1/scans/r/{token}` (view / self-delete) + `POST /api/v1/scans/r/{token}/promote` (one-way unlisted→public). `GET /api/v1/items` gained an `artifact_source` (github|upload) filter; every public catalog query hard-filters `visibility='public'`. See `.claude/rules/database.md` § Upload + visibility.
+
 **Stewardship**: SaferSkills is an OpenLatch project, brand-independent. Footer attribution only — never cross-recommend OpenLatch from a SaferSkills surface. See `.claude/rules/design-system.md` § Anti-recommendation.
 
 ---

@@ -33,14 +33,14 @@ class ScanReportSummary(BaseModel):
         ...,
         description="Server-assigned scan UUID. The catalog stub may project the slug-as-id while the data-seed CLI has not run — clients treat this as an opaque string.",
     )
-    github_url: AnyUrl = Field(
-        ..., alias="githubUrl", description="Canonical GitHub URL scanned."
+    github_url: AnyUrl | None = Field(
+        None,
+        alias="githubUrl",
+        description="Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub provenance).",
     )
-    slug: constr(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*--[a-z0-9]+(?:-[a-z0-9]+)*$") = (
-        Field(
-            ...,
-            description="CatalogItem slug — `<org>--<repo>` (URL-safe `--` separator per I-02 D-15).",
-        )
+    slug: constr(pattern=r"^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$") = Field(
+        ...,
+        description="CatalogItem slug — `<org>--<repo>[--<kind>-<name>]` for GitHub scans, `upload--<arthash8>--<kind>-<name>` for public uploads (multi-`--`; grammar widened to match catalog-item.schema.json). Unlisted shadow slugs never appear here (list payloads are public-only).",
     )
     aggregate_score: conint(ge=0, le=100) = Field(
         ...,

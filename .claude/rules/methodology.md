@@ -73,6 +73,7 @@ Body sections (human-readable, not enforced):
 - **Same input → same score**, byte-for-byte. The rubric version is part of the scan input.
 - Every scan report records its `rubric_version` (git SHA of `rubric/` at scan time) in the response payload.
 - A vendor can verify a finding by running the exact `rubric_version` against the exact artifact bytes at the recorded `ref_sha` — the result is reproducible without platform participation. (The **stored snapshot** — `artifact_blobs`, see `database.md` — preserves those exact text-file bytes, so reproduction needs no re-fetch; it is a storage feature, **not** part of the verdict path and **never** an input to scoring.)
+- **Upload provenance (I-3.5).** A directly **uploaded** artifact is scanned by the *same* deterministic engine — upload is a second front-end producing the same per-capability file index, not a different scoring path. There is no `ref_sha` (no Git ref); the durable identity is `content_hash_sha256` = sha256 of the sorted `{path → sha256}` map of the uploaded files. Reproducibility is by re-running the same `rubric_version` against the same bytes (`content_hash_sha256` pins them). Uploads have **no auto-rescan** (there is no upstream ref to poll for drift).
 - **No LLM in the verdict path.** No probabilistic scoring. No editorial moderation queue. Hard, structural.
 - **No randomness, no ML-as-a-black-box.** Heuristics may use ML-trained classifiers, but the classifier weights ship versioned under `rubric/<CATEGORY>/_models/` and the rule doc names which model version it uses.
 

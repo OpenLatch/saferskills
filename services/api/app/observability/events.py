@@ -16,6 +16,7 @@ real events.
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Literal, cast
 
 import structlog
@@ -40,6 +41,15 @@ type CountBucket = Literal["0", "1", "2-5", "6-20", "21+"]
 type HashDeltaBucket = Literal["1", "2-5", "6-20", "21+"]
 type BodyLengthBucket = Literal["<500", "500-1000", "1000-2000"]
 type FpRateBucket = Literal["0", "<5%", "5-10%", ">10%"]
+
+# I-3.5 upload / visibility (D-UP-22). `artifact_source` is a SEPARATE property
+# from `scan_submitted.source` (the trigger enum) — never overload the trigger.
+type ArtifactSource = Literal["github", "upload"]
+type Visibility = Literal["public", "unlisted"]
+type UploadSizeBucket = Literal["<100KB", "100KB-1MB", "1-5MB", "5-10MB"]
+type UploadRejectReason = Literal[
+    "too_big", "bad_type", "binary", "archive_rejected", "rate_limited"
+]
 
 
 # ─── Bucket helpers ───────────────────────────────────────────────────────────
@@ -115,6 +125,16 @@ def fp_rate_bucket(rate: float) -> FpRateBucket:
     return ">10%"
 
 
+def upload_size_bucket(n: int) -> UploadSizeBucket:
+    if n < 100_000:
+        return "<100KB"
+    if n < 1_000_000:
+        return "100KB-1MB"
+    if n < 5_000_000:
+        return "1-5MB"
+    return "5-10MB"
+
+
 # ─── Event emitters (1-14 per .claude/rules/telemetry.md) ─────────────────────
 
 
@@ -123,8 +143,41 @@ def _emit(event: str, **props: object) -> None:
     logger.info(event, **props)
 
 
-def emit_scan_submitted(*, source: ScanSource, idempotency_cache_hit: bool) -> None:
-    _emit("scan_submitted", source=source, idempotency_cache_hit=idempotency_cache_hit)
+def emit_scan_submitted(
+    *,
+    source: ScanSource,
+    idempotency_cache_hit: bool,
+    artifact_source: ArtifactSource = "github",
+    visibility: Visibility = "public",
+    upload_size_bucket: UploadSizeBucket | None = None,
+) -> None:
+    """`source` stays the trigger enum (submission/ingestion/rescan_*); the I-3.5
+    provenance lives in the SEPARATE `artifact_source` property (D-UP-22, P1-4).
+    `upload_size_bucket` is set only for uploads."""
+    props: dict[str, object] = {
+        "source": source,
+        "idempotency_cache_hit": idempotency_cache_hit,
+        "artifact_source": artifact_source,
+        "visibility": visibility,
+    }
+    if upload_size_bucket is not None:
+        props["upload_size_bucket"] = upload_size_bucket
+    _emit("scan_submitted", **props)
+
+
+def emit_promote_to_public(*, catalog_item_id: object) -> None:
+    """An unlisted run was promoted to public (D-UP-22)."""
+    _emit("promote_to_public", catalog_item_id_bucket=hash_to_bucket(catalog_item_id))
+
+
+def emit_upload_rejected(*, reason: UploadRejectReason, archive_sub: str | None = None) -> None:
+    """An upload failed validation. `reason` is the bucketed cause; `archive_sub`
+    carries the `archive_rejected:<sub>` detail (closed sub-set) when present.
+    NEVER carries the token or any path/filename content."""
+    props: dict[str, object] = {"reason": reason}
+    if archive_sub is not None:
+        props["archive_sub"] = archive_sub
+    _emit("upload_rejected", **props)
 
 
 def emit_scan_started(*, scan_id: object) -> None:
@@ -221,6 +274,48 @@ def emit_rescan_triggered_drift(*, catalog_item_id: object, hash_delta_files_cou
         catalog_item_id_bucket=hash_to_bucket(catalog_item_id),
         hash_delta_files_count_bucket=hash_delta_bucket(hash_delta_files_count),
     )
+
+
+# ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────
+
+_CAP_TOKEN_RE = re.compile(r"(/scans/r/)[^/?#\s]+")
+
+
+def redact_capability_token(text: str) -> str:
+    """Rewrite `/scans/r/<token>[...]` → `/scans/r/<redacted>` in any string.
+
+    The capability token is possession-is-authorization — it must never land in
+    an access log, an OTel span name, or a Sentry payload."""
+    return _CAP_TOKEN_RE.sub(r"\1<redacted>", text)
+
+
+def scrub_sentry_event(
+    event: dict[str, object], _hint: dict[str, object] | None = None
+) -> dict[str, object] | None:
+    """Sentry `before_send` callback — redact the capability token from the event
+    request URL + any breadcrumb URL (D-UP-32(b))."""
+    request = event.get("request")
+    if isinstance(request, dict):
+        typed_req = cast(dict[str, object], request)
+        url = typed_req.get("url")
+        if isinstance(url, str):
+            typed_req["url"] = redact_capability_token(url)
+    breadcrumbs = event.get("breadcrumbs")
+    values: list[object] = []
+    if isinstance(breadcrumbs, dict):
+        raw = cast(dict[str, object], breadcrumbs).get("values")
+        if isinstance(raw, list):
+            values = cast(list[object], raw)
+    elif isinstance(breadcrumbs, list):
+        values = cast(list[object], breadcrumbs)
+    for crumb in values:
+        if isinstance(crumb, dict):
+            typed_crumb = cast(dict[str, object], crumb)
+            for key in ("message", "data"):
+                val = typed_crumb.get(key)
+                if isinstance(val, str):
+                    typed_crumb[key] = redact_capability_token(val)
+    return event
 
 
 # ─── Sentry breadcrumb scrubber ───────────────────────────────────────────────

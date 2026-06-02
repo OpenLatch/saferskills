@@ -8,7 +8,6 @@
   "additionalProperties": false,
   "required": [
     "id",
-    "githubUrl",
     "slug",
     "aggregateScore",
     "tier",
@@ -21,14 +20,14 @@
       "description": "Server-assigned scan UUID. The catalog stub may project the slug-as-id while the data-seed CLI has not run — clients treat this as an opaque string."
     },
     "githubUrl": {
-      "type": "string",
+      "type": ["string", "null"],
       "format": "uri",
-      "description": "Canonical GitHub URL scanned."
+      "description": "Canonical GitHub URL scanned. Null for uploaded artifacts (no GitHub provenance)."
     },
     "slug": {
       "type": "string",
-      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*--[a-z0-9]+(?:-[a-z0-9]+)*$",
-      "description": "CatalogItem slug — `<org>--<repo>` (URL-safe `--` separator per I-02 D-15)."
+      "pattern": "^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$",
+      "description": "CatalogItem slug — `<org>--<repo>[--<kind>-<name>]` for GitHub scans, `upload--<arthash8>--<kind>-<name>` for public uploads (multi-`--`; grammar widened to match catalog-item.schema.json). Unlisted shadow slugs never appear here (list payloads are public-only)."
     },
     "aggregateScore": {
       "type": "integer",

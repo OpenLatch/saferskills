@@ -8,7 +8,6 @@
   "additionalProperties": false,
   "required": [
     "id",
-    "githubUrl",
     "repoAggregateScore",
     "repoTier",
     "kindTally",
@@ -28,9 +27,9 @@
       "description": "Server-assigned scan_runs UUID. Keys the `/scans/<id>` page + the SSE channel."
     },
     "githubUrl": {
-      "type": "string",
+      "type": ["string", "null"],
       "format": "uri",
-      "description": "Canonical GitHub repo URL scanned."
+      "description": "Canonical GitHub repo URL scanned. Null for uploaded artifacts (`sourceKind = 'upload'`)."
     },
     "repoAggregateScore": {
       "type": "integer",
@@ -87,7 +86,39 @@
     },
     "refSha": {
       "type": ["string", "null"],
-      "description": "Resolved HEAD SHA of the scanned ref. Null until the engine resolves it."
+      "description": "Resolved HEAD SHA of the scanned ref. Null until the engine resolves it (and always null for uploads)."
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["public", "unlisted"],
+      "default": "public",
+      "description": "Listing posture of the run. `unlisted` runs are reachable only via their capability URL and never appear in any public feed."
+    },
+    "sourceKind": {
+      "type": "string",
+      "enum": ["github", "upload"],
+      "default": "github",
+      "description": "Provenance of the scanned bytes — `github` or `upload`."
+    },
+    "artifactSha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable identity of an uploaded artifact. Null for legacy runs."
+    },
+    "uploadedFilename": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Original filename of the uploaded artifact (e.g. `SKILL.md`, `my-skill.zip`). Null for GitHub scans."
+    },
+    "expiresAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Auto-expiry timestamp for an unlisted run (90 days). Null for public runs."
+    },
+    "shareUrl": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "The capability URL `/scans/r/<token>` — present only on the unlisted detail response served via the token route. NEVER present in any list payload."
     }
   },
   "$defs": {

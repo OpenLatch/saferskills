@@ -27,7 +27,7 @@ ScanTier = Literal["green", "yellow", "orange", "red", "unscoped"]
 
 class ScanReportSummary(OrmBaseModel):
     id: str = Field(..., description="Scan UUID rendered as string.")
-    github_url: str
+    github_url: str | None = None
     slug: str
     aggregate_score: int = Field(..., ge=0, le=100)
     tier: ScanTier

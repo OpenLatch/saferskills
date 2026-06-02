@@ -20,16 +20,19 @@ import hashlib
 import json
 import re
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.artifact_blob import ArtifactBlob
 from app.models.catalog_item import CatalogItem
-from app.models.scan import Finding, Scan
+from app.models.scan import Finding, Scan, ScanEvent
 from app.models.scan_run import ScanRun
+from app.models.upload_file import UploadFile
 from app.scan.engine import CapabilityResult, RepoScanResult, ScanResult
 from app.scan.fetch import GithubRef, parse_github_url
 from app.services.agent_compat import agent_compatibility_for
@@ -105,6 +108,53 @@ def _snapshot_identity(file_map: dict[str, str | None]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _upload_file_hashes(files_index: list[tuple[str, bytes]]) -> dict[str, str | None]:
+    """`{path: sha256|null}` for a capability subset WITHOUT storing bytes.
+
+    The unlisted-upload counterpart map to `_capture_snapshot`'s return — the
+    bytes themselves are stored once per run by `_store_upload_files`. Same
+    binary/oversize sentinel rule (null) so the resolver + diff stay uniform.
+    """
+    file_map: dict[str, str | None] = {}
+    for path, content in files_index:
+        if _looks_binary(content) or len(content) > _SNAPSHOT_MAX_PER_FILE_BYTES:
+            file_map[path] = None
+        else:
+            file_map[path] = hashlib.sha256(content).hexdigest()
+    return file_map
+
+
+async def _store_upload_files(
+    session: AsyncSession, run_id: UUID, files_index: list[tuple[str, bytes]]
+) -> None:
+    """Persist a run's uploaded text bytes into `upload_files` ONCE (no dedup).
+
+    Per-run isolation (vs the global `artifact_blobs`) avoids dedup-induced
+    privacy coupling — two users' identical unlisted bytes never share a row.
+    De-dups within the run by path so shared repo-wide files (LICENSE, README)
+    aren't inserted once per capability. Binaries/oversize are stored as a
+    present-but-not-stored sentinel (`content = NULL`).
+    """
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for path, content in files_index:
+        if path in seen:
+            continue
+        seen.add(path)
+        is_bin = _looks_binary(content) or len(content) > _SNAPSHOT_MAX_PER_FILE_BYTES
+        rows.append(
+            {
+                "scan_run_id": run_id,
+                "path": path,
+                "content": None if is_bin else content,
+                "byte_size": len(content),
+                "is_binary": is_bin,
+            }
+        )
+    if rows:
+        await session.execute(pg_insert(UploadFile), rows)
+
+
 def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str, str] | None:
     """Pick the primary public manifest to surface on the item Source tab.
 
@@ -133,9 +183,19 @@ def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str
     return None
 
 
-def compute_idempotency_key(github_url: str, ref_sha: str, rubric_version: str) -> str:
-    """SHA-256 idempotency key per scan-report.schema.json contract."""
+def compute_idempotency_key(
+    github_url: str, ref_sha: str, rubric_version: str, *, nonce: str | None = None
+) -> str:
+    """SHA-256 idempotency key per scan-report.schema.json contract.
+
+    `nonce` is OMITTED for public scans, so the public key stays byte-identical to
+    the pre-I-3.5 form (existing cached runs still hit). An unlisted submission
+    passes a per-submission nonce so two identical private submissions never
+    collapse onto one run/token (D-UP-28).
+    """
     raw = f"{github_url}|{ref_sha}|{rubric_version}"
+    if nonce is not None:
+        raw = f"{raw}|{nonce}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -168,6 +228,29 @@ def capability_slug(ref: GithubRef, kind: str, name: str) -> str:
     return f"{base}--{kind_seg}-{name_seg}"[:255]
 
 
+def upload_capability_slug(content_hash: str, kind: str, name: str | None) -> str:
+    """Public-upload per-capability slug `upload--<arthash8>--<kind>-<name>` (I-3.5).
+
+    `arthash8` = `scan_runs.content_hash_sha256[:8]`. Satisfies the widened slug
+    grammar `^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$` (multiple `--` segments).
+    """
+    kind_seg = kind.replace("_", "-")
+    name_seg = _slugify(name or "") or "artifact"
+    return f"upload--{content_hash[:8]}--{kind_seg}-{name_seg}"[:255]
+
+
+def unlisted_capability_slug(run_id: UUID, kind: str, name: str | None) -> str:
+    """Per-run unlisted SHADOW slug `unlisted--<run8>--<kind>-<name>` (any source).
+
+    `run8` = `str(run_id)[:8]`. Shadow slugs never reach the public catalog —
+    `/items/<unlisted-slug>` 404s (visibility filter); they exist only so the
+    report `JOIN catalog_items` + diff/download paths keep working per-run.
+    """
+    kind_seg = kind.replace("_", "-")
+    name_seg = _slugify(name or "") or "artifact"
+    return f"unlisted--{str(run_id)[:8]}--{kind_seg}-{name_seg}"[:255]
+
+
 async def ensure_capability_item(
     session: AsyncSession, ref: GithubRef, github_url: str, cap: CapabilityResult
 ) -> CatalogItem:
@@ -192,6 +275,117 @@ async def ensure_capability_item(
         popularity_tier="indexed",
         popularity_score=0,
         agent_compatibility=agent_compatibility_for(cap.kind),
+        sources=[],
+    )
+    session.add(item)
+    await session.flush()
+    return item
+
+
+async def _slug_exists(session: AsyncSession, slug: str) -> bool:
+    return (
+        await session.execute(select(CatalogItem.id).where(CatalogItem.slug == slug))
+    ).first() is not None
+
+
+def _disambiguate(slug: str, salt: str) -> str:
+    """Append a deterministic 6-hex suffix on a within-run slug collision."""
+    suffix = hashlib.sha256(f"{slug}|{salt}".encode()).hexdigest()[:6]
+    return f"{slug}-{suffix}"[:255]
+
+
+def _upload_display_name(run: ScanRun, cap: CapabilityResult) -> str:
+    return cap.name or run.original_filename or "Uploaded artifact"
+
+
+def _upload_source(run: ScanRun) -> dict[str, object]:
+    """The `sources[]` entry for a public-upload catalog row (D-UP-34).
+
+    `registryId='upload'`; `registryUrl` is the run-report URL so the upload item
+    validates against the (non-empty) catalog-item `sources` contract.
+    """
+    base = get_settings().public_base_url.rstrip("/")
+    ts = (run.scanned_at or datetime.now(UTC)).isoformat()
+    return {
+        "registryId": "upload",
+        "registryUrl": f"{base}/scans/{run.id}",
+        "firstIndexedAt": ts,
+        "lastSeenAt": ts,
+    }
+
+
+async def ensure_upload_capability_item(
+    session: AsyncSession, run: ScanRun, cap: CapabilityResult
+) -> CatalogItem:
+    """Upsert the CANONICAL public-upload catalog row for one capability.
+
+    Slug `upload--<arthash8>--<kind>-<name>`; `visibility='public'`,
+    `source_kind='upload'`, `owner_run_id=NULL`, no GitHub provenance, and a
+    `sources=[{registryId:'upload', …}]` attribution. Idempotent on the slug.
+    """
+    content_hash = run.content_hash_sha256 or "00000000"
+    slug = upload_capability_slug(content_hash, cap.kind, cap.name)
+    existing = (
+        await session.execute(select(CatalogItem).where(CatalogItem.slug == slug))
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    item = CatalogItem(
+        kind=cap.kind,
+        slug=slug,
+        display_name=_upload_display_name(run, cap),
+        github_url=None,
+        github_org=None,
+        github_repo=None,
+        default_branch=None,
+        popularity_tier="on_demand",
+        popularity_score=0,
+        agent_compatibility=agent_compatibility_for(cap.kind),
+        visibility="public",
+        source_kind="upload",
+        owner_run_id=None,
+        sources=[_upload_source(run)],
+    )
+    session.add(item)
+    await session.flush()
+    return item
+
+
+async def create_unlisted_shadow_item(
+    session: AsyncSession, run: ScanRun, cap: CapabilityResult, *, ref: GithubRef | None
+) -> CatalogItem:
+    """Create a FRESH per-run unlisted SHADOW catalog row (D-UP-27).
+
+    Never reuses/mutates a canonical row (that would collapse a public+unlisted
+    scan of the same repo onto one slug, or violate the slug UNIQUE — P0-1). Slug
+    `unlisted--<run8>--<kind>-<name>`; `visibility='unlisted'`,
+    `owner_run_id=run.id` (FK CASCADE). `github_url` stays NULL even for a github
+    source — the canonical public row owns the UNIQUE(github_url); the shadow row
+    keeps org/repo for display/rescan only.
+    """
+    slug = unlisted_capability_slug(run.id, cap.kind, cap.name)
+    if await _slug_exists(session, slug):
+        slug = _disambiguate(slug, cap.component_path or "")
+
+    is_github = run.source_kind == "github"
+    item = CatalogItem(
+        kind=cap.kind,
+        slug=slug,
+        display_name=cap.name
+        or (display_name_for(ref) if ref is not None else None)
+        or run.original_filename
+        or "Unlisted artifact",
+        github_url=None,
+        github_org=ref.org if ref is not None else None,
+        github_repo=ref.repo if ref is not None else None,
+        default_branch="main" if is_github else None,
+        popularity_tier="on_demand",
+        popularity_score=0,
+        agent_compatibility=agent_compatibility_for(cap.kind),
+        visibility="unlisted",
+        source_kind=run.source_kind,
+        owner_run_id=run.id,
         sources=[],
     )
     session.add(item)
@@ -278,12 +472,18 @@ async def _apply_scan_result(
     *,
     item: CatalogItem | None,
     meta: RepositoryMetadata | None,
+    upload_run_id: UUID | None = None,
 ) -> None:
     """Fill a (flushed) scan row from an engine result: score, findings, manifest,
     snapshot. Shared by the single-scan and per-capability-run write paths.
 
     `scan` must already have an `id` (flush before calling). Existing findings
     for the scan are cleared first so a rescan-in-place never double-inserts.
+
+    Byte store fork: when `upload_run_id` is set (unlisted upload), the bytes were
+    stored once in `upload_files` for the run — this capability only records its
+    `{path: sha|null}` map (no `artifact_blobs` write). Otherwise bytes capture to
+    the deduped `artifact_blobs` via `_capture_snapshot`.
     """
     scan.aggregate_score = result.aggregate_score
     scan.tier = result.tier
@@ -324,8 +524,13 @@ async def _apply_scan_result(
         if manifest is not None:
             scan.manifest_path, scan.manifest_source = manifest
 
-        # Persist the per-capability text-file snapshot (deduped) for diffs + zip.
-        file_map = await _capture_snapshot(session, result.files_index)
+        # Persist the per-capability text-file snapshot for diffs + zip. Unlisted
+        # uploads resolve from the per-run upload_files store (bytes already
+        # written once for the run); everything else dedups into artifact_blobs.
+        if upload_run_id is not None:
+            file_map = _upload_file_hashes(result.files_index)
+        else:
+            file_map = await _capture_snapshot(session, result.files_index)
         scan.file_hashes = file_map
         item.content_hash_sha256 = _snapshot_identity(file_map)
 
@@ -342,9 +547,10 @@ async def persist_completed_scan(
     """
     item = await session.get(CatalogItem, scan.catalog_item_id)
     meta: RepositoryMetadata | None = None
-    if item is not None:
+    if item is not None and item.github_org and item.github_repo:
         # Refresh public GitHub metadata (off the request path, cached ~1h,
-        # best-effort — never fail a scan over metadata).
+        # best-effort — never fail a scan over metadata). Skipped for uploads
+        # (no GitHub provenance).
         meta = await get_repository_metadata(item.github_org, item.github_repo)
     await _apply_scan_result(session, scan, result, item=item, meta=meta)
     await session.flush()
@@ -355,13 +561,24 @@ async def persist_pending_scan_run(
     session: AsyncSession,
     *,
     idempotency_key: str,
-    github_url: str,
+    github_url: str | None,
     rubric_version: str,
     engine_version: str,
     source: str,
+    visibility: str = "public",
+    source_kind: str = "github",
+    share_token: str | None = None,
+    expires_at: datetime | None = None,
+    original_filename: str | None = None,
+    content_hash_sha256: str | None = None,
 ) -> ScanRun:
     """Insert the initial `scan_runs` row + return it. Idempotent on the run's
-    idempotency_key — this is the id the submit response + SSE channel key on."""
+    idempotency_key — this is the id the submit response + SSE channel key on.
+
+    The I-3.5 kwargs (`visibility`/`source_kind`/`share_token`/`expires_at`/
+    `original_filename`/`content_hash_sha256`) default to the GitHub-public shape,
+    so existing callers are unchanged.
+    """
     cached = (
         await session.execute(select(ScanRun).where(ScanRun.idempotency_key == idempotency_key))
     ).scalar_one_or_none()
@@ -382,6 +599,12 @@ async def persist_pending_scan_run(
         latency_ms=0,
         file_count=0,
         status="pending",
+        visibility=visibility,
+        source_kind=source_kind,
+        share_token=share_token,
+        expires_at=expires_at,
+        original_filename=original_filename,
+        content_hash_sha256=content_hash_sha256,
     )
     session.add(run)
     await session.flush()
@@ -389,11 +612,25 @@ async def persist_pending_scan_run(
 
 
 def _capability_scan_key(run: ScanRun, cap: CapabilityResult) -> str:
-    """Stable per-capability idempotency key — keyed on the run URL + the
-    capability's (component_path, kind) so a rescan updates the same scan row
-    rather than inserting a duplicate. `scans.idempotency_key` is UNIQUE."""
+    """Stable per-capability idempotency key (`scans.idempotency_key` is UNIQUE).
+
+    Source-aware identity so cross-run collisions can't happen (uploads have
+    `github_url = NULL`):
+    - **github public** — keyed on the repo URL, so a rescan updates the same
+      scan row in place (byte-identical to the pre-I-3.5 key).
+    - **upload public** — keyed on the artifact content hash (distinct artifacts →
+      distinct rows; identical bytes cache at the run level, never re-persist).
+    - **unlisted (any)** — keyed on the run id, so every unlisted run is fully
+      isolated (two identical private submissions never share a scan row).
+    """
+    if run.visibility == "unlisted":
+        identity = f"run:{run.id}"
+    elif run.source_kind == "upload":
+        identity = f"upload:{run.content_hash_sha256}"
+    else:
+        identity = run.github_url or ""
     return compute_idempotency_key(
-        f"{run.github_url}#{cap.component_path}#{cap.kind}",
+        f"{identity}#{cap.component_path}#{cap.kind}",
         ref_sha="0" * 40,
         rubric_version=run.rubric_version,
     )
@@ -403,21 +640,47 @@ async def persist_completed_scan_run(
     session: AsyncSession,
     run: ScanRun,
     repo_result: RepoScanResult,
+    *,
+    full_files_index: list[tuple[str, bytes]] | None = None,
 ) -> ScanRun:
-    """Fan out a completed repo scan into N catalog items + N scans, then write
-    the repo rollup onto the run.
+    """Fan out a completed repo/upload scan into N catalog items + N scans, then
+    write the repo rollup onto the run.
 
-    Per capability: ensure the catalog item (by slug) → create/reuse its `scans`
-    row (`scan_run_id` + `component_path`) → fill score/findings/manifest/snapshot
-    via the shared `_apply_scan_result`. The GitHub metadata fetch is hoisted to
-    once-per-run and mirrored onto every item. Shared repo-wide blobs (LICENSE,
-    …) dedupe via `_capture_snapshot`'s `on_conflict_do_nothing`.
+    The per-capability fan-out is shared; only **(a) the catalog-item builder**
+    and **(b) the byte store** fork on source x visibility (D-UP-12, D-UP-27):
+
+    | visibility | catalog item | byte store |
+    |---|---|---|
+    | public github | `ensure_capability_item` (canonical) | `artifact_blobs` |
+    | public upload | `ensure_upload_capability_item` (canonical) | `artifact_blobs` |
+    | unlisted (any) | `create_unlisted_shadow_item` (fresh shadow) | github → `artifact_blobs`; upload → `upload_files` |
+
+    `full_files_index` is the original upload index (required for unlisted uploads
+    to store bytes once per run); it is None for GitHub scans.
     """
-    ref = parse_github_url(run.github_url)
-    meta = await get_repository_metadata(ref.org, ref.repo)
+    is_upload = run.source_kind == "upload"
+    is_unlisted = run.visibility == "unlisted"
+    use_upload_files = is_upload and is_unlisted
+
+    ref: GithubRef | None = None
+    meta: RepositoryMetadata | None = None
+    if not is_upload and run.github_url is not None:
+        ref = parse_github_url(run.github_url)
+        meta = await get_repository_metadata(ref.org, ref.repo)
+
+    # Store unlisted-upload bytes ONCE for the run (per-run, no dedup).
+    if use_upload_files and full_files_index is not None:
+        await _store_upload_files(session, run.id, full_files_index)
 
     for cap in repo_result.capabilities:
-        item = await ensure_capability_item(session, ref, run.github_url, cap)
+        if is_unlisted:
+            item = await create_unlisted_shadow_item(session, run, cap, ref=ref)
+        elif is_upload:
+            item = await ensure_upload_capability_item(session, run, cap)
+        else:
+            assert ref is not None  # github-public always parses a ref
+            item = await ensure_capability_item(session, ref, run.github_url or "", cap)
+
         cap_key = _capability_scan_key(run, cap)
         scan = (
             await session.execute(select(Scan).where(Scan.idempotency_key == cap_key))
@@ -428,8 +691,9 @@ async def persist_completed_scan_run(
                 scan_run_id=run.id,
                 component_path=cap.component_path or None,
                 idempotency_key=cap_key,
-                github_url=run.github_url,
-                ref_sha=cap.result.ref_sha,
+                # Uploads set both NULL (no synthetic sentinel). GitHub keeps real.
+                github_url=None if is_upload else run.github_url,
+                ref_sha=None if is_upload else cap.result.ref_sha,
                 aggregate_score=0,
                 tier="unscoped",
                 sub_scores={},
@@ -444,7 +708,19 @@ async def persist_completed_scan_run(
         else:
             scan.scan_run_id = run.id
             scan.component_path = cap.component_path or None
-        await _apply_scan_result(session, scan, cap.result, item=item, meta=meta)
+        await _apply_scan_result(
+            session,
+            scan,
+            cap.result,
+            item=item,
+            meta=meta,
+            upload_run_id=run.id if use_upload_files else None,
+        )
+        if is_upload:
+            # `_apply_scan_result` copies the engine's sentinel ref_sha; uploads
+            # have no git ref, so keep both NULL (no synthetic value — P0-2).
+            scan.github_url = None
+            scan.ref_sha = None
 
     run.repo_aggregate_score = repo_result.repo_aggregate_score
     run.repo_tier = repo_result.repo_tier
@@ -456,6 +732,121 @@ async def persist_completed_scan_run(
     run.status = "completed"
     await session.flush()
     return run
+
+
+def _promoted_item(item: CatalogItem, *, merged: bool) -> dict[str, object]:
+    return {
+        "slug": item.slug,
+        "kind": item.kind,
+        "display_name": item.display_name,
+        "merged": merged,
+    }
+
+
+async def _run_catalog_items(session: AsyncSession, run_id: UUID) -> list[CatalogItem]:
+    """Distinct catalog items linked to a run via its scans (any visibility)."""
+    rows = (
+        (
+            await session.execute(
+                select(CatalogItem)
+                .join(Scan, Scan.catalog_item_id == CatalogItem.id)
+                .where(Scan.scan_run_id == run_id)
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return list(rows)
+
+
+async def promote_run_to_public(
+    session: AsyncSession, run: ScanRun
+) -> tuple[bool, list[dict[str, object]]]:
+    """Promote an unlisted run → public, one-way (D-UP-16/D-UP-31). Returns
+    `(promoted, items)` where `items` is one `{slug,kind,display_name,merged}`
+    per capability. Idempotent: an already-public run is a `(False, items)` no-op.
+
+    For each shadow catalog row owned by the run: compute its canonical public
+    slug; if a canonical row already exists, MERGE (repoint the run's scans to it,
+    delete the shadow → `merged=True`); else re-slug in place + clear
+    `owner_run_id` (→ canonical, `merged=False`). Upload bytes migrate
+    `upload_files → artifact_blobs` (the shas already match the scans' file_hashes,
+    so nothing else changes); `expires_at` is cleared. `share_token` is kept so the
+    old link still resolves (it then redirects to the run report).
+    """
+    if run.visibility == "public":
+        items = await _run_catalog_items(session, run.id)
+        return False, [_promoted_item(it, merged=False) for it in items]
+
+    is_upload = run.source_kind == "upload"
+    ref: GithubRef | None = None
+    if not is_upload and run.github_url is not None:
+        ref = parse_github_url(run.github_url)
+
+    # Migrate upload bytes into the public dedup store, then drop the per-run rows.
+    if is_upload:
+        rows = (
+            (await session.execute(select(UploadFile).where(UploadFile.scan_run_id == run.id)))
+            .scalars()
+            .all()
+        )
+        files_index = [(r.path, bytes(r.content)) for r in rows if r.content is not None]
+        if files_index:
+            await _capture_snapshot(session, files_index)
+        await session.execute(delete(UploadFile).where(UploadFile.scan_run_id == run.id))
+
+    shadow_items = (
+        (await session.execute(select(CatalogItem).where(CatalogItem.owner_run_id == run.id)))
+        .scalars()
+        .all()
+    )
+
+    promoted: list[dict[str, object]] = []
+    for item in shadow_items:
+        if is_upload:
+            canonical_slug = upload_capability_slug(
+                run.content_hash_sha256 or "00000000", item.kind, item.display_name
+            )
+        elif ref is not None:
+            canonical_slug = capability_slug(ref, item.kind, item.display_name)
+        else:
+            canonical_slug = item.slug  # no ref — keep slug, just flip visibility
+
+        existing = (
+            await session.execute(
+                select(CatalogItem).where(
+                    CatalogItem.slug == canonical_slug, CatalogItem.owner_run_id.is_(None)
+                )
+            )
+        ).scalar_one_or_none()
+
+        if existing is not None and existing.id != item.id:
+            await session.execute(
+                update(Scan)
+                .where(Scan.catalog_item_id == item.id)
+                .values(catalog_item_id=existing.id)
+            )
+            existing.visibility = "public"
+            await session.delete(item)
+            promoted.append(_promoted_item(existing, merged=True))
+        else:
+            item.slug = canonical_slug
+            item.visibility = "public"
+            item.owner_run_id = None
+            if is_upload and not item.sources:
+                item.github_url = None
+                item.sources = [_upload_source(run)]
+            elif ref is not None:
+                item.github_url = run.github_url
+                item.github_org = ref.org
+                item.github_repo = ref.repo
+            promoted.append(_promoted_item(item, merged=False))
+
+    run.visibility = "public"
+    run.expires_at = None
+    await session.flush()
+    return True, promoted
 
 
 async def select_existing_run_by_idempotency(
@@ -470,6 +861,46 @@ async def select_existing_by_idempotency(
 ) -> Scan | None:
     stmt = select(Scan).where(Scan.idempotency_key == idempotency_key)
     return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def delete_run_cascade(
+    session: AsyncSession, run_id: UUID, *, allow_public: bool = False
+) -> None:
+    """Explicit ordered delete of a run and everything it owns (D-UP-30).
+
+    The `scans -> scan_runs` FK is `ON DELETE SET NULL` (0007), so scans MUST be
+    deleted BEFORE the run — never rely on the FK (it would orphan scans and leave
+    their findings). Order:
+
+        findings (by scan_id ∈ run's scans)
+          → scan_events (by scan_run_id)
+          → scans (by scan_run_id)
+          → shadow catalog_items (owner_run_id only — NEVER a canonical row)
+          → upload_files (by scan_run_id)
+          → scan_runs (the run)
+
+    Never touches `artifact_blobs` (public/dedup; orphans reaped by a separate
+    sweep). Token-delete + the expiry sweep call with `allow_public=False` (refuse
+    a public run); only the operator runbook passes `allow_public=True`.
+    """
+    run = await session.get(ScanRun, run_id)
+    if run is None:
+        return
+    if run.visibility == "public" and not allow_public:
+        raise ValueError("refusing to delete a public run via delete_run_cascade")
+
+    scan_ids = list(
+        (await session.execute(select(Scan.id).where(Scan.scan_run_id == run_id))).scalars().all()
+    )
+    if scan_ids:
+        await session.execute(delete(Finding).where(Finding.scan_id.in_(scan_ids)))
+    await session.execute(delete(ScanEvent).where(ScanEvent.scan_run_id == run_id))
+    await session.execute(delete(Scan).where(Scan.scan_run_id == run_id))
+    # Shadow rows ONLY — a canonical public row has owner_run_id IS NULL.
+    await session.execute(delete(CatalogItem).where(CatalogItem.owner_run_id == run_id))
+    await session.execute(delete(UploadFile).where(UploadFile.scan_run_id == run_id))
+    await session.delete(run)
+    await session.flush()
 
 
 def serialize_findings(findings: Iterable[Finding]) -> list[dict[str, object]]:

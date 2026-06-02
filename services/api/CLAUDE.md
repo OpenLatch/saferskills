@@ -13,6 +13,7 @@ That's the entire shipped surface at W1. Everything else (catalog list, scan sub
 
 - `GET /api/v1/items` / `/items/{slug}` / `/items/facets` — catalog browse (Track B).
 - `GET|POST /api/v1/scans` + `/scans/{id}` + `/scans/{id}/events` — scan list/submit/report/SSE (Track B).
+- `POST /api/v1/scans/upload` — upload a capability file / `.zip` (≤10 MiB) → scan it as a second front-end to the same engine (I-3.5). `GET|DELETE /api/v1/scans/r/{token}` + `POST /api/v1/scans/r/{token}/promote` — unlisted capability-URL view / delete / promote-to-public (anti-leakage headers, generic 404, `private_lookup` cap). `GET /items` gains an `artifact_source` (github|upload) filter; all public catalog/feed queries hard-filter `visibility='public'`.
 - `GET /api/v1/stats` — homepage platform metrics (catalog size, registries, tier mix, median score, scan latency, `rule_count`, agents, `github_stars`). 60s in-process TTL cache + `Cache-Control: s-maxage=60, stale-while-revalidate=300`. Shared aggregate SQL lives in `app/queries.py`; the GitHub-stars proxy (`app/services/github_stars.py`) caches one hourly `api.github.com` call. Backs the live-with-fallback homepage (`webapp` `getHomepageData`).
 
 ## Conventions
