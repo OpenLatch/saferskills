@@ -4701,8 +4701,14 @@ html.dark .seg-tab {
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.55;
-  color: var(--fg-3);
+  /* slate-600 (not --fg-3 slate-500) so the 11px hint clears WCAG AA 4.5:1 on
+     the paper-deep dropzone surface (slate-500 is 4.34:1). Mirrors .seg-tab.
+     Removing the idle plus-grid let axe compute the solid bg and surface this. */
+  color: var(--ol-slate-600);
   max-width: 46ch;
+}
+html.dark .dz-sub {
+  color: var(--fg-3);
 }
 
 /* Selected-file card — stamps in on selection. */
