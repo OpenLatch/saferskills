@@ -7,7 +7,8 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AnyUrl, AwareDatetime, ConfigDict, Field, conint, constr
 
 
 class Kind(StrEnum):
@@ -83,7 +84,7 @@ class RegistryId(StrEnum):
     upload = "upload"
 
 
-class Source(BaseModel):
+class Source(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -109,7 +110,7 @@ class Source(BaseModel):
     )
 
 
-class CatalogItem(BaseModel):
+class CatalogItem(OrmBaseModel):
     """
     A single capability in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item = one capability; a capability may link to a GitHub repo, and several capabilities can share one repo (a repo scan discovers + scores each independently).
     """

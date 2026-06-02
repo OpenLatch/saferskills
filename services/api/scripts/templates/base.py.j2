@@ -1,0 +1,36 @@
+# DO NOT EDIT — regenerate via: pnpm run generate (scripts/generate_sqlalchemy_models.py)
+"""SQLAlchemy declarative base re-export + shared PostgreSQL native enum types.
+
+The value tuples below are the closed-set source of truth — they mirror the
+native PG enum types (and their predecessor CHECK constraints) in the Alembic
+migration chain. `create_type=False`: this generator never emits DDL; the
+migrations own every `CREATE TYPE … AS ENUM`.
+
+`Base` is re-exported from `app.models.base` so generated models and the
+hand-written internal models (item_source, rate_limit, upload_file,
+artifact_blob, scan_event) share one `Base.metadata`.
+"""
+
+import sqlalchemy as sa
+
+from app.models.base import Base
+
+__all__ = [
+    "Base",
+{% for enum in enums %}
+    "{{ enum.values_const }}",
+    "{{ enum.var_name }}",
+{% endfor %}
+]
+
+{% for enum in enums %}
+# PostgreSQL native enum `{{ enum.pg_name }}`: {{ enum.description }}
+{{ enum.values_const }} = ({% for v in enum.values %}"{{ v }}", {% endfor %})
+{{ enum.var_name }} = sa.Enum(
+    *{{ enum.values_const }},
+    name="{{ enum.pg_name }}",
+    native_enum=True,
+    create_type=False,
+    create_constraint=False,
+)
+{% endfor %}

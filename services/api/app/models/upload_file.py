@@ -17,17 +17,13 @@ only via `app/scan/persistence.py` (write) and `app/services/artifact_bytes.py`
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
-
-if TYPE_CHECKING:
-    from app.models.scan_run import ScanRun
 
 
 class UploadFile(Base):
@@ -50,5 +46,3 @@ class UploadFile(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
-
-    scan_run: Mapped[ScanRun] = relationship(back_populates="upload_files")

@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AnyUrl, AwareDatetime, ConfigDict, Field, conint, constr
 
 
 class Tier(StrEnum):
@@ -21,7 +22,7 @@ class Tier(StrEnum):
     unscoped = "unscoped"
 
 
-class ScanReportSummary(BaseModel):
+class ScanReportSummary(OrmBaseModel):
     """
     Slim projection of a Scan + CatalogItem join — what the homepage `RECENTLY SCANNED` feed and the catalog list page render per row. Full report at /api/v1/scans/<id>. Wire-only (never persisted as its own table).
     """

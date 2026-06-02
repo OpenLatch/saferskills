@@ -8,9 +8,13 @@ PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.m
 
 - **Auto-applied in-process on every API boot, every environment.** `app/core/startup.py::run_startup` runs `alembic upgrade head` under a session-level `pg_advisory_lock` (key `0x5AFE5C11`) — race-safe across concurrent Machines. No Fly `release_command`, no manual migrate step. See `.claude/rules/ci-cd.md` § Deployment.
 - **One revision per schema change**, named `YYYY_MM_DD_NNNN_<slug>.py`, `down_revision` chained to the prior head.
-- **Every migration is reversible** — `downgrade()` drops what `upgrade()` adds. Current head: `0008_add_upload_and_visibility` (down-rev `0007_per_capability_scans`); reversible downgrade with best-effort NOT NULL re-assertions (as `0007` does for `github_url`).
+- **Every migration is reversible** — `downgrade()` drops what `upgrade()` adds. Current head: `0009_native_enum_types` (down-rev `0008_add_upload_and_visibility`); reversible downgrade with best-effort NOT NULL re-assertions (as `0007` does for `github_url`).
 - Naming follows `.claude/rules/naming-conventions.md` § Database (plural snake_case tables, `idx_`/`uq_`/`chk_` constraints, `<singular>_id` FKs).
-- Production models are hand-written under `app/models/` and registered in `app/models/__init__.py` (the 4-column `generated/` stubs don't match the real schema yet). New model = new import there so `Base.metadata` sees it.
+- **Models are codegen-driven (since `0009` / I-04 Phase A0).** The six schema-backed models (`CatalogItem`, `Scan`, `Finding`, `ScanRun`, `VendorVerification`, `VendorResponse`) are **generated** from `schemas/` into `app/models/generated/` (full column projection, native PG enum columns — see `schema-driven-development.md` § SQLAlchemy generation + `docs/codegen.md`). The five internal stores with no schema (`ItemSource`, `RateLimit`, `UploadFile`, `ArtifactBlob`, `ScanEvent`) stay hand-written. All are registered + relationship-wired in `app/models/__init__.py` (+ `_relationships.py`) so `Base.metadata` sees every table.
+
+## Native enum types (migration `0009`)
+
+`0009_native_enum_types` converts the six schema-backed tables' enum columns from `VARCHAR(20) + CHECK` to **native PG enum types** (`kind`, `popularity_tier`, `tier`, `scan_source`, `scan_run_status`, `severity`, `sub_score`, `status_at_scan`, `vendor_verification_state`, `visibility`, `source_kind`) so the generated `sa.Enum(..., native_enum=True, create_type=False)` columns match the DB. The closed value sets are the single source of truth shared by `0009`, the original CHECK constraints, and `app/models/generated/_base.py`. A new/changed enum value = update all three + a migration. `item_sources.registry_id` + `rate_limits.bucket` are intentionally NOT converted (internal hand-written tables, no generated native-enum column).
 
 ## Per-capability scans (`scan_runs`)
 

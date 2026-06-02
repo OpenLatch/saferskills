@@ -3,6 +3,16 @@
   "$id": "https://saferskills.ai/schemas/finding.schema.json",
   "title": "Finding",
   "description": "A single rule fire on a scanned artifact. Hashed-only evidence (matchedContentSha256) — never raw scanned content per .claude/rules/security.md § Scan-trace transparency. 5-tier severity (D-02); 5-axis sub_score (D-01); shadow/active status per rule lifecycle (D-14).",
+  "x-postgresql-tablename": "findings",
+  "x-postgresql-indexes": [
+    { "name": "idx_findings_scan_id", "columns": ["scan_id"] },
+    { "name": "idx_findings_rule_id", "columns": ["rule_id"] },
+    { "name": "idx_findings_sub_score_severity", "columns": ["sub_score", "severity"] }
+  ],
+  "x-postgresql-extra-columns": [
+    { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+    { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+  ],
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -23,11 +33,14 @@
     "id": {
       "type": "string",
       "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
       "description": "Server-assigned UUID (gen_random_uuid())."
     },
     "scanId": {
       "type": "string",
       "format": "uuid",
+      "x-foreign-key": { "table": "scans", "column": "id", "ondelete": "CASCADE" },
       "description": "FK to parent scan."
     },
     "ruleId": {
@@ -38,22 +51,26 @@
     "severity": {
       "type": "string",
       "enum": ["info", "low", "medium", "high", "critical"],
+      "x-postgresql-enum-type": "severity",
       "description": "5-tier severity ladder (D-02). `info` carries weight 0."
     },
     "subScore": {
       "type": "string",
       "enum": ["security", "supply_chain", "maintenance", "transparency", "community"],
+      "x-postgresql-enum-type": "sub_score",
       "description": "5-axis sub-score the rule contributes to (D-01)."
     },
     "penalty": {
       "type": "integer",
       "minimum": 0,
       "maximum": 40,
+      "x-postgresql-default": "0",
       "description": "Penalty applied to the sub-score for this finding. 0 for shadow rules and info-severity rules (advisory)."
     },
     "statusAtScan": {
       "type": "string",
       "enum": ["shadow", "active"],
+      "x-postgresql-enum-type": "status_at_scan",
       "description": "Rule status at the moment of scan (D-14). Shadow findings record in trace but do not affect score."
     },
     "filePath": {

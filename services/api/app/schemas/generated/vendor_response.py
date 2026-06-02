@@ -5,10 +5,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AwareDatetime, ConfigDict, Field, conint, constr
 
 
-class VendorResponse(BaseModel):
+class VendorResponse(OrmBaseModel):
     """
     Verified-vendor public response on a catalog item (PRD §11.2). Transparency over erasure — old versions retained; the latest version renders on the report page. Body is Markdown, 2000-char cap per PRD B-8.
     """

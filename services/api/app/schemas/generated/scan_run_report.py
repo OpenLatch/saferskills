@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AnyUrl, AwareDatetime, ConfigDict, Field, conint, constr
 
 
 class RepoTier(StrEnum):
@@ -74,7 +75,7 @@ class Tier(StrEnum):
     unscoped = "unscoped"
 
 
-class FindingsSummary(BaseModel):
+class FindingsSummary(OrmBaseModel):
     """
     Per-severity finding counts for the collapsed row summary.
     """
@@ -111,7 +112,7 @@ class StatusAtScan(StrEnum):
     active = "active"
 
 
-class Finding(BaseModel):
+class Finding(OrmBaseModel):
     """
     Inline mirror of finding.schema.json. Keep in sync with the source schema.
     """
@@ -139,7 +140,7 @@ class Finding(BaseModel):
     )
 
 
-class CapabilityRow(BaseModel):
+class CapabilityRow(OrmBaseModel):
     """
     One discovered capability (a catalog item) within the repo scan.
     """
@@ -187,9 +188,9 @@ class CapabilityRow(BaseModel):
     )
 
 
-class ScanRunReport(BaseModel):
+class ScanRunReport(OrmBaseModel):
     """
-    Full report for one repo scan (a `scan_runs` row): the consolidated repo score, the by-kind tally, and every capability discovered in the repo with its own independent score + findings. Backs GET /api/v1/scans/runs/<run_id> and the `/scans/<id>` page. Wire-only (never persisted as its own table).
+    Full report for one repo scan (a `scan_runs` row): the consolidated repo score, the by-kind tally, and every capability discovered in the repo with its own independent score + findings. Backs GET /api/v1/scans/runs/<run_id> and the `/scans/<id>` page. The wire shape is report-flavoured (nested `capabilities`); the `scan_runs` table columns are the scalar fields here plus the x-postgresql-extra-columns below.
     """
 
     model_config = ConfigDict(
@@ -269,12 +270,12 @@ class ScanRunReport(BaseModel):
     artifact_sha256: constr(pattern=r"^[a-f0-9]{64}$") | None = Field(
         None,
         alias="artifactSha256",
-        description="Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs.",
+        description="Content hash of the scanned artifact snapshot (`scan_runs.content_hash_sha256`). The durable fingerprint of an uploaded artifact. Null for legacy runs. (Persisted as the `content_hash_sha256` column — see x-postgresql-extra-columns.)",
     )
     uploaded_filename: constr(max_length=255) | None = Field(
         None,
         alias="uploadedFilename",
-        description="Original filename of the uploaded artifact (e.g. `SKILL.md`, `my-skill.zip`). Null for GitHub scans.",
+        description="Original filename of the uploaded artifact (e.g. `SKILL.md`, `my-skill.zip`). Null for GitHub scans. (Persisted as the `original_filename` column — see x-postgresql-extra-columns.)",
     )
     expires_at: AwareDatetime | None = Field(
         None,

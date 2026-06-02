@@ -28,16 +28,42 @@ Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod 
 | # | Step | Input | Output | Owner script |
 |---|---|---|---|---|
 | 1 | **validate** | `schemas/*.schema.json` | (none — fail fast on invalid schema) | `scripts/validate-schemas.cjs` (ajv-cli) |
-| 2 | **pydantic** | `schemas/*.schema.json` | `services/api/app/schemas/generated/*.py` | `scripts/generate-pydantic.cjs` (datamodel-code-generator) |
-| 3 | **sqlalchemy** | `schemas/*.schema.json` (skip if `x-postgresql-skip: true`) | `services/api/app/models/generated/*.py` | `scripts/generate-sqlalchemy.cjs` |
+| 2 | **pydantic** | `schemas/*.schema.json` | `services/api/app/schemas/generated/*.py` | `scripts/generate-pydantic.cjs` → `services/api/scripts/generate_pydantic_models.py` (datamodel-code-generator, per-file, `--base-class OrmBaseModel`) |
+| 3 | **sqlalchemy** | `schemas/*.schema.json` (skip if `x-postgresql-skip: true`) | `services/api/app/models/generated/*.py` | `scripts/generate-sqlalchemy.cjs` → `services/api/scripts/generate_sqlalchemy_models.py` (Jinja2 + `KNOWN_ENUMS`, reads `x-postgresql-*`) |
 | 4 | **openapi.json** | FastAPI app | `services/api/openapi.json` | `scripts/generate-openapi.cjs` (runs `app.openapi()`) |
 | 5 | **ts-types** | `services/api/openapi.json` + `schemas/*.schema.json` | `webapp/src/generated/openapi/types.gen.ts` + `webapp/src/generated/schemas/*.ts` | `scripts/generate-ts-types.cjs` (snake_case conversion baked in) |
 | 6 | **zod** | `schemas/*.schema.json` | `webapp/src/generated/zod/*.ts` | `scripts/generate-zod.cjs` (snake_case conversion baked in) |
 | 7 | **methodology** | `rubric/<CATEGORY>/<NAME>-NN.md` (YAML frontmatter) | `webapp/src/generated/methodology/index.mdx` | `scripts/generate-methodology.cjs` (validates frontmatter against `schemas/rubric-rule.schema.json`; stamps rubricSha via `git log -n 1 -- rubric/`) |
 
+## SQLAlchemy generation (`x-postgresql-*` + `KNOWN_ENUMS`)
+
+The SQLAlchemy step is a Python generator ported from openlatch-platform
+(`services/api/scripts/generate_sqlalchemy_models.py` + `scripts/templates/*.j2`),
+invoked through the thin `scripts/generate-sqlalchemy.cjs` wrapper. It produces a
+**full column projection** (not the retired W1 id/timestamps/metadata stub) — the
+generated models under `app/models/generated/` ARE the production schema-backed
+models, wired in via `app/models/__init__.py` and `app/models/_relationships.py`.
+Details: `docs/codegen.md`.
+
+- **Schema-level**: `x-postgresql-tablename`, `x-postgresql-classname` (ORM class
+  name when it differs from `title`, e.g. `ScanReport`→`Scan`), `x-postgresql-skip`
+  (wire-only — no table), `x-postgresql-indexes`, `x-postgresql-extra-columns`
+  (DB columns absent from the wire shape — FKs, idempotency keys, timestamps …).
+- **Field-level**: `x-postgresql-enum-type`, `x-foreign-key` (`{table, column,
+  ondelete}`), `x-primary-key`, `x-postgresql-unique`, `x-postgresql-default`,
+  `x-postgresql-nullable` (override), `x-postgresql-type` (`TEXT`/`BYTEA`/…).
+- **Enums are native PG types**. Every `x-postgresql-enum-type` must be registered
+  in `KNOWN_ENUMS` (in the generator) with its closed value set; the generator
+  hard-fails on an unregistered enum. `_base.py` emits `<NAME>_VALUES` tuples +
+  `<name>_enum = sa.Enum(*VALUES, native_enum=True, create_type=False)`. A new or
+  changed enum needs **both** a `KNOWN_ENUMS` entry **and** an Alembic migration
+  that runs `CREATE TYPE … AS ENUM` (the generator never emits DDL). The six
+  schema-backed tables use native enums; the internal hand-written tables
+  (`item_sources.registry_id`, `rate_limits.bucket`) stay VARCHAR+CHECK.
+
 ## Adding a new schema
 
-1. Write `schemas/<name>.schema.json` — camelCase properties per the JSON Schema convention.
+1. Write `schemas/<name>.schema.json` — camelCase properties per the JSON Schema convention. Add `x-postgresql-*` extensions (above) if it backs a table; register any new enum in `KNOWN_ENUMS` + ship a `CREATE TYPE` migration.
 2. Run `pnpm run generate`.
 3. Commit BOTH the schema source AND the generated files. The CI drift gate diffs after a fresh regenerate and fails on any delta.
 4. If the schema is a wire-only shape (never persisted), add `x-postgresql-skip: true` at the top level — the SQLAlchemy generator skips it.

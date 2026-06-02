@@ -7,7 +7,8 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AnyUrl, AwareDatetime, ConfigDict, Field, conint, constr
 
 
 class Tier(StrEnum):
@@ -22,7 +23,7 @@ class Tier(StrEnum):
     unscoped = "unscoped"
 
 
-class SubScores(BaseModel):
+class SubScores(OrmBaseModel):
     """
     5-axis sub-scores (D-01).
     """
@@ -37,7 +38,7 @@ class SubScores(BaseModel):
     community: conint(ge=0, le=100)
 
 
-class WeightedContributions(BaseModel):
+class WeightedContributions(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -48,7 +49,7 @@ class WeightedContributions(BaseModel):
     community: float
 
 
-class AggregateMath(BaseModel):
+class AggregateMath(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -98,7 +99,7 @@ class StatusAtScan(StrEnum):
     active = "active"
 
 
-class Finding(BaseModel):
+class Finding(OrmBaseModel):
     """
     Inline mirror of finding.schema.json. Source-of-truth lives in the standalone schema; keep in sync.
     """
@@ -127,7 +128,7 @@ class Finding(BaseModel):
     )
 
 
-class SubScoreBreakdown(BaseModel):
+class SubScoreBreakdown(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -158,7 +159,7 @@ class SubScoreBreakdown(BaseModel):
     )
 
 
-class ScoreBreakdown(BaseModel):
+class ScoreBreakdown(OrmBaseModel):
     """
     Explicit per-finding penalty + running sub-score + critical-floor + weighted aggregate. Mandatory transparency layer (D-13) — surfaced on every public report.
     """
@@ -174,7 +175,7 @@ class ScoreBreakdown(BaseModel):
     aggregate_math: AggregateMath = Field(..., alias="aggregateMath")
 
 
-class ScanReport(BaseModel):
+class ScanReport(OrmBaseModel):
     """
     Public scan report for a CatalogItem. PRD-locked 5-axis sub-score taxonomy and 5-tier severity ladder per locked decisions D-01 / D-02 / D-13. The aggregate score is a deterministic, closed-form weighted sum of sub-scores with critical-floor application; every report renders the explicit math.
     """

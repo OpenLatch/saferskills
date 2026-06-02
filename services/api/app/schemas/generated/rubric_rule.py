@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, RootModel, conint, constr
+from app.schemas.orm_base import OrmBaseModel
+from pydantic import AnyUrl, ConfigDict, Field, RootModel, conint, constr
 
 
 class Severity(StrEnum):
@@ -55,14 +56,14 @@ class Limitation(RootModel[constr(min_length=1)]):
     root: constr(min_length=1)
 
 
-class Scope(BaseModel):
+class Scope(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     paths: list[str] = Field(..., min_length=1)
 
 
-class TriggerRegexMatch(BaseModel):
+class TriggerRegexMatch(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -73,7 +74,7 @@ class TriggerRegexMatch(BaseModel):
     requires_count: conint(ge=1) | None = Field(None, alias="requiresCount")
 
 
-class TriggerFileGlobPresent(BaseModel):
+class TriggerFileGlobPresent(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -82,7 +83,7 @@ class TriggerFileGlobPresent(BaseModel):
     min_size_bytes: conint(ge=0) | None = Field(None, alias="minSizeBytes")
 
 
-class TriggerFileGlobAbsent(BaseModel):
+class TriggerFileGlobAbsent(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -106,7 +107,7 @@ class Operator(StrEnum):
     eq = "eq"
 
 
-class TriggerCommitHistoryCheck(BaseModel):
+class TriggerCommitHistoryCheck(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -142,7 +143,7 @@ class Operator1(StrEnum):
     missing = "missing"
 
 
-class TriggerMetadataCheck(BaseModel):
+class TriggerMetadataCheck(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -159,7 +160,7 @@ class Op(StrEnum):
     or_ = "or"
 
 
-class TriggerCompositeAndOr(BaseModel):
+class TriggerCompositeAndOr(OrmBaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -174,7 +175,7 @@ class TriggerCompositeAndOr(BaseModel):
     ] = Field(..., min_length=2)
 
 
-class RubricRule(BaseModel):
+class RubricRule(OrmBaseModel):
     """
     YAML-frontmatter contract for `rubric/<CATEGORY>/<NAME>-NN.md` files. Per-rule contract per .claude/rules/methodology.md § Per-rule contract. The detector engine (Phase B) loads rule files via this schema; the methodology codegen step (#7) emits webapp/src/generated/methodology/index.mdx from validated frontmatter. x-postgresql-skip: true because this is a file-format spec, not a persisted entity (the rule lives in git).
     """
