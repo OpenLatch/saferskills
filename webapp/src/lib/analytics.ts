@@ -14,7 +14,7 @@ type EventMap = {
   scan_report_subscore_expanded: {
     sub_score: 'security' | 'supply_chain' | 'maintenance' | 'transparency' | 'community'
   }
-  scan_report_install_copied: { command_type: 'npx' | 'web' }
+  scan_report_install_copied: { command_type: 'npx' | 'web' | 'zip' }
   scan_report_badge_copied: { format: 'markdown' | 'html' | 'preview' }
   scan_report_capability_filtered: {
     kind: 'all' | 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
@@ -23,6 +23,9 @@ type EventMap = {
     kind: 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
   }
   item_detail_chart_explored: { interaction: 'hover' | 'click_point' }
+  // I-3.5 — unlisted (capability-URL) manage-bar actions. Closed-enum action
+  // only; NEVER the share_token, slug, filename, or any path content (telemetry.md).
+  unlisted_manage_action: { action: 'copy_link' | 'promote' | 'delete' }
 }
 
 export type AnalyticsEvent = keyof EventMap

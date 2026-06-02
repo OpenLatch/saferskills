@@ -8,6 +8,7 @@ import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import CatalogApp from '@/components/catalog/CatalogApp.tsx'
+import { stateFromSearchParams } from '@/components/catalog/constants'
 import { fetchCatalogFacets, listCatalogItems, type CatalogListResponse } from '@/lib/api/items'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull } from '@/lib/fallback'
@@ -17,27 +18,9 @@ import '@/styles/page-catalog.css'
 const url = new URL(Astro.request.url)
 const sp = url.searchParams
 
-const num = (key: string, fallback: number) => {
-  const n = Number.parseInt(sp.get(key) ?? '', 10)
-  return Number.isNaN(n) ? fallback : Math.min(100, Math.max(0, n))
-}
-const pageNum = Math.max(1, Number.parseInt(sp.get('page') ?? '1', 10) || 1)
-
-const SORTS = ['most_installed', 'recent', 'highest_score', 'lowest_score', 'most_starred'] as const
-const sortRaw = sp.get('sort') as (typeof SORTS)[number] | null
-const sort = sortRaw && SORTS.includes(sortRaw) ? sortRaw : 'most_installed'
-
-const initialState = {
-  kind: sp.getAll('kind'),
-  agent: sp.getAll('agent'),
-  popularityTier: sp.getAll('popularity_tier'),
-  scanTier: sp.getAll('scan_tier'),
-  scoreMin: num('score_min', 0),
-  scoreMax: num('score_max', 100),
-  q: sp.get('q') ?? '',
-  sort,
-  page: pageNum,
-}
+const initialState = stateFromSearchParams(sp)
+const pageNum = initialState.page
+const sort = initialState.sort
 
 const PAGE_SIZE = 10
 
@@ -56,6 +39,7 @@ const [response, facets, stats] = await Promise.all([
     agent: initialState.agent,
     popularity_tier: initialState.popularityTier,
     scan_tier: initialState.scanTier,
+    artifact_source: initialState.artifactSource || undefined,
     score_min: initialState.scoreMin,
     score_max: initialState.scoreMax,
     q: initialState.q || undefined,

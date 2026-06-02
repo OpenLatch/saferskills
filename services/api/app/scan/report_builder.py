@@ -15,6 +15,7 @@ from typing import Literal
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
 from app.models.scan_run import ScanRun
+from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.scan_run import CapabilityRow, FindingsSummary, ScanRunReportDetail
 from app.schemas.scan_submit import ScanReportDetail
 
@@ -102,6 +103,8 @@ def build_scan_run_report(
     capabilities: Sequence[tuple[Scan, CatalogItem, Sequence[Finding]]],
     *,
     share_url: str | None = None,
+    manifest: ManifestSource | None = None,
+    download: DownloadInfo | None = None,
 ) -> ScanRunReportDetail:
     """Build the repo-scan report DTO: rollup + one `CapabilityRow` per scan.
 
@@ -150,5 +153,7 @@ def build_scan_run_report(
             "uploaded_filename": run.original_filename,
             "expires_at": run.expires_at,
             "share_url": share_url,
+            "manifest": manifest,
+            "download": download,
         }
     )

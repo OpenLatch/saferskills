@@ -31,7 +31,10 @@ if the browser is missing.
 | `vendor-respond` | Playwright loads `/items/<slug>/respond`; asserts the verify-challenge renders. Empty catalog → skip.       | None |
 | `badge-endpoint` | HTTP: `/badge/<scan_id>/<score>.svg` → 200 + SVG; tampered score → 400. No scans → skip.                    | None |
 | `og-endpoint`    | HTTP: `/og/scan/<scan_id>.png` → 200 + PNG magic. No scans → skip.                                          | None |
-| `all`      | Runs `doctor → smoke → homepage → item-detail → vendor-respond → badge-endpoint → og-endpoint`, stops on first failure. | None |
+| `upload-flow`    | `/scan` Upload tab default + DropZone + public toggle + consent; upload report provenance if present. Empty → skip. (I-3.5, staging) | Chromium |
+| `unlisted-flow`  | Loopback-create an unlisted upload → `/scans/r/<token>` private banner + manage bar + `noindex` header/meta; delete → token 404s. Cap → skip. (I-3.5, staging) | Chromium |
+| `catalog-badge-filter` | Unlisted slug 404s on `/items/<slug>`; `/catalog` Source filter renders; UPLOAD badge under `?artifact_source=upload` if present. (I-3.5, staging) | Chromium |
+| `all`      | Runs `doctor → smoke → homepage → item-detail → vendor-respond → badge-endpoint → og-endpoint → upload-flow → unlisted-flow → catalog-badge-filter`, stops on first failure (I-3.5 commands skip gracefully on empty staging). | None |
 
 ## Usage
 

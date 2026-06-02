@@ -10,16 +10,27 @@ interface Props {
    * untouched. Pages that don't need the namespace omit this prop.
    */
   bodyClass?: string
+  /**
+   * Unlisted/capability-URL pages (`/scans/r/<token>`) set this. It emits
+   * `<meta name="robots" content="noindex, nofollow">` AND suppresses the
+   * token-bearing `canonical` + `og:url` (both default to `Astro.url.href`,
+   * which carries the secret token — a leak vector in shareable page source).
+   * See `.claude/rules/security.md` § Capability-URL anti-leakage.
+   */
+  noindex?: boolean
 }
 const {
   title,
   description = 'Every AI skill, independently audited. Public, open-source trust scoring for skills, MCP servers, hooks, plugins, and rules across every agent platform.',
   ogImage,
   bodyClass,
+  noindex = false,
 } = Astro.props
 import '@/styles/global.css'
 import NavStars from '@/components/NavStars.tsx'
 const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
+// Never put the token-bearing page URL in shareable meta on a noindex page.
+const ogUrl = noindex ? new URL('/', Astro.site).href : Astro.url.href
 ---
 <!doctype html>
 <html lang="en">
@@ -36,12 +47,13 @@ const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
     <meta name="theme-color" content="#0D9488" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0F766E" media="(prefers-color-scheme: dark)" />
 
-    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    {!noindex && <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />}
 
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:url" content={ogUrl} />
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />

@@ -47,6 +47,60 @@ async def _seed(session: AsyncSession, n: int = 5) -> str:
 
 
 @pytest.mark.asyncio
+async def test_artifact_source_filter_and_summary_field(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """I-3.5: catalog rows carry `source_kind`; `?artifact_source=upload` narrows
+    to uploads; the facet splits github|upload."""
+    prefix = uuid.uuid4().hex[:8]
+    db_session.add(
+        CatalogItem(
+            kind="skill",
+            slug=f"upload--{prefix}--skill-up",
+            display_name="Uploaded one",
+            github_url=None,
+            github_org=None,
+            github_repo=None,
+            default_branch=None,
+            popularity_tier="on_demand",
+            popularity_score=42,
+            agent_compatibility=["claude-code"],
+            source_kind="upload",
+            visibility="public",
+            sources=[{"registryId": "upload"}],
+        )
+    )
+    db_session.add(
+        CatalogItem(
+            kind="skill",
+            slug=f"{prefix}-org--repo-gh",
+            display_name="GitHub one",
+            github_url=f"https://github.com/{prefix}/repo-gh",
+            github_org=prefix,
+            github_repo="repo-gh",
+            default_branch="main",
+            popularity_tier="lite",
+            popularity_score=50,
+            agent_compatibility=["claude-code"],
+            source_kind="github",
+            sources=[],
+        )
+    )
+    await db_session.flush()
+
+    only_upload = (
+        await db_client.get("/api/v1/items", params={"q": prefix, "artifact_source": "upload"})
+    ).json()
+    slugs = {row["slug"] for row in only_upload["data"]}
+    assert any(s.startswith("upload--") for s in slugs)
+    assert all(row["source_kind"] == "upload" for row in only_upload["data"])
+
+    facets = (await db_client.get("/api/v1/items/facets")).json()
+    assert "artifact_source" in facets
+    assert facets["artifact_source"].get("upload", 0) >= 1
+
+
+@pytest.mark.asyncio
 async def test_list_envelope_has_pagination_fields(
     db_client: AsyncClient, db_session: AsyncSession
 ) -> None:

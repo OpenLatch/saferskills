@@ -5,6 +5,7 @@ import {
   type CatalogState,
   KIND_OPTIONS,
   SCAN_TIER_OPTIONS,
+  SOURCE_OPTIONS,
 } from './constants'
 import ScoreRangeSlider from './ScoreRangeSlider'
 
@@ -12,6 +13,7 @@ interface Props {
   state: CatalogState
   facets: CatalogFacets | null
   onToggle: (group: 'kind' | 'agent' | 'scanTier' | 'popularityTier', value: string) => void
+  onSource: (value: string) => void
   onScore: (min: number, max: number) => void
   onClear: () => void
 }
@@ -21,9 +23,41 @@ function Count({ n }: { n: number | undefined }) {
   return <span className="ct">{n.toLocaleString()}</span>
 }
 
-export default function CatalogFilterSide({ state, facets, onToggle, onScore, onClear }: Props) {
+export default function CatalogFilterSide({
+  state,
+  facets,
+  onToggle,
+  onSource,
+  onScore,
+  onClear,
+}: Props) {
+  const sourceCount = (value: string): number | undefined => {
+    if (!facets) return undefined
+    if (value === '') return facets.total
+    return facets.artifact_source[value]
+  }
   return (
     <aside className="cat-side" aria-label="Catalog filters">
+      <div className="grp">
+        <h6>Source</h6>
+        {SOURCE_OPTIONS.map((opt) => {
+          const on = state.artifactSource === opt.value
+          return (
+            <button
+              type="button"
+              key={opt.value || 'all'}
+              className={`opt${on ? ' on' : ''}`}
+              aria-pressed={on}
+              onClick={() => onSource(opt.value)}
+            >
+              <span className="box box-radio" aria-hidden="true" />
+              <span>{opt.label}</span>
+              <Count n={sourceCount(opt.value)} />
+            </button>
+          )
+        })}
+      </div>
+
       <div className="grp">
         <h6>Type</h6>
         {KIND_OPTIONS.map((opt) => {

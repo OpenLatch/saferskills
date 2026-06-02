@@ -57,6 +57,10 @@ function summaryFor(cap: CapabilityRow): { label: string; cls: 'clear' | 'warn' 
 export default function ScanReportView({ run, shareUrl }: Props) {
   const [filter, setFilter] = useState<FilterKind>('all')
 
+  // Unlisted runs key on per-run SHADOW catalog_items that 404 on /items/<slug>
+  // (D-UP-19/27). Hide every public-catalog link + the "added to the catalog"
+  // copy for them — those items are not in the public catalog.
+  const isUnlisted = run.visibility === 'unlisted'
   const caps = run.capabilities
   // Kinds present, ordered by first appearance, for the filter chips.
   const kindsPresent = useMemo(() => {
@@ -158,9 +162,13 @@ export default function ScanReportView({ run, shareUrl }: Props) {
                   </span>
                 </div>
                 <div className="cap-action">
-                  <a className="open" href={itemHref}>
-                    View in catalog →
-                  </a>
+                  {isUnlisted ? (
+                    <span className="cap-private">Private</span>
+                  ) : (
+                    <a className="open" href={itemHref}>
+                      View in catalog →
+                    </a>
+                  )}
                 </div>
               </summary>
               <div className="cap-body">
@@ -197,26 +205,46 @@ export default function ScanReportView({ run, shareUrl }: Props) {
         })}
       </div>
 
-      <div className="sr-catalog">
-        <div className="cl-l">
-          <h4>See these capabilities in the SaferSkills catalog</h4>
-          <p>
-            All {run.capability_count} discovered capabilit
-            {run.capability_count === 1 ? 'y has' : 'ies have'} been added to the public catalog
-            with their scores, version history, and install commands.
-          </p>
+      {isUnlisted ? (
+        <div className="sr-catalog">
+          <div className="cl-l">
+            <h4>These capabilities stay private</h4>
+            <p>
+              This scan is unlisted — its {run.capability_count} capabilit
+              {run.capability_count === 1 ? 'y is' : 'ies are'} not in the public catalog and won't
+              appear in search. Promote it to public to list them with scores and install commands.
+            </p>
+          </div>
+          <div className="cl-r">
+            <ButtonPair>
+              <Button variant="paper" size="lg" onClick={copyShare}>
+                ⧉ Copy private link
+              </Button>
+            </ButtonPair>
+          </div>
         </div>
-        <div className="cl-r">
-          <ButtonPair>
-            <Button as="a" variant="primary" size="lg" href="/catalog">
-              View {run.capability_count} in catalog →
-            </Button>
-            <Button variant="paper" size="lg" onClick={copyShare}>
-              ⧉ Share report
-            </Button>
-          </ButtonPair>
+      ) : (
+        <div className="sr-catalog">
+          <div className="cl-l">
+            <h4>See these capabilities in the SaferSkills catalog</h4>
+            <p>
+              All {run.capability_count} discovered capabilit
+              {run.capability_count === 1 ? 'y has' : 'ies have'} been added to the public catalog
+              with their scores, version history, and install commands.
+            </p>
+          </div>
+          <div className="cl-r">
+            <ButtonPair>
+              <Button as="a" variant="primary" size="lg" href="/catalog">
+                View {run.capability_count} in catalog →
+              </Button>
+              <Button variant="paper" size="lg" onClick={copyShare}>
+                ⧉ Share report
+              </Button>
+            </ButtonPair>
+          </div>
         </div>
-      </div>
+      )}
 
       <Toast />
     </>

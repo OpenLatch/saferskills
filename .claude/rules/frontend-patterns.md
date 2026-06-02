@@ -17,9 +17,13 @@ webapp/src/pages/
 ├── index.astro            → /
 ├── catalog/index.astro    → /catalog
 ├── catalog/[id].astro     → /catalog/:id
+├── scans/[id].astro       → /scans/:id          (public run report; 404s unlisted runs)
+├── scans/r/[token].astro  → /scans/r/:token     (unlisted capability URL — SSR, noindex, no-store)
 ├── methodology.astro      → /methodology
 └── appeal.astro           → /appeal       (W6)
 ```
+
+The unlisted capability-URL page (`scans/r/[token].astro`) sets all three anti-leakage headers at the **page** level (`Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow`) + `Base noindex` (which also suppresses the token-bearing `canonical`/`og:url`). It reuses the same report body as `/scans/:id` via the shared `components/scan/ScanRunReport.astro` — single-capability uploads render the rich score/source layout (mockups 3/4), multi-capability runs the cap-list (mockups 5/6) — adding the private banner + `UnlistedManageBar` + `ExpiryCountdown`. See `.claude/rules/security.md` § Capability-URL anti-leakage.
 
 - **No client-side router.** Astro handles every route as a server render → HTML → React island hydration.
 - **Astro `output: 'server'`** (`@astrojs/node` standalone adapter; per-page `export const prerender = true` opts INTO SSG). Marketing pages stay statically prerendered at build time; dynamic surfaces (catalog with URL filters, `/scans/[id]`, `/items/[slug]`, badge/OG endpoints) stay SSR.

@@ -217,6 +217,57 @@ async def test_unlisted_item_404_on_public_surface(
     assert (await db_client.get(f"/api/v1/items/{slug}")).status_code == 404
 
 
+async def _attach_bytes(session: AsyncSession, run: ScanRun, body: bytes = b"# t\nhello\n") -> None:
+    """Give the run's single scan a stored snapshot in `upload_files` so the
+    download + manifest/source resolver have something to serve."""
+    from sqlalchemy import select
+
+    from app.models.upload_file import UploadFile
+
+    scan = (await session.execute(select(Scan).where(Scan.scan_run_id == run.id))).scalar_one()
+    scan.file_hashes = {"SKILL.md": None}  # null sha → resolved from upload_files
+    scan.manifest_path = "SKILL.md"
+    scan.manifest_source = body.decode()
+    session.add(
+        UploadFile(
+            scan_run_id=run.id,
+            path="SKILL.md",
+            content=body,
+            byte_size=len(body),
+            is_binary=False,
+        )
+    )
+    await session.flush()
+
+
+@pytest.mark.asyncio
+async def test_unlisted_download_zip(db_client: AsyncClient, db_session: AsyncSession) -> None:
+    run = await _seed_unlisted_run(db_session)
+    await _attach_bytes(db_session, run)
+    r = await db_client.get(f"/api/v1/scans/r/{run.share_token}/download")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/zip")
+    # Anti-leakage parity with the view route + a real zip payload.
+    assert r.headers["x-robots-tag"] == "noindex, nofollow"
+    assert r.headers["cache-control"] == "private, no-store"
+    assert r.content[:2] == b"PK"
+    # Bad / unknown token → generic 404 (no oracle), never a hint.
+    assert (await db_client.get("/api/v1/scans/r/nope/download")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_run_report_carries_manifest_and_download(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    run = await _seed_unlisted_run(db_session)
+    await _attach_bytes(db_session, run, b"# my-skill\nbody\n")
+    body = (await db_client.get(f"/api/v1/scans/r/{run.share_token}")).json()
+    # Single-capability upload run → rich report gets the source viewer + .zip pointer.
+    assert body["manifest"]["path"] == "SKILL.md"
+    assert "my-skill" in body["manifest"]["content"]
+    assert body["download"]["byte_size"] > 0
+
+
 @pytest.mark.asyncio
 async def test_private_lookup_rate_limit(
     db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch

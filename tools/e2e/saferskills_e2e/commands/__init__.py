@@ -14,11 +14,14 @@ from __future__ import annotations
 from saferskills_e2e.commands.all import AllCommand
 from saferskills_e2e.commands.badge_endpoint import BadgeEndpointCommand
 from saferskills_e2e.commands.base import BaseCommand
+from saferskills_e2e.commands.catalog_badge_filter import CatalogBadgeFilterCommand
 from saferskills_e2e.commands.doctor import DoctorCommand
 from saferskills_e2e.commands.homepage import HomepageCommand
 from saferskills_e2e.commands.item_detail import ItemDetailCommand
 from saferskills_e2e.commands.og_endpoint import OgEndpointCommand
 from saferskills_e2e.commands.smoke import SmokeCommand
+from saferskills_e2e.commands.unlisted_flow import UnlistedFlowCommand
+from saferskills_e2e.commands.upload_flow import UploadFlowCommand
 from saferskills_e2e.commands.vendor_respond import VendorRespondCommand
 
 ALL_COMMANDS: dict[str, type[BaseCommand]] = {
@@ -29,6 +32,9 @@ ALL_COMMANDS: dict[str, type[BaseCommand]] = {
     VendorRespondCommand.name: VendorRespondCommand,
     BadgeEndpointCommand.name: BadgeEndpointCommand,
     OgEndpointCommand.name: OgEndpointCommand,
+    UploadFlowCommand.name: UploadFlowCommand,
+    UnlistedFlowCommand.name: UnlistedFlowCommand,
+    CatalogBadgeFilterCommand.name: CatalogBadgeFilterCommand,
     AllCommand.name: AllCommand,
 }
 
@@ -40,6 +46,9 @@ COMMAND_SEQUENCE: list[str] = [
     VendorRespondCommand.name,
     BadgeEndpointCommand.name,
     OgEndpointCommand.name,
+    UploadFlowCommand.name,
+    UnlistedFlowCommand.name,
+    CatalogBadgeFilterCommand.name,
 ]
 
 __all__ = ["ALL_COMMANDS", "COMMAND_SEQUENCE"]

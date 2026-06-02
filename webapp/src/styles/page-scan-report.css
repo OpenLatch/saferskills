@@ -692,7 +692,324 @@ html.dark .sr-catalog .cl-l h4 {
   flex-wrap: wrap;
 }
 
+/* ============================================================ I-3.5 — UPLOAD + UNLISTED CHROME ============================================================ */
+/* Provenance chip in the head meta (mockups 3/4). Teal-on-paper, no new token. */
+.up-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-primary) 8%, transparent);
+  border-radius: var(--radius-xs);
+}
+
+/* Per-capability "Private" label replacing the (404-ing) catalog link for unlisted. */
+.cap-action .cap-private {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  padding: 9px 4px;
+}
+
+/* Live expiry pill in the meta row (mockup 4). */
+.expiry-pill {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 45%, transparent);
+  padding: 3px 8px;
+}
+.expiry-pill.expired,
+.expiry-text.expired {
+  color: var(--score-red);
+  border-color: color-mix(in srgb, var(--score-red) 50%, transparent);
+}
+
+/* ---- PRIVATE banner (mockups 4 + 6) — navy/teal only, no new color ---- */
+.private-banner {
+  background: color-mix(in srgb, var(--brand-primary) 7%, transparent);
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+.private-banner .pb-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 0;
+}
+.private-banner .pb-lock {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--brand-primary);
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
+}
+.private-banner .pb-lock svg {
+  width: 18px;
+  height: 18px;
+}
+.private-banner .pb-text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  text-wrap: pretty;
+  margin: 0;
+}
+.private-banner .pb-text b {
+  color: var(--brand-primary);
+  font-weight: 700;
+}
+
+/* ---- Manage bar (mockups 4 + 6) — bordered, 0 radius, report button language ---- */
+.manage-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.mbtn:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.mbtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.mbtn.primary {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--brand-cta-fg);
+}
+.mbtn.primary:hover {
+  background: var(--brand-primary-dark);
+  border-color: var(--brand-primary-dark);
+}
+.mbtn.mbtn-danger:hover {
+  background: var(--score-red);
+  border-color: var(--score-red);
+  color: var(--color-paper);
+}
+.mbtn svg {
+  width: 15px;
+  height: 15px;
+}
+.manage-warn {
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--fg-3);
+}
+html.dark .mbtn {
+  background: transparent;
+  color: var(--fg-1);
+  border-color: var(--color-line);
+}
+html.dark .mbtn:hover {
+  background: var(--fg-1);
+  color: var(--color-paper);
+}
+html.dark .mbtn.primary {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--brand-cta-fg);
+}
+
+/* ---- README badge band (mockup 3) + locked variant (mockup 4) ---- */
+.badge-band {
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-ink);
+  padding: 64px 0;
+}
+html.dark .badge-band {
+  background: var(--color-paper);
+  border-top-color: var(--color-line);
+}
+.badge-band .badge-wrap {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 48px;
+  align-items: start;
+}
+.badge-band .bw-l h3 {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  margin: 14px 0 10px;
+}
+html.dark .badge-band .bw-l h3 {
+  color: var(--fg-1);
+}
+.badge-band .bw-l p {
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  max-width: 320px;
+}
+.badge-band .bw-foot {
+  margin-top: 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+.badge-band .badge-locked {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border: 1px solid var(--color-line);
+  background: var(--color-paper-deep);
+  padding: 20px 22px;
+}
+.badge-band .badge-locked .bl-lock {
+  flex: 0 0 auto;
+  color: var(--brand-primary);
+}
+.badge-band .badge-locked .bl-lock svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.badge-band .badge-locked p {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0;
+}
+.badge-band .badge-locked p b {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .badge-band .badge-locked p b {
+  color: var(--fg-1);
+}
+
+/* ---- Private footer note (mockup 4) ---- */
+.private-foot {
+  padding: 24px 0;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+.private-foot .pf-lock {
+  color: var(--brand-primary);
+}
+
+/* ---- Confirm dialog (native <dialog> — focus-trap + Esc + focus-restore free) ---- */
+.confirm-dialog {
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  padding: 26px 28px;
+  max-width: 440px;
+  width: calc(100% - 32px);
+  box-shadow: var(--shadow-stamp);
+  /* Centre the modal — a global reset zeroes the UA `dialog` auto-margin. */
+  margin: auto;
+}
+html.dark .confirm-dialog {
+  border-color: var(--color-line);
+  color: var(--fg-1);
+}
+.confirm-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+}
+.confirm-dialog h3 {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+}
+.confirm-dialog p {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0 0 18px;
+  text-wrap: pretty;
+}
+.confirm-dialog .confirm-error {
+  color: var(--score-red);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.confirm-dialog .confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.confirm-dialog .btn.danger {
+  background: var(--score-red);
+  color: var(--color-paper);
+}
+.confirm-dialog .btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ============================================================ RESPONSIVE ============================================================ */
+@media (max-width: 980px) {
+  .badge-band .badge-wrap {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+@media (max-width: 820px) {
+  .manage-bar {
+    width: 100%;
+  }
+  .mbtn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
 @media (max-width: 1080px) {
   .sr-stat-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

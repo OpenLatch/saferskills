@@ -1,0 +1,96 @@
+---
+export const prerender = false
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import ScanProgressBoard from '@/components/scan/ScanProgressBoard.tsx'
+import ScanRunReport from '@/components/scan/ScanRunReport.astro'
+
+import { fetchUnlistedReport } from '@/lib/api/scans'
+import { reportIdentity } from '@/lib/report-identity'
+import { fetchPlatformStats } from '@/lib/api/stats'
+import { fetchOrNull, pickCount } from '@/lib/fallback'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
+
+import '@/styles/page-scan-progress.css'
+import '@/styles/page-item.css'
+import '@/styles/page-scan-report.css'
+
+// ── Anti-leakage headers — ALL THREE at the Astro PAGE level (P0-6 / D-UP-32).
+// The browser/crawler/cache/SDK sees THIS response, not the API's; API headers
+// are defense-in-depth only. Set before any output.
+Astro.response.headers.set('Referrer-Policy', 'no-referrer')
+Astro.response.headers.set('Cache-Control', 'private, no-store')
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+
+const { token } = Astro.params
+if (!token) {
+  return Astro.redirect('/404')
+}
+
+// `redirect: 'manual'` so the SSR fetch never silently follows the API's 307 to
+// the API origin — fetchUnlistedReport reads the Location and hands back a
+// webapp path (P0-12). Invalid/expired/deleted → generic not_found (no oracle).
+const result = await fetchUnlistedReport(token).catch(() => ({ status: 'not_found' as const }))
+
+if (result.status === 'promoted') {
+  // The run was promoted to public — go to the run report (multi-capability-safe;
+  // never a single /items/<slug>).
+  return Astro.redirect(result.runReportPath)
+}
+if (result.status === 'not_found') {
+  return Astro.redirect('/404')
+}
+
+const run = result.report
+const stats = await fetchOrNull(fetchPlatformStats)
+const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
+const isInProgress = run.status === 'pending' || run.status === 'running'
+
+const { uploadName, baseTitle } = reportIdentity(run)
+---
+
+<Base title={`Private scan — ${baseTitle} — SaferSkills`} noindex={true}>
+  <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath="/scan" />
+
+  {isInProgress ? (
+    <>
+      <PageHead
+        eyebrow={`REPORT · PRIVATE · /SCANS/R/<TOKEN>`}
+        title={`Auditing ${baseTitle}`}
+        lede={`${ruleCount} detectors across 4 stages. This report is private — only people with this link can see it.`}
+      />
+      <PageRidge variant="contour" label={`— PRIVATE —`} />
+      <ScanProgressBoard client:load scanId={run.id} target={run.github_url ?? uploadName} startedAt={run.scanned_at} />
+    </>
+  ) : (
+    <>
+      <ScanRunReport run={run} shareUrl={Astro.url.href} ruleCount={ruleCount} unlisted={true} token={token} />
+      <div class="private-foot">
+        <div class="container">
+          <span>
+            <span class="pf-lock" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:-2px;"><rect x="4" y="11" width="16" height="10"></rect><path d="M7.5 11 V7.5 a4.5 4.5 0 0 1 9 0 V11"></path></svg>
+            </span>
+            Not listed or linked anywhere, and marked <code>noindex</code> — but the link is the only protection. Losing it means losing access; sharing it shares full control. There is no recovery.
+          </span>
+        </div>
+      </div>
+      <CtaBand
+        client:visible
+        title="Scan a repo. Read the report. Decide."
+        lead="~30 seconds. Free. No account. Public results are published permanently; unlisted ones expire in 90 days."
+        primaryAction={{ label: 'Scan another artifact →', href: '/scan' }}
+        secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+      />
+    </>
+  )}
+
+  <Footer />
+</Base>
