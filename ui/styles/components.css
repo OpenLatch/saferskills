@@ -4530,20 +4530,23 @@ html.dark .seg-tab {
 }
 .toggle-thumb {
   position: absolute;
-  /* Subtract the 1px track border: the thumb is positioned from the padding
-     box (inside the border), so a bare var(--toggle-pad) leaves an asymmetric
-     gap (border+pad on top, border-only on the bottom). Offsetting by the
-     border re-centers the thumb within the visible (border-box) track for
-     every variant. The slide distance below is unaffected (symmetric). */
-  top: calc(var(--toggle-pad) - 1px);
+  /* Vertical centering via 50% + translateY keeps both gaps balanced by
+     construction — DPR-proof, unlike an integer top offset that rounds
+     asymmetrically on the small compact variant (border-box + 1px border
+     makes the padding box odd in device pixels). The horizontal rest gap
+     subtracts the 1px border (absolute children position from the padding
+     box, inside the border) so the off/on gaps stay symmetric; the slide
+     distance below is unchanged. */
+  top: 50%;
   left: calc(var(--toggle-pad) - 1px);
   width: var(--toggle-thumb);
   height: var(--toggle-thumb);
   background: var(--toggle-thumb-bg);
+  transform: translateY(-50%);
   transition: transform var(--dur-xs) var(--ease-out);
 }
 .toggle[aria-checked='true'] .toggle-thumb {
-  transform: translateX(calc(var(--toggle-w) - var(--toggle-thumb) - var(--toggle-pad) * 2));
+  transform: translate(calc(var(--toggle-w) - var(--toggle-thumb) - var(--toggle-pad) * 2), -50%);
 }
 .toggle-label {
   font-family: var(--font-sans);
