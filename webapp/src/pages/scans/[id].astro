@@ -40,10 +40,14 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 const isInProgress = run.status === 'pending' || run.status === 'running'
 
 // Repo identity is derived from the scanned URL (a run groups several
-// capabilities — there is no single catalog slug for the repo).
-const urlPath = run.github_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
-const repoName = urlPath.split('/').slice(1, 3).join('/') || urlPath
-const baseTitle = repoName.split('/').pop() || repoName
+// capabilities — there is no single catalog slug for the repo). Uploads have
+// no github_url — null-guard here so the page renders (P0-9 minimal guard; the
+// full source-aware provenance UI lands in PR3 / D-UP-33).
+const isUpload = run.source_kind === 'upload'
+const uploadName = run.uploaded_filename ?? 'uploaded artifact'
+const urlPath = run.github_url ? run.github_url.replace(/^https?:\/\//, '').replace(/\/$/, '') : ''
+const repoName = urlPath ? urlPath.split('/').slice(1, 3).join('/') || urlPath : ''
+const baseTitle = isUpload ? uploadName : repoName.split('/').pop() || repoName || 'scan'
 const githubHost = urlPath
 
 // ---- consolidated facts (every value from the run DTO — no fabrication) ----
@@ -71,14 +75,14 @@ const tallyText = Object.entries(run.kind_tally)
 const latencySeconds = Math.max(0, Math.round(run.latency_ms / 1000))
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-const rescanHref = `/scan?prefill=${encodeURIComponent(run.github_url)}`
+const rescanHref = run.github_url ? `/scan?prefill=${encodeURIComponent(run.github_url)}` : '/scan'
 ---
 
 <Base
   title={isInProgress ? `Auditing ${baseTitle} — SaferSkills` : `${baseTitle} ${run.repo_aggregate_score}/100 — SaferSkills`}
   description={
     isInProgress
-      ? `Live audit of ${run.github_url} — independent detection rules running.`
+      ? `Live audit of ${run.github_url ?? baseTitle} — independent detection rules running.`
       : `SaferSkills audit of ${baseTitle}: ${run.capability_count} capabilities, repo ${run.repo_aggregate_score}/100. Independent, methodology-open, free.`
   }
 >
@@ -92,7 +96,7 @@ const rescanHref = `/scan?prefill=${encodeURIComponent(run.github_url)}`
         lede={`${ruleCount} detectors across 4 stages. The page auto-refreshes — every capability is discovered, then scored.`}
       />
       <PageRidge variant="contour" label={`— /SCANS/${id.toUpperCase()} —`} />
-      <ScanProgressBoard client:load scanId={id} target={run.github_url} startedAt={run.scanned_at} />
+      <ScanProgressBoard client:load scanId={id} target={run.github_url ?? uploadName} startedAt={run.scanned_at} />
     </>
   ) : (
     <>
@@ -116,7 +120,11 @@ const rescanHref = `/scan?prefill=${encodeURIComponent(run.github_url)}`
                 <span class="dot">·</span>
                 <span>{latencySeconds}s · {ruleCount} detectors</span>
                 <span class="dot">·</span>
-                <a href={run.github_url} target="_blank" rel="noopener">{githubHost}</a>
+                {run.github_url ? (
+                  <a href={run.github_url} target="_blank" rel="noopener">{githubHost}</a>
+                ) : (
+                  <span>uploaded · {uploadName}</span>
+                )}
               </div>
             </div>
             <div class="sr-head-r">

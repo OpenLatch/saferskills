@@ -40,7 +40,9 @@ const SHELL_FILES = [
 // Custom properties set at runtime (never declared with `:` in CSS) — allow.
 // `--wb-frac`: per-row fill fraction set inline by the WeightBars molecule
 // (`style={{ '--wb-frac': r.weight / 100 }}`), consumed as scaleX(var(--wb-frac, 1)).
-const RUNTIME_VARS = new Set(['--search-dropdown-max-h', '--wb-frac'])
+// `--dz-frac`: DropZone upload progress fraction set inline by the DropZone
+// molecule (`style={{ '--dz-frac': progress }}`), consumed as scaleX(var(--dz-frac, 0)).
+const RUNTIME_VARS = new Set(['--search-dropdown-max-h', '--wb-frac', '--dz-frac'])
 
 function listCss(dir) {
   const abs = path.join(ROOT, dir)

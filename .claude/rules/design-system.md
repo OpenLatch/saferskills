@@ -27,6 +27,7 @@ All visual tokens live in `ui/styles/tokens.css` — colors, radii, spacing, typ
 | `--radius-xs` | `2px` | Form fields + chips (lone exception) |
 | `--radius-pill` | `999px` | Badges only (used sparingly) |
 | `--shadow-hairline` | `0 0 0 1px var(--color-ink)` | Single hairline borders, never thicker on UI chrome |
+| `--focus-ring` | `0 0 0 2px var(--brand-primary)` | Keyboard `:focus-visible` ring on interactive DS atoms (SegmentedTabs / Toggle / DropZone) |
 | `--shadow-stamp` | `4px 4px 0 0 var(--color-ink)` | Press-block emphasis on **non-interactive** cards + featured items, used sparingly. **Never on buttons** — see Hex-button vocabulary § brutalist offset shadows |
 | `--font-display` / `--font-sans` | `DM Sans` (400-800) | Body + display |
 | `--font-mono` | `Space Mono` (400, 700) | Code + rule_ids + monospace meta |
@@ -44,7 +45,8 @@ ui/
 │   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, Chip, Badge, BandPill,
 │   │                 # ScoreNumber, DotStrip, Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
 │   │                 # RidgeFlow, RidgePixel, ThemeToggle, RotatingHeadline, Toast, CopyButton,
-│   │                 # EmailCaptureForm (retained — reused by I-06 magic-link surface)
+│   │                 # EmailCaptureForm (retained — reused by I-06 magic-link surface),
+│   │                 # SegmentedTabs, Toggle (I-3.5)
 │   ├── molecules/    # NavBar, CtaBand, AgentMarquee, WhyRow, InstallTabs, ActionCard,
 │   │                 # RecentScanCard, TrendScanCard (Phase A1)
 │   │                 # CatalogToolbar, CatalogFilterSide, CatalogResultsRow, ScanSplit,
@@ -52,6 +54,7 @@ ui/
 │   │                 # SubScoreAccordion, FindingRow, InstallCommandBox (Phase B)
 │   │                 # ScoreHistoryChart, InstallActivity, RelatedItems, EmbedBadgeBox,
 │   │                 # VendorResponseCard (Phase C)
+│   │                 # DropZone (I-3.5 — animated upload state machine, D-UP-ANIM)
 │   └── organisms/    # (composition shells if needed)
 ├── styles/
 │   ├── tokens.css    # Token SSOT + dark-mode block + Tailwind v4 @theme
@@ -102,6 +105,16 @@ The signature button silhouette is a chamfered hexagonal cap shape rendered via 
 Buttons and any link/control styled as a button (e.g. `.rescan-btn`, `.pkg-gh`) **never** use an offset "stamp"/drop shadow on hover (`box-shadow: 4px 4px 0 …` + `transform: translate(-1px,-1px)`) — that brutalist treatment is banned on interactive controls. Hover state reuses the DS `Button` language: a **background fill** change (e.g. ink→paper, or `primary`→`primary-dark`) plus at most a `translateY(-1px)` lift. No box-shadow, no diagonal nudge.
 
 `--shadow-stamp` is reserved for **non-interactive emphasis on cards/featured items** (e.g. `.rule-card:target`), used sparingly — never on a button. (`--shadow-stamp-brand` was removed; it had no remaining sanctioned use.)
+
+## Dual-mode scan controls (I-3.5)
+
+Three DS components back the dual-mode `/scan` + homepage upload affordance. All CSS is DS-owned in `ui/styles/components.css`; new interactive tokens (`--toggle-*`, `--focus-ring`) live in `ui/styles/tokens.css`.
+
+- **`SegmentedTabs`** (atom) — accessible roving-tabindex tablist (←/→/Home/End move, Enter/Space activate). Two variants: `underline` (the `.sk-tabs/.sk-tab` look — now DS-owned, see below) and `segmented` (the boxed `.seg/.seg-tab` control with a per-tab `teal`/`orange` active accent). Pair a tabpanel's `id` with `panelId(idBase, tabId)`.
+- **`Toggle`** (atom) — self-contained `role="switch"` (no Radix). Teal track ON, `tone="orange"` for URL/repo mode, `compact` for the homepage. Thumb slides on `transform` (reduced-motion → instant).
+- **`DropZone`** (molecule) — drag-and-drop + click-to-browse upload affordance built on a `<label>` + file input (no nested-interactive). Controlled by a `state` prop driving the **`D-UP-ANIM`** 5-state machine (`idle → dragover → selected → uploading → error`): teal scan-line sweep + `scaleX` progress while uploading, stamp-in file card, chip overshoot pop. **Transform/opacity only; every state has a `prefers-reduced-motion: reduce` short-circuit** (`.dropzone--*` CSS). `compact` variant for the homepage panel.
+
+The `.sk-tabs/.sk-tab/.t-ct` CSS was **moved** from `webapp/src/styles/page-item.css` into `ui/styles/components.css` (CSS-ownership rule) when `ItemTabs` adopted `SegmentedTabs variant="underline"` — `/items/<slug>` renders byte-identical.
 
 ## Page-head pattern
 
