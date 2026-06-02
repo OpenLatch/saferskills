@@ -11,9 +11,9 @@
 // the anti-leakage headers + Base/nav/footer; this component is body-only.
 import BandPill from '@ui/components/atoms/BandPill.tsx'
 import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
-import EmbedBadgeBox from '@ui/components/molecules/EmbedBadgeBox.tsx'
 
 import CapabilityReportTabs from '@/components/scan/CapabilityReportTabs.tsx'
+import ShareResultBand from '@/components/scan/ShareResultBand.astro'
 import ScanReportView from '@/components/scan/ScanReportView.tsx'
 import UnlistedManageBar from '@/components/scan/UnlistedManageBar.tsx'
 import ExpiryCountdown from '@/components/scan/ExpiryCountdown.tsx'
@@ -93,6 +93,17 @@ const zipHref = unlisted && token
     ? itemDownloadUrl(cap.catalog_slug, run.download?.scan_id ?? undefined)
     : '#'
 const zipSizeKb = run.download ? (run.download.byte_size / 1024).toFixed(1) : null
+
+// "Share this result" band (every report). Single-capability uploads link the
+// badge at the catalog item; repos / multi-capability runs link it at the run
+// report (no single slug). Copy differs upload vs repo.
+const badgeSlug = isRich ? (cap?.catalog_slug ?? undefined) : undefined
+const shareSub = isUpload
+  ? 'Public uploads are permanent and reproducible — the badge resolves to this scan by its content hash.'
+  : 'Add the badge to your README — it links back to this SaferSkills scan and refreshes on every re-scan.'
+const shareFoot = isUpload
+  ? `Identified by content hash; reproducible by re-running rubric ${run.rubric_version.slice(0, 7)} against the same bytes.`
+  : `Reproducible by re-running rubric ${run.rubric_version.slice(0, 7)} against the same ref.`
 ---
 
 {unlisted && (
@@ -243,45 +254,6 @@ const zipSizeKb = run.download ? (run.download.byte_size / 1024).toFixed(1) : nu
         </div>
       </div>
     </section>
-
-    {unlisted ? (
-      <section class="badge-band" data-screen-label="Private status + metadata">
-        <div class="container">
-          <div class="badge-wrap">
-            <div class="bw-l">
-              <span class="sb-eyebrow">Private link</span>
-              <h3>This scan is unlisted</h3>
-              <p>It is reachable only by its secret link — not indexed, not in the catalog. Promote it to public to make it shareable and badge-embeddable.</p>
-            </div>
-            <div class="bw-r">
-              <div class="badge-locked">
-                <span class="bl-lock" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10"></rect><path d="M7.5 11 V7.5 a4.5 4.5 0 0 1 9 0 V11"></path></svg>
-                </span>
-                <p>A public README badge becomes available once you <b>promote this scan to public</b>. While unlisted, the result stays reachable only by its secret link.</p>
-              </div>
-              <div class="bw-foot">Identified by content hash; reproducible by re-running rubric {run.rubric_version.slice(0, 7)} against the same bytes. &nbsp;·&nbsp; {scanIdShort}</div>
-            </div>
-          </div>
-        </div>
-      </section>
-    ) : (
-      <section class="badge-band" data-screen-label="README badge embed">
-        <div class="container">
-          <div class="badge-wrap">
-            <div class="bw-l">
-              <span class="sb-eyebrow">Share this result</span>
-              <h3>Embed the badge in your README</h3>
-              <p>Public uploads are permanent and reproducible — the badge resolves to this scan by its content hash.</p>
-            </div>
-            <div class="bw-r">
-              <EmbedBadgeBox client:visible scanId={run.id} score={score} slug={cap?.catalog_slug} />
-              <div class="bw-foot">Identified by content hash; reproducible by re-running rubric {run.rubric_version.slice(0, 7)} against the same bytes. &nbsp;·&nbsp; {scanIdShort}</div>
-            </div>
-          </div>
-        </div>
-      </section>
-    )}
   </>
 ) : (
   <>
@@ -323,3 +295,14 @@ const zipSizeKb = run.download ? (run.download.byte_size / 1024).toFixed(1) : nu
     </section>
   </>
 )}
+
+<ShareResultBand
+  unlisted={unlisted}
+  scanId={run.id}
+  score={score}
+  tier={scored}
+  slug={badgeSlug}
+  sub={shareSub}
+  foot={shareFoot}
+  scanIdShort={scanIdShort}
+/>

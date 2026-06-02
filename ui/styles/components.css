@@ -2820,15 +2820,13 @@ html.dark .rescan-btn:hover {
 }
 
 .install-command-box,
-.embed-badge-box,
 .vendor-response {
   border: 1px solid var(--border-1);
   padding: 1rem;
   background: var(--bg-page);
 }
 
-.install-command-box-pre,
-.embed-badge-box-pre {
+.install-command-box-pre {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2849,45 +2847,139 @@ html.dark .rescan-btn:hover {
   color: var(--fg-3);
 }
 
-.embed-badge-box-tabs {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.embed-badge-box-tab {
-  background: none;
-  border: 1px solid var(--border-1);
-  padding: 0.2rem 0.6rem;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-}
-
-.embed-badge-box-tab.active {
-  background: var(--color-ink);
-  color: var(--bg-surface);
-}
-
-.embed-badge-box-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
-  padding: 1rem 0;
-}
-
-.embed-badge-box-preview img {
+/* ============================================================
+   EMBED BADGE — README terminal block + CSS badge pill (EmbedBadgeBox)
+   Terminal-ANSI palette raw-hex is the sanctioned exception to
+   check-css.cjs rule (a) — same convention as .sk-term-body / .iw-window.
+   ============================================================ */
+.embed-badge {
   display: block;
-  max-width: 100%;
-  height: auto;
 }
 
-.embed-badge-box-note {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
-  color: var(--fg-3);
+.badge-term {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-ink);
+  box-shadow: 0 20px 50px -22px rgba(0, 0, 0, 0.45);
+}
+
+.badge-term .bt-chrome {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 14px;
+  background: #2c2e34;
+}
+
+.badge-term .bt-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.badge-term .bt-copy-group {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.badge-term .bt-copy {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 0;
+  padding: 7px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background var(--dur-xs);
+}
+
+.badge-term .bt-copy:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.badge-term .bt-body {
+  background: #1a1b1f;
+  padding: 20px 22px;
+  overflow-x: auto;
+}
+
+.badge-term .bt-body code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  color: #e4e4e4;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+.badge-term .md-punc {
+  color: #6b7080;
+}
+.badge-term .md-alt {
+  color: #e5c07b;
+}
+.badge-term .md-url {
+  color: #4ec9b0;
+}
+.badge-term .md-link {
+  color: #61afef;
+}
+
+.bt-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.badge-preview {
+  display: inline-flex;
+  align-items: stretch;
+  height: 22px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge-preview .lf {
+  background: #2c2e34;
+  color: #fff;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-preview .rg {
+  color: #fff;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  background: var(--fg-3);
+}
+
+.badge-preview.tier-green .rg {
+  background: var(--score-green);
+}
+.badge-preview.tier-yellow .rg {
+  background: var(--score-yellow);
+}
+.badge-preview.tier-orange .rg {
+  background: var(--score-orange);
+}
+.badge-preview.tier-red .rg {
+  background: var(--score-red);
+}
+.badge-preview.tier-unscoped .rg {
+  background: var(--fg-3);
 }
 
 /* ============================================================

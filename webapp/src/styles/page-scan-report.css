@@ -897,6 +897,11 @@ html.dark .badge-band {
   gap: 48px;
   align-items: start;
 }
+/* Let the right column shrink so the README terminal's bt-body overflow-x
+   scrolls long badge URLs instead of blowing out the grid track. */
+.badge-band .bw-r {
+  min-width: 0;
+}
 .badge-band .bw-l h3 {
   font-family: var(--font-sans);
   font-size: 24px;
@@ -923,6 +928,60 @@ html.dark .badge-band .bw-l h3 {
   letter-spacing: 0.04em;
   line-height: 1.6;
 }
+
+/* ---- "Share this result" band: blueprint surface mirroring the homepage
+   install-band texture so the README terminal sits on a brand surface. The
+   band is THEME-AWARE — a light gray-on-paper blueprint in light mode, a deep
+   slate lavender-on-dark blueprint in dark mode — and the text colors fall
+   through to the theme-flipping base .badge-band rules (no on-dark pins). The
+   grid rides a ::before overlay (like .page-section--grid) so the base
+   `html.dark .badge-band { background: … }` shorthand can't wipe it. ---- */
+.badge-band--share {
+  position: relative;
+  border-top: 0;
+  background-color: var(--color-paper-deep);
+  overflow: hidden;
+}
+html.dark .badge-band--share {
+  background-color: var(--ol-slate-900);
+}
+.badge-band--share::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(15,23,42,0.07)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size:
+    120px 120px,
+    120px 120px,
+    120px 120px;
+  background-position: center top;
+}
+html.dark .badge-band--share::before {
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(247,235,255,0.12)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
+    linear-gradient(rgba(247, 235, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247, 235, 255, 0.05) 1px, transparent 1px);
+}
+.badge-band--share > .container {
+  position: relative;
+  z-index: 1;
+}
+/* RidgeFlow variant: fade the report body into the share band, theme-aware —
+   paper → paper-deep in light, paper → deep-slate in dark. The default
+   RidgeFlow label is already theme-correct (paper/ink flip). Page-specific
+   override of the DS ridge. */
+.ridge-flow--share {
+  background: linear-gradient(to bottom, var(--color-paper) 0%, var(--color-paper-deep) 100%);
+  border-top: 0;
+}
+html.dark .ridge-flow--share {
+  background: linear-gradient(to bottom, var(--color-paper) 0%, var(--ol-slate-900) 100%);
+}
+
 .badge-band .badge-locked {
   display: flex;
   gap: 14px;
