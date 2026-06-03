@@ -71,6 +71,7 @@ from app.schemas.scan_submit import (
     ScanUploadResponse,
 )
 from app.services.artifact_bytes import build_zip, resolve_snapshot, snapshot_byte_size
+from app.services.turnstile import verify_turnstile
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,26 @@ def _set_unlisted_headers(response: Response) -> None:
 # Hold strong references to scan-runner tasks so the GC doesn't collect them
 # mid-run (cf. asyncio.create_task docs). Tasks self-remove on completion.
 _background_tasks: set[asyncio.Task[None]] = set()
+
+
+def _captcha_http_error() -> HTTPException:
+    """403 with the bucketed `{"error": ...}` shape the frontend `mapUploadError`
+    (`scans.ts`) parses — matches `_upload_http_error` so the gate buckets cleanly."""
+    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "captcha_failed"})
+
+
+async def _enforce_captcha(request: Request) -> None:
+    """Verify the Turnstile token header before any scan work — 403 on failure.
+
+    Reads the `Cf-Turnstile-Response` custom header (CORS already allows it via
+    `allow_headers=["*"]`). Loopback callers (trusted seed) skip this entirely —
+    the call sites gate on `_is_loopback`, mirroring the rate-limit exemption.
+    Unconfigured (no secret) → `verify_turnstile` returns True, so this is a
+    no-op in dev/test/CI. See `app/services/turnstile.py`.
+    """
+    token = request.headers.get("cf-turnstile-response")
+    if not await verify_turnstile(token):
+        raise _captcha_http_error()
 
 
 def _is_loopback(host: str) -> bool:
@@ -227,6 +248,22 @@ async def submit_scan(
     session: AsyncSession = Depends(get_session),
 ) -> ScanSubmitResponse:
     settings = get_settings()
+
+    # The public per-IP daily cap (D-FE-11) is an anti-abuse control for
+    # anonymous submissions. Trusted local seeding (the data-seed CLI publishing
+    # the fixture corpus) connects over loopback and is exempt — otherwise the
+    # ~50-item corpus would blow past the 10/day budget on the first run. See
+    # `_is_loopback` for why this never exempts real public traffic. The same
+    # exemption covers the Turnstile human gate.
+    ip = request.client.host if request.client else "unknown"
+    is_loopback = _is_loopback(ip)
+
+    # CAPTCHA precedes URL parsing AND the rate limit AND the idempotency cache:
+    # a tokenless bot must not be able to probe the URL-validation oracle or farm
+    # a cached public run. Loopback (trusted seed) skips it.
+    if not is_loopback:
+        await _enforce_captcha(request)
+
     try:
         ref = parse_github_url(body.github_url)
     except FetchError as exc:
@@ -235,13 +272,7 @@ async def submit_scan(
             detail=str(exc),
         ) from exc
 
-    # The public per-IP daily cap (D-FE-11) is an anti-abuse control for
-    # anonymous submissions. Trusted local seeding (the data-seed CLI publishing
-    # the fixture corpus) connects over loopback and is exempt — otherwise the
-    # ~50-item corpus would blow past the 10/day budget on the first run. See
-    # `_is_loopback` for why this never exempts real public traffic.
-    ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
+    if not is_loopback:
         await enforce_ip_rate_limit(
             session,
             ip=ip,
@@ -453,7 +484,12 @@ async def submit_upload(
     """
     settings = get_settings()
     ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
+    is_loopback = _is_loopback(ip)
+
+    # Verify the human gate BEFORE streaming/parsing the multipart body — reject a
+    # bot before we spend bandwidth/CPU on the parse. Loopback (trusted seed) skips.
+    if not is_loopback:
+        await _enforce_captcha(request)
         await enforce_ip_rate_limit(
             session, ip=ip, bucket="scan_submit", limit=settings.scan_submit_daily_limit
         )

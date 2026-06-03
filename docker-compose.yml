@@ -51,6 +51,8 @@ services:
     depends_on: [api]
     environment:
       PUBLIC_API_URL: http://api:8000
+      # Optional Turnstile site key (empty → the scan-submit gate is skipped).
+      PUBLIC_TURNSTILE_SITE_KEY: ${PUBLIC_TURNSTILE_SITE_KEY:-}
     ports: ["5173:5173"]
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:5173/ >/dev/null || exit 1"]

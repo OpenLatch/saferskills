@@ -21,7 +21,12 @@ export interface RepoScanFlow {
   /** Validate + POST /scans; `onResult` navigates (immediately, or via a fade). */
   submit: (opts: {
     visibility: Visibility
+    /** Verified Turnstile token (omitted when the gate is unconfigured). */
+    captchaToken?: string
     onResult: (res: ScanSubmitResponse) => void
+    /** Called on a `403 captcha_failed` so the host re-opens a fresh gate
+     *  (the single-use token was already consumed). */
+    onCaptchaRetry?: () => void
   }) => Promise<void>
 }
 
@@ -32,10 +37,14 @@ export function useRepoScanFlow(): RepoScanFlow {
 
   async function submit({
     visibility,
+    captchaToken,
     onResult,
+    onCaptchaRetry,
   }: {
     visibility: Visibility
+    captchaToken?: string
     onResult: (res: ScanSubmitResponse) => void
+    onCaptchaRetry?: () => void
   }): Promise<void> {
     setUrlError(null)
     const raw = urlValue.trim()
@@ -46,12 +55,18 @@ export function useRepoScanFlow(): RepoScanFlow {
     }
     setSubmitting(true)
     try {
-      const res = await submitScan({ github_url: githubUrl, visibility })
+      const res = await submitScan({ github_url: githubUrl, visibility }, captchaToken)
       // On success we keep `submitting` true through the navigation handoff so
       // the affordance stays disabled until the page changes.
       onResult(res)
     } catch (e) {
       setSubmitting(false)
+      // The single-use token was consumed; let the host re-open a fresh gate
+      // for another attempt rather than dead-ending on an error.
+      if (e instanceof Error && e.message === 'captcha_failed' && onCaptchaRetry) {
+        onCaptchaRetry()
+        return
+      }
       if (e instanceof Error && e.message === 'rate_limit_exceeded') {
         setUrlError(uploadErrorMessage('rate_limit_exceeded'))
       } else if (e instanceof Error && e.message === 'invalid_url') {

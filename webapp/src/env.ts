@@ -5,6 +5,7 @@ const envSchema = z.object({
   PUBLIC_POSTHOG_KEY: z.string().optional(),
   PUBLIC_POSTHOG_HOST: z.string().url().default('https://eu.posthog.com'),
   PUBLIC_SENTRY_DSN: z.string().optional(),
+  PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
 })
 
 export const env = envSchema.parse({
@@ -12,6 +13,7 @@ export const env = envSchema.parse({
   PUBLIC_POSTHOG_KEY: import.meta.env.PUBLIC_POSTHOG_KEY,
   PUBLIC_POSTHOG_HOST: import.meta.env.PUBLIC_POSTHOG_HOST,
   PUBLIC_SENTRY_DSN: import.meta.env.PUBLIC_SENTRY_DSN,
+  PUBLIC_TURNSTILE_SITE_KEY: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY,
 })
 
 export type Env = z.infer<typeof envSchema>

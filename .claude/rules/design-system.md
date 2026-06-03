@@ -61,6 +61,7 @@ ui/
 │   │                 # DropZone (I-3.5 — animated upload state machine, D-UP-ANIM)
 │   │                 # ScoreBreakdownTable, MarkdownSourceViewer, CheckGroupList
 │   │                 # (audit extraction — shared by ItemTabs + CapabilityReportTabs)
+│   │                 # TurnstileGate (scan-submit human-verification modal — native <dialog>)
 │   └── organisms/    # (composition shells if needed)
 ├── styles/
 │   ├── tokens.css    # Token SSOT + dark-mode block + Tailwind v4 @theme

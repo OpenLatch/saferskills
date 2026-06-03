@@ -2,9 +2,11 @@ import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import Toggle from '@ui/components/atoms/Toggle'
 import DropZone from '@ui/components/molecules/DropZone'
+import TurnstileGate from '@ui/components/molecules/TurnstileGate'
 import { useEffect, useState } from 'react'
 import { track } from '@/lib/analytics'
 import type { Visibility } from '@/lib/api/scans'
+import { useCaptchaGate } from '@/lib/hooks/useCaptchaGate'
 import { useRepoScanFlow } from '@/lib/hooks/useRepoScanFlow'
 import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
 import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_MAX_BYTES } from '@/lib/upload'
@@ -59,6 +61,11 @@ export default function ScanConsole() {
     }
   }, [repo.setUrlValue])
 
+  // Human-verification gate (Cloudflare Turnstile) — shared state machine. When a
+  // site key is set, submit opens the modal and the real POST fires on `onVerified`;
+  // unconfigured (dev) submits directly.
+  const gate = useCaptchaGate()
+
   function navigateToResult(res: { id: string; share_url?: string | null }) {
     const dest = visibility === 'unlisted' && res.share_url ? res.share_url : `/scans/${res.id}`
     navigateWithHandoff(dest, () => setHandoff(true))
@@ -66,16 +73,37 @@ export default function ScanConsole() {
 
   const inFlight = repo.submitting || upload.uploading
 
-  function handleSubmit() {
-    if (inFlight) return
+  function run(action: Tab, captchaToken?: string) {
     // FE intent signal (closed-enum only — no URL/filename/bytes/token). The
     // backend emits the authoritative `scan_submitted` on the server side.
     track('homepage_scan_submitted', {
-      artifact_source: tab === 'upload' ? 'upload' : 'github',
+      artifact_source: action === 'upload' ? 'upload' : 'github',
       visibility,
     })
-    if (tab === 'upload') void upload.submit({ visibility, onResult: navigateToResult })
-    else void repo.submit({ visibility, onResult: navigateToResult })
+    if (action === 'upload')
+      void upload.submit({
+        visibility,
+        captchaToken,
+        onResult: navigateToResult,
+        onCaptchaRetry: () => gate.reopen('upload'),
+      })
+    else
+      void repo.submit({
+        visibility,
+        captchaToken,
+        onResult: navigateToResult,
+        onCaptchaRetry: () => gate.reopen('url'),
+      })
+  }
+
+  function handleSubmit() {
+    if (inFlight) return
+    if (!gate.request(tab)) run(tab)
+  }
+
+  function onVerified(token: string) {
+    const action = gate.resolve()
+    if (action) run(action, token)
   }
 
   return (
@@ -212,6 +240,15 @@ export default function ScanConsole() {
         By scanning you confirm you can share this content. Public results are published
         permanently. <a href="/privacy">See Privacy</a>.
       </p>
+
+      {gate.siteKey && (
+        <TurnstileGate
+          open={gate.gateOpen}
+          siteKey={gate.siteKey}
+          onVerified={onVerified}
+          onCancel={gate.cancel}
+        />
+      )}
 
       <Toast />
     </div>

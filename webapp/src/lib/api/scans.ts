@@ -185,12 +185,23 @@ export interface ScanSubmitResponse {
   share_url?: string | null
 }
 
-export async function submitScan(body: ScanSubmitRequest): Promise<ScanSubmitResponse> {
+export async function submitScan(
+  body: ScanSubmitRequest,
+  captchaToken?: string
+): Promise<ScanSubmitResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  }
+  // Custom header keeps the human-verification token out of the scan DTO; CORS
+  // already permits it (allow_headers=["*"]). Omitted when the gate is unconfigured.
+  if (captchaToken) headers['Cf-Turnstile-Response'] = captchaToken
   const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/scans`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
+  if (res.status === 403) throw new Error('captcha_failed')
   if (res.status === 429) throw new Error('rate_limit_exceeded')
   if (res.status === 422) throw new Error('invalid_url')
   if (!res.ok) throw new Error(`API ${res.status}`)
@@ -272,7 +283,7 @@ function mapUploadError(xhr: XMLHttpRequest): UploadError {
  */
 export function submitUpload(
   files: File[],
-  opts: { visibility: Visibility; kind?: string },
+  opts: { visibility: Visibility; kind?: string; captchaToken?: string },
   onProgress?: (loaded: number, total: number) => void
 ): Promise<ScanUploadResponse> {
   return new Promise((resolve, reject) => {
@@ -284,6 +295,10 @@ export function submitUpload(
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${env.PUBLIC_API_URL}/api/v1/scans/upload`)
     xhr.responseType = 'text'
+    // Human-verification token as a custom header (parallel to submitScan). The
+    // backend rejects a bad/missing token (403 captcha_failed) BEFORE parsing the
+    // body. mapUploadError buckets the 403 detail into UploadError('captcha_failed').
+    if (opts.captchaToken) xhr.setRequestHeader('Cf-Turnstile-Response', opts.captchaToken)
     if (onProgress) {
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) onProgress(e.loaded, e.total)

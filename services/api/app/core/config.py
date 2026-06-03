@@ -7,7 +7,7 @@ See `.claude/rules/environment-config.md`.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -191,6 +191,19 @@ class Settings(BaseSettings):
         description="HS256 key for vendor session JWTs. MUST be overridden in prod.",
     )
 
+    # ── Human-verification (Cloudflare Turnstile) ──────────────────────────
+    # Server-side `siteverify` secret for the scan-submit CAPTCHA gate. None →
+    # the gate is bypassed (dev/test/CI). The `model_validator` below forbids a
+    # missing secret in staging/production so a real deploy never runs open.
+    # In non-prod, use Cloudflare's always-pass test secret `1x0000000000000000000000000000000AA`.
+    turnstile_secret_key: str | None = Field(
+        default=None,
+        description=(
+            "Cloudflare Turnstile siteverify secret for the scan-submit human "
+            "gate. None → bypass (dev/test only — forbidden in staging/prod)."
+        ),
+    )
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> object:
@@ -229,6 +242,22 @@ class Settings(BaseSettings):
         if value.startswith("postgresql://"):
             return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
         return value
+
+    @model_validator(mode="after")
+    def _require_turnstile_secret_in_prod(self) -> Settings:
+        """Hard-fail boot when the Turnstile secret is missing in staging/prod.
+
+        The silent-bypass behaviour of `verify_turnstile` (no secret → accept)
+        is only safe in dev/test. Mirrors the `vendor_session_secret` "MUST be
+        overridden in prod" intent — a deploy that forgot the secret must crash
+        at startup, never run the human gate open.
+        """
+        if self.env in ("staging", "production") and self.turnstile_secret_key is None:
+            raise ValueError(
+                "TURNSTILE_SECRET_KEY is required in staging/production "
+                "(set Cloudflare's test secret in non-prod CI)."
+            )
+        return self
 
 
 @lru_cache(maxsize=1)

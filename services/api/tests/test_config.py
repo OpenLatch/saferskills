@@ -7,10 +7,14 @@ when `DATABASE_URL` arrives in the managed-Postgres `postgres://` form (Fly's
 and the staging machines crash-looped to their max restart count.
 """
 
+from typing import Literal
+
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import Settings
+
+EnvTier = Literal["development", "staging", "production"]
 
 
 @pytest.mark.parametrize(
@@ -48,3 +52,25 @@ def test_normalized_postgres_dsn_builds_an_async_engine() -> None:
     engine = create_async_engine(settings.database_url)
     assert engine.dialect.name == "postgresql"
     assert engine.dialect.driver == "asyncpg"
+
+
+# ── Turnstile secret startup guard ──────────────────────────────────────────
+
+
+def test_turnstile_secret_optional_in_dev() -> None:
+    """Dev/test tolerate a missing Turnstile secret — the gate bypasses there."""
+    settings = Settings(env="development", turnstile_secret_key=None)
+    assert settings.turnstile_secret_key is None
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_turnstile_secret_required_in_prod(env: EnvTier) -> None:
+    """Boot MUST hard-fail when the gate would otherwise run open in prod/staging."""
+    with pytest.raises(ValueError, match="TURNSTILE_SECRET_KEY"):
+        Settings(env=env, turnstile_secret_key=None)
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_turnstile_secret_present_passes_in_prod(env: EnvTier) -> None:
+    settings = Settings(env=env, turnstile_secret_key="1x000...AA")
+    assert settings.turnstile_secret_key == "1x000...AA"
