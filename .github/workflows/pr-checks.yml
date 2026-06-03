@@ -97,6 +97,12 @@ jobs:
         # fallbacks or undefined custom properties. Mirrors the schema-drift
         # gate for CSS. See .claude/rules/design-system.md § CSS token discipline.
         run: node scripts/check-css.cjs
+      - name: Outbound allowlist
+        # Asserts every outbound host referenced in ingestion adapter fetch calls
+        # and YAML `hosts:` lists is in the closed allowlist from
+        # security.md § Public-input handling #2.
+        # See .claude/rules/ingestion.md § Outbound allowlist coupling.
+        run: node scripts/validate-outbound-allowlist.cjs
 
   lint-fe:
     name: PR - Biome (TS/JS/JSON)
@@ -328,6 +334,42 @@ jobs:
       - name: pnpm audit
         run: pnpm audit --audit-level=high || true
 
+  ingestion-smoke:
+    name: PR - Ingestion smoke (StubAdapter cycle)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: saferskills_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/saferskills_ci
+      INGESTION_WORKER_ENABLED: "false"
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-saferskills-build
+      - name: Install API deps
+        run: cd services/api && uv sync
+      - name: Run ingestion smoke
+        # Drives one StubAdapter cycle offline (no external network, no worker),
+        # then asserts catalog_items >= 1 AND ingestion_events (applied) >= 1.
+        # INGESTION_WORKER_ENABLED=false prevents the in-process Procrastinate
+        # worker from starting and fanning out real adapter fetches.
+        run: cd services/api && uv run python scripts/ingestion_smoke.py
+
   lighthouse-a11y:
     name: PR - Lighthouse + axe (a11y)
     needs: [detect-changes, docker-build]
@@ -381,7 +423,7 @@ jobs:
 
   all-checks:
     name: PR - All checks
-    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y]
+    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y, ingestion-smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -401,6 +443,7 @@ jobs:
             "${{ needs.trivy-scan.result }}"
             "${{ needs.dep-scan.result }}"
             "${{ needs.lighthouse-a11y.result }}"
+            "${{ needs.ingestion-smoke.result }}"
           )
           for r in "${needs_status[@]}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then

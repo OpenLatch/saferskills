@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/ingestion-event.schema.json",
+  "title": "IngestionEvent",
+  "description": "One row per adapter fetch (outbox pattern, D-04-08). Immutable, append-only, replayable: re-deriving the catalog from these alone produces the same state. Vendor appeals reference bodySha256 to prove the source content at fetch time.",
+  "x-postgresql-tablename": "ingestion_events",
+  "x-postgresql-indexes": [
+    { "name": "idx_ingestion_events_source", "columns": ["source"] },
+    { "name": "idx_ingestion_events_unapplied", "columns": ["applied_at"], "where": "applied_at IS NULL" }
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "source", "sourceId", "httpStatus", "bodySha256", "fetchedAt", "fromCache", "fetchTier"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
+      "description": "Server-assigned UUID."
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 50,
+      "enum": [
+        "github_skills",
+        "github_topics",
+        "mcp_registry",
+        "npm",
+        "pypi",
+        "mcp_so",
+        "smithery",
+        "glama",
+        "pulsemcp",
+        "clawhub",
+        "skillsmp",
+        "skills_sh",
+        "claudeskills_info",
+        "skillhub_club"
+      ],
+      "description": "Closed enum of adapter sources. Stored VARCHAR+CHECK (not a native PG enum) so a new adapter does not need ALTER TYPE. Updated when a new source adapter ships."
+    },
+    "sourceId": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Stable per-source id (e.g. 'anthropics/skills/path/pdf' for github_skills; '@anthropic-ai/claude-skill-pdf' for npm; opaque cursor for MCP Registry)."
+    },
+    "httpStatus": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 599,
+      "description": "0 for webhook events (no HTTP fetch); 304 for cache-hit; 200 success; 4xx/5xx failures."
+    },
+    "bodySha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "maxLength": 64,
+      "description": "SHA-256 hex of the raw response body. For 304s, equals the cached body's hash."
+    },
+    "etag": {
+      "type": ["string", "null"],
+      "maxLength": 200,
+      "description": "ETag (or Last-Modified) for the next-cycle conditional GET."
+    },
+    "fetchedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-postgresql-default": "now()",
+      "description": "When the fetch occurred (ISO 8601)."
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "x-postgresql-default": "0",
+      "x-postgresql-nullable": false,
+      "description": "Fetch wall-clock duration in milliseconds."
+    },
+    "fromCache": {
+      "type": "boolean",
+      "default": false,
+      "x-postgresql-default": "false",
+      "x-postgresql-nullable": false,
+      "description": "true when Hishel served from cache (a 304 revalidation cost 0 wire bytes)."
+    },
+    "fetchTier": {
+      "type": "integer",
+      "enum": [0, 1, 2, 3],
+      "default": 1,
+      "x-postgresql-default": "1",
+      "x-postgresql-nullable": false,
+      "description": "0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=Playwright stealth fallback (Phase B)."
+    },
+    "payload": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Source-normalized item snapshot (bounded ~64 KiB per item; raw aggregator HTML is never persisted). null for 304s and bodyless webhook events."
+    },
+    "appliedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Set when the merger applies this event to catalog_items. NULL = unapplied (retry candidate)."
+    },
+    "errorReason": {
+      "type": ["string", "null"],
+      "maxLength": 50,
+      "enum": ["rate_limit", "cf_challenge", "http_5xx", "timeout", "schema_mismatch", "robots_txt_disallow", "other", null],
+      "description": "When httpStatus indicates failure, the categorized reason."
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# PyPI JSON API, filtered to MCP/skill package-name patterns. Daily 02:00 UTC.
+name: pypi
+kind: api
+hosts:
+  - pypi.org
+cadence_cron: "0 2 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_pypi
+enabled: true
+discovery:
+  json_base: https://pypi.org/pypi
+  simple_index: https://pypi.org/simple/
+  name_regex: "^(claude-skill-|mcp-server-)|(-mcp$)"
+  max_items_per_cycle: 2000
+description: Walks the PyPI simple index, indexing MCP-server / claude-skill packages via the JSON API.
+policy:
+  summary: >-
+    We read the public PyPI JSON API for packages whose name matches a documented
+    MCP/skill pattern. Each item links back to pypi.org.
+  contact: bot@saferskills.ai
+  robots_txt: n/a (documented JSON API)

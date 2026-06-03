@@ -65,20 +65,23 @@ class AgentCompatibilityEnum(StrEnum):
 
 class RegistryId(StrEnum):
     """
-    Closed-enum source-of-record identifier. PRD §7.4 dual-attribution.
+    Closed-enum source-of-record identifier. PRD §7.4 dual-attribution. I-04 D-04-25: `github_topic`→`github_topics`, `anthropics_skills`→`github_skills`; +`skills_sh`,`claudeskills_info`,`skillhub_club`. The I-3.5 values `upload`/`user_submission`/`vendor_verified` are preserved.
     """
 
-    github_topic = "github_topic"
+    github_skills = "github_skills"
+    github_topics = "github_topics"
     mcp_registry = "mcp_registry"
     npm = "npm"
     pypi = "pypi"
     clawhub = "clawhub"
     skillsmp = "skillsmp"
+    skills_sh = "skills_sh"
+    claudeskills_info = "claudeskills_info"
+    skillhub_club = "skillhub_club"
     mcp_so = "mcp_so"
     smithery = "smithery"
     glama = "glama"
     pulsemcp = "pulsemcp"
-    anthropics_skills = "anthropics_skills"
     user_submission = "user_submission"
     vendor_verified = "vendor_verified"
     upload = "upload"
@@ -91,7 +94,7 @@ class Source(OrmBaseModel):
     registry_id: RegistryId = Field(
         ...,
         alias="registryId",
-        description="Closed-enum source-of-record identifier. PRD §7.4 dual-attribution.",
+        description="Closed-enum source-of-record identifier. PRD §7.4 dual-attribution. I-04 D-04-25: `github_topic`→`github_topics`, `anthropics_skills`→`github_skills`; +`skills_sh`,`claudeskills_info`,`skillhub_club`. The I-3.5 values `upload`/`user_submission`/`vendor_verified` are preserved.",
     )
     registry_url: AnyUrl = Field(
         ...,
@@ -108,6 +111,37 @@ class Source(OrmBaseModel):
         alias="lastSeenAt",
         description="Most recent ingestion sweep that observed this listing.",
     )
+
+
+class Availability(StrEnum):
+    """
+    Three-state availability (D-04-17). 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved.
+    """
+
+    available = "available"
+    unavailable = "unavailable"
+    archived = "archived"
+
+
+class QualityTier(StrEnum):
+    """
+    Soft-gate (D-04-19). low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest.
+    """
+
+    high = "high"
+    medium = "medium"
+    low = "low"
+    empty = "empty"
+
+
+class PopularityRankTier(StrEnum):
+    """
+    Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.
+    """
+
+    top500 = "top500"
+    top5k = "top5k"
+    long_tail = "long_tail"
 
 
 class CatalogItem(OrmBaseModel):
@@ -225,4 +259,53 @@ class CatalogItem(OrmBaseModel):
     metadata: dict[str, Any] | None = Field(
         None,
         description="Extensible bag for per-kind fields surfaced by ingestion adapters. Treat as opaque at the API boundary.",
+    )
+    availability: Availability | None = Field(
+        "available",
+        description="Three-state availability (D-04-17). 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved.",
+    )
+    quality_tier: QualityTier | None = Field(
+        "medium",
+        alias="qualityTier",
+        description="Soft-gate (D-04-19). low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest.",
+    )
+    quality_signals: dict[str, Any] | None = Field(
+        {},
+        alias="qualitySignals",
+        description="Raw signals that drove qualityTier: hasReadme, commitCount, isEmpty, isForkOnly, stars, weeklyDownloads, crossRegistryCount, classifierVersion.",
+    )
+    fork_of_repo_id: UUID | None = Field(
+        None,
+        alias="forkOfRepoId",
+        description="If this is a GitHub fork, points at the parent's catalog_item id (D-04-10). UI shows 'fork of <parent>'.",
+    )
+    popularity_breakdown: dict[str, Any] | None = Field(
+        {},
+        alias="popularityBreakdown",
+        description="Transparency breakdown of popularityScore (starsTerm, velocityTerm, downloadsTerm, crossRegistryTerm, recencyTerm, formulaVersion). Populated by popularity_recompute (Phase C).",
+    )
+    kind_signals: dict[str, Any] | None = Field(
+        {},
+        alias="kindSignals",
+        description="Signals that drove the kind heuristic (hasSkillMd, hasMcpJson, hasCursorrules, packageNameMatchesMcpPattern, classifierVersion).",
+    )
+    consecutive404_count: conint(ge=0) | None = Field(
+        0,
+        alias="consecutive404Count",
+        description="Incremented on each 404 fetch; reset to 0 on the next 200. Drives the archive timeline (D-04-17).",
+    )
+    last_seen200_at: AwareDatetime | None = Field(
+        None,
+        alias="lastSeen200At",
+        description="Most recent 200 response. NULL = never successfully fetched. Used with consecutive404Count to surface 'unavailable since'.",
+    )
+    pushed_at: AwareDatetime | None = Field(
+        None,
+        alias="pushedAt",
+        description="GitHub repository.pushed_at, promoted from metadata to a real column so popularity + archive checks avoid JSON extraction (D-04-05 fix). Resolved during ingest.",
+    )
+    popularity_rank_tier: PopularityRankTier | None = Field(
+        "long_tail",
+        alias="popularityRankTier",
+        description="Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.",
     )

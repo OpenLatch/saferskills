@@ -33,6 +33,7 @@ const toc = [
   { id: 'newsletter', label: 'Newsletter — not yet active' },
   { id: 'children', label: 'Special-category & children’s data' },
   { id: 'legitimate-interests', label: 'Use of legitimate interests' },
+  { id: 'access-signals', label: 'Anonymised catalog-access signals' },
   { id: 'scanning', label: 'Scanning public repositories' },
   { id: 'your-rights', label: 'Your rights' },
   { id: 'processors', label: 'Who we share data with' },
@@ -315,6 +316,26 @@ const toc = [
           never leaves your browser and is not sent to us. See the
           <a href="/cookies">Cookie Policy</a>.
         </p>
+
+        <h3 id="access-signals">3.9 Anonymised catalog-access signals</h3>
+        <p>
+          To understand which capabilities are most looked up — and to support future
+          usage-transparency features — we record a closed set of aggregate access signals
+          when you interact with the catalog. The recorded actions are limited to a fixed
+          list: viewing a capability page, searching or filtering the catalog, copying an
+          install command, fetching a badge, and viewing the sources page.
+        </p>
+        <p>
+          <strong>Your IP address is redacted to the network prefix (/24 for IPv4,
+          /48 for IPv6) at the moment of collection</strong> — before the record is
+          written to our database. The raw IP address is never stored, never exported,
+          and never shared with third parties. Only the coarse network prefix, the
+          action type, and a timestamp are recorded. No page URLs, no search queries,
+          no capability slugs, and no personal identifiers are stored in this log.
+        </p>
+        <p><strong>Legal basis:</strong> legitimate interest in understanding aggregate
+        catalog usage and improving the service (Art. 6(1)(f) GDPR). Records are
+        retained for approximately 30 days, then deleted.</p>
       </section>
 
       <section id="newsletter">
@@ -501,6 +522,7 @@ const toc = [
               <tr><td>Public uploaded-artifact bytes (you chose to publish)</td><td><strong>Indefinite</strong> — reproducible public record</td></tr>
               <tr><td>Unlisted (private) uploaded-artifact bytes + report</td><td><strong>90 days</strong>, then auto-deleted — or sooner if you delete via the link</td></tr>
               <tr><td>Hashed IP / rate-limit counters</td><td>~24 hours (rolling), then deleted</td></tr>
+              <tr><td>Anonymised catalog-access signals (network-prefix /24 or /48, action type, timestamp)</td><td>~30 days, then deleted</td></tr>
               <tr><td>Cookieless analytics events</td><td>~90 days, then retained only in aggregate</td></tr>
               <tr><td>Error / diagnostic data (Sentry)</td><td>~90 days</td></tr>
               <tr><td>Server logs</td><td>~30 days</td></tr>

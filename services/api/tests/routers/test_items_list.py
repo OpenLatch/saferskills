@@ -57,7 +57,10 @@ async def test_artifact_source_filter_and_summary_field(
         CatalogItem(
             kind="skill",
             slug=f"upload--{prefix}--skill-up",
-            display_name="Uploaded one",
+            # Prefix lives in display_name so the FTS `q` search (D-04-32 — searches
+            # display_name/org/repo/description, NOT slug) isolates this row. An
+            # upload has no github coords, so display_name is the only searchable field.
+            display_name=f"Uploaded {prefix}",
             github_url=None,
             github_org=None,
             github_repo=None,

@@ -178,22 +178,25 @@
           "registryId": {
             "type": "string",
             "enum": [
-              "github_topic",
+              "github_skills",
+              "github_topics",
               "mcp_registry",
               "npm",
               "pypi",
               "clawhub",
               "skillsmp",
+              "skills_sh",
+              "claudeskills_info",
+              "skillhub_club",
               "mcp_so",
               "smithery",
               "glama",
               "pulsemcp",
-              "anthropics_skills",
               "user_submission",
               "vendor_verified",
               "upload"
             ],
-            "description": "Closed-enum source-of-record identifier. PRD §7.4 dual-attribution."
+            "description": "Closed-enum source-of-record identifier. PRD §7.4 dual-attribution. I-04 D-04-25: `github_topic`→`github_topics`, `anthropics_skills`→`github_skills`; +`skills_sh`,`claudeskills_info`,`skillhub_club`. The I-3.5 values `upload`/`user_submission`/`vendor_verified` are preserved."
           },
           "registryUrl": {
             "type": "string",
@@ -230,6 +233,84 @@
       "type": "object",
       "additionalProperties": true,
       "description": "Extensible bag for per-kind fields surfaced by ingestion adapters. Treat as opaque at the API boundary."
+    },
+    "availability": {
+      "type": "string",
+      "enum": ["available", "unavailable", "archived"],
+      "default": "available",
+      "x-postgresql-enum-type": "availability",
+      "x-postgresql-default": "'available'",
+      "x-postgresql-nullable": false,
+      "description": "Three-state availability (D-04-17). 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved."
+    },
+    "qualityTier": {
+      "type": "string",
+      "enum": ["high", "medium", "low", "empty"],
+      "default": "medium",
+      "x-postgresql-enum-type": "quality_tier",
+      "x-postgresql-default": "'medium'",
+      "x-postgresql-nullable": false,
+      "description": "Soft-gate (D-04-19). low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest."
+    },
+    "qualitySignals": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {},
+      "x-postgresql-nullable": false,
+      "x-postgresql-default": "'{}'::jsonb",
+      "description": "Raw signals that drove qualityTier: hasReadme, commitCount, isEmpty, isForkOnly, stars, weeklyDownloads, crossRegistryCount, classifierVersion."
+    },
+    "forkOfRepoId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "default": null,
+      "x-foreign-key": { "table": "catalog_items", "column": "id", "ondelete": "SET NULL" },
+      "description": "If this is a GitHub fork, points at the parent's catalog_item id (D-04-10). UI shows 'fork of <parent>'."
+    },
+    "popularityBreakdown": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {},
+      "x-postgresql-nullable": false,
+      "x-postgresql-default": "'{}'::jsonb",
+      "description": "Transparency breakdown of popularityScore (starsTerm, velocityTerm, downloadsTerm, crossRegistryTerm, recencyTerm, formulaVersion). Populated by popularity_recompute (Phase C)."
+    },
+    "kindSignals": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {},
+      "x-postgresql-nullable": false,
+      "x-postgresql-default": "'{}'::jsonb",
+      "description": "Signals that drove the kind heuristic (hasSkillMd, hasMcpJson, hasCursorrules, packageNameMatchesMcpPattern, classifierVersion)."
+    },
+    "consecutive404Count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "x-postgresql-default": "0",
+      "x-postgresql-nullable": false,
+      "description": "Incremented on each 404 fetch; reset to 0 on the next 200. Drives the archive timeline (D-04-17)."
+    },
+    "lastSeen200At": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "default": null,
+      "description": "Most recent 200 response. NULL = never successfully fetched. Used with consecutive404Count to surface 'unavailable since'."
+    },
+    "pushedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "default": null,
+      "description": "GitHub repository.pushed_at, promoted from metadata to a real column so popularity + archive checks avoid JSON extraction (D-04-05 fix). Resolved during ingest."
+    },
+    "popularityRankTier": {
+      "type": "string",
+      "enum": ["top500", "top5k", "long_tail"],
+      "default": "long_tail",
+      "x-postgresql-enum-type": "popularity_rank_tier",
+      "x-postgresql-default": "'long_tail'",
+      "x-postgresql-nullable": false,
+      "description": "Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously."
     }
   },
   "examples": [

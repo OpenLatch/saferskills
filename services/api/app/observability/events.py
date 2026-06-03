@@ -1,9 +1,9 @@
-"""Typed emit-helpers for the 14-event scan-engine observability allowlist.
+"""Typed emit-helpers for the scan-engine + ingestion observability allowlists.
 
 Locked decision D-30 + `.claude/rules/telemetry.md` § Event allowlist — scan
-engine. This module is the ONLY sanctioned emission path for scan-engine
-events. Raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside this
-module are a regression.
+engine + D-04-22 ingestion events. This module is the ONLY sanctioned emission
+path for scan-engine and ingestion events. Raw `posthog.capture()` /
+`sentry_sdk.set_tag()` calls outside this module are a regression.
 
 All property values are bucketed or closed-enum. No raw IPs, no emails, no
 URLs, no `matched_content` strings. Bucket helpers are colocated below.
@@ -50,6 +50,12 @@ type UploadSizeBucket = Literal["<100KB", "100KB-1MB", "1-5MB", "5-10MB"]
 type UploadRejectReason = Literal[
     "too_big", "bad_type", "binary", "archive_rejected", "rate_limited"
 ]
+
+# I-04 ingestion events (D-04-22)
+type IngestionItemsBucket = Literal["0", "1-10", "11-100", "101-1k", "1k+"]
+type Ingestion304RatioBucket = Literal["0-25", "25-50", "50-75", "75-100"]
+type IngestionFailureReason = Literal["rate_limit", "cf_challenge", "http_5xx", "timeout", "other"]
+type CatalogItemArchivedReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
 
 # ─── Bucket helpers ───────────────────────────────────────────────────────────
@@ -133,6 +139,31 @@ def upload_size_bucket(n: int) -> UploadSizeBucket:
     if n < 5_000_000:
         return "1-5MB"
     return "5-10MB"
+
+
+def ingestion_items_bucket(n: int) -> IngestionItemsBucket:
+    """Bucket for items_added / items_updated in ingestion cycle events (D-04-22)."""
+    if n == 0:
+        return "0"
+    if n <= 10:
+        return "1-10"
+    if n <= 100:
+        return "11-100"
+    if n <= 1000:
+        return "101-1k"
+    return "1k+"
+
+
+def ingestion_304_ratio_bucket(ratio: float) -> Ingestion304RatioBucket:
+    """Bucket a 304-hit ratio (0.0-1.0) into a percentage band (D-04-22)."""
+    pct = ratio * 100
+    if pct < 25:
+        return "0-25"
+    if pct < 50:
+        return "25-50"
+    if pct < 75:
+        return "50-75"
+    return "75-100"
 
 
 # ─── Event emitters (1-14 per .claude/rules/telemetry.md) ─────────────────────
@@ -274,6 +305,52 @@ def emit_rescan_triggered_drift(*, catalog_item_id: object, hash_delta_files_cou
         catalog_item_id_bucket=hash_to_bucket(catalog_item_id),
         hash_delta_files_count_bucket=hash_delta_bucket(hash_delta_files_count),
     )
+
+
+# ─── Ingestion event emitters (D-04-22) ──────────────────────────────────────
+
+
+def emit_ingestion_cycle_started(*, source: str, cadence: str) -> None:
+    """`ingestion_cycle_started` — fired at the beginning of each adapter cycle.
+
+    `source` is a closed-enum value from the 14-source YAML config (e.g.
+    'github_skills', 'npm', 'mcp_so'). `cadence` is the cron string from the
+    adapter's YAML (e.g. '0 * * * *'). Neither contains PII or raw URLs.
+    """
+    _emit("ingestion_cycle_started", source=source, cadence=cadence)
+
+
+def emit_ingestion_cycle_completed(
+    *,
+    source: str,
+    items_added: int,
+    items_updated: int,
+    duration_ms: int,
+    http_304_ratio: float,
+) -> None:
+    """`ingestion_cycle_completed` — fired at the end of a successful adapter cycle.
+
+    All numerics are bucketed before emission. `http_304_ratio` is a float in
+    [0.0, 1.0] representing the fraction of requests served from Hishel cache
+    (304-revalidation hits). No raw counts, no URLs, no item IDs.
+    """
+    _emit(
+        "ingestion_cycle_completed",
+        source=source,
+        items_added_bucket=ingestion_items_bucket(items_added),
+        items_updated_bucket=ingestion_items_bucket(items_updated),
+        duration_ms_bucket=latency_bucket(duration_ms),
+        http_304_ratio_bucket=ingestion_304_ratio_bucket(http_304_ratio),
+    )
+
+
+def emit_ingestion_cycle_failed(*, source: str, reason: IngestionFailureReason) -> None:
+    """`ingestion_cycle_failed` — fired when an adapter cycle ends in a terminal error.
+
+    `reason` is a closed enum; transient retries do NOT emit this event — only
+    the final dead-letter failure does.
+    """
+    _emit("ingestion_cycle_failed", source=source, reason_enum=reason)
 
 
 # ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────

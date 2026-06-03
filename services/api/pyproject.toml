@@ -25,6 +25,15 @@ dependencies = [
   "sse-starlette>=2.4",
   "aiofiles>=24.1",
   "pyjwt>=2.10",
+  # I-04 Phase A — ingestion infrastructure
+  "procrastinate>=3.8,<4",       # PG-backed async task queue; cron + retries + DLQ + advisory locks
+  "psycopg[binary]>=3.2",        # libpq wrapper for Procrastinate's PsycopgConnector (binary wheel)
+  "hishel[httpx]>=1.2,<2",       # HTTPX RFC-9111 cache (httpx extra → anysqlite + anyio); 304s free vs GitHub rate limit
+  "rapidfuzz>=3.10,<4",          # Fuzzy name match (token_set_ratio + JaroWinkler), native C++ backend
+  "croniter>=6.0,<7",            # cron-expression parsing (also a Procrastinate transitive dep; pinned explicit)
+  "rfc8785>=0.1,<1",             # JCS-canonical JSON for content_hash_sha256 (RFC 8785, OpenLatch-compatible)
+  "protego>=0.4,<1",             # robots.txt parser (framework hook now; consumed by Phase B scraping)
+  "cryptography>=43",            # RS256 backend for PyJWT GitHub App installation-token signing
 ]
 
 [dependency-groups]

@@ -31,6 +31,7 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 | **CI** | GitHub Actions | All actions SHA-pinned; `harden-runner` first step. |
 | **Observability** | Sentry (errors) + PostHog (product analytics) + OpenTelemetry (traces/metrics) | Sentry + PostHog projects are SaferSkills-specific — separate from any OpenLatch projects per `telemetry.md`. |
 | **Email** | Resend | Outbound only at W1. Single verified sending domain `notifications.openlatch.ai` shared with OpenLatch (cost decision 2026-05-28); `From: SaferSkills <…@notifications.openlatch.ai>`, reply-to on `@openlatch.ai` mailboxes. Disclosed on `/about`. |
+| **Task queue (ingestion only)** | Procrastinate 3.x | PG-backed (no Redis). In-process worker via FastAPI lifespan (advisory lock `0x5AFE5C13`). Schema applied at startup via `procrastinate_app.schema_manager.apply_schema_async()` — never a migration. SCAN worker keeps `asyncio.create_task` (I-03 D-FE-34). Adopted by I-04 D-04-03. New ingestion deps: `hishel ~= 1.2` (RFC-9111 cache), `rapidfuzz ~= 3.10` (fuzzy dedup), `croniter ~= 6.0` (cron parsing), `rfc8785` (JCS canonical hash), `protego` (robots.txt), `psycopg[binary]` (Procrastinate sync driver), `cryptography` (GitHub App JWT). |
 
 ## Mandates
 
@@ -39,6 +40,7 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 - **The 6-step codegen pipeline is the source of truth.** `pnpm run generate` is the only entry point.
 - **Single Postgres** — in-process LRU caches mirror data inside the process; never reach for Redis at W1.
 - **Artifact storage is in-Postgres by design.** Stored scan-file snapshots (`artifact_blobs`, content-addressed dedup) live in the single Postgres as `bytea` — no object store / bucket / new secret. This **preserves** the single-store rule above; it does not amend it. See `database.md`.
+- **Procrastinate is scoped to I-04 ingestion only.** The scan worker keeps its on-demand `asyncio.create_task` pattern (I-03 D-FE-34 — do not migrate it). Procrastinate is queue-shaped work; the scan worker is a one-shot coroutine. Do not add Procrastinate to other subsystems without a new ratified deviation.
 
 ## Forbidden tools
 

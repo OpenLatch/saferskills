@@ -1,0 +1,20 @@
+# Official MCP Registry poll (registry.modelcontextprotocol.io). Hourly.
+name: mcp_registry
+kind: api
+hosts:
+  - registry.modelcontextprotocol.io
+cadence_cron: "0 * * * *"
+rate_limit_per_second: 2.0
+queue: ingest_mcp_registry
+enabled: true
+discovery:
+  api_base: https://registry.modelcontextprotocol.io
+  servers_path: /v0/servers
+  page_limit: 100
+description: Polls the official MCP Registry /v0/servers feed by updated_since cursor.
+policy:
+  summary: >-
+    We poll the official MCP Registry hourly via its documented API and credit
+    every listing with a backlink. We respect its rate limits.
+  contact: bot@saferskills.ai
+  robots_txt: n/a (documented API)

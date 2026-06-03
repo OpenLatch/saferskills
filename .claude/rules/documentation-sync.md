@@ -13,11 +13,12 @@
 | `ci-cd.md` | `design-system.md` (`ui/**`, `webapp/src/components/**`) |
 | `documentation-sync.md` | `testing.md` (test dirs + `tools/e2e/**`) |
 | `tech-stack.md` | `telemetry.md` (`services/api/app/**`, `webapp/src/**`, `ui/**`) |
-| | `environment-config.md` (env files + `app/core/config.py`) |
+| `privacy.md` | `environment-config.md` (env files + `app/core/config.py`) |
 | | `frontend-patterns.md` (`webapp/**`, `ui/**`) |
 | | `methodology.md` (`docs/methodology.md`, `docs/rules.md`, `rubric/**`) |
 | | `vendor-appeals.md` (vendor-appeal templates + flows) |
 | | `database.md` (`services/api/migrations/**`, `app/models/**`, `app/db/**`) |
+| | `ingestion.md` (`services/api/app/ingestion/**`, `schemas/ingestion-*.schema.json`, `schemas/merge-candidate.schema.json`, `tools/saferskills-admin/**`, `docs/sources.md`) |
 
 ## Deferred rules (write when the feature lands)
 
@@ -32,6 +33,8 @@
 | `activity-digest.md` | If a per-vendor digest feature ships (not in current roadmap) |
 | `data-seed.md` | If a `tools/data-seed/` CLI is added |
 | `admin-broadcasts.md` | If site-wide admin broadcasts ship |
+| ~~`ingestion.md`~~ | **Written** (I-04 Phase A — ingestion framework + adapter rules). Now active above. |
+| ~~`privacy.md`~~ | **Written** (I-04 Phase A — `access_log` writer + IP-redaction gate). Now active (always-on) above. |
 
 ## Path-scoped vs always-on
 
@@ -62,6 +65,7 @@
 | DS-component CSS added/moved | `ui/styles/components.css` (not page CSS) — see `design-system.md` § CSS ownership |
 | `check-css.cjs` rule / scope change | `design-system.md` § CSS token discipline + `scripts/check-css.cjs` + `ci-cd.md` |
 | Telemetry event added | `telemetry.md` (event allowlist) |
+| New ingestion source adapter | `ingestion.md` (adapter framework) + `security.md` § Public-input handling #2 (outbound allowlist) + the source YAML under `app/ingestion/config/sources/` |
 
 ## Hard rules
 

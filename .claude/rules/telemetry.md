@@ -73,6 +73,21 @@ The scan engine emits a closed enum of 16 events (per locked decision D-30, +2 f
 
 No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the capability `share_token` or any path/filename content** (uploads). Bucketing helpers (`hash_to_bucket`, `latency_bucket`, `count_bucket`) live alongside the emit-helpers in `services/api/app/observability/events.py`.
 
+## Ingestion events (I-04)
+
+5 backend + 1 frontend events from locked decision D-04-22. All bucketed/closed-enum, no PII.
+
+| # | Event | Properties |
+|---|---|---|
+| 17 | `ingestion_cycle_started` | `source` (closed enum — 14-source set); `cadence` (cron string) |
+| 18 | `ingestion_cycle_completed` | `source`; `items_added_bucket` ∈ {`0`,`1-10`,`11-100`,`101-1k`,`1k+`}; `items_updated_bucket` (same); `duration_ms_bucket`; `http_304_ratio_bucket` ∈ {`0-25`,`25-50`,`50-75`,`75-100`} |
+| 19 | `ingestion_cycle_failed` | `source`; `reason_enum` ∈ {`rate_limit`,`cf_challenge`,`http_5xx`,`timeout`,`other`} |
+| 20 | `catalog_item_archived` | `source`; `reason_enum` ∈ {`404_timeline`,`maintainer_archived`,`yanked`} |
+| 21 | `popularity_recompute_completed` | `top500_changed_count_bucket` ∈ {`0`,`1-10`,`11-100`,`101-1k`,`1k+`} |
+| 22 | `sources_page_viewed` | (frontend, no properties) |
+
+Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycle_started`, `emit_ingestion_cycle_completed`, `emit_ingestion_cycle_failed`, `emit_ingestion_cycle_archived` → `catalog_item_archived`, `emit_popularity_recompute_completed`). Phase A logs cycle events via structlog; PostHog emission wires up as the helpers land. The frontend `sources_page_viewed` event uses the existing `webapp/src/lib/analytics.ts` pattern.
+
 ## Sentry
 
 `SENTRY_DSN` env var (cf. `environment-config.md`); separate Sentry project from OpenLatch.

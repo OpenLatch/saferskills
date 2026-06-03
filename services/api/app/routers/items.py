@@ -21,7 +21,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -199,6 +199,11 @@ async def list_items(
         ),
     ),
     q: str | None = Query(default=None, max_length=200),
+    show_low_quality: bool = Query(
+        default=False,
+        alias="showLowQuality",
+        description="Include low/empty quality_tier items (default hides them — D-04-19).",
+    ),
     sort: SortKey = Query(default="most_installed"),
     limit: int = Query(default=25, ge=1, le=100),
     page: int = Query(default=1, ge=1),
@@ -254,6 +259,11 @@ async def list_items(
         .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
     )
 
+    # Soft quality gate (D-04-19): the default catalog hides low/empty items;
+    # `?showLowQuality=true` exposes them. Hidden items stay reachable by slug.
+    if not show_low_quality:
+        stmt = stmt.where(CatalogItem.quality_tier.in_(["high", "medium"]))
+
     if artifact_source:
         stmt = stmt.where(CatalogItem.source_kind == artifact_source)
     if kind:
@@ -274,13 +284,14 @@ async def list_items(
             )
         )
     if q:
-        like = f"%{q.lower()}%"
+        # Postgres FTS (search_vector tsvector, migration 0010) OR pg_trgm fuzzy
+        # on display_name (D-04-32). search_vector is a DB-generated column, not a
+        # mapped attribute — referenced via text() with a bound param.
         stmt = stmt.where(
-            or_(
-                func.lower(CatalogItem.display_name).like(like),
-                func.lower(CatalogItem.slug).like(like),
-                func.lower(CatalogItem.github_repo).like(like),
-            )
+            text(
+                "(catalog_items.search_vector @@ websearch_to_tsquery('english', :q) "
+                "OR similarity(catalog_items.display_name, :q) > 0.3)"
+            ).bindparams(q=q)
         )
 
     # Filtered total (respects every WHERE applied above) — drives total_pages.
@@ -300,7 +311,18 @@ async def list_items(
         decoded = _decode_cursor(cursor)
         stmt = stmt.where(CatalogItem.slug > decoded)
 
-    if sort == "highest_score":
+    if q:
+        # Relevance-first when searching: blend ts_rank (0.7) + normalized
+        # popularity (0.3) so a strong name match isn't drowned by a popular
+        # near-miss (D-04-32). Ties broken by slug for a stable keyset.
+        stmt = stmt.order_by(
+            text(
+                "ts_rank(catalog_items.search_vector, websearch_to_tsquery('english', :q)) * 0.7 "
+                "+ (catalog_items.popularity_score / 100.0) * 0.3 DESC"
+            ).bindparams(q=q),
+            CatalogItem.slug,
+        )
+    elif sort == "highest_score":
         stmt = stmt.order_by(desc(func.coalesce(latest_scan.c.latest_score, 0)), CatalogItem.slug)
     elif sort == "lowest_score":
         stmt = stmt.order_by(func.coalesce(latest_scan.c.latest_score, 100), CatalogItem.slug)
