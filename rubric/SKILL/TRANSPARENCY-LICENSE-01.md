@@ -6,6 +6,30 @@ weight: 15
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  No LICENSE file in the repository
+categoryLabel: >-
+  Transparency
+explanation: >-
+  No <code>LICENSE</code> file was found. Without one, the artifact is "all rights reserved" by
+  default under copyright law, which leaves you with no clear right to redistribute, modify, or
+  even install it depending on your compliance posture.
+severityRationale: >-
+  the absence of a license is consumer-facing legal ambiguity that can block redistribution and use.
+remediation:
+  action: >-
+    Add a LICENSE file at the repository root declaring how the artifact may be used.
+  steps:
+    - >-
+      Pick an OSI-approved license appropriate to the project.
+    - >-
+      Commit it as <code>LICENSE</code> at the repo root so consumers and tooling can find it.
+  saferPattern:
+    before: |-
+      # repository ships installable code but no LICENSE file
+    after: |-
+      # LICENSE  (SPDX: Apache-2.0)
+      Apache License, Version 2.0 …
 trigger:
   type: file_glob_absent
   paths: ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'COPYING', 'COPYING.md', 'LICENCE', 'LICENCE.md']

@@ -82,8 +82,13 @@ jobs:
         # W1 tokens in schemas/ or generated outputs is a regression.
         # Scoped strictly to those dirs so legitimate English uses elsewhere
         # ("data integrity", "behavior test", etc.) do not false-positive.
+        # The generated rule-PROSE outputs (content.ts / methodology index.mdx)
+        # are excluded: they carry human rule explanations where these are plain
+        # English words, not sub-score axis tokens (the structured `subScore`
+        # values there are schema-enum-constrained to the 5 axes regardless).
         run: |
           if grep -RnE '\b(identity|integrity|behavior|provenance)\b' \
+                --exclude=content.ts --exclude=index.mdx \
                 schemas/ \
                 services/api/app/schemas/generated/ \
                 services/api/app/models/generated/ \

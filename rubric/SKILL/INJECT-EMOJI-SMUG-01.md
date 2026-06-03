@@ -6,6 +6,25 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Long emoji run that may be smuggling a hidden instruction
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  Long runs of emoji — especially with variation selectors and zero-width joiners —
+  tokenize in model-specific ways that can encode an instruction while reading as harmless
+  decoration to a person. This rule flags ten or more consecutive emoji, a length that is
+  rare in genuine documentation but common in this obfuscation technique.
+severityRationale: >-
+  the technique works but is brittle and tokenizer-dependent, so the practical attack surface is narrow.
+remediation:
+  action: >-
+    Trim the emoji run to a few decorative characters, or remove it if it is not intentional.
+  steps:
+    - >-
+      Reduce any run of ten-plus emoji to the small set you actually meant to display.
+    - >-
+      Strip the variation selectors (U+FE0F) and zero-width joiners (U+200D) unless a specific emoji genuinely requires them.
 trigger:
   type: regex_match
   pattern: '(?u)(?:[\U0001F300-\U0001F9FF☀-➿]\u{FE0F}?\u{200D}?){10,}'

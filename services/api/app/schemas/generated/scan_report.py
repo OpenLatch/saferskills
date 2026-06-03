@@ -99,33 +99,40 @@ class StatusAtScan(StrEnum):
     active = "active"
 
 
-class Finding(OrmBaseModel):
+class Line(OrmBaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    line_no: conint(ge=1) = Field(
+        ..., alias="lineNo", description="1-indexed source line number."
+    )
+    text: str = Field(
+        ...,
+        description="Verbatim line text (bytes preserved; client reveals invisibles).",
+    )
+    hit: bool = Field(
+        ..., description="True if this line is within [lineStart, lineEnd]."
+    )
+
+
+class EvidenceExcerpt(OrmBaseModel):
     """
-    Inline mirror of finding.schema.json. Source-of-truth lives in the standalone schema; keep in sync.
+    Report-DTO-only matched-line window, resolved from the stored snapshot (verbatim bytes — invisible chars preserved for client-side reveal). NOT a scan-trace field and NOT persisted on the findings table; the trace stays hash-only per security.md § Scan-trace transparency. Null when bytes are absent (binary / oversize / expired snapshot).
     """
 
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: UUID
-    scan_id: UUID = Field(..., alias="scanId")
-    rule_id: constr(
-        pattern=r"^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$"
-    ) = Field(..., alias="ruleId")
-    severity: Severity
-    sub_score: SubScore = Field(..., alias="subScore")
-    penalty: conint(ge=0, le=40)
-    status_at_scan: StatusAtScan = Field(..., alias="statusAtScan")
-    file_path: constr(max_length=1024) = Field(..., alias="filePath")
-    line_start: conint(ge=1) = Field(..., alias="lineStart")
-    line_end: conint(ge=1) | None = Field(None, alias="lineEnd")
-    matched_content_sha256: constr(pattern=r"^[a-f0-9]{64}$") = Field(
-        ..., alias="matchedContentSha256"
+    file: constr(max_length=1024) = Field(
+        ..., description="Path the excerpt was taken from."
     )
-    remediation_link: AnyUrl = Field(..., alias="remediationLink")
-    rubric_version: constr(pattern=r"^[a-f0-9]{7,40}$") = Field(
-        ..., alias="rubricVersion"
+    lang: str | None = Field(
+        None, description="Language hint from the file extension (display only)."
     )
+    truncated: bool = Field(
+        ..., description="True if the line window or any line was capped."
+    )
+    lines: list[Line] = Field(..., description="Ordered line window around the match.")
 
 
 class SubScoreBreakdown(OrmBaseModel):
@@ -173,6 +180,36 @@ class ScoreBreakdown(OrmBaseModel):
     transparency: SubScoreBreakdown
     community: SubScoreBreakdown
     aggregate_math: AggregateMath = Field(..., alias="aggregateMath")
+
+
+class Finding(OrmBaseModel):
+    """
+    Inline mirror of finding.schema.json. Source-of-truth lives in the standalone schema; keep in sync.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    scan_id: UUID = Field(..., alias="scanId")
+    rule_id: constr(
+        pattern=r"^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$"
+    ) = Field(..., alias="ruleId")
+    severity: Severity
+    sub_score: SubScore = Field(..., alias="subScore")
+    penalty: conint(ge=0, le=40)
+    status_at_scan: StatusAtScan = Field(..., alias="statusAtScan")
+    file_path: constr(max_length=1024) = Field(..., alias="filePath")
+    line_start: conint(ge=1) = Field(..., alias="lineStart")
+    line_end: conint(ge=1) | None = Field(None, alias="lineEnd")
+    matched_content_sha256: constr(pattern=r"^[a-f0-9]{64}$") = Field(
+        ..., alias="matchedContentSha256"
+    )
+    remediation_link: AnyUrl = Field(..., alias="remediationLink")
+    rubric_version: constr(pattern=r"^[a-f0-9]{7,40}$") = Field(
+        ..., alias="rubricVersion"
+    )
+    evidence_excerpt: EvidenceExcerpt | None = Field(None, alias="evidenceExcerpt")
 
 
 class ScanReport(OrmBaseModel):

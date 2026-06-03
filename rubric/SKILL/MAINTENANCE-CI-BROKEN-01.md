@@ -6,6 +6,30 @@ weight: 12
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  CI is configured but not enforced on the default branch
+categoryLabel: >-
+  Maintenance
+explanation: >-
+  The repository ships a CI workflow file but the default branch has no branch protection requiring
+  it to pass. "Has CI" then implies "tests pass on main" when nothing actually enforces that, so a
+  green badge can mask regressions merged into the default branch.
+severityRationale: >-
+  unenforced CI gives a false signal of test discipline while letting failing changes land.
+remediation:
+  action: >-
+    Enable required status checks on the default branch so CI must pass before merge.
+  steps:
+    - >-
+      Turn on branch protection for the default branch.
+    - >-
+      Mark the CI workflow as a required status check for merges.
+  saferPattern:
+    before: |-
+      # .github/workflows/ci.yml present, but main has no required checks
+    after: |-
+      # branch protection on `main`:
+      #   require status checks to pass before merging → ci
 trigger:
   type: composite_and_or
   op: and

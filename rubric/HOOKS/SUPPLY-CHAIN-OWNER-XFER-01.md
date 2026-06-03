@@ -6,6 +6,24 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+title: >-
+  Hook repo is maintained by a very small group
+categoryLabel: >-
+  Supply chain
+explanation: >-
+  This hook's repo has {count} or fewer contributors. A small maintainer pool is the
+  classic takeover target — compromising one account, or persuading them to transfer
+  ownership, lets an attacker push a malicious update that every consumer runs automatically.
+severityRationale: >-
+  a small maintainer pool is an easy takeover target for an artifact that runs with your privileges.
+remediation:
+  action: >-
+    Confirm the maintainers and pin the hook to a reviewed, fixed revision before relying on it.
+  steps:
+    - >-
+      Verify who controls the repo and whether ownership has recently changed hands.
+    - >-
+      Pin to a specific commit you have reviewed rather than tracking the latest version.
 trigger:
   type: commit_history_check
   signal: contributor_count

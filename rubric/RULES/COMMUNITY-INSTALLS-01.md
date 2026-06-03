@@ -6,6 +6,17 @@ weight: 0
 status: active
 shadowUntil: null
 appliesTo: [rules]
+title: >-
+  Rules repository has fewer than 5 stars
+categoryLabel: >-
+  Community
+explanation: >-
+  This rules repository has fewer than 5 GitHub stars. Stars are a noisy proxy for community adoption
+  and review; a low count means fewer people have vetted these rules before they were injected into an
+  agent's context. This is context only and does not affect the score.
+remediation:
+  action: >-
+    No action required — context only.
 trigger:
   type: metadata_check
   field: stars

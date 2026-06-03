@@ -6,6 +6,24 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+title: >-
+  Hook published by a brand-new account
+categoryLabel: >-
+  Supply chain
+explanation: >-
+  The account publishing this hook is less than 90 days old. New accounts that publish
+  and disappear are a known supply-chain pattern — and a hook runs with your privileges
+  automatically, so an unestablished author warrants extra scrutiny before you trust it.
+severityRationale: >-
+  account age is a weak, secondary signal that account age alone neither proves nor disproves intent.
+remediation:
+  action: >-
+    Weigh this alongside the other supply-chain signals; pin to a reviewed revision before relying on it.
+  steps:
+    - >-
+      Check the author's wider track record rather than judging on account age alone.
+    - >-
+      Pin to a specific reviewed commit rather than tracking the latest version.
 trigger:
   type: metadata_check
   field: owner_age_days

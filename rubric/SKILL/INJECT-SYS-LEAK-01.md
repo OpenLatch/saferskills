@@ -6,6 +6,25 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Request for the agent to reveal its system prompt
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  The text <code>{match}</code> asks the agent to disclose its hidden system prompt or
+  initial instructions. That is often the first step of a larger attack: knowing the
+  system prompt lets an attacker craft inputs that defeat its constraints by mimicking
+  its own voice.
+severityRationale: >-
+  it scores the disclosure intent; whether extraction succeeds depends on the host model's own mitigations.
+remediation:
+  action: >-
+    Remove the solicitation asking the agent to reveal its system prompt or hidden instructions.
+  steps:
+    - >-
+      Delete the <code>repeat/reveal/print your system prompt</code> request from the skill.
+    - >-
+      If you are debugging your own prompt, do so in a private dev harness rather than baking the request into a shipped skill.
 trigger:
   type: regex_match
   pattern: '(?i)\b(repeat|reveal|output|print|show|tell\s+me)\s+(your|the)\s+(system\s+prompt|initial\s+instructions?|original\s+prompts?|hidden\s+instructions?|prompt\s+template)\b'

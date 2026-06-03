@@ -6,6 +6,24 @@ weight: 12
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [mcp]
+title: >-
+  MCP release ships without any signature
+categoryLabel: >-
+  Supply chain
+explanation: >-
+  No signature file (Sigstore, GPG, or minisign) is present in the repo, so a consumer can't verify
+  the install bytes match what the maintainer actually published — leaving the "someone swapped the
+  tarball" attack class open.
+severityRationale: >-
+  An unsigned release can't be cryptographically tied to its maintainer, so substitution goes undetected.
+remediation:
+  action: >-
+    Sign releases with Sigstore, GPG, or minisign and commit the signature alongside the release.
+  steps:
+    - >-
+      Generate a signature for each release artifact with your chosen signing tool.
+    - >-
+      Commit the signature file so consumers can verify the bytes before installing.
 trigger:
   type: file_glob_absent
   paths: ['**/*.sig', '**/*.minisig', '**/cosign.pub', '**/SIGNATURES', '**/.signatures.yaml']

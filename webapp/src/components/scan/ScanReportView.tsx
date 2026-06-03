@@ -1,21 +1,12 @@
 import Button from '@ui/components/atoms/Button'
 import ButtonPair from '@ui/components/atoms/ButtonPair'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
-import FindingRow from '@ui/components/molecules/FindingRow'
 import { useMemo, useState } from 'react'
 
 import { bandFromTier, kindTag } from '@/components/catalog/constants'
+import FindingExplanation from '@/components/scan/FindingExplanation'
 import { track } from '@/lib/analytics'
 import type { CapabilityKind, CapabilityRow, ScanRunReportDetail } from '@/lib/api/scans'
-
-// Sub-score → display label (for the expanded FindingRow category column).
-const SUB_LABELS: Record<string, string> = {
-  security: 'Security',
-  supply_chain: 'Supply chain',
-  maintenance: 'Maintenance',
-  transparency: 'Transparency',
-  community: 'Community',
-}
 
 // Map a catalog kind onto the mockup's 3-glyph type vocabulary (+ plugin/rules).
 const GLYPH_CLASS: Record<CapabilityKind, string> = {
@@ -177,26 +168,13 @@ export default function ScanReportView({ run, shareUrl }: Props) {
                     No findings — every {kindTag(cap.kind)} detector passed for this capability.
                   </p>
                 ) : (
-                  <ul className="cap-findings">
-                    {cap.findings.map((f) => (
-                      <FindingRow
-                        key={`${f.rule_id}-${f.file_path}-${f.line_start}`}
-                        ruleId={f.rule_id}
-                        severity={f.severity}
-                        category={SUB_LABELS[f.sub_score] ?? f.sub_score}
-                        matchedContentSha256={f.matched_content_sha256}
-                        evidence={{
-                          filePath: f.file_path,
-                          lineStart: f.line_start,
-                          lineEnd: f.line_end,
-                          href: run.github_url
-                            ? `${run.github_url.replace(/\/$/, '')}/blob/${run.ref_sha ?? 'HEAD'}/${f.file_path}#L${f.line_start}`
-                            : undefined,
-                        }}
-                        remediationLink={f.remediation_link}
-                      />
-                    ))}
-                  </ul>
+                  <FindingExplanation
+                    findings={cap.findings}
+                    githubUrl={run.github_url}
+                    refSha={run.ref_sha}
+                    rubricVersion={run.rubric_version}
+                    openFirst
+                  />
                 )}
               </div>
             </details>

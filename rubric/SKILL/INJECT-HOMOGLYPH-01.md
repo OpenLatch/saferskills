@@ -6,6 +6,30 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Look-alike (homoglyph) characters mixed into otherwise-Latin words
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  A word can look like plain English while secretly containing Cyrillic, Greek, or
+  mathematical letters that are visually identical to ASCII — Cyrillic 'а' for Latin 'a',
+  Greek 'ο' for 'o'. This rule flags mixed-script words of five or more characters, a
+  technique used to slip past keyword filters while reading normally to a person.
+severityRationale: >-
+  the swap defeats text-matching review but is neutralized by NFKC normalization at consumption, so impact is bounded.
+remediation:
+  action: >-
+    Retype the affected words entirely in ASCII, or NFKC-normalize the file before review.
+  steps:
+    - >-
+      Replace each non-Latin look-alike character with its plain ASCII equivalent.
+    - >-
+      If the document legitimately needs Cyrillic or Greek text, keep those words in a single script rather than mixing scripts inside one word.
+  saferPattern:
+    before: |-
+      Run the аdmin install step  (the "a" here is Cyrillic U+0430)
+    after: |-
+      Run the admin install step  (all-ASCII)
 trigger:
   type: regex_match
   pattern: '[\u{0400}-\u{04FF}\u{1D400}-\u{1D7FF}\u{0370}-\u{03FF}](?:[a-zA-Z]|[\u{0400}-\u{04FF}\u{1D400}-\u{1D7FF}\u{0370}-\u{03FF}]){4,}'

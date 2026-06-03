@@ -6,6 +6,17 @@ weight: 0
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+title: >-
+  Hook has very few forks
+categoryLabel: >-
+  Community
+explanation: >-
+  This hook has fewer than {count} forks. Low fork counts can hint at limited community
+  use or little third-party validation, but they are a noisy proxy — many sound hooks are
+  rarely forked because they need no customization. This is context only and does not affect the score.
+remediation:
+  action: >-
+    No action required — context only.
 trigger:
   type: metadata_check
   field: fork_count

@@ -6,6 +6,24 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Instruction telling the agent not to ask for approval
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  The text <code>{match}</code> tells the agent to skip the normal "ask the user first"
+  gate. Used adversarially it removes the human-in-the-loop check before destructive or
+  sensitive actions, turning a normally-gated agent into a fire-and-forget executor.
+severityRationale: >-
+  it fires on intent; the real damage depends on the host agent's own approval-gating.
+remediation:
+  action: >-
+    Remove the approval-skipping instruction, or scope it narrowly to a specific safe, reversible action.
+  steps:
+    - >-
+      Delete blanket "don't ask / no need to confirm" directives from the skill.
+    - >-
+      If the skill is a genuine autonomous job, restrict the opt-out to a named non-destructive action rather than all actions.
 trigger:
   type: regex_match
   pattern: '(?i)\b(do\s+not|don[’'']t|never|no\s+need\s+to)\s+(ask|confirm|prompt|request\s+permission|wait\s+for\s+approval|seek\s+consent|verify\s+with\s+the\s+user)\b'

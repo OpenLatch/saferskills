@@ -6,6 +6,24 @@ weight: 8
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Over 80% of opened issues remain open
+categoryLabel: >-
+  Maintenance
+explanation: >-
+  Across a 12-month window, more than 80% of opened issues are still open (open / (open + closed)).
+  That suggests issues are being filed faster than they get resolved, so a report you file may sit
+  unresolved.
+severityRationale: >-
+  a high unresolved-issue backlog suggests your bug report is likely to stay open.
+remediation:
+  action: >-
+    Work down the open-issue backlog and close or resolve stale reports.
+  steps:
+    - >-
+      Triage long-open issues, closing duplicates and ones that are won't-fix.
+    - >-
+      Keep the close rate roughly in step with the rate new issues arrive.
 trigger:
   type: commit_history_check
   signal: open_issue_ratio

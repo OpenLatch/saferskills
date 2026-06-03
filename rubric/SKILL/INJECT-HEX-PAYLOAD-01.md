@@ -6,6 +6,25 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Long hex-encoded blob hidden in the skill documentation
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  A hex string of 256+ characters appears in a documentation file — well above a single
+  SHA-256 hash (64 chars). Like its base64 sibling, hex-encoding hides a hostile
+  instruction from keyword filters while staying trivially decodable by the agent at
+  runtime.
+severityRationale: >-
+  once decoded by the agent, an encoded payload has the same impact class as plain-text injection.
+remediation:
+  action: >-
+    Remove the encoded blob, or decode it and review what it actually contains.
+  steps:
+    - >-
+      Decode the hex string and confirm it is not an instruction directed at the agent.
+    - >-
+      Keep legitimate hashes (single SHA-256, 64 chars) and move bulk binary data into a dedicated file outside the documentation.
 trigger:
   type: regex_match
   pattern: '(?i)(?<![0-9a-f])([0-9a-f]{256,})(?![0-9a-f])'

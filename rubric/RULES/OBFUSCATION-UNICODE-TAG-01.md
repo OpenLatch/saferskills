@@ -6,6 +6,24 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [rules]
+title: >-
+  Rules file hides instructions in invisible Unicode tag characters
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  A rules file is injected verbatim into every agent prompt. Unicode tag-channel codepoints like {match}
+  render as nothing to a human reviewer but are tokenized as text by the model — so hidden instructions
+  steer every session while staying invisible in any editor or diff.
+severityRationale: >-
+  invisible-to-human instructions execute on every prompt with no review surface, the highest-trust injection path.
+remediation:
+  action: >-
+    Remove the invisible Unicode tag characters from the rules file and keep all instructions in visible text.
+  steps:
+    - >-
+      Strip every codepoint in the U+E0000–U+E007F tag block from the file; rewrite any intended instruction as plain visible text.
+    - >-
+      Re-inspect the file with a tool that reveals non-printing characters to confirm none remain.
 trigger:
   type: regex_match
   pattern: '[\u{E0000}-\u{E007F}]'

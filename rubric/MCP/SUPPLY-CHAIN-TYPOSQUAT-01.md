@@ -6,6 +6,24 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [mcp]
+title: >-
+  Name is one character off an established MCP server
+categoryLabel: >-
+  Supply chain
+explanation: >-
+  This server's name is within one character (Levenshtein distance 1) of an established registry entry.
+  It may be a legitimate fork — or a typosquat hoping a user fat-fingers the install command and
+  pulls a hostile server instead of the trusted one.
+severityRationale: >-
+  A confirmed typosquat is a credential-class threat to anyone who mistypes the install command.
+remediation:
+  action: >-
+    Verify this is the server you intend to install; compare its name and owner against the established entry.
+  steps:
+    - >-
+      Check the exact name and GitHub owner against the well-known server it resembles.
+    - >-
+      Install only after confirming the publisher is who you expect.
 trigger:
   type: metadata_check
   field: registry_listings_count

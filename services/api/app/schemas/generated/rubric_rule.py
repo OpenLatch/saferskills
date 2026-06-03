@@ -10,6 +10,46 @@ from app.schemas.orm_base import OrmBaseModel
 from pydantic import AnyUrl, ConfigDict, Field, RootModel, conint, constr
 
 
+class SaferPattern(OrmBaseModel):
+    """
+    Optional Avoid → Safer pattern before/after pair (`.fc-safer`).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    before: constr(min_length=1) = Field(
+        ..., description="The 'Avoid' snippet (`.sp.before`) — the unsafe construct."
+    )
+    after: constr(min_length=1) = Field(
+        ...,
+        description="The 'Safer pattern' snippet (`.sp.after`). A pattern, NEVER a product/vendor (anti-recommendation per design-system.md).",
+    )
+
+
+class Remediation(OrmBaseModel):
+    """
+    Actionable remediation surfaced on every finding: `action` (required) + optional `steps[]` + optional `saferPattern`. Methodology-over-opinion — concrete and reproducible, never a product recommendation.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    action: constr(min_length=1) = Field(
+        ...,
+        description="Imperative one-line action that names the user's actual construct (`.fc-action`). For info-tier rules: 'No action required — context only.'.",
+    )
+    steps: list[constr(min_length=1)] | None = Field(
+        None,
+        description="Optional ordered remediation steps (rendered as `<ol>`). May contain inline <code>…</code>.",
+    )
+    safer_pattern: SaferPattern | None = Field(
+        None,
+        alias="saferPattern",
+        description="Optional Avoid → Safer pattern before/after pair (`.fc-safer`).",
+    )
+
+
 class Severity(StrEnum):
     """
     5-tier ladder (D-02). `info` carries weight 0.
@@ -187,6 +227,28 @@ class RubricRule(OrmBaseModel):
         pattern=r"^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$"
     ) = Field(
         ..., alias="ruleId", description="Format `SS-<CATEGORY>-<NAME>-NN` (D-03)."
+    )
+    title: constr(min_length=1) = Field(
+        ...,
+        description="Plain-English headline for the finding (NO rule_id) — the `.fc-title` on every report. A human sentence fragment naming what was found, e.g. 'Fenced code block that tells the agent to run a shell command'. Flows through generate-methodology.cjs into webapp/src/generated/rules/content.ts.",
+    )
+    explanation: constr(min_length=1) = Field(
+        ...,
+        description="The 'Why it matters' paragraph (`.fc-why`): 1–2 plain, second-person sentences on the risk + attack/outcome class. May use the closed placeholder set {match} {path} {line} {count} (interpolated at render with backend evidence; omitted gracefully when empty) and inline <code>…</code>.",
+    )
+    severity_rationale: constr(min_length=1) | None = Field(
+        None,
+        alias="severityRationale",
+        description="Optional one-clause tie of severity to outcome — the `.fc-rationale` clause rendered after the severity word ('HIGH — …'). Omit for info-tier (advisory, no rationale).",
+    )
+    category_label: constr(min_length=1) | None = Field(
+        None,
+        alias="categoryLabel",
+        description="Optional human category label shown in the `.fc-rule` meta line (e.g. 'Prompt injection', 'Supply chain'). Falls back to the sub_score title when omitted.",
+    )
+    remediation: Remediation = Field(
+        ...,
+        description="Actionable remediation surfaced on every finding: `action` (required) + optional `steps[]` + optional `saferPattern`. Methodology-over-opinion — concrete and reproducible, never a product recommendation.",
     )
     severity: Severity = Field(
         ..., description="5-tier ladder (D-02). `info` carries weight 0."

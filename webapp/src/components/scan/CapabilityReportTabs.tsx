@@ -4,6 +4,8 @@ import MarkdownSourceViewer from '@ui/components/molecules/MarkdownSourceViewer'
 import ScoreBreakdownTable from '@ui/components/molecules/ScoreBreakdownTable'
 import { useState } from 'react'
 
+import FindingExplanation from '@/components/scan/FindingExplanation'
+
 import type { ManifestSource } from '@/lib/api/items'
 import type { CapabilityRow } from '@/lib/api/scans'
 import { renderMarkdown } from '@/lib/markdown'
@@ -77,6 +79,12 @@ export default function CapabilityReportTabs({ cap, manifest }: Props) {
             filePath: f.file_path,
             lineStart: f.line_start,
           }))}
+          renderCategoryFindings={(key) => (
+            <FindingExplanation
+              findings={findings.filter((f) => f.sub_score === key)}
+              rubricVersion={findings[0]?.rubric_version}
+            />
+          )}
         />
       </div>
 

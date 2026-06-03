@@ -112,6 +112,42 @@ class StatusAtScan(StrEnum):
     active = "active"
 
 
+class Line(OrmBaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    line_no: conint(ge=1) = Field(
+        ..., alias="lineNo", description="1-indexed source line number."
+    )
+    text: str = Field(
+        ...,
+        description="Verbatim line text (bytes preserved; client reveals invisibles).",
+    )
+    hit: bool = Field(
+        ..., description="True if this line is within [lineStart, lineEnd]."
+    )
+
+
+class EvidenceExcerpt(OrmBaseModel):
+    """
+    Report-DTO-only matched-line window, resolved from the stored snapshot (verbatim bytes — invisible chars preserved for client-side reveal). NOT a scan-trace field and NOT persisted on the findings table; the trace stays hash-only per security.md § Scan-trace transparency. Null when bytes are absent (binary / oversize / expired snapshot).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    file: constr(max_length=1024) = Field(
+        ..., description="Path the excerpt was taken from."
+    )
+    lang: str | None = Field(
+        None, description="Language hint from the file extension (display only)."
+    )
+    truncated: bool = Field(
+        ..., description="True if the line window or any line was capped."
+    )
+    lines: list[Line] = Field(..., description="Ordered line window around the match.")
+
+
 class Finding(OrmBaseModel):
     """
     Inline mirror of finding.schema.json. Keep in sync with the source schema.
@@ -138,6 +174,7 @@ class Finding(OrmBaseModel):
     rubric_version: constr(pattern=r"^[a-f0-9]{7,40}$") = Field(
         ..., alias="rubricVersion"
     )
+    evidence_excerpt: EvidenceExcerpt | None = Field(None, alias="evidenceExcerpt")
 
 
 class CapabilityRow(OrmBaseModel):

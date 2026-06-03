@@ -747,8 +747,80 @@
         "title": "DownloadInfo",
         "type": "object"
       },
+      "EvidenceExcerpt": {
+        "description": "Report-DTO-only matched-line window resolved from the stored snapshot.\n\nVerbatim bytes (invisible chars preserved \u2014 the client reveals them). This is\nNOT a scan-trace field and is NOT persisted on the `findings` table; the trace\nstays hash-only per security.md \u00a7 Scan-trace transparency. The bytes come from\nthe stored public snapshot / token-gated unlisted store, carried only on the\nreport response.",
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lang"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "file",
+          "lines"
+        ],
+        "title": "EvidenceExcerpt",
+        "type": "object"
+      },
+      "EvidenceLine": {
+        "description": "One line of a finding's matched-line window (mirrors the `.ex-line` markup).",
+        "properties": {
+          "hit": {
+            "title": "Hit",
+            "type": "boolean"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_no",
+          "text",
+          "hit"
+        ],
+        "title": "EvidenceLine",
+        "type": "object"
+      },
       "FindingResponse": {
         "properties": {
+          "evidence_excerpt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceExcerpt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "file_path": {
             "title": "File Path",
             "type": "string"

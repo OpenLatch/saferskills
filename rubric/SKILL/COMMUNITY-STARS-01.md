@@ -6,6 +6,17 @@ weight: 0
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Fewer than 10 stars on the GitHub repository
+categoryLabel: >-
+  Community
+explanation: >-
+  The repository has under 10 GitHub stars. This is shown as community context only — stars are an
+  easily-manipulated, low-quality proxy for adoption, so this signal carries weight 0 and does not
+  affect the score.
+remediation:
+  action: >-
+    No action required — context only.
 trigger:
   type: metadata_check
   field: stars

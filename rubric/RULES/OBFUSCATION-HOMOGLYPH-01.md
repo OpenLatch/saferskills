@@ -6,6 +6,24 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [rules]
+title: >-
+  Rules file uses look-alike characters from another script
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  A rules file is loaded verbatim into the agent. A word like {match} mixes Cyrillic, Greek, or
+  mathematical look-alike letters with Latin ones — it reads normally to you but is distinct text to
+  the model, letting an instruction evade keyword review while still steering the session.
+severityRationale: >-
+  mixed-script words evade human and keyword review while the agent reads them as standing instructions.
+remediation:
+  action: >-
+    Replace the look-alike characters with plain ASCII letters so the rules text reads identically to humans and the model.
+  steps:
+    - >-
+      Retype the highlighted word using standard Latin characters, removing any Cyrillic, Greek, or mathematical-alphanumeric substitutes.
+    - >-
+      If the rules file legitimately needs non-Latin script, keep it in clearly-labelled prose rather than inside Latin words.
 trigger:
   type: regex_match
   pattern: '[\u{0400}-\u{04FF}\u{1D400}-\u{1D7FF}\u{0370}-\u{03FF}](?:[a-zA-Z]|[\u{0400}-\u{04FF}\u{1D400}-\u{1D7FF}\u{0370}-\u{03FF}]){4,}'

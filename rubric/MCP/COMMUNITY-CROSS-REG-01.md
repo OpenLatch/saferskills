@@ -6,6 +6,17 @@ weight: 0
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  Listed on two or more independent MCP registries
+categoryLabel: >-
+  Community
+explanation: >-
+  This server appears on at least two independent registries (such as the MCP Registry, Smithery, Glama,
+  PulseMCP, or mcp.so), a community-adoption signal that several curators independently chose to list it.
+  It's reference context only and does not affect the score.
+remediation:
+  action: >-
+    No action required — context only. Cross-listing is a presence signal, not a guarantee of safety.
 trigger:
   type: metadata_check
   field: registry_listings_count

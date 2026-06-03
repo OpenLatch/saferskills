@@ -14,6 +14,9 @@
     "status",
     "appliesTo",
     "trigger",
+    "title",
+    "explanation",
+    "remediation",
     "limitations",
     "priorArt"
   ],
@@ -22,6 +25,54 @@
       "type": "string",
       "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$",
       "description": "Format `SS-<CATEGORY>-<NAME>-NN` (D-03)."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Plain-English headline for the finding (NO rule_id) — the `.fc-title` on every report. A human sentence fragment naming what was found, e.g. 'Fenced code block that tells the agent to run a shell command'. Flows through generate-methodology.cjs into webapp/src/generated/rules/content.ts."
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The 'Why it matters' paragraph (`.fc-why`): 1–2 plain, second-person sentences on the risk + attack/outcome class. May use the closed placeholder set {match} {path} {line} {count} (interpolated at render with backend evidence; omitted gracefully when empty) and inline <code>…</code>."
+    },
+    "severityRationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional one-clause tie of severity to outcome — the `.fc-rationale` clause rendered after the severity word ('HIGH — …'). Omit for info-tier (advisory, no rationale)."
+    },
+    "categoryLabel": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional human category label shown in the `.fc-rule` meta line (e.g. 'Prompt injection', 'Supply chain'). Falls back to the sub_score title when omitted."
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Imperative one-line action that names the user's actual construct (`.fc-action`). For info-tier rules: 'No action required — context only.'."
+        },
+        "steps": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "description": "Optional ordered remediation steps (rendered as `<ol>`). May contain inline <code>…</code>."
+        },
+        "saferPattern": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["before", "after"],
+          "properties": {
+            "before": {"type": "string", "minLength": 1, "description": "The 'Avoid' snippet (`.sp.before`) — the unsafe construct."},
+            "after": {"type": "string", "minLength": 1, "description": "The 'Safer pattern' snippet (`.sp.after`). A pattern, NEVER a product/vendor (anti-recommendation per design-system.md)."}
+          },
+          "description": "Optional Avoid → Safer pattern before/after pair (`.fc-safer`)."
+        }
+      },
+      "description": "Actionable remediation surfaced on every finding: `action` (required) + optional `steps[]` + optional `saferPattern`. Methodology-over-opinion — concrete and reproducible, never a product recommendation."
     },
     "severity": {
       "type": "string",
@@ -217,6 +268,21 @@
       "status": "active",
       "shadowUntil": null,
       "appliesTo": ["skill", "mcp", "rules", "hooks", "plugin"],
+      "title": "Invisible tag-channel characters hidden in the text",
+      "categoryLabel": "Prompt injection",
+      "explanation": "Unicode tag characters (U+E0000–U+E007F) render as nothing to a human reading {path}, but the agent still parses them — so a second, hidden instruction can ride along inside what looks like ordinary text and steer the agent without your knowledge.",
+      "severityRationale": "a hidden instruction can hijack the agent with zero visible trace in the file.",
+      "remediation": {
+        "action": "Strip the tag-channel characters and retype the affected line in plain ASCII.",
+        "steps": [
+          "Re-type the highlighted line by hand — do not copy-paste it.",
+          "Add a Unicode-tag / zero-width linter to CI so this cannot silently reappear."
+        ],
+        "saferPattern": {
+          "before": "deploy the build  (with hidden U+E0001 tag chars between words)",
+          "after": "deploy the build"
+        }
+      },
       "trigger": {
         "type": "regex_match",
         "pattern": "[\\u{E0000}-\\u{E007F}]",

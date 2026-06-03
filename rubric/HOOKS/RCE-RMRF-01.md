@@ -6,6 +6,30 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+title: >-
+  Hook recursively force-deletes a risky path
+categoryLabel: >-
+  Command execution
+explanation: >-
+  This hook runs automatically on an agent event, with no chance for you to stop it.
+  The spotted command <code>{match}</code> recursively force-deletes a root, home, or
+  variable-expanded path — if the path resolves wrong at runtime, it irreversibly destroys data.
+severityRationale: >-
+  the hook can irreversibly destroy user or system data automatically, with no confirmation gate.
+remediation:
+  action: >-
+    Remove the recursive force-delete, or scope it to a fixed relative directory you control.
+  steps:
+    - >-
+      Never <code>rm -rf</code> against <code>/</code>, <code>~</code>, or an unexpanded variable.
+    - >-
+      Target an explicit relative path and guard it so an empty variable can't widen the delete.
+  saferPattern:
+    before: |-
+      rm -rf "$BUILD_DIR"
+    after: |-
+      BUILD_DIR="${BUILD_DIR:?build dir unset}"
+      rm -rf "./build/${BUILD_DIR##*/}"
 trigger:
   type: regex_match
   pattern: '(?i)\brm\s+(?:-[rRfF]+\s+|--recursive\s+|--force\s+)+(?:/(?:\s|$|\*|[a-zA-Z][a-zA-Z0-9/_-]*)|\$\w+|~/?\s*$|"\$\{?\w+\}?")'

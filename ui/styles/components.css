@@ -2495,207 +2495,6 @@ html.dark .ds-select-opt[aria-selected='true'] {
   word-break: break-word;
 }
 
-.subscore-accordion {
-  border: 1px solid var(--border-1);
-  background: var(--bg-page);
-}
-
-.subscore-accordion-head {
-  display: grid;
-  grid-template-columns: 1.4fr 80px auto 100px auto auto auto 30px;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: none;
-  border: 0;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-@media (max-width: 640px) {
-  .subscore-accordion-head {
-    grid-template-columns: 1fr auto;
-  }
-}
-
-.subscore-accordion-title {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.subscore-accordion-slash {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  color: var(--fg-3);
-}
-
-.subscore-accordion-weight {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.75rem;
-  color: var(--fg-3);
-}
-
-.subscore-accordion-count {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.75rem;
-  color: var(--fg-3);
-}
-
-.subscore-accordion-caret {
-  transition: transform 0.2s ease;
-}
-
-.subscore-accordion-caret.open {
-  transform: rotate(180deg);
-}
-
-.subscore-accordion-body {
-  padding: 0 1rem 1rem;
-  border-top: 1px solid var(--border-2);
-}
-
-.subscore-accordion-clear {
-  color: var(--score-green);
-  font-style: italic;
-  padding: 1rem 0;
-}
-
-.subscore-accordion-findings {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* A finding as a forensic evidence record (FindingRow molecule). Two stacked,
-   wrapping rows — never a fixed-column grid — so long file paths ellipsize
-   instead of spilling outside the table. */
-.finding-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-2);
-  font-size: 0.85rem;
-}
-
-.fr-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.fr-sev {
-  flex: none;
-}
-.fr-rule {
-  text-decoration: none;
-  flex: none;
-}
-.fr-rule code {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--brand-primary);
-  border-bottom: 1px dashed color-mix(in srgb, var(--brand-primary) 50%, transparent);
-  padding-bottom: 1px;
-}
-.fr-rule:hover code {
-  border-bottom-style: solid;
-}
-.fr-rule:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-.fr-cat {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-.fr-desc {
-  margin: 0;
-  color: var(--fg-2);
-  line-height: 1.5;
-  max-width: 72ch;
-}
-
-.fr-evidence {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  min-width: 0;
-}
-
-/* Location: file path ellipsizes; the :lines suffix never shrinks. */
-.fr-loc {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  color: var(--fg-2);
-}
-.fr-loc > svg {
-  flex: none;
-  opacity: 0.55;
-}
-.fr-loc-path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.fr-loc-lines {
-  flex: none;
-  color: var(--fg-3);
-}
-
-/* Content-hash evidence chip + inline copy. */
-.fr-sha {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 4px 2px 9px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-xs);
-  background: var(--color-paper-deep);
-  flex: none;
-}
-.fr-sha code {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--fg-2);
-}
-.fr-copy {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 0;
-  background: transparent;
-  color: var(--fg-3);
-  cursor: pointer;
-  border-radius: var(--radius-xs);
-  transition:
-    color var(--dur-xs) var(--ease-out),
-    background var(--dur-xs) var(--ease-out);
-}
-.fr-copy:hover {
-  color: var(--brand-primary);
-  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
-}
-.fr-copy:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
 /* CopyIconButton — discreet icon-only click-to-copy (a sha next to a label, a
    scan id, …). Not the hex Button: a bare 18px glyph, muted until hover, teal on
    the post-copy check flash. Inline so it sits right after the copied string. */
@@ -2735,55 +2534,6 @@ html.dark .ds-select-opt[aria-selected='true'] {
   .copy-icon {
     transition: none;
   }
-}
-
-/* "View on GitHub" — square hairline button (DS button vocabulary: no radius,
-   hover is a background fill, never a brutalist offset shadow). */
-.fr-gh {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: none;
-  padding: 5px 11px;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
-  text-decoration: none;
-  color: var(--color-ink);
-  background: var(--color-paper);
-  border: 1px solid var(--color-ink);
-  transition:
-    background var(--dur-xs) var(--ease-out),
-    color var(--dur-xs) var(--ease-out);
-}
-.fr-gh > svg {
-  flex: none;
-}
-.fr-gh:hover {
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-.fr-gh:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-html.dark .fr-gh {
-  border-color: var(--color-line);
-  color: var(--fg-1);
-}
-html.dark .fr-gh:hover {
-  background: var(--fg-1);
-  color: var(--color-paper);
-}
-
-.subscore-floor {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.7rem;
-  color: var(--score-orange);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
 }
 
 /* ============================================================
@@ -7238,5 +6988,643 @@ html.dark .pkg-gh:hover {
   .scan-term-caret,
   .scan-terminal-live-dot {
     animation: none;
+  }
+}
+
+/* ============================================================
+   FINDING DETAIL (v3 `.find-card`) — the explainable finding card.
+   Shared by every scan surface (repo scan cap-bodies + the upload/item
+   checklist). Native <details> collapse; chevron rotation is the only motion
+   (reduced-motion guarded). The `.sev` severity pill lives here (not BandPill):
+   the v3 spec needs a 5-tier severity palette — notably info=blue + high=solid
+   fill — that BandPill's 4-band tier coloring can't express. The dark code
+   excerpt (`.ex`) is an always-dark terminal surface (token + intentional #fff,
+   per the components.css terminal-palette exemption). See design-system.md.
+   ============================================================ */
+/* Stack of finding cards (the FindingExplanation container, shared by the repo
+   cap-body + the per-capability checklist's flagged-category slot). */
+.find-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.find-card {
+  border: 1px solid var(--color-line);
+  background: var(--bg-surface);
+}
+html.dark .find-card {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--color-line);
+}
+
+/* 1 — header (summary) */
+.find-card > summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  transition: background var(--dur-xs);
+}
+.find-card > summary::-webkit-details-marker {
+  display: none;
+}
+.find-card > summary:hover {
+  background: rgba(15, 23, 42, 0.02);
+}
+html.dark .find-card > summary:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.find-card .fc-titlewrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.find-card .fc-title {
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  text-wrap: pretty;
+}
+html.dark .find-card .fc-title {
+  color: var(--fg-1);
+}
+.find-card .fc-rule {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  word-break: break-word;
+}
+
+/* severity pill */
+.sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  border: 1px solid;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+.sev .sw {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+}
+.sev.critical {
+  background: var(--score-red);
+  color: #fff;
+  border-color: var(--score-red);
+}
+.sev.critical .sw {
+  background: rgba(255, 255, 255, 0.85);
+}
+.sev.high {
+  background: var(--score-orange);
+  color: #fff;
+  border-color: var(--score-orange);
+}
+.sev.high .sw {
+  background: rgba(255, 255, 255, 0.85);
+}
+.sev.medium {
+  color: var(--score-yellow);
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.08);
+}
+.sev.medium .sw {
+  background: var(--score-yellow);
+}
+.sev.low {
+  color: var(--fg-2);
+  border-color: var(--color-line);
+  background: var(--color-paper-deep);
+}
+.sev.low .sw {
+  background: var(--fg-3);
+}
+.sev.info {
+  color: var(--status-info);
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.06);
+}
+.sev.info .sw {
+  background: var(--status-info);
+}
+html.dark .sev.low {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* occurrence-count badge + chevron */
+.find-card .fc-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.fc-count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-ink);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 3px 8px;
+}
+html.dark .fc-count {
+  color: var(--fg-1);
+  background: rgba(255, 255, 255, 0.05);
+}
+.find-card .fc-chev {
+  width: 14px;
+  height: 14px;
+  color: var(--fg-3);
+  transition: transform var(--dur-sm) var(--ease-std);
+}
+.find-card[open] > summary .fc-chev {
+  transform: rotate(180deg);
+}
+
+/* detail body */
+.fc-detail {
+  border-top: 1px solid var(--color-line);
+  padding: 4px 16px 18px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.fc-detail > * {
+  padding-top: 16px;
+}
+
+/* 2 — severity rationale */
+.fc-rationale {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--fg-3);
+  letter-spacing: 0.01em;
+  text-wrap: pretty;
+}
+.fc-rationale b {
+  font-weight: 700;
+}
+.fc-rationale.critical b {
+  color: var(--score-red);
+}
+.fc-rationale.high b {
+  color: var(--score-orange);
+}
+.fc-rationale.medium b {
+  color: var(--score-yellow);
+}
+.fc-rationale.low b {
+  color: var(--fg-1);
+}
+.fc-rationale.info b {
+  color: var(--status-info);
+}
+
+/* section label */
+.fc-lbl {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 9px;
+}
+
+/* 3 — why it matters */
+.fc-why p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  text-wrap: pretty;
+  max-width: 78ch;
+}
+.fc-why code,
+.fc-action code,
+.fc-detail .ph {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--color-line-soft);
+  color: var(--color-ink-soft);
+  padding: 1px 5px;
+}
+html.dark .fc-why code,
+html.dark .fc-action code,
+html.dark .fc-detail .ph {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg-1);
+}
+.fc-novalue {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-3);
+  font-style: italic;
+}
+
+/* 4 — the exact value (code excerpt with line-number gutter) */
+.fc-evidence .ex {
+  border: 1px solid var(--color-ink);
+  background: var(--ol-slate-900);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+html.dark .fc-evidence .ex {
+  border-color: var(--color-line);
+}
+.ex-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+.ex-meta .ex-file {
+  color: var(--brand-primary);
+}
+.ex-line {
+  display: flex;
+  white-space: pre;
+}
+.ex-line .ln {
+  position: sticky;
+  left: 0;
+  flex: 0 0 auto;
+  width: 46px;
+  padding: 1px 12px 1px 0;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.3);
+  background: var(--ol-slate-900);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  user-select: none;
+}
+.ex-line .code {
+  padding: 1px 14px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.ex-line.hit {
+  background: rgba(249, 115, 22, 0.14);
+}
+.ex-line.hit .ln {
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--score-orange);
+  border-right-color: rgba(249, 115, 22, 0.4);
+}
+.ex-line.hit .code {
+  color: #fff;
+}
+.ex-elide {
+  padding: 4px 14px 4px 60px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+/* invisible / unicode character glyph chips */
+.ic {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 2px 3px;
+  margin: 0 1px;
+  vertical-align: middle;
+  color: #fff;
+}
+.ic.zw {
+  background: var(--score-orange);
+}
+.ic.bidi {
+  background: var(--score-red);
+}
+.ic.homo {
+  background: var(--status-info);
+}
+.ic.space {
+  background: var(--ol-slate-500);
+}
+.ex-line.hit .ic {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+/* 5 — occurrences */
+.fc-occ-line {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  letter-spacing: 0.01em;
+}
+.fc-occ-line b {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .fc-occ-line b {
+  color: var(--fg-1);
+}
+.fc-occ-line .lref {
+  color: var(--brand-primary);
+}
+.fc-occ-more {
+  margin-top: 8px;
+}
+.fc-occ-more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+.fc-occ-more > summary::-webkit-details-marker {
+  display: none;
+}
+.fc-occ-more > summary:hover {
+  text-decoration: underline;
+}
+.fc-occ-grid {
+  margin-top: 10px;
+  border: 1px solid var(--color-line);
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+}
+.fc-occ-grid.no-col {
+  grid-template-columns: 60px 1fr;
+}
+.fc-occ-grid .oc {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--color-line-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  word-break: break-word;
+}
+.fc-occ-grid.no-col > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.fc-occ-grid .oc.head {
+  background: var(--bg-page-alt);
+  color: var(--fg-3);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+html.dark .fc-occ-grid .oc.head {
+  background: rgba(255, 255, 255, 0.03);
+}
+.fc-occ-grid .oc.ln {
+  color: var(--brand-primary);
+}
+
+/* 6 — how to fix */
+.fc-fix {
+  border-left: 2px solid var(--brand-primary);
+  padding-left: 14px !important;
+  margin-left: 1px;
+}
+.fc-fix .fc-action {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-ink);
+  text-wrap: pretty;
+}
+html.dark .fc-fix .fc-action {
+  color: var(--fg-1);
+}
+.fc-fix ol {
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fc-fix ol li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 26px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+.fc-fix ol li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
+}
+
+/* safer pattern — Avoid / Safer before-after */
+.fc-safer {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--color-line);
+}
+.fc-safer .sp {
+  padding: 0;
+  min-width: 0;
+}
+.fc-safer .sp:first-child {
+  border-right: 1px solid var(--color-line);
+}
+.fc-safer .sp .sp-tag {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+.fc-safer .sp.before .sp-tag {
+  color: var(--score-red);
+}
+.fc-safer .sp.after .sp-tag {
+  color: var(--score-green);
+}
+.fc-safer .sp .sp-tag .mk {
+  width: 7px;
+  height: 7px;
+}
+.fc-safer .sp.before .sp-tag .mk {
+  background: var(--score-red);
+}
+.fc-safer .sp.after .sp-tag .mk {
+  background: var(--score-green);
+}
+.fc-safer .sp .sp-code {
+  display: block;
+  padding: 11px 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--fg-1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fc-safer .sp.before .sp-code {
+  color: var(--fg-2);
+}
+@media (max-width: 720px) {
+  .fc-safer {
+    grid-template-columns: 1fr;
+  }
+  .fc-safer .sp:first-child {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+}
+
+/* 7 — trace & refs (collapsed footer) */
+.fc-trace {
+  margin-top: 16px;
+  border-top: 1px solid var(--color-line-soft);
+  padding-top: 0 !important;
+}
+.fc-trace > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 11px 0 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  transition: color var(--dur-xs);
+}
+.fc-trace > summary::-webkit-details-marker {
+  display: none;
+}
+.fc-trace > summary:hover {
+  color: var(--color-ink);
+}
+html.dark .fc-trace > summary:hover {
+  color: var(--fg-1);
+}
+.fc-trace > summary svg {
+  width: 10px;
+  height: 10px;
+  transition: transform var(--dur-sm) var(--ease-std);
+}
+.fc-trace[open] > summary svg {
+  transform: rotate(180deg);
+}
+.fc-trace-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 12px 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+.fc-trace-body .tr {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: 1px solid var(--color-line);
+}
+.fc-trace-body .tr a,
+.fc-trace-body a.tr {
+  color: var(--brand-primary);
+}
+.fc-trace-body .tr a:hover,
+.fc-trace-body a.tr:hover {
+  border-bottom: 1px solid currentColor;
+}
+.fc-trace-body .tr .k {
+  color: var(--fg-3);
+}
+.fc-trace-body .tr .v {
+  color: var(--fg-1);
+}
+.fc-trace-body .tr .sha {
+  max-width: 168px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fc-trace-body .tr svg {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .find-card > summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .find-card .fc-right {
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .find-card .fc-chev,
+  .fc-trace > summary svg {
+    transition: none;
   }
 }

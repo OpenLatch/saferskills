@@ -9,7 +9,7 @@ else is `completed`.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from app.models.catalog_item import CatalogItem
@@ -18,8 +18,13 @@ from app.models.scan_run import ScanRun
 from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.scan_run import CapabilityRow, FindingsSummary, ScanRunReportDetail
 from app.schemas.scan_submit import ScanReportDetail
+from app.services.finding_evidence import EvidenceExcerptDict
 
 ScanStatus = Literal["pending", "running", "completed", "failed"]
+
+# Map of {finding_id -> evidence-excerpt} (report-DTO-only, see
+# app.services.finding_evidence). None when the caller resolves no excerpts.
+Evidence = Mapping[str, EvidenceExcerptDict] | None
 
 
 def derive_scan_status(scan: Scan, findings: Sequence[Finding]) -> ScanStatus:
@@ -29,7 +34,7 @@ def derive_scan_status(scan: Scan, findings: Sequence[Finding]) -> ScanStatus:
     return "completed"
 
 
-def _finding_dict(f: Finding) -> dict[str, object]:
+def _finding_dict(f: Finding, evidence: Evidence = None) -> dict[str, object]:
     return {
         "id": str(f.id),
         "rule_id": f.rule_id,
@@ -43,6 +48,8 @@ def _finding_dict(f: Finding) -> dict[str, object]:
         "matched_content_sha256": f.matched_content_sha256,
         "remediation_link": f.remediation_link,
         "rubric_version": f.rubric_version,
+        # Report-DTO-only matched-line window (None when bytes are absent).
+        "evidence_excerpt": (evidence or {}).get(str(f.id)),
     }
 
 
@@ -55,9 +62,14 @@ def _findings_summary(findings: Sequence[Finding]) -> FindingsSummary:
 
 
 def build_scan_report_detail(
-    scan: Scan, item: CatalogItem, findings: Sequence[Finding]
+    scan: Scan, item: CatalogItem, findings: Sequence[Finding], evidence: Evidence = None
 ) -> ScanReportDetail:
-    """Build the full `ScanReportDetail` DTO for a scan + its catalog item."""
+    """Build the full `ScanReportDetail` DTO for a scan + its catalog item.
+
+    `evidence` is an optional `{finding_id -> excerpt}` map (resolved by the
+    router via `finding_evidence.resolve_finding_excerpts`) folded onto each
+    finding as `evidence_excerpt`. Absent → no excerpts (frontend fallback).
+    """
     return ScanReportDetail.model_validate(
         {
             "id": str(scan.id),
@@ -68,23 +80,7 @@ def build_scan_report_detail(
             "tier": scan.tier,
             "sub_scores": scan.sub_scores,
             "score_breakdown": scan.score_breakdown,
-            "findings": [
-                {
-                    "id": str(f.id),
-                    "rule_id": f.rule_id,
-                    "severity": f.severity,
-                    "sub_score": f.sub_score,
-                    "penalty": f.penalty,
-                    "status_at_scan": f.status_at_scan,
-                    "file_path": f.file_path,
-                    "line_start": f.line_start,
-                    "line_end": f.line_end,
-                    "matched_content_sha256": f.matched_content_sha256,
-                    "remediation_link": f.remediation_link,
-                    "rubric_version": f.rubric_version,
-                }
-                for f in findings
-            ],
+            "findings": [_finding_dict(f, evidence) for f in findings],
             "scanned_at": scan.scanned_at,
             "rubric_version": scan.rubric_version,
             "engine_version": scan.engine_version,
@@ -106,6 +102,7 @@ def build_scan_run_report(
     manifest: ManifestSource | None = None,
     download: DownloadInfo | None = None,
     capability_extras: dict[str, tuple[ManifestSource | None, DownloadInfo | None]] | None = None,
+    evidence: Evidence = None,
 ) -> ScanRunReportDetail:
     """Build the repo-scan report DTO: rollup + one `CapabilityRow` per scan.
 
@@ -142,7 +139,7 @@ def build_scan_run_report(
                 catalog_slug=item.slug,
                 sub_scores=dict(scan.sub_scores),
                 findings_summary=_findings_summary(findings),
-                findings=[_finding_dict(f) for f in findings],  # type: ignore[arg-type]
+                findings=[_finding_dict(f, evidence) for f in findings],  # type: ignore[arg-type]
                 manifest=cap_manifest,
                 download=cap_download,
                 content_hash=content_hash,

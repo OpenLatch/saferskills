@@ -6,6 +6,24 @@ weight: 8
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Median issue response time is over 30 days
+categoryLabel: >-
+  Maintenance
+explanation: >-
+  Across issues opened in the last 12 months, the median time to a first maintainer response
+  exceeds 30 days (720 hours). That means bug reports — including security reports — are unlikely
+  to get a timely reply.
+severityRationale: >-
+  slow first response means reported problems, including security issues, sit unaddressed.
+remediation:
+  action: >-
+    Triage incoming issues sooner, even if only to acknowledge and label them.
+  steps:
+    - >-
+      Acknowledge new issues quickly to establish a faster first-response baseline.
+    - >-
+      Prioritise reports tagged as security so they are not lost in the backlog.
 trigger:
   type: commit_history_check
   signal: issue_response_p50_hours

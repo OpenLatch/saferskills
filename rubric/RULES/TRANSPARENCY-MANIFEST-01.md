@@ -6,6 +6,24 @@ weight: 12
 status: active
 shadowUntil: null
 appliesTo: [rules]
+title: >-
+  Rules set ships without a README
+categoryLabel: >-
+  Transparency
+explanation: >-
+  This rules repository has no README. Because rule files are injected verbatim into the agent's
+  context, an undocumented set forces consumers to read every file to learn its intent, scope, and
+  behaviour — making hidden or surprising instructions easy to miss.
+severityRationale: >-
+  without documentation, consumers cannot judge what the rules inject before adopting them.
+remediation:
+  action: >-
+    Add a README that explains what the rules set does, its scope, and any behaviour it imposes on the agent.
+  steps:
+    - >-
+      Create a README at the repo root or beside the rules directory describing each rule's intent and scope.
+    - >-
+      Note any instruction that changes the agent's default behaviour so adopters can review it without opening every file.
 trigger:
   type: file_glob_absent
   paths: ['README.md', 'README', '.cursor/rules/README.md', '.windsurf/rules/README.md']

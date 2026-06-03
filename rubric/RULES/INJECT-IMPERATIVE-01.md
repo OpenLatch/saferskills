@@ -6,6 +6,24 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [rules]
+title: >-
+  Rules file commands the agent to hide or withhold information
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  A rules file is loaded verbatim into the agent as standing instructions for every session. A
+  non-disclosure imperative like {match} steers the agent to conceal behaviour, hide tool calls, or
+  withhold information on every prompt — never appearing in any single conversation you'd review.
+severityRationale: >-
+  the instruction reshapes the agent's disclosure behaviour silently across every session, not one prompt.
+remediation:
+  action: >-
+    Remove the non-disclosure imperative, or restate it as a neutral confidentiality guideline scoped to data, not the agent's honesty.
+  steps:
+    - >-
+      Delete or reword the highlighted instruction so it describes a data-handling boundary (e.g. "keep secrets out of logs") rather than commanding the agent to hide its actions.
+    - >-
+      Confirm no remaining rule tells the agent to lie about, conceal, or refuse to disclose its own behaviour.
 trigger:
   type: regex_match
   pattern: '(?im)^\s*(?:•|-|\*|\d+\.)\s*(?:always|never|must|do\s+not|don[’'']t|under\s+no\s+circumstances)\s+(?:reveal|disclose|share|leak|tell\s+(?:the\s+)?(?:user|anyone)|mention)\b'

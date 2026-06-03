@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 export interface CheckGroupCategory {
   /** Sub-score key (e.g. `security`) — groups findings + indexes `subScores`. */
   key: string
@@ -28,27 +30,37 @@ interface Props {
    * upload report uses the default `"this scan"`.
    */
   emptyScanNoun?: string
+  /**
+   * Optional render slot for a flagged category's findings. When provided, a
+   * non-empty category renders `renderCategoryFindings(category.key)` instead of
+   * the terse `CheckRow` list — the webapp passes a renderer that groups +
+   * resolves the rich `FindingDetail` cards (`FindingExplanation`). Kept as a
+   * slot so `ui/` never imports the generated rule-content map. When omitted
+   * (Ladle / standalone), the compact warn/fail rows are the fallback.
+   */
+  renderCategoryFindings?: (categoryKey: string) => ReactNode
 }
 
 type RowStatus = 'pass' | 'warn' | 'fail'
 
 /**
- * Compact grouped pass/warn/fail checklist for a capability's findings, shared
- * by the item-detail report (`ItemTabs`) and the single-capability upload
- * report (`CapabilityReportTabs`).
+ * Grouped checklist shell for a capability's findings, shared by the item-detail
+ * report (`ItemTabs`) and the single-capability upload report
+ * (`CapabilityReportTabs`). One `.chk-group` per score axis with a green "all
+ * passed" row for empty categories.
  *
- * Intentionally DISTINCT from the DS `FindingRow`: `FindingRow` is the
- * link-rich evidence `<li>` for the repo-level report (severity pill, rule
- * link, GitHub evidence href); `CheckGroupList` is the terse grouped checklist
- * that shows a green "all passed" row per empty category and a warn/fail glyph
- * per finding. The two are not interchangeable — see
- * `.claude/rules/design-system.md` § FindingRow vs CheckGroupList.
+ * Flagged categories render the shared `FindingDetail` card (the v3 `.find-card`)
+ * via the `renderCategoryFindings` slot the webapp supplies — the same molecule
+ * the repo scan report uses, so the flagged-finding presentation is unified
+ * across surfaces (see `.claude/rules/design-system.md` § Explainable findings).
+ * Without the slot, the compact warn/fail `CheckRow` is the fallback.
  */
 export default function CheckGroupList({
   categories,
   subScores,
   findings,
   emptyScanNoun = 'this scan',
+  renderCategoryFindings,
 }: Props) {
   return (
     <>
@@ -73,6 +85,8 @@ export default function CheckGroupList({
                 detail={`No findings in this category for ${emptyScanNoun}.`}
                 result="pass"
               />
+            ) : renderCategoryFindings ? (
+              renderCategoryFindings(c.key)
             ) : (
               catFindings.map((f) => {
                 const fail = f.severity === 'high' || f.severity === 'critical'

@@ -6,6 +6,25 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Role-override jailbreak persona in the skill text
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  The phrase <code>{match}</code> matches a known role-override jailbreak — DAN, "developer
+  mode", "jailbroken", "unrestricted", or an evil/malicious persona. Embedded in a skill,
+  it tries to push the agent into an adversarial role that drops its safety constraints,
+  without the person running the skill realizing it.
+severityRationale: >-
+  a successful role override converts a benign agent context into an unconstrained one.
+remediation:
+  action: >-
+    Remove the persona-assignment phrase, or restate it as quoted research material, not an instruction.
+  steps:
+    - >-
+      Delete the <code>you are / act as / pretend to be &lt;jailbreak persona&gt;</code> line.
+    - >-
+      For red-team or educational skills, keep such strings inside a clearly marked example block so they are read as data, not as a directive.
 trigger:
   type: regex_match
   pattern: '(?i)\b(you\s+are|act\s+as|pretend\s+(to\s+be|you\s+are)|roleplay\s+as)\s+(DAN|developer\s+mode|jailbroken|unrestricted|uncensored|an?\s+(evil|malicious|harmful|amoral)\s+\w+)\b'

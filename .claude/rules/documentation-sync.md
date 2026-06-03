@@ -54,7 +54,8 @@
 | DB schema/migration change | `database.md` + the model under `app/models/` + the registry import in `app/models/__init__.py` |
 | New stored-content table/column (e.g. `artifact_blobs`) | `database.md` + `security.md` § Vendor-data isolation (retention tier) — re-verify the trace stays no-raw-payload |
 | New env var | `environment-config.md`, `services/api/.env.example`, `webapp/.env.example` |
-| New rule under `rubric/` | `methodology.md` + the new rule doc + the CI lane that runs it |
+| New rule under `rubric/` | `methodology.md` + the new rule doc + the CI lane that runs it. **Every rule ships the explainable-finding fields** (`title` + `explanation` + `remediation`, + `severityRationale` unless `info`) — schema-required, fails `pnpm run generate` otherwise |
+| New explainable-finding rule field | `schemas/rubric-rule.schema.json` + `methodology.md` + `docs/methodology.md` + `generate-methodology.cjs` (emit into `content.ts`) + every rubric doc backfilled in the same PR |
 | New scan trigger / scan-pipeline change | `methodology.md` + `security.md` (scan-trace transparency) |
 | New vendor-appeals lifecycle state | `vendor-appeals.md` + `.github/ISSUE_TEMPLATE/04-vendor-appeal.yml` |
 | Codegen pipeline change | `schema-driven-development.md`, `generated-code.md`, `frontend-patterns.md`, `ci-cd.md`, root `CLAUDE.md` |

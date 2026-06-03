@@ -6,6 +6,25 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Zero-width characters smuggled into the instructions
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  Zero-width spaces and joiners (U+200B–U+200D, U+2060, U+FEFF) are invisible to a human
+  reading the file but are emitted as distinct tokens by the agent's tokenizer. Several of
+  them clustered together — this rule fires on three or more — can carry a hidden
+  instruction past a reviewer who sees only ordinary text.
+severityRationale: >-
+  the attack matches tag-channel smuggling, but a non-zero copy-paste noise floor justifies high rather than critical.
+remediation:
+  action: >-
+    Strip the zero-width characters and retype the affected text in plain ASCII.
+  steps:
+    - >-
+      Remove all U+200B, U+200C, U+200D, U+2060, and U+FEFF characters, then diff against the original.
+    - >-
+      A clean strip that leaves the visible text unchanged confirms the removed characters carried no legitimate content.
 trigger:
   type: regex_match
   pattern: '[\u{200B}-\u{200D}\u{2060}\u{FEFF}]'
