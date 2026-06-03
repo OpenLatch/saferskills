@@ -131,6 +131,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           build-args: |
             GIT_SHA=${{ steps.meta.outputs.sha }}
+            PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.PUBLIC_TURNSTILE_SITE_KEY }}
 
       - uses: sigstore/cosign-installer@v3
       - name: Cosign keyless sign
@@ -165,9 +166,16 @@ jobs:
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
+          # Stage the Turnstile siteverify secret so the image + secret roll is
+          # atomic (one release picks up both). Skip when unset so deploys still
+          # work before the GH secret is configured. See ci-cd.md § Deployment.
+          if [ -n "$TURNSTILE_SECRET_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-api-staging "$mid" || true
@@ -250,9 +258,16 @@ jobs:
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
+          # Atomic image + secret roll (one release). Skip when unset. With
+          # ENV=production the API startup guard REQUIRES this secret — set the
+          # GH secret before the first prod deploy. See ci-cd.md § Deployment.
+          if [ -n "$TURNSTILE_SECRET_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-api "$mid" || true

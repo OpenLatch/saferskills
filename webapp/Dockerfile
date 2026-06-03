@@ -18,6 +18,12 @@ COPY webapp ./webapp
 COPY ui ./ui
 
 WORKDIR /repo/webapp
+# PUBLIC_* vars are inlined into the Astro bundle at build time (Vite envPrefix
+# "PUBLIC_" picks up matching process-env vars). Supplied as a build-arg by the
+# deploy workflow (GH secret-backed). Empty default keeps a plain local
+# `docker build` working — an unset key just disables the scan-submit gate.
+ARG PUBLIC_TURNSTILE_SITE_KEY=""
+ENV PUBLIC_TURNSTILE_SITE_KEY=$PUBLIC_TURNSTILE_SITE_KEY
 RUN pnpm run build
 
 # ── runtime — Node 24 alpine serving the standalone bundle ───────────────
