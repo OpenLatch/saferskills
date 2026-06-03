@@ -30,9 +30,47 @@ Adapters subclass one of three base classes:
 Every adapter:
 - Registers via `@register_adapter("<name>")` decorator.
 - Implements `list_items()` + `normalize()` (and optionally `enrich()`).
-- Declares `SOURCE_HOSTS: frozenset[str]` — the CI `validate` lane greps this set against the HTTP-client allowlist in `security.md` § Public-input handling #2.
+- Reads its allowlisted hosts from the YAML `hosts:` list via `base_adapter.py`'s `source_hosts` property — adapters do **not** hardcode their own `name` or a `SOURCE_HOSTS` frozenset. The CI `validate` lane (`scripts/validate-outbound-allowlist.cjs`) derives the allowlist from the union of every YAML `hosts:` list and asserts every host an adapter actually fetches is declared there.
 
 **Adding a provider = one YAML config file (+ one small adapter module, if needed).** `app/ingestion/tasks.py` loops the enabled YAML configs and registers periodic Procrastinate tasks automatically — no manual task registration.
+
+## The YAML directory is the single source of truth (generator-derived)
+
+`scripts/generate-ingestion-sources.cjs` (codegen STEP 0) reads every `config/sources/*.yaml` and emits the closed sets so a provider's identity lives in exactly one place:
+
+- **`app/ingestion/config/generated/source_registry.py`** — `SOURCE_NAMES`, `REGISTRY_IDS`, `SOURCE_HOSTS` (per-source), `ALL_HOSTS` (the SSRF allowlist union). `loader.py` re-exports `SOURCE_NAMES` from here; `validate-outbound-allowlist.cjs` derives its allowlist from the same YAMLs.
+- **The two hand-authored schema enum arrays** are rewritten in place (surgical, formatting-preserving): `schemas/ingestion-event.schema.json` → `source.enum` = sorted `SOURCE_NAMES`; `schemas/catalog-item.schema.json` → `…registryId.enum` = sorted(`REGISTRY_IDS` ∪ the fixed non-adapter set `user_submission`/`vendor_verified`/`upload`). These then flow into generated Pydantic/Zod/TS via the normal pipeline. **Never hand-edit those enum arrays** — edit the YAMLs and run `pnpm run generate` (the CI `validate` drift gate enforces this).
+
+The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` for every current source.
+
+## Adding a provider
+
+1. **Add the YAML** under `config/sources/<name>.yaml` (`name`, `kind`, `hosts`, `registry_id` (defaults to `name`), `cadence_cron`, `enabled`, `policy`, …). A disabled placeholder is `enabled: false`.
+2. **`pnpm run generate`** — flows the new `name`/`registry_id`/`hosts` into `source_registry.py`, both schema enums, the generated Pydantic/Zod/TS, and the self-derived outbound allowlist. No hand edit to `security.md`, the validator, or the loader.
+3. **Optional adapter module** under `sources/<name>.py` (`@register_adapter("<name>")`) if the provider needs custom fetch/normalize logic.
+4. **DB CHECK migration (only for a brand-new value, NOT for the 14 already-shipped placeholders).** The value-list CHECKs are kept (DB-level closed-enum safety). A new built source needs one small mechanical migration that **hardcodes** the new value (migrations are frozen-in-time — never `import` the live generated set):
+
+   ```python
+   # migrations/versions/00NN_add_<name>_source.py
+   def upgrade() -> None:
+       # ingestion_events.source + crawler_cursors.source (cf. 0011)
+       op.drop_constraint("chk_ingestion_events_source", "ingestion_events", type_="check")
+       op.create_check_constraint("chk_ingestion_events_source", "ingestion_events",
+           "source IN ('github_skills', …, '<name>')")
+       op.drop_constraint("chk_crawler_cursors_source", "crawler_cursors", type_="check")
+       op.create_check_constraint("chk_crawler_cursors_source", "crawler_cursors",
+           "source IN ('github_skills', …, '<name>')")
+       # item_sources.registry_id (cf. 0010) — only if registry_id != an existing value
+       op.drop_constraint("chk_item_sources_registry_id", "item_sources", type_="check")
+       op.create_check_constraint("chk_item_sources_registry_id", "item_sources",
+           "registry_id IN ('github_skills', …, '<registry_id>')")
+       # the framework expects a cursor row per source
+       op.execute("INSERT INTO crawler_cursors (source) VALUES ('<name>')")
+
+   def downgrade() -> None:
+       # reverse: recreate the CHECKs without '<name>', delete the cursor row
+       ...
+   ```
 
 ## Outbox invariant (D-04-08)
 
@@ -110,7 +148,7 @@ All adapters MUST follow these rules regardless of source kind:
 
 ## Outbound allowlist coupling
 
-A new source = a new entry in `security.md` § Public-input handling #2 + the YAML `hosts` list + the adapter PR. The `validate` CI lane greps adapter files for outbound hosts and asserts every URL host matches the allowlist. **Never add an outbound host in an adapter without a matching security.md PR.**
+The outbound allowlist is **self-derived from the YAML `hosts:` lists** — there is no hand-maintained host set in `security.md` or in `validate-outbound-allowlist.cjs`. A new source declares its hosts in its YAML; `pnpm run generate` flows them into `source_registry.ALL_HOSTS`, and the validator builds the allowlist from the same YAMLs. The `validate` CI lane's real guard is the **Python-fetch check**: it greps adapter `.py` files for outbound hosts and fails if any host is fetched but declared in no YAML `hosts:` list. **Never fetch a host in an adapter that isn't in its provider's YAML `hosts:` list.**
 
 ## Halt-source procedure
 
@@ -128,7 +166,8 @@ The `disabled` state is permanent until manually re-enabled. `paused` is tempora
 
 | Change | Updates here |
 |---|---|
-| New adapter added | "YAML-driven adapter framework" — confirm YAML + `SOURCE_HOSTS` + security.md update |
+| New adapter added | "Adding a provider" — confirm YAML + `pnpm run generate` (security.md/allowlist/loader are auto-derived); CHECK migration only for a brand-new value |
+| Provider-registry generator change | "The YAML directory is the single source of truth" + `scripts/generate-ingestion-sources.cjs` + `schema-driven-development.md` pipeline table |
 | Outbox payload shape change | "Outbox invariant" — re-verify no raw bytes in payload |
 | Procrastinate version or retry schedule change | "Procrastinate worker" |
 | HTTP client TTL / size cap change | "HTTP client" + `environment-config.md` + `app/core/config.py` |
@@ -136,4 +175,4 @@ The `disabled` state is permanent until manually re-enabled. `paused` is tempora
 | Classifier enum or heuristic change | "Agent-compatibility classifier" + `naming-conventions.md` if the agent enum changes |
 | New ToS-respect mandate | "ToS-respect mandates" + adapter review checklist in PR template |
 | Halt procedure change | "Halt procedure" + admin CLI docs |
-| New source added to allowlist | "Outbound allowlist coupling" + `security.md` § Public-input handling #2 |
+| New source added to allowlist | "Outbound allowlist coupling" — add the YAML `hosts:` + `pnpm run generate` (self-derived; no `security.md`/validator hand edit) |

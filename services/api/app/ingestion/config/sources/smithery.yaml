@@ -1,0 +1,16 @@
+# smithery.ai aggregator scraper (Phase B — config stub, adapter not yet built).
+name: smithery
+kind: scrape
+hosts:
+  - smithery.ai
+cadence_cron: null
+rate_limit_per_second: 0.1
+enabled: false
+registry_id: smithery
+description: Placeholder for the smithery.ai MCP-server aggregator scraper (Phase B).
+policy:
+  summary: >-
+    Planned: index public MCP-server listings from smithery.ai, crediting each
+    item with a backlink. Disabled until the scraping adapter ships (Phase B).
+  contact: bot@saferskills.ai
+  robots_txt: respected (Phase B)

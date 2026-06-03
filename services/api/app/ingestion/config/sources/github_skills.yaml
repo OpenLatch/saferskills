@@ -8,6 +8,7 @@ cadence_cron: null
 rate_limit_per_second: 5.0
 queue: ingest_github
 enabled: true
+registry_id: github_skills
 discovery:
   repo_full_name: anthropics/skills
   skill_path_prefix: skills/

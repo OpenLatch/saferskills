@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/ingestion-event.schema.json",
   "title": "IngestionEvent",
+  "$comment": "The `source.enum` array is generated from services/api/app/ingestion/config/sources/*.yaml by scripts/generate-ingestion-sources.cjs — edit the YAMLs, then run `pnpm run generate`. Do not hand-edit the enum.",
   "description": "One row per adapter fetch (outbox pattern, D-04-08). Immutable, append-only, replayable: re-deriving the catalog from these alone produces the same state. Vendor appeals reference bodySha256 to prove the source content at fetch time.",
   "x-postgresql-tablename": "ingestion_events",
   "x-postgresql-indexes": [
@@ -23,20 +24,20 @@
       "type": "string",
       "maxLength": 50,
       "enum": [
+        "claudeskills_info",
+        "clawhub",
         "github_skills",
         "github_topics",
-        "mcp_registry",
-        "npm",
-        "pypi",
-        "mcp_so",
-        "smithery",
         "glama",
+        "mcp_registry",
+        "mcp_so",
+        "npm",
         "pulsemcp",
-        "clawhub",
-        "skillsmp",
+        "pypi",
+        "skillhub_club",
         "skills_sh",
-        "claudeskills_info",
-        "skillhub_club"
+        "skillsmp",
+        "smithery"
       ],
       "description": "Closed enum of adapter sources. Stored VARCHAR+CHECK (not a native PG enum) so a new adapter does not need ALTER TYPE. Updated when a new source adapter ships."
     },

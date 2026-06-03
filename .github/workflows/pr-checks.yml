@@ -98,10 +98,12 @@ jobs:
         # gate for CSS. See .claude/rules/design-system.md § CSS token discipline.
         run: node scripts/check-css.cjs
       - name: Outbound allowlist
-        # Asserts every outbound host referenced in ingestion adapter fetch calls
-        # and YAML `hosts:` lists is in the closed allowlist from
+        # The allowlist is self-derived from the union of every
+        # config/sources/*.yaml `hosts:` list. Asserts every outbound host an
+        # ingestion adapter `.py` actually fetches is declared in some provider
+        # YAML — the real guard now that the host set is generated.
+        # See .claude/rules/ingestion.md § Outbound allowlist coupling +
         # security.md § Public-input handling #2.
-        # See .claude/rules/ingestion.md § Outbound allowlist coupling.
         run: node scripts/validate-outbound-allowlist.cjs
 
   lint-fe:

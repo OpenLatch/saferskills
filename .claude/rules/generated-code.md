@@ -20,6 +20,7 @@ Generated paths at W1:
 - `webapp/src/generated/openapi/types.gen.ts` — TS DTO types (from `openapi.json`)
 - `webapp/src/generated/schemas/*.ts` — Per-schema TS types (from `schemas/*.schema.json`)
 - `webapp/src/generated/zod/*.ts` — Zod schemas (from `schemas/*.schema.json`)
+- `services/api/app/ingestion/config/generated/source_registry.py` — ingestion provider registry `SOURCE_NAMES`/`REGISTRY_IDS`/`SOURCE_HOSTS`/`ALL_HOSTS` (from `config/sources/*.yaml`). Its generator (STEP 0) also rewrites the `source.enum` / `…registryId.enum` arrays inside `schemas/ingestion-event.schema.json` + `schemas/catalog-item.schema.json` in place — so those two enum arrays are generator-managed too (edit the YAMLs, not the JSON). See `ingestion.md`.
 
 The pre-commit hook `block-generated.sh` rejects any commit that modifies a `**/generated/**` path without a same-commit edit to the corresponding generator source. The CI `validate` lane runs `pnpm run generate && git diff --exit-code` and fails on any drift.
 

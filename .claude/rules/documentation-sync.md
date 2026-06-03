@@ -65,7 +65,7 @@
 | DS-component CSS added/moved | `ui/styles/components.css` (not page CSS) — see `design-system.md` § CSS ownership |
 | `check-css.cjs` rule / scope change | `design-system.md` § CSS token discipline + `scripts/check-css.cjs` + `ci-cd.md` |
 | Telemetry event added | `telemetry.md` (event allowlist) |
-| New ingestion source adapter | `ingestion.md` (adapter framework) + `security.md` § Public-input handling #2 (outbound allowlist) + the source YAML under `app/ingestion/config/sources/` |
+| New ingestion source adapter | Add the source YAML under `app/ingestion/config/sources/` (+ optional adapter module) + `pnpm run generate` — `SOURCE_NAMES`/enums/outbound allowlist are all generator-derived from the YAML; no manual `security.md`/allowlist edit. CHECK migration only for a brand-new value. See `ingestion.md` § Adding a provider |
 
 ## Hard rules
 

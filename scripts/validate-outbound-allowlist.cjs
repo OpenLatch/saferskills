@@ -6,23 +6,25 @@
  * pre-commit hook). Enforces the closed outbound-host contract documented in
  * .claude/rules/security.md § Public-input handling #2.
  *
- * Two complementary checks:
+ * The allowlist is SELF-DERIVING: it is the union of every YAML `hosts:` list
+ * under config/sources/*.yaml (the single source of truth — same set the
+ * generated source_registry.ALL_HOSTS exposes to the backend). There is no
+ * hand-maintained host set in this script. Adding a provider = adding its YAML;
+ * its declared hosts join the allowlist automatically.
  *
- *   (A) Python adapter files (services/api/app/ingestion/sources/*.py):
- *       Only lines that are part of an HTTP fetch call (lines containing
- *       `await client.get(`, `client.get(`, `await client.post(`, etc.) are
- *       scanned for URL literals. Data-field assignments like
- *       `github_url = f"https://github.com/{org}/{repo}"` are intentionally
- *       excluded — those are catalog metadata values, not outbound fetches.
- *       Regex patterns and constant-prefix strings are also excluded.
+ * The single check is the real guard: an adapter `.py` file that fetches a
+ * host NOT declared in any YAML `hosts:` list fails the lane.
  *
- *   (B) YAML config files (services/api/app/ingestion/config/sources/*.yaml):
- *       Every entry in a `hosts:` list is checked against the allowlist.
- *       The YAML `hosts:` list is the canonical declaration of which hosts
- *       an adapter is permitted to reach at the transport layer.
- *
- * Every discovered host must be a member of ALLOWED_HOSTS. Any host outside
- * the set is printed with its origin and the script exits 1.
+ *   - YAML config files (config/sources/*.yaml) are parsed to BUILD the
+ *     allowlist (the union of every `hosts:` list). They are not validated
+ *     against it — a YAML host is in the allowlist by construction.
+ *   - Python adapter files (services/api/app/ingestion/sources/*.py): only
+ *     lines that are part of an HTTP fetch call (`await client.get(`,
+ *     `client.get(`, `await client.post(`, …) are scanned for URL literals.
+ *     Data-field assignments like `github_url = f"https://github.com/{org}/…"`
+ *     are intentionally excluded — those are catalog metadata values, not
+ *     outbound fetches. Regex patterns and constant-prefix strings too. Every
+ *     fetched host must appear in some YAML `hosts:` list.
  *
  * See .claude/rules/security.md § Public-input handling #2 and
  * .claude/rules/ingestion.md § Outbound allowlist coupling.
@@ -33,32 +35,6 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..')
-
-// The 16 hosts in the closed outbound allowlist
-// (security.md § Public-input handling #2 + ingestion.md § Outbound allowlist coupling).
-const ALLOWED_HOSTS = new Set([
-  // GitHub — scan tarball fetches + GitHub App token exchange
-  'api.github.com',
-  'raw.githubusercontent.com',
-  // npm — replication + registry
-  'api.npmjs.org',
-  'replicate.npmjs.com',
-  'registry.npmjs.com',
-  // PyPI
-  'pypi.org',
-  // MCP aggregators
-  'registry.modelcontextprotocol.io',
-  'mcp.so',
-  'smithery.ai',
-  'glama.ai',
-  'pulsemcp.com',
-  // Skill aggregators
-  'clawhub.dev',
-  'skillsmp.com',
-  'skills.sh',
-  'claudeskills.info',
-  'skillhub.club',
-])
 
 // ---------------------------------------------------------------------------
 // File discovery helpers
@@ -172,28 +148,34 @@ const YAML_DIR = 'services/api/app/ingestion/config/sources'
 const pyFiles = listFiles(PY_DIR, '.py')
 const yamlFiles = listFiles(YAML_DIR, '.yaml')
 
+// Build the allowlist from the union of every YAML `hosts:` list — the single
+// source of truth (mirrors generated source_registry.ALL_HOSTS).
+const ALLOWED_HOSTS = new Set()
+for (const rel of yamlFiles) {
+  const code = fs.readFileSync(path.join(ROOT, rel), 'utf8')
+  for (const { host } of extractHostsFromYaml(code)) {
+    ALLOWED_HOSTS.add(host)
+  }
+}
+
 let failures = 0
 const fail = (rel, line, host) => {
   failures++
   console.error(
     `::error file=${rel},line=${line}::[validate-outbound-allowlist] ` +
-      `host "${host}" is not in the closed outbound allowlist. ` +
-      `Add it to security.md § Public-input handling #2 and ALLOWED_HOSTS in this script.`
+      `host "${host}" is fetched by an adapter but declared in no ` +
+      `config/sources/*.yaml \`hosts:\` list. Add it to the provider's YAML ` +
+      `(see security.md § Public-input handling #2).`
   )
 }
 
+// Check (A) is the real guard: every host an adapter `.py` actually fetches
+// must be declared in some YAML `hosts:` list (= the self-derived allowlist).
+// There is no check (B): a YAML host is in the allowlist by construction, so
+// validating the YAMLs against it would be tautological.
 for (const rel of pyFiles) {
   const code = fs.readFileSync(path.join(ROOT, rel), 'utf8')
   for (const { host, line } of extractFetchHostsFromPython(code)) {
-    if (!ALLOWED_HOSTS.has(host)) {
-      fail(rel, line, host)
-    }
-  }
-}
-
-for (const rel of yamlFiles) {
-  const code = fs.readFileSync(path.join(ROOT, rel), 'utf8')
-  for (const { host, line } of extractHostsFromYaml(code)) {
     if (!ALLOWED_HOSTS.has(host)) {
       fail(rel, line, host)
     }

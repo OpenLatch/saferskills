@@ -21,12 +21,13 @@ Two sources of truth feed every wire / DB / type contract:
 
 Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod schemas, the Hey-API client — is **generated**. Generated code lives under any `generated/` directory and is **never edited manually**.
 
-## The 7 generators (ordered)
+## The 8 generators (ordered)
 
 `pnpm run generate` runs them in dependency order. Skipping a step risks drift; the CI `validate` lane catches a missed run.
 
 | # | Step | Input | Output | Owner script |
 |---|---|---|---|---|
+| 0 | **source-registry** | `services/api/app/ingestion/config/sources/*.yaml` | `services/api/app/ingestion/config/generated/source_registry.py` + in-place rewrite of `source.enum` / `…registryId.enum` in the two ingestion schema JSONs | `scripts/generate-ingestion-sources.cjs` (the YAML provider directory is the single source of truth — see `ingestion.md`). Runs first: it rewrites schema JSON that `validate`/`pydantic` consume and emits the Python module `openapi` (imports the app) needs. |
 | 1 | **validate** | `schemas/*.schema.json` | (none — fail fast on invalid schema) | `scripts/validate-schemas.cjs` (ajv-cli) |
 | 2 | **pydantic** | `schemas/*.schema.json` | `services/api/app/schemas/generated/*.py` | `scripts/generate-pydantic.cjs` → `services/api/scripts/generate_pydantic_models.py` (datamodel-code-generator, per-file, `--base-class OrmBaseModel`) |
 | 3 | **sqlalchemy** | `schemas/*.schema.json` (skip if `x-postgresql-skip: true`) | `services/api/app/models/generated/*.py` | `scripts/generate-sqlalchemy.cjs` → `services/api/scripts/generate_sqlalchemy_models.py` (Jinja2 + `KNOWN_ENUMS`, reads `x-postgresql-*`) |
@@ -61,6 +62,24 @@ Details: `docs/codegen.md`.
   schema-backed tables use native enums; the internal hand-written tables
   (`item_sources.registry_id`, `rate_limits.bucket`) stay VARCHAR+CHECK.
 
+## Internal (hand-written) vs generated models
+
+The criterion is the **wire shape**, not the table: a table with a JSON-Schema
+source-of-truth that is serialized over the API is **generated** (Pydantic + Zod +
+TS + SQLAlchemy together — the pipeline has no "DB-only" mode). A table with **no
+JSON Schema and no wire DTO** (never serialized over the API) stays **hand-written**
+— the rule explicitly permits this, and schema-driving it would force unwanted wire
+types. The hand-written internal stores live under `app/models/*.py` (not
+`generated/`); see `database.md` for the current list and `app/models/__init__.py`.
+
+## Two generator-managed enum arrays (ingestion)
+
+The `source.enum` (ingestion-event schema) and `…registryId.enum` (catalog-item
+schema) arrays are **not** hand-authored — STEP 0 (`generate-ingestion-sources.cjs`)
+rewrites them in place from `config/sources/*.yaml`. Edit the YAMLs, then
+`pnpm run generate`. The `$comment` at the top of each schema flags this. See
+`ingestion.md` § The YAML directory is the single source of truth.
+
 ## Adding a new schema
 
 1. Write `schemas/<name>.schema.json` — camelCase properties per the JSON Schema convention. Add `x-postgresql-*` extensions (above) if it backs a table; register any new enum in `KNOWN_ENUMS` + ship a `CREATE TYPE` migration.
@@ -88,7 +107,8 @@ Details: `docs/codegen.md`.
 
 | Change | Updates here |
 |---|---|
-| New generator added / removed | "The 7 generators" table + `pnpm run generate` script + `scripts/_run-generators.cjs` |
+| New generator added / removed | "The 8 generators" table + `pnpm run generate` script + `scripts/_run-generators.cjs` |
+| Ingestion provider YAML/enum/host generator change | "Two generator-managed enum arrays" + `scripts/generate-ingestion-sources.cjs` + `ingestion.md` |
 | New schema convention (e.g. another `x-postgresql-skip`-style extension) | "Adding a new schema" |
 | Generator output path changed | The table + `generated-code.md` |
 | New CI lane around codegen | `ci-cd.md` Pipeline lanes + the drift-gate description here |

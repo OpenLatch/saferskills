@@ -1,11 +1,15 @@
 """Production ORM model registry — `Base.metadata` sees only these imports.
 
-The six **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
-VendorVerification, VendorResponse — are GENERATED from `schemas/*.schema.json`
-via the codegen pipeline (`app/models/generated/`, native PG enum columns). The
-five **internal** models — ItemSource, RateLimit, UploadFile, ArtifactBlob,
-ScanEvent — have no JSON-Schema source-of-truth and stay hand-written. Both sets
-share the one `Base` (`app/models/base.py`), re-exported by the generated
+The eight **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
+VendorVerification, VendorResponse (the original six) plus IngestionEvent and
+MergeCandidate (I-04) — are GENERATED from `schemas/*.schema.json` via the codegen
+pipeline (`app/models/generated/`, native PG enum columns). The ten **internal**
+models — ItemSource, RateLimit, UploadFile, ArtifactBlob, ScanEvent, Author,
+CrawlerCursor, PopularityFormula, AccessLog, AdminAuditLog — have no JSON-Schema
+source and no wire DTO (never serialized over the API), so they stay hand-written
+under `app/models/*.py`. (A table that IS serialized over the API must be
+schema-driven/generated — see `.claude/rules/database.md` + `schema-driven-development.md`.)
+Both sets share the one `Base` (`app/models/base.py`), re-exported by the generated
 `_base.py`.
 
 `app.models._relationships` attaches every cross-model `relationship()` (the

@@ -1,0 +1,16 @@
+# pulsemcp.com aggregator scraper (Phase B — config stub, adapter not yet built).
+name: pulsemcp
+kind: scrape
+hosts:
+  - pulsemcp.com
+cadence_cron: null
+rate_limit_per_second: 0.1
+enabled: false
+registry_id: pulsemcp
+description: Placeholder for the pulsemcp.com MCP-server aggregator scraper (Phase B).
+policy:
+  summary: >-
+    Planned: index public MCP-server listings from pulsemcp.com, crediting each
+    item with a backlink. Disabled until the scraping adapter ships (Phase B).
+  contact: bot@saferskills.ai
+  robots_txt: respected (Phase B)
