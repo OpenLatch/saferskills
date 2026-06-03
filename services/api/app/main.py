@@ -10,16 +10,18 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 # Side-effect import: registers every ORM model against Base.metadata.
 import app.models  # pyright: ignore[reportUnusedImport]
 from app.core.access_log_middleware import AccessLogMiddleware
 from app.core.config import get_settings
 from app.core.db_pool import close_pool, init_pool
-from app.core.middleware import StartupGuardMiddleware
-from app.core.observability import init_observability
+from app.core.middleware import StartupGuardMiddleware, service_unavailable_response
+from app.core.observability import init_observability, record_pool_timeout_breadcrumb
 from app.core.startup import run_startup
 from app.core.startup_state import startup_state
 from app.routers import admin, health, items, scans, stats, vendor, webhooks
@@ -58,6 +60,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     # Schema applied idempotently under a FRESH advisory lock 0x5AFE5C13.
     ingestion_task: asyncio.Task[None] | None = None
     if startup_state.is_healthy and settings.ingestion_worker_enabled:
+        from app.ingestion.worker import assert_worker_concurrency_budget
+
+        # Static-config invariant — fail fast (refuse to boot) on a misconfigured
+        # concurrency-vs-pool budget, BEFORE the suppress below (crash-resilience
+        # §1.5). This is a deploy error, not the transient DB-unreachable class
+        # the degraded-mode path handles.
+        assert_worker_concurrency_budget()
         with contextlib.suppress(Exception):
             from app.ingestion import procrastinate_app
             from app.ingestion.worker import (
@@ -101,6 +110,21 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url=None,
 )
+
+
+@app.exception_handler(SQLAlchemyTimeoutError)
+async def _pool_timeout_handler(  # pyright: ignore[reportUnusedFunction]
+    _request: Request, _exc: SQLAlchemyTimeoutError
+) -> JSONResponse:
+    """Map a SQLAlchemy pool-checkout timeout to a bounded 503 (crash-resilience §1.3).
+
+    Under contention the shared pool's `pool_timeout` raises after
+    `db_pool_timeout_s` instead of every request hanging until the ingestion
+    worker frees a slot. A bounded, observable failure beats a silent hang.
+    """
+    record_pool_timeout_breadcrumb("api")
+    return service_unavailable_response("Database connection pool exhausted — retry shortly.")
+
 
 # Degraded-mode guard — registered BEFORE CORS so CORS stays the outermost
 # layer and OPTIONS preflight still succeeds even when the API is degraded.

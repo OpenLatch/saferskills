@@ -35,7 +35,13 @@ def _libpq_conninfo(database_url: str) -> str:
 
 
 procrastinate_app = App(
-    connector=PsycopgConnector(conninfo=_libpq_conninfo(_settings.database_url)),
+    # `max_size` forwards to psycopg_pool.AsyncConnectionPool — set it explicitly
+    # so the job-queue connector never inherits the library default and stays
+    # inside the per-Machine connection budget (crash-resilience §1.4).
+    connector=PsycopgConnector(
+        conninfo=_libpq_conninfo(_settings.database_url),
+        max_size=_settings.ingestion_queue_pool_max_size,
+    ),
     import_paths=[
         "app.ingestion.tasks",
         # Phase C periodic tasks — listed so the worker registers their cron tasks.
