@@ -131,7 +131,10 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           build-args: |
             GIT_SHA=${{ steps.meta.outputs.sha }}
-            PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.PUBLIC_TURNSTILE_SITE_KEY }}
+            # Build-arg name stays PUBLIC_*-prefixed (Astro/Vite requires it to
+            # inline into the bundle); the value comes from the TURNSTILE_-grouped
+            # GH Actions secret. Renaming the build-arg would disable the gate.
+            PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_PUBLIC_SITE_KEY }}
 
       - uses: sigstore/cosign-installer@v3
       - name: Cosign keyless sign
