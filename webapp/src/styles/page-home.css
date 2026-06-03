@@ -877,11 +877,11 @@ html.dark body.va .docs-band {
   overflow: hidden;
   padding: 112px 0 200px;
   background-image: /* + crosses at grid intersections */
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(247,235,255,0.12)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
-      /* horizontal grid lines */
-      linear-gradient(rgba(247, 235, 255, 0.05) 1px, transparent 1px),
-      /* vertical grid lines */
-      linear-gradient(90deg, rgba(247, 235, 255, 0.05) 1px, transparent 1px);
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(247,235,255,0.12)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
+    /* horizontal grid lines */
+    linear-gradient(rgba(247, 235, 255, 0.05) 1px, transparent 1px),
+    /* vertical grid lines */
+    linear-gradient(90deg, rgba(247, 235, 255, 0.05) 1px, transparent 1px);
   background-size:
     120px 120px,
     120px 120px,
