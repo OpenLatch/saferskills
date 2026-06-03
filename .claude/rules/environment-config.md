@@ -42,6 +42,7 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `SWEEP_INTERVAL_SECONDS` | no | `3600` | In-process expiry-sweep loop interval (advisory lock `0x5AFE5C12`). See `database.md` § Expiry sweep. |
 | `VENDOR_SESSION_SECRET` | yes (prod) | dev-insecure default | HS256 signing key for the vendor right-of-reply session JWT (`ss_vendor_session` cookie). The API is the sole verifier — the webapp stores the JWT opaquely and forwards it as a Bearer token. 32+ random bytes in prod; rotate quarterly (rotation only invalidates in-flight 15-min sessions). I-03 Phase C. |
 | `GITHUB_TOKEN` | no | unset | Optional GitHub PAT. Raises the 60→5,000 req/h limit for scan-tarball fetches + the hourly `/api/v1/stats` `github_stars` proxy. Unauthenticated is fine for the single cached hourly call. Emits no PII (cached count only, cf. `telemetry.md`). |
+| `TURNSTILE_SECRET_KEY` | yes (staging/prod) | unset | Cloudflare Turnstile `siteverify` secret for the scan-submit human gate (`POST /scans` + `POST /scans/upload`). Unset → `verify_turnstile` bypasses (dev/test/CI). A `model_validator` in `config.py` **hard-fails boot** when this is unset and `ENV` is `staging`/`production`, so a deploy never runs the gate open. Verified server-side against `challenges.cloudflare.com` before any scan work; fail-closed on a Cloudflare outage. Loopback (trusted seed) exempt. See `security.md` § Public-input handling #10. Non-prod uses Cloudflare's always-pass test secret `1x0000000000000000000000000000000AA`. |
 
 > **Artifact storage needs no new env/secret.** Stored scan snapshots
 > (`artifact_blobs`, content-addressed) live in the single Postgres (`DATABASE_URL`)
@@ -58,6 +59,7 @@ Frontend env vars MUST be prefixed `PUBLIC_*` (Astro convention) to be exposed a
 | `PUBLIC_POSTHOG_KEY` | no | unset | Client-side PostHog project key |
 | `PUBLIC_POSTHOG_HOST` | no | `https://eu.posthog.com` | PostHog ingestion host (EU region default) |
 | `PUBLIC_SENTRY_DSN` | no | unset | Browser Sentry project |
+| `PUBLIC_TURNSTILE_SITE_KEY` | no | unset | Cloudflare Turnstile site key for the scan-submit human gate (`TurnstileGate`). Unset → the verification modal is skipped and scans submit directly (preserves dev UX). Paired with the backend `TURNSTILE_SECRET_KEY`. Non-prod uses the always-pass test site key `1x00000000000000000000AA`. |
 | `RESEND_API_KEY` | no | unset | Outbound email (Resend) — server-only, NOT `PUBLIC_*`. Single verified sending domain `notifications.openlatch.ai` (shared with OpenLatch, cost decision 2026-05-28). Hardcoded `From:` in the send-call: `SaferSkills <<purpose>@notifications.openlatch.ai>`. Reply-to is a `@openlatch.ai` mailbox. |
 
 ## `.env.example` discipline

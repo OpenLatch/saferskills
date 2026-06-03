@@ -6018,6 +6018,79 @@ html.dark .confirm-dialog {
 }
 
 
+/* ===== TURNSTILE GATE (TurnstileGate molecule) =====
+   Native <dialog> human-verification modal — Cloudflare Turnstile widget
+   auto-proceeds on token. Shares the confirm-dialog chrome; adds a widget slot
+   + a short enter animation (short-circuited under reduced-motion). */
+.turnstile-gate {
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  padding: 26px 28px;
+  max-width: 400px;
+  width: calc(100% - 32px);
+  box-shadow: var(--shadow-stamp);
+  margin: auto;
+}
+html.dark .turnstile-gate {
+  border-color: var(--color-line);
+  color: var(--fg-1);
+}
+.turnstile-gate::backdrop {
+  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+}
+.turnstile-gate[open] {
+  animation: turnstile-gate-in 160ms ease-out;
+}
+@keyframes turnstile-gate-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.turnstile-gate h3 {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.turnstile-gate .tg-sub {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0 0 18px;
+  text-wrap: pretty;
+}
+.turnstile-gate .tg-widget {
+  min-height: 65px;
+  display: flex;
+  justify-content: center;
+}
+.turnstile-gate .tg-retry {
+  color: var(--score-red);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+.turnstile-gate .tg-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .turnstile-gate[open] {
+    animation: none;
+  }
+}
+
+
 /* ===== RANGE SLIDER (RangeSlider atom) =====
    Dual-thumb; re-rooted off the catalog .cat-side scope. */
 /* score range — accessible dual-thumb slider */

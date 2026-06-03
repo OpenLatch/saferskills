@@ -36,7 +36,12 @@ export interface UploadFlow {
   /** Run the inline upload of the accumulated files; `onResult` navigates. */
   submit: (opts: {
     visibility: Visibility
+    /** Verified Turnstile token (omitted when the gate is unconfigured). */
+    captchaToken?: string
     onResult: (res: ScanUploadResponse) => void
+    /** Called on a `403 captcha_failed` so the host re-opens a fresh gate
+     *  (the single-use token was already consumed). */
+    onCaptchaRetry?: () => void
   }) => Promise<void>
 }
 
@@ -75,10 +80,14 @@ export function useUploadFlow(): UploadFlow {
 
   async function submit({
     visibility,
+    captchaToken,
     onResult,
+    onCaptchaRetry,
   }: {
     visibility: Visibility
+    captchaToken?: string
     onResult: (res: ScanUploadResponse) => void
+    onCaptchaRetry?: () => void
   }): Promise<void> {
     if (files.length === 0) {
       setDzError({ code: 'no_file', message: uploadErrorMessage('no_file') })
@@ -89,12 +98,20 @@ export function useUploadFlow(): UploadFlow {
     setProgress(0)
     setDzState('uploading')
     try {
-      const res = await submitUpload(files, { visibility }, (loaded, total) =>
+      const res = await submitUpload(files, { visibility, captchaToken }, (loaded, total) =>
         setProgress(total ? loaded / total : 0)
       )
       setProgress(1)
       onResult(res)
     } catch (e) {
+      // The single-use token was consumed; bounce back to `selected` (no scary
+      // error) and let the host re-open a fresh gate for another attempt.
+      if (e instanceof UploadError && e.code === 'captcha_failed' && onCaptchaRetry) {
+        setDzError(null)
+        setDzState('selected')
+        onCaptchaRetry()
+        return
+      }
       if (e instanceof UploadError) {
         setDzError({ code: e.code, message: uploadErrorMessage(e.code, e.reason) })
       } else {

@@ -1,9 +1,11 @@
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toggle from '@ui/components/atoms/Toggle'
 import DropZone from '@ui/components/molecules/DropZone'
+import TurnstileGate from '@ui/components/molecules/TurnstileGate'
 import { useState } from 'react'
 import { track } from '@/lib/analytics'
 import type { ScanSubmitResponse, ScanUploadResponse, Visibility } from '@/lib/api/scans'
+import { useCaptchaGate } from '@/lib/hooks/useCaptchaGate'
 import { useRepoScanFlow } from '@/lib/hooks/useRepoScanFlow'
 import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
 import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/lib/upload'
@@ -26,6 +28,12 @@ export default function HomeScanPanel() {
   const upload = useUploadFlow()
   const repo = useRepoScanFlow()
 
+  // Human-verification gate (Cloudflare Turnstile) — shared state machine. When a
+  // site key is configured the submit handlers open the modal instead of
+  // submitting; the real POST fires on `onVerified`. Unconfigured (dev) → submit
+  // directly, preserving local UX.
+  const gate = useCaptchaGate()
+
   function markStarted(artifactSource: 'upload' | 'github') {
     if (started) return
     track('homepage_scan_panel_started', { artifact_source: artifactSource, visibility })
@@ -42,16 +50,40 @@ export default function HomeScanPanel() {
     window.location.assign(dest)
   }
 
+  function runUpload(captchaToken?: string) {
+    track('homepage_scan_submitted', { artifact_source: 'upload', visibility })
+    void upload.submit({
+      visibility,
+      captchaToken,
+      onResult: navigateToResult,
+      onCaptchaRetry: () => gate.reopen('upload'),
+    })
+  }
+
+  function runUrl(captchaToken?: string) {
+    track('homepage_scan_submitted', { artifact_source: 'github', visibility })
+    void repo.submit({
+      visibility,
+      captchaToken,
+      onResult: navigateToResult,
+      onCaptchaRetry: () => gate.reopen('url'),
+    })
+  }
+
   function submitUpload() {
     if (upload.uploading || upload.files.length === 0) return
-    track('homepage_scan_submitted', { artifact_source: 'upload', visibility })
-    void upload.submit({ visibility, onResult: navigateToResult })
+    if (!gate.request('upload')) runUpload()
   }
 
   function submitUrl() {
     if (repo.submitting) return
-    track('homepage_scan_submitted', { artifact_source: 'github', visibility })
-    void repo.submit({ visibility, onResult: navigateToResult })
+    if (!gate.request('url')) runUrl()
+  }
+
+  function onVerified(token: string) {
+    const action = gate.resolve()
+    if (action === 'upload') runUpload(token)
+    else if (action === 'url') runUrl(token)
   }
 
   return (
@@ -153,6 +185,15 @@ export default function HomeScanPanel() {
       <p id="hs-vis-help" className="hs-vis-help">
         Private results are unlisted, link-only, and expire in 90 days.
       </p>
+
+      {gate.siteKey && (
+        <TurnstileGate
+          open={gate.gateOpen}
+          siteKey={gate.siteKey}
+          onVerified={onVerified}
+          onCancel={gate.cancel}
+        />
+      )}
     </div>
   )
 }
