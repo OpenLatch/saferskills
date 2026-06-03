@@ -1,0 +1,16 @@
+# skillsmp.com aggregator scraper (Phase B — config stub, adapter not yet built).
+name: skillsmp
+kind: scrape
+hosts:
+  - skillsmp.com
+cadence_cron: null
+rate_limit_per_second: 0.1
+enabled: false
+registry_id: skillsmp
+description: Placeholder for the skillsmp.com skill aggregator scraper (Phase B).
+policy:
+  summary: >-
+    Planned: index public skill listings from skillsmp.com, crediting each item
+    with a backlink. Disabled until the scraping adapter ships (Phase B).
+  contact: bot@saferskills.ai
+  robots_txt: respected (Phase B)

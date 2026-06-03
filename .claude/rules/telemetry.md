@@ -79,7 +79,7 @@ No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the
 
 | # | Event | Properties |
 |---|---|---|
-| 17 | `ingestion_cycle_started` | `source` (closed enum — 14-source set); `cadence` (cron string) |
+| 17 | `ingestion_cycle_started` | `source` (closed enum — the YAML-derived `SOURCE_NAMES` set, generated from `config/sources/*.yaml`); `cadence` (cron string) |
 | 18 | `ingestion_cycle_completed` | `source`; `items_added_bucket` ∈ {`0`,`1-10`,`11-100`,`101-1k`,`1k+`}; `items_updated_bucket` (same); `duration_ms_bucket`; `http_304_ratio_bucket` ∈ {`0-25`,`25-50`,`50-75`,`75-100`} |
 | 19 | `ingestion_cycle_failed` | `source`; `reason_enum` ∈ {`rate_limit`,`cf_challenge`,`http_5xx`,`timeout`,`other`} |
 | 20 | `catalog_item_archived` | `source`; `reason_enum` ∈ {`404_timeline`,`maintainer_archived`,`yanked`} |

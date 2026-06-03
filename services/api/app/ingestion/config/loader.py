@@ -15,29 +15,22 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-# The 14 crawled adapter sources (matches ingestion_events.source CHECK +
-# crawler_cursors.source CHECK in migration 0011). user_submission/upload/
-# vendor_verified are NOT crawled adapters (they are endpoints / attributions).
-SOURCE_NAMES: frozenset[str] = frozenset(
-    {
-        "github_skills",
-        "github_topics",
-        "mcp_registry",
-        "npm",
-        "pypi",
-        "mcp_so",
-        "smithery",
-        "glama",
-        "pulsemcp",
-        "clawhub",
-        "skillsmp",
-        "skills_sh",
-        "claudeskills_info",
-        "skillhub_club",
-    }
-)
+# The crawled adapter sources are generated from `sources/*.yaml` by
+# `scripts/generate-ingestion-sources.cjs` (the YAML directory is the single
+# source of truth). Re-exported here so existing importers keep working.
+# user_submission/upload/vendor_verified are NOT crawled adapters (they are
+# endpoints / attributions) and live in the catalog-item schema's fixed set.
+from app.ingestion.config.generated.source_registry import SOURCE_NAMES
+
+__all__ = [
+    "SOURCE_NAMES",
+    "SourceConfig",
+    "SourcePolicy",
+    "get_source_config",
+    "load_source_configs",
+]
 
 _CONFIG_DIR = Path(__file__).resolve().parent / "sources"
 
@@ -66,6 +59,10 @@ class SourceConfig(BaseModel):
     rate_limit_per_second: float = Field(default=0.1, gt=0)
     queue: str = Field(default="default")
     enabled: bool = Field(default=True)
+    registry_id: str | None = Field(
+        default=None,
+        description="Source-of-record id written to item_sources.registry_id (defaults to `name`).",
+    )
     discovery: dict[str, Any] = Field(
         default_factory=dict,
         description="Provider-specific discovery params (topics, feed_url, api_base, …).",
@@ -80,6 +77,12 @@ class SourceConfig(BaseModel):
             msg = f"Unknown source name '{v}'. Known: {sorted(SOURCE_NAMES)}"
             raise ValueError(msg)
         return v
+
+    @model_validator(mode="after")
+    def _default_registry_id(self) -> SourceConfig:
+        if self.registry_id is None:
+            self.registry_id = self.name
+        return self
 
 
 @functools.lru_cache(maxsize=1)

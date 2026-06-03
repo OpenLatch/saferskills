@@ -1,0 +1,16 @@
+# skillhub.club aggregator scraper (Phase B — config stub, adapter not yet built).
+name: skillhub_club
+kind: scrape
+hosts:
+  - skillhub.club
+cadence_cron: null
+rate_limit_per_second: 0.1
+enabled: false
+registry_id: skillhub_club
+description: Placeholder for the skillhub.club skill aggregator scraper (Phase B).
+policy:
+  summary: >-
+    Planned: index public skill listings from skillhub.club, crediting each item
+    with a backlink. Disabled until the scraping adapter ships (Phase B).
+  contact: bot@saferskills.ai
+  robots_txt: respected (Phase B)

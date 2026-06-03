@@ -9,6 +9,7 @@ cadence_cron: "0 * * * *"
 rate_limit_per_second: 5.0
 queue: ingest_npm
 enabled: true
+registry_id: npm
 discovery:
   changes_url: https://replicate.npmjs.com/_changes
   name_prefixes: ["mcp-server-", "claude-skill-", "@modelcontextprotocol/"]

@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/catalog-item.schema.json",
   "title": "CatalogItem",
+  "$comment": "The `sources.items.properties.registryId.enum` array is generated from services/api/app/ingestion/config/sources/*.yaml (their registry_id, union the fixed non-adapter set user_submission/vendor_verified/upload) by scripts/generate-ingestion-sources.cjs — edit the YAMLs, then run `pnpm run generate`. Do not hand-edit the enum.",
   "description": "A single capability in the SaferSkills catalog (a skill, MCP server, hook, plugin, or rules artifact). One catalog_item = one capability; a capability may link to a GitHub repo, and several capabilities can share one repo (a repo scan discovers + scores each independently).",
   "x-postgresql-tablename": "catalog_items",
   "x-postgresql-indexes": [
@@ -178,23 +179,23 @@
           "registryId": {
             "type": "string",
             "enum": [
+              "claudeskills_info",
+              "clawhub",
               "github_skills",
               "github_topics",
-              "mcp_registry",
-              "npm",
-              "pypi",
-              "clawhub",
-              "skillsmp",
-              "skills_sh",
-              "claudeskills_info",
-              "skillhub_club",
-              "mcp_so",
-              "smithery",
               "glama",
+              "mcp_registry",
+              "mcp_so",
+              "npm",
               "pulsemcp",
+              "pypi",
+              "skillhub_club",
+              "skills_sh",
+              "skillsmp",
+              "smithery",
+              "upload",
               "user_submission",
-              "vendor_verified",
-              "upload"
+              "vendor_verified"
             ],
             "description": "Closed-enum source-of-record identifier. PRD §7.4 dual-attribution. I-04 D-04-25: `github_topic`→`github_topics`, `anthropics_skills`→`github_skills`; +`skills_sh`,`claudeskills_info`,`skillhub_club`. The I-3.5 values `upload`/`user_submission`/`vendor_verified` are preserved."
           },

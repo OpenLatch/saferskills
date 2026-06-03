@@ -8,6 +8,7 @@ cadence_cron: "0 1 * * *"
 rate_limit_per_second: 0.5  # Search API: 30 req/min
 queue: ingest_github
 enabled: true
+registry_id: github_topics
 discovery:
   topics: [claude-skills, anthropic-skills, agent-skills, mcp-server]
   # Star-count shards keep each query under the 1,000-result Search API cap.

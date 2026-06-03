@@ -16,20 +16,20 @@ class Source(StrEnum):
     Closed enum of adapter sources. Stored VARCHAR+CHECK (not a native PG enum) so a new adapter does not need ALTER TYPE. Updated when a new source adapter ships.
     """
 
+    claudeskills_info = "claudeskills_info"
+    clawhub = "clawhub"
     github_skills = "github_skills"
     github_topics = "github_topics"
-    mcp_registry = "mcp_registry"
-    npm = "npm"
-    pypi = "pypi"
-    mcp_so = "mcp_so"
-    smithery = "smithery"
     glama = "glama"
+    mcp_registry = "mcp_registry"
+    mcp_so = "mcp_so"
+    npm = "npm"
     pulsemcp = "pulsemcp"
-    clawhub = "clawhub"
-    skillsmp = "skillsmp"
-    skills_sh = "skills_sh"
-    claudeskills_info = "claudeskills_info"
+    pypi = "pypi"
     skillhub_club = "skillhub_club"
+    skills_sh = "skills_sh"
+    skillsmp = "skillsmp"
+    smithery = "smithery"
 
 
 class FetchTier(IntEnum):

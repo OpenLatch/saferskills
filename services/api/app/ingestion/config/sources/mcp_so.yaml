@@ -1,0 +1,16 @@
+# mcp.so aggregator scraper (Phase B — config stub, adapter not yet built).
+name: mcp_so
+kind: scrape
+hosts:
+  - mcp.so
+cadence_cron: null
+rate_limit_per_second: 0.1
+enabled: false
+registry_id: mcp_so
+description: Placeholder for the mcp.so MCP-server aggregator scraper (Phase B).
+policy:
+  summary: >-
+    Planned: index public MCP-server listings from mcp.so, crediting each item
+    with a backlink. Disabled until the scraping adapter ships (Phase B).
+  contact: bot@saferskills.ai
+  robots_txt: respected (Phase B)

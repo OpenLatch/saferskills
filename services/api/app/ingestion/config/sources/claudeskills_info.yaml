@@ -1,0 +1,16 @@
+# claudeskills.info aggregator scraper (Phase B — config stub, adapter not yet built).
+name: claudeskills_info
+kind: scrape
+hosts:
+  - claudeskills.info
+cadence_cron: null
+rate_limit_per_second: 0.1
+enabled: false
+registry_id: claudeskills_info
+description: Placeholder for the claudeskills.info skill aggregator scraper (Phase B).
+policy:
+  summary: >-
+    Planned: index public skill listings from claudeskills.info, crediting each
+    item with a backlink. Disabled until the scraping adapter ships (Phase B).
+  contact: bot@saferskills.ai
+  robots_txt: respected (Phase B)
