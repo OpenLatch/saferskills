@@ -6,9 +6,40 @@ See `.claude/rules/environment-config.md`.
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _coerce_sslmode_to_ssl(value: str) -> str:
+    """Rename a libpq `sslmode` query param to asyncpg's `ssl`.
+
+    Managed Postgres DSNs (Fly Managed Postgres, Supabase, Neon, …) carry a
+    `?sslmode=require` query param. libpq + psycopg understand it, but
+    SQLAlchemy's **asyncpg** dialect forwards unrecognized query params straight
+    to `asyncpg.connect()` as kwargs, and asyncpg has no `sslmode` kwarg — boot
+    dies with `connect() got an unexpected keyword argument 'sslmode'` and the
+    API drops into degraded mode (503 on every route but `/api/v1/health`).
+    asyncpg's equivalent is `ssl`, which both the SQLAlchemy dialect and raw
+    asyncpg accept with the same libpq value strings (`disable` / `require` /
+    `verify-full` / …). Rename the key, preserve the value; if an explicit `ssl`
+    is already present it wins and the `sslmode` alias is dropped.
+    """
+    if "sslmode=" not in value:
+        return value
+    parts = urlsplit(value)
+    pairs = parse_qsl(parts.query, keep_blank_values=True)
+    has_ssl = any(key == "ssl" for key, _ in pairs)
+    rebuilt: list[tuple[str, str]] = []
+    for key, val in pairs:
+        if key == "sslmode":
+            if has_ssl:
+                continue  # explicit ssl wins — drop the libpq alias
+            rebuilt.append(("ssl", val))
+        else:
+            rebuilt.append((key, val))
+    return urlunsplit(parts._replace(query=urlencode(rebuilt)))
 
 
 class Settings(BaseSettings):
@@ -225,23 +256,29 @@ class Settings(BaseSettings):
 
     @field_validator("database_url", mode="after")
     @classmethod
-    def _normalize_db_scheme(cls, value: str) -> str:
-        """Coerce the DSN to the async driver SQLAlchemy 2.x requires.
+    def _normalize_db_dsn(cls, value: str) -> str:
+        """Coerce the DSN to the async form every consumer here expects.
 
-        Managed Postgres providers — including Fly's `postgres attach` — hand
-        out `postgres://…` DSNs, but SQLAlchemy 2.x dropped the legacy
-        `postgres` dialect alias, so `create_async_engine` crashes boot with
-        `NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:postgres`.
-        Normalize a bare `postgres://` / `postgresql://` DSN to the
-        `postgresql+asyncpg://` form every consumer here expects
-        (`db/session.py`, `migrations/env.py`; `db_pool.py` strips the driver
-        hint back off for raw asyncpg). An explicit `+driver` is left intact.
+        Two managed-Postgres quirks crash boot otherwise:
+
+        1. **Scheme** — providers (including Fly's `postgres attach`) hand out
+           `postgres://…` / `postgresql://…` DSNs, but SQLAlchemy 2.x dropped
+           the legacy `postgres` alias and needs an explicit `+asyncpg` driver,
+           or `create_async_engine` raises `NoSuchModuleError`. Every consumer
+           expects the `postgresql+asyncpg://` form (`db/session.py`,
+           `migrations/env.py`; `db_pool.py` strips the hint back off for raw
+           asyncpg).
+        2. **SSL** — a `?sslmode=…` query param is libpq-only; the asyncpg
+           dialect forwards it as a bad `connect()` kwarg. `_coerce_sslmode_to_ssl`
+           renames it to `ssl`.
+
+        An explicit `+driver` is left intact.
         """
         if value.startswith("postgres://"):
-            return "postgresql+asyncpg://" + value.removeprefix("postgres://")
-        if value.startswith("postgresql://"):
-            return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
-        return value
+            value = "postgresql+asyncpg://" + value.removeprefix("postgres://")
+        elif value.startswith("postgresql://"):
+            value = "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+        return _coerce_sslmode_to_ssl(value)
 
     @model_validator(mode="after")
     def _require_turnstile_secret_in_prod(self) -> Settings:
