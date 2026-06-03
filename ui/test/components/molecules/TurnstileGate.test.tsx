@@ -11,8 +11,15 @@ let resetMock: ReturnType<typeof vi.fn>
 describe('TurnstileGate', () => {
   beforeEach(() => {
     lastOpts = undefined
-    renderMock = vi.fn((_el: HTMLElement, opts: unknown) => {
+    renderMock = vi.fn((_el: HTMLElement, opts: { appearance?: string }) => {
       lastOpts = opts
+      // Mirror real Cloudflare Turnstile: `appearance` accepts ONLY these
+      // values (or undefined). Passing the widget *mode* ('managed') makes the
+      // real `render()` throw — the bug that broke the whole gate on staging.
+      // The mock must throw too, or the test gives false confidence.
+      if (opts.appearance && !['always', 'execute', 'interaction-only'].includes(opts.appearance)) {
+        throw new Error(`[Cloudflare Turnstile] Unknown appearance value: "${opts.appearance}"`)
+      }
       return 'widget-1'
     })
     resetMock = vi.fn()
@@ -36,14 +43,26 @@ describe('TurnstileGate', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the heading + eyebrow + Cancel, and renders the managed widget when open', async () => {
+  it('renders the heading + eyebrow + Cancel, and renders the widget when open', async () => {
     render(<TurnstileGate open siteKey="1x00AA" onVerified={() => {}} onCancel={() => {}} />)
     expect(screen.getByRole('heading', { name: /verify you're human/i })).toBeInTheDocument()
     expect(screen.getByText(/human check/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
     await waitFor(() => expect(renderMock).toHaveBeenCalledTimes(1))
     expect(lastOpts.sitekey).toBe('1x00AA')
-    expect(lastOpts.appearance).toBe('managed')
+  })
+
+  it("regression: does NOT pass appearance:'managed' (it threw 'Unknown appearance value' and broke the gate)", async () => {
+    render(<TurnstileGate open siteKey="1x00AA" onVerified={() => {}} onCancel={() => {}} />)
+    await waitFor(() => expect(renderMock).toHaveBeenCalledTimes(1))
+    // 'managed' is the dashboard widget MODE, never a valid render `appearance`.
+    expect(lastOpts.appearance).not.toBe('managed')
+    // Either omitted (default 'always') or one of the valid values — never invalid.
+    if (lastOpts.appearance !== undefined) {
+      expect(['always', 'execute', 'interaction-only']).toContain(lastOpts.appearance)
+    }
+    // render() succeeded (didn't throw) → no retry alert; the gate is live.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('auto-proceeds: the widget callback forwards the token to onVerified after the success beat', async () => {
