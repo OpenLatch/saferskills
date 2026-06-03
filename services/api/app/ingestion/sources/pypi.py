@@ -16,6 +16,7 @@ import html.parser
 import re
 from collections.abc import AsyncIterator
 from typing import Any
+from urllib.parse import urlparse
 
 import structlog
 
@@ -200,7 +201,11 @@ class PypiAdapter(RegistryAdapter):
 
         for key in ("Source", "Homepage", "Repository", "Source Code", "Code"):
             url_candidate = project_urls.get(key) or ""
-            if "github.com" in url_candidate:
+            # Match the URL *host* exactly — never a substring. A publisher-controlled
+            # project_url like `https://github.com.evil.com/...` must NOT be treated as
+            # GitHub (CodeQL py/incomplete-url-substring-sanitization).
+            host = (urlparse(url_candidate).hostname or "").lower()
+            if host == "github.com" or host == "www.github.com":
                 github_org, github_repo = _parse_github_coords(url_candidate)
                 if github_org and github_repo:
                     github_url = f"https://github.com/{github_org}/{github_repo}"

@@ -86,7 +86,10 @@ class HttpClientFactory:
             policy=policy,
         )
         request_hooks: list[Any] = [_rate_limit_hook(adapter)]
-        if "api.github.com" in adapter.source_hosts:
+        # Exact host match over the allowlist set (NOT a substring/`in` URL check —
+        # CodeQL py/incomplete-url-substring-sanitization). source_hosts is a set of
+        # bare hostnames, so this is exact membership; `any(==)` makes that unambiguous.
+        if any(host == "api.github.com" for host in adapter.source_hosts):
             request_hooks.append(_github_app_token_hook(settings))
         return httpx.AsyncClient(
             transport=transport,

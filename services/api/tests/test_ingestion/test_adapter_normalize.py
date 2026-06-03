@@ -288,6 +288,23 @@ class TestPypiNormalize:
         assert result.github_org == "acme"
         assert result.github_repo == "mcp-server-acme"
 
+    def test_normalize_rejects_spoofed_github_host(self) -> None:
+        """Regression (CodeQL py/incomplete-url-substring-sanitization): a
+        publisher-controlled project_url whose host merely CONTAINS 'github.com'
+        (e.g. github.com.evil.com) must NOT be treated as a GitHub repo."""
+        adapter = build_adapter("pypi")
+        for spoof in (
+            "https://github.com.evil.com/acme/pkg",
+            "https://evilgithub.com/acme/pkg",
+            "https://example.com/?redirect=github.com/acme/pkg",
+        ):
+            raw = _raw(self._pypi_payload(github_url=spoof))
+            result = adapter.normalize(raw)
+            assert result is not None
+            assert result.github_org is None, f"spoofed host accepted: {spoof}"
+            assert result.github_repo is None
+            assert result.github_url is None
+
     def test_normalize_non_200_returns_none(self) -> None:
         adapter = build_adapter("pypi")
         raw = _raw(self._pypi_payload(), status=304)
