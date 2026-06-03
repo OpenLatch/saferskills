@@ -23,11 +23,17 @@ jobs:
         # a duplicate `action-semantic-pull-request` commit-status that
         # stuck in PENDING and added noise to PR check rollups without
         # being a branch-protection-required check.
+        #
+        # The description is NOT case-restricted: Conventional Commits
+        # (and `conventional-pre-commit`) do not mandate a lowercase
+        # subject, so a leading-`[a-z]` requirement wrongly rejected valid
+        # titles like Dependabot's `chore(deps): Bump the <group> ...`.
+        # Only a non-empty description after `: ` is required.
         run: |
-          if ! printf '%s' "$PR_TITLE" | grep -qE '^(feat|fix|chore|docs|refactor|test|build|ci|perf|style|revert)(\([^)]+\))?!?: [a-z].+$'; then
+          if ! printf '%s' "$PR_TITLE" | grep -qE '^(feat|fix|chore|docs|refactor|test|build|ci|perf|style|revert)(\([^)]+\))?!?: .+$'; then
             echo "::error::PR title is not a valid Conventional Commits message."
             echo "  got:      $PR_TITLE"
-            echo "  expected: <type>(<scope>)?: <lowercase description>"
+            echo "  expected: <type>(<scope>)?: <description>"
             echo "  types:    feat, fix, chore, docs, refactor, test, build, ci, perf, style, revert"
             exit 1
           fi
