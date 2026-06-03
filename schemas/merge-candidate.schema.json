@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/merge-candidate.schema.json",
+  "title": "MergeCandidate",
+  "description": "Pending merge of two items that share a fuzzy name similarity but no canonical-ID match (D-04-09). Wikidata reconciliation pattern. Founder decides via the admin CLI (Phase C); the table + insert path ship in Phase A.",
+  "x-postgresql-tablename": "merge_candidates",
+  "x-postgresql-indexes": [
+    { "name": "uq_merge_candidates_pair", "columns": ["left_artifact_id", "right_artifact_id"], "unique": true },
+    { "name": "idx_merge_candidates_pending", "columns": ["status"], "where": "status = 'pending'" }
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "leftArtifactId", "rightArtifactId", "rapidfuzzScore", "jaroWinklerScore", "signals", "status", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
+      "description": "Server-assigned UUID."
+    },
+    "leftArtifactId": {
+      "type": "string",
+      "format": "uuid",
+      "x-foreign-key": { "table": "catalog_items", "column": "id", "ondelete": "CASCADE" },
+      "description": "Lower-ordered catalog_item id of the candidate pair (left < right enforced by a CHECK)."
+    },
+    "rightArtifactId": {
+      "type": "string",
+      "format": "uuid",
+      "x-foreign-key": { "table": "catalog_items", "column": "id", "ondelete": "CASCADE" },
+      "description": "Higher-ordered catalog_item id of the candidate pair."
+    },
+    "rapidfuzzScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "RapidFuzz token_set_ratio (0–100)."
+    },
+    "jaroWinklerScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Jaro-Winkler similarity (0–1)."
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {},
+      "x-postgresql-nullable": false,
+      "x-postgresql-default": "'{}'::jsonb",
+      "description": "Which fields matched (e.g. { name: true, source: 'npm', incoming_name: '…' })."
+    },
+    "status": {
+      "type": "string",
+      "maxLength": 20,
+      "enum": ["pending", "merged", "rejected"],
+      "default": "pending",
+      "x-postgresql-default": "'pending'",
+      "x-postgresql-nullable": false,
+      "description": "Review lifecycle. Stored VARCHAR+CHECK."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-postgresql-default": "now()",
+      "description": "When the candidate was queued."
+    },
+    "decidedBy": {
+      "type": ["string", "null"],
+      "maxLength": 20,
+      "description": "Admin key fingerprint (first chars of sha256) — anonymized identity of the decider."
+    },
+    "decidedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When the decision was recorded."
+    },
+    "decisionNote": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "Optional free-text rationale for the decision."
+    }
+  }
+}

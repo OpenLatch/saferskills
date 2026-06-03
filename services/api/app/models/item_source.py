@@ -25,6 +25,8 @@ class ItemSource(Base):
     )
     registry_id: Mapped[str] = mapped_column(String(40), nullable=False)
     registry_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Per-listing health (I-04 migration 0011): active|paused|blocked|disabled.
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'active'"))
     listed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_indexed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")

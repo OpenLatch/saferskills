@@ -1,0 +1,22 @@
+# anthropics/skills GitHub webhook adapter (D-04-05). Webhook-driven, no cadence.
+name: github_skills
+kind: webhook
+hosts:
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: null
+rate_limit_per_second: 5.0
+queue: ingest_github
+enabled: true
+discovery:
+  repo_full_name: anthropics/skills
+  skill_path_prefix: skills/
+  manifest_files: [SKILL.md, skill.yaml, README.md, mcp.json]
+description: Push/repository webhooks from the anthropics/skills monorepo.
+policy:
+  summary: >-
+    We receive GitHub webhooks for the anthropics/skills repo and fetch the
+    touched skill manifest via the documented API. We credit every item with a
+    backlink to its GitHub path.
+  contact: bot@saferskills.ai
+  robots_txt: n/a (authenticated API)

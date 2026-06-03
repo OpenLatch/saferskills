@@ -12,8 +12,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.generated._base import (
     Base,
+    availability_enum,
     kind_enum,
+    popularity_rank_tier_enum,
     popularity_tier_enum,
+    quality_tier_enum,
     source_kind_enum,
     visibility_enum,
 )
@@ -167,6 +170,64 @@ class CatalogItem(Base):
         "metadata",
         JSONB,
         nullable=True,
+    )
+
+    availability: Mapped[str] = mapped_column(
+        availability_enum,
+        nullable=False,
+        server_default=sa.text("'available'"),
+    )
+
+    quality_tier: Mapped[str] = mapped_column(
+        quality_tier_enum,
+        nullable=False,
+        server_default=sa.text("'medium'"),
+    )
+
+    quality_signals: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+    )
+
+    fork_of_repo_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        sa.ForeignKey("catalog_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    popularity_breakdown: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+    )
+
+    kind_signals: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+    )
+
+    consecutive404_count: Mapped[int] = mapped_column(
+        sa.Integer,
+        nullable=False,
+        server_default=sa.text("0"),
+    )
+
+    last_seen200_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
+    pushed_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
+    popularity_rank_tier: Mapped[str] = mapped_column(
+        popularity_rank_tier_enum,
+        nullable=False,
+        server_default=sa.text("'long_tail'"),
     )
 
     owner_run_id: Mapped[UUID | None] = mapped_column(

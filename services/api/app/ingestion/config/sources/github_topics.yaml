@@ -1,0 +1,35 @@
+# GitHub topic-search + code-search discovery (D-04-35). Daily 01:00 UTC.
+name: github_topics
+kind: api
+hosts:
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "0 1 * * *"
+rate_limit_per_second: 0.5  # Search API: 30 req/min
+queue: ingest_github
+enabled: true
+discovery:
+  topics: [claude-skills, anthropic-skills, agent-skills, mcp-server]
+  # Star-count shards keep each query under the 1,000-result Search API cap.
+  star_shards:
+    - "stars:>=1000"
+    - "stars:500..999"
+    - "stars:100..499"
+    - "stars:50..99"
+    - "stars:10..49"
+    - "stars:1..9"
+    - "stars:0"
+  # Second discovery pass (D-04-35) — gated by INGESTION_GITHUB_CODE_SEARCH_ENABLED.
+  code_search_queries:
+    - "filename:SKILL.md"
+    - "filename:mcp.json"
+    - "path:.claude/skills"
+    - "path:.claude/commands"
+description: GitHub topic tags + (flagged) code-search for SKILL.md / mcp.json.
+policy:
+  summary: >-
+    We query the documented GitHub Search API for four agent-capability topics
+    (and, when enabled, code-search for SKILL.md/mcp.json). We credit every repo
+    with a backlink and respect the API rate limits.
+  contact: bot@saferskills.ai
+  robots_txt: n/a (authenticated API)

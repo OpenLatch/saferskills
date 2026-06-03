@@ -2458,6 +2458,18 @@
             }
           },
           {
+            "description": "Include low/empty quality_tier items (default hides them \u2014 D-04-19).",
+            "in": "query",
+            "name": "showLowQuality",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include low/empty quality_tier items (default hides them \u2014 D-04-19).",
+              "title": "Showlowquality",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "query",
             "name": "sort",
             "required": false,
@@ -3449,6 +3461,96 @@
         "tags": [
           "stats"
         ]
+      }
+    },
+    "/webhooks/github": {
+      "post": {
+        "description": "Handle GitHub push/repository/ping webhooks for the skills repo.",
+        "operationId": "github_webhook_webhooks_github_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Hub-Signature-256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Hub-Signature-256"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-GitHub-Event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Github-Event"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-GitHub-Delivery",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Github-Delivery"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": "Response Github Webhook Webhooks Github Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Webhook"
       }
     }
   }

@@ -43,6 +43,19 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `VENDOR_SESSION_SECRET` | yes (prod) | dev-insecure default | HS256 signing key for the vendor right-of-reply session JWT (`ss_vendor_session` cookie). The API is the sole verifier — the webapp stores the JWT opaquely and forwards it as a Bearer token. 32+ random bytes in prod; rotate quarterly (rotation only invalidates in-flight 15-min sessions). I-03 Phase C. |
 | `GITHUB_TOKEN` | no | unset | Optional GitHub PAT. Raises the 60→5,000 req/h limit for scan-tarball fetches + the hourly `/api/v1/stats` `github_stars` proxy. Unauthenticated is fine for the single cached hourly call. Emits no PII (cached count only, cf. `telemetry.md`). |
 | `TURNSTILE_SECRET_KEY` | yes (staging/prod) | unset | Cloudflare Turnstile `siteverify` secret for the scan-submit human gate (`POST /scans` + `POST /scans/upload`). Unset → `verify_turnstile` bypasses (dev/test/CI). A `model_validator` in `config.py` **hard-fails boot** when this is unset and `ENV` is `staging`/`production`, so a deploy never runs the gate open. Verified server-side against `challenges.cloudflare.com` before any scan work; fail-closed on a Cloudflare outage. Loopback (trusted seed) exempt. See `security.md` § Public-input handling #10. Non-prod uses Cloudflare's always-pass test secret `1x0000000000000000000000000000000AA`. **Delivery:** sourced from the GH Actions secret `TURNSTILE_SECRET_KEY` and **injected into Fly by the deploy workflow** — `flyctl secrets set --stage` before `flyctl deploy`, per API env (`saferskills-api-staging` / `saferskills-api`). It is NOT a build-arg (runtime-only). See `ci-cd.md` § Deployment. |
+| `INGESTION_WORKER_ENABLED` | no | `true` | Start the in-process Procrastinate ingestion worker (advisory lock `0x5AFE5C13`). Set `false` in test contexts that must not fan out external fetches. |
+| `INGESTION_WORKER_CONCURRENCY` | no | `4` | Procrastinate worker concurrency. INVARIANT: must stay below `db pool_size + max_overflow` (10 + 20 = 30). See `tech-stack.md` § Procrastinate mandate. |
+| `GITHUB_APP_ID` | no | unset | GitHub App `saferskills-ingest` numeric App ID (founder outbox 01). Required in production for the ingestion worker. |
+| `GITHUB_APP_PRIVATE_KEY` | no | unset | GitHub App PEM private key (RS256, multi-line). Store base64-encoded in a Fly secret. |
+| `GITHUB_APP_INSTALLATION_ID` | no | unset | GitHub App installation ID (numeric). |
+| `GITHUB_WEBHOOK_SECRET` | no | unset | HMAC-SHA256 secret for `X-Hub-Signature-256` verification on `POST /webhooks/github`. |
+| `HISHEL_DB_PATH` | no | `/data/.hishel.db` | Hishel RFC-9111 SQLite cache path (Fly volume mount). |
+| `HISHEL_MAX_SIZE_BYTES` | no | `524288000` | Hishel cache LRU size cap (500 MiB). |
+| `HISHEL_GITHUB_TTL_SECONDS` | no | `86400` | Hishel cache TTL for `api.github.com` / `raw.githubusercontent.com` (24h). |
+| `HISHEL_AGGREGATOR_TTL_SECONDS` | no | `3600` | Hishel cache TTL for scraped aggregator hosts (1h). |
+| `INGESTION_SOURCE_BLOCKLIST` | no | `` (empty) | Comma-separated source names disabled in this env (e.g. `mcp_so`). |
+| `INGESTION_GITHUB_CODE_SEARCH_ENABLED` | no | `false` | Enable the `github_topics` code-search discovery pass (D-04-35). Default off in Phase A1. |
+| `SLACK_ALERTS_WEBHOOK_URL` | no | unset | Slack incoming-webhook URL for `#saferskills-alerts` (Phase C ingestion failure alerts; outbox 03). |
 
 > **Artifact storage needs no new env/secret.** Stored scan snapshots
 > (`artifact_blobs`, content-addressed) live in the single Postgres (`DATABASE_URL`)

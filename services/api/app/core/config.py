@@ -204,6 +204,80 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Ingestion (I-04 Phase A) ───────────────────────────────────────────
+    ingestion_worker_enabled: bool = Field(
+        default=True,
+        description=(
+            "Start the in-process Procrastinate ingestion worker in the FastAPI "
+            "lifespan (advisory lock 0x5AFE5C13). Set false in some test contexts; "
+            "live external cadence still needs the GitHub App creds below."
+        ),
+    )
+    ingestion_worker_concurrency: int = Field(
+        default=4,
+        ge=1,
+        description=(
+            "Procrastinate worker concurrency. INVARIANT: must stay below "
+            "db pool_size + max_overflow (10 + 20 = 30) so the API keeps headroom "
+            "(crash-resilience addendum §1)."
+        ),
+    )
+    github_app_id: str | None = Field(
+        default=None, description="GitHub App `saferskills-ingest` numeric App ID (outbox 01)."
+    )
+    github_app_private_key: str | None = Field(
+        default=None,
+        description="GitHub App PEM private key (RS256). Multi-line; base64 in a Fly secret.",
+    )
+    github_app_installation_id: str | None = Field(
+        default=None, description="GitHub App installation id (numeric)."
+    )
+    github_webhook_secret: str | None = Field(
+        default=None,
+        description="HMAC-SHA256 secret for X-Hub-Signature-256 verification on POST /webhooks/github.",
+    )
+    hishel_db_path: str = Field(
+        default="/data/.hishel.db",
+        description="Hishel RFC-9111 SQLite cache path (Fly volume mount, outbox 04).",
+    )
+    hishel_max_size_bytes: int = Field(
+        default=524_288_000,  # 500 MiB
+        ge=1,
+        description="Hishel cache LRU size cap.",
+    )
+    hishel_github_ttl_seconds: int = Field(
+        default=86_400,  # 24h
+        ge=1,
+        description="Hishel cache TTL for api.github.com / raw.githubusercontent.com.",
+    )
+    hishel_aggregator_ttl_seconds: int = Field(
+        default=3_600,  # 1h
+        ge=1,
+        description="Hishel cache TTL for scraped aggregator hosts (Phase B).",
+    )
+    ingestion_source_blocklist: list[str] = Field(
+        default=[],
+        description="Comma-separated source names disabled in this env (e.g. 'mcp_so').",
+    )
+    ingestion_github_code_search_enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable the github_topics code-search discovery pass (D-04-35). Default off "
+            "in Phase A1; flipped on in the fast-follow once Search-API budget is confirmed."
+        ),
+    )
+    slack_alerts_webhook_url: str | None = Field(
+        default=None,
+        description="Slack incoming-webhook URL for #saferskills-alerts (Phase C; outbox 03).",
+    )
+
+    @field_validator("ingestion_source_blocklist", mode="before")
+    @classmethod
+    def _parse_blocklist(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [s.strip() for s in value.split(",") if s.strip()]
+        return value
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> object:

@@ -15,6 +15,14 @@ export type Finding = z.infer<typeof FindingSchema>;
 export const FpAuditReportSchema = z.unknown();
 export type FpAuditReport = z.infer<typeof FpAuditReportSchema>;
 
+// ingestion-event.schema.json
+export const IngestionEventSchema = z.unknown();
+export type IngestionEvent = z.infer<typeof IngestionEventSchema>;
+
+// merge-candidate.schema.json
+export const MergeCandidateSchema = z.unknown();
+export type MergeCandidate = z.infer<typeof MergeCandidateSchema>;
+
 // rubric-rule.schema.json
 export const RubricRuleSchema = z.unknown();
 export type RubricRule = z.infer<typeof RubricRuleSchema>;

@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:ci@postgres:5432/saferskills_ci
       GIT_SHA: ci
       VERSION: 0.0.0+foundation
+      INGESTION_WORKER_ENABLED: "true"
     ports:
       - "8000:8000"   # the pr-checks docker-smoke step curls localhost:8000
     healthcheck:

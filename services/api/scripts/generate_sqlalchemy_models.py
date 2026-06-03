@@ -179,6 +179,18 @@ KNOWN_ENUMS: dict[str, dict[str, Any]] = {
         "values": ("github", "upload"),
         "description": "Origin of the scanned bytes (I-3.5).",
     },
+    "availability": {
+        "values": ("available", "unavailable", "archived"),
+        "description": "Three-state catalog availability (I-04 D-04-17).",
+    },
+    "quality_tier": {
+        "values": ("high", "medium", "low", "empty"),
+        "description": "Soft quality gate (I-04 D-04-19).",
+    },
+    "popularity_rank_tier": {
+        "values": ("top500", "top5k", "long_tail"),
+        "description": "Rank-based popularity bucket, distinct from the scan-tier (I-04 D-04-13).",
+    },
 }
 
 

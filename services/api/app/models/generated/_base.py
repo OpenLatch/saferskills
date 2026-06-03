@@ -16,8 +16,11 @@ import sqlalchemy as sa
 from app.models.base import Base
 
 __all__ = [
+    "AVAILABILITY_VALUES",
     "KIND_VALUES",
+    "POPULARITY_RANK_TIER_VALUES",
     "POPULARITY_TIER_VALUES",
+    "QUALITY_TIER_VALUES",
     "SCAN_RUN_STATUS_VALUES",
     "SCAN_SOURCE_VALUES",
     "SEVERITY_VALUES",
@@ -28,8 +31,11 @@ __all__ = [
     "VENDOR_VERIFICATION_STATE_VALUES",
     "VISIBILITY_VALUES",
     "Base",
+    "availability_enum",
     "kind_enum",
+    "popularity_rank_tier_enum",
     "popularity_tier_enum",
+    "quality_tier_enum",
     "scan_run_status_enum",
     "scan_source_enum",
     "severity_enum",
@@ -41,6 +47,19 @@ __all__ = [
     "visibility_enum",
 ]
 
+# PostgreSQL native enum `availability`: Three-state catalog availability (I-04 D-04-17).
+AVAILABILITY_VALUES = (
+    "available",
+    "unavailable",
+    "archived",
+)
+availability_enum = sa.Enum(
+    *AVAILABILITY_VALUES,
+    name="availability",
+    native_enum=True,
+    create_type=False,
+    create_constraint=False,
+)
 # PostgreSQL native enum `kind`: PRD §2.2 artifact taxonomy.
 KIND_VALUES = (
     "skill",
@@ -56,6 +75,19 @@ kind_enum = sa.Enum(
     create_type=False,
     create_constraint=False,
 )
+# PostgreSQL native enum `popularity_rank_tier`: Rank-based popularity bucket, distinct from the scan-tier (I-04 D-04-13).
+POPULARITY_RANK_TIER_VALUES = (
+    "top500",
+    "top5k",
+    "long_tail",
+)
+popularity_rank_tier_enum = sa.Enum(
+    *POPULARITY_RANK_TIER_VALUES,
+    name="popularity_rank_tier",
+    native_enum=True,
+    create_type=False,
+    create_constraint=False,
+)
 # PostgreSQL native enum `popularity_tier`: PRD §6.2 scan-tier assignment.
 POPULARITY_TIER_VALUES = (
     "indexed",
@@ -66,6 +98,20 @@ POPULARITY_TIER_VALUES = (
 popularity_tier_enum = sa.Enum(
     *POPULARITY_TIER_VALUES,
     name="popularity_tier",
+    native_enum=True,
+    create_type=False,
+    create_constraint=False,
+)
+# PostgreSQL native enum `quality_tier`: Soft quality gate (I-04 D-04-19).
+QUALITY_TIER_VALUES = (
+    "high",
+    "medium",
+    "low",
+    "empty",
+)
+quality_tier_enum = sa.Enum(
+    *QUALITY_TIER_VALUES,
+    name="quality_tier",
     native_enum=True,
     create_type=False,
     create_constraint=False,
