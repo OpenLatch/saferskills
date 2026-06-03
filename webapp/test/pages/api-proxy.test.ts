@@ -49,6 +49,22 @@ describe('same-origin /api/* reverse proxy', () => {
     expect(headers.get('x-proxy-secret')).toBeNull()
   })
 
+  it('never trusts a client-supplied X-Forwarded-For (uses the TCP peer instead)', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { GET } = await import('@/pages/api/[...path]')
+
+    // Attacker forges XFF + Fly-Client-IP, with no trusted edge in front.
+    const request = new Request('http://localhost:5173/api/v1/scans?limit=1', {
+      headers: { 'x-forwarded-for': '1.2.3.4', 'fly-client-ip': '' },
+    })
+    await GET(ctx(request, 'v1/scans', '198.51.100.20'))
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    // The spoofed value is dropped; the real TCP peer is forwarded instead.
+    expect((init.headers as Headers).get('x-forwarded-for')).toBe('198.51.100.20')
+  })
+
   it('sends X-Proxy-Secret when SAFERSKILLS_PROXY_SHARED_SECRET is configured', async () => {
     process.env.SAFERSKILLS_PROXY_SHARED_SECRET = 'top-secret'
     vi.resetModules()

@@ -65,17 +65,22 @@ const proxy: APIRoute = async ({ request, params, clientAddress }) => {
 
   const headers = forwardableHeaders(request.headers)
 
-  // Preserve the real visitor IP for the backend per-IP rate limiter. The proxy
-  // is the trusted hop, so the API reads the left-most X-Forwarded-For entry
-  // when `TRUST_PROXY_HEADERS` is enabled. Prefer an upstream-supplied client IP
-  // (Fly sets `Fly-Client-IP`); else the original XFF head; else this peer.
-  const visitor =
-    request.headers.get('fly-client-ip') ??
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    clientAddress
+  // Set the real visitor IP for the backend per-IP rate limiter from a TRUSTED
+  // source only. On Fly the edge OVERWRITES `Fly-Client-IP` with the actual
+  // client, so it is authoritative; off Fly (local/dev) the TCP peer is. We do
+  // NOT fall back to the client's `X-Forwarded-For` — that header is attacker-
+  // controlled, and because the proxy also presents the shared secret the API
+  // would otherwise trust a spoofed value as the rate-limit key. Strip BOTH
+  // inbound forwarding headers first so a client value can never reach the
+  // backend even partially, then set ours. (A different edge/CDN would mean
+  // trusting a different documented header here.)
+  headers.delete('x-forwarded-for')
+  headers.delete('fly-client-ip')
+  // `||` (not `??`) so an empty/whitespace edge header also falls back to the peer.
+  const visitor = request.headers.get('fly-client-ip')?.trim() || clientAddress
   if (visitor) headers.set('x-forwarded-for', visitor)
-  // `set` (not append) overwrites any client-supplied value, so a browser can
-  // neither inject a fake secret nor read the real one.
+  // `set` (not append) means a browser can neither inject a fake secret nor read
+  // the real one; the API trusts the forwarded IP only on a secret match.
   if (SAFERSKILLS_PROXY_SHARED_SECRET)
     headers.set('x-proxy-secret', SAFERSKILLS_PROXY_SHARED_SECRET)
 
