@@ -31,9 +31,9 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: pnpm run generate
       - name: Assert no drift
@@ -106,7 +106,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: pnpm biome check .
 
@@ -118,7 +118,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd services/api && uv sync && uv run ruff check .
       - run: cd tools/e2e && uv sync && uv run ruff check . || true   # e2e tooling — not required to block
@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd webapp && pnpm tsc --noEmit
 
@@ -143,7 +143,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd services/api && uv sync && uv run pyright
 
@@ -155,7 +155,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd ui && pnpm test
       - run: cd webapp && pnpm test || true   # webapp has no W1 tests yet
@@ -184,7 +184,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd services/api && uv sync && uv run pytest tests/ -x
 
@@ -196,7 +196,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd ui && pnpm ladle:build
 
@@ -218,9 +218,9 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -231,7 +231,7 @@ jobs:
           load: true
       - name: Save image tarball
         run: docker save saferskills-${{ matrix.service }}:pr-${{ github.event.pull_request.number || github.sha }} -o /tmp/${{ matrix.service }}.tar
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: image-${{ matrix.service }}
           path: /tmp/${{ matrix.service }}.tar
@@ -245,8 +245,8 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with: { pattern: image-*, merge-multiple: true, path: /tmp }
       - name: Load images
         run: |
@@ -292,7 +292,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: image-${{ matrix.service }}
           path: /tmp
@@ -305,7 +305,7 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "0"  # W1: see job-level comment above; flip to "1" in W2
           ignore-unfixed: true
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-${{ matrix.service }}.sarif
@@ -319,7 +319,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - name: bandit
         run: cd services/api && uv sync && uv run --with bandit -- bandit -r app -c pyproject.toml || true
@@ -338,8 +338,8 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with: { pattern: image-*, merge-multiple: true, path: /tmp }
       - name: Load API image
         run: docker load -i /tmp/api.tar
@@ -373,7 +373,7 @@ jobs:
       - name: Stop webapp
         if: always()
         run: kill "$(cat /tmp/webapp.pid)" || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: lighthouse-reports
