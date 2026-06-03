@@ -1,53 +1,196 @@
-/* /scans/<id> in-progress shell. */
+/* /scans/<id> in-progress shell — Console direction.
+   Board layout + instrument bar only; the stepper + console + progress-bar
+   are DS components whose CSS lives in ui/styles/components.css. */
 
 .scan-progress-board {
-  max-width: 1280px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.25rem;
 }
 
-.scan-progress-board-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  border-bottom: 1px solid var(--border-1);
-  padding-bottom: 1.5rem;
+/* ---------- instrument bar ---------- */
+.scan-ib {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--bg-surface) 55%, var(--bg-page));
+  font-family: var(--font-mono);
 }
 
-@media (max-width: 640px) {
-  .scan-progress-board-kpis {
-    grid-template-columns: repeat(2, 1fr);
+.scan-ib-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  border-right: 1px solid var(--border-2);
+}
+
+.scan-ib-target {
+  flex: 1;
+  min-width: 0;
+}
+
+.scan-ib-l {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.scan-ib-val {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--fg-1);
+}
+
+.scan-ib-host {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan-ib-ref {
+  flex: none;
+  font-size: 0.62rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-2);
+  color: var(--fg-3);
+}
+
+.scan-ib-val code {
+  font-family: var(--font-mono);
+}
+
+.scan-ib-badge-cell {
+  margin-left: auto;
+  border-right: 0;
+}
+
+/* running / signed status badge (chamfered hex-cap) */
+.scan-ib-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 30px;
+  padding: 0 0.8rem 0 0.75rem;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-paper);
+  background: var(--brand-primary);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+
+.scan-ib-status.is-complete {
+  background: var(--score-green);
+}
+
+.scan-ib-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-paper);
+  animation: scan-ib-pulse 1.3s var(--ease-out) infinite;
+}
+
+.scan-ib-status.is-complete .scan-ib-dot {
+  animation: none;
+}
+
+.scan-ib-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: scan-ib-sweep 2.1s ease-in-out infinite;
+}
+
+.scan-ib-status.reduced-motion .scan-ib-dot,
+.scan-ib-status.reduced-motion .scan-ib-shimmer {
+  animation: none;
+}
+
+@keyframes scan-ib-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
-.scan-progress-board-kpi {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+@keyframes scan-ib-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(120%);
+  }
 }
 
-.scan-progress-board-kpi code {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.9rem;
-}
-
-.scan-progress-board-kpi-loud .loud-num {
-  font-family: var(--font-loud, var(--font-mono, ui-monospace, monospace));
-  font-size: 2.4rem;
-  line-height: 1;
-}
-
-.scan-progress-board-stages {
+/* ---------- two-column run view ---------- */
+.scan-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  grid-template-columns: 312px 1fr;
+  border: 1px solid var(--border-2);
+  min-height: 474px;
 }
 
-@media (max-width: 640px) {
-  .scan-progress-board-stages {
+.scan-grid > .scan-stepper {
+  border-right: 1px solid var(--border-2);
+}
+
+/* ---------- foot meter ---------- */
+.scan-foot {
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--bg-surface) 55%, var(--bg-page));
+}
+
+.scan-progress-board-error {
+  border: 1px solid var(--score-red);
+  padding: 1rem 1.25rem;
+  color: var(--score-red-text);
+}
+
+@media (max-width: 680px) {
+  .scan-progress-board {
+    padding: 1.25rem;
+  }
+  .scan-grid {
     grid-template-columns: 1fr;
+  }
+  .scan-grid > .scan-stepper {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-ib-dot,
+  .scan-ib-shimmer {
+    animation: none;
   }
 }

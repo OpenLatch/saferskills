@@ -8,7 +8,11 @@ interface TurnstileRenderOptions {
   callback: (token: string) => void
   'expired-callback'?: () => void
   'error-callback'?: () => void
-  appearance?: 'always' | 'execute' | 'interaction-only' | 'managed'
+  // NB: `appearance` is NOT the widget mode. Valid values are only
+  // 'always' | 'execute' | 'interaction-only' (default 'always'). The
+  // managed/non-interactive/invisible *mode* is set in the Cloudflare
+  // dashboard — passing it here makes `render()` throw. (Do not re-add 'managed'.)
+  appearance?: 'always' | 'execute' | 'interaction-only'
   theme?: 'auto' | 'light' | 'dark'
 }
 interface TurnstileApi {
@@ -90,8 +94,8 @@ type Phase = 'loading' | 'live' | 'success'
  * `<dialog>` element (free focus-trap / Escape / focus-restore — same platform
  * base as `Dialog.tsx`, but NOT that component: its confirm/cancel contract has
  * no slot for a third-party widget). The Cloudflare Turnstile widget renders
- * inside (`appearance:"managed"`) and the gate **auto-proceeds** the moment it
- * returns a token.
+ * inside (managed widget mode is set in the dashboard, not via `appearance`)
+ * and the gate **auto-proceeds** the moment it returns a token.
  *
  * Chrome is DS-owned: hairline border + `--shadow-overlay` ambient lift over a
  * dimmed, blurred `::backdrop` (NO brutalist `--shadow-stamp`). The framed widget
@@ -182,7 +186,10 @@ export default function TurnstileGate({ open, siteKey, onVerified, onCancel }: P
         }
         widgetIdRef.current = turnstile.render(containerRef.current, {
           sitekey: siteKey,
-          appearance: 'managed',
+          // No `appearance` override — default 'always' renders the widget; the
+          // managed/invisible behavior is the dashboard widget mode. Passing
+          // appearance:'managed' here threw "Unknown appearance value" and broke
+          // the whole gate.
           callback: onToken,
           'expired-callback': onWidgetFail,
           'error-callback': onWidgetFail,

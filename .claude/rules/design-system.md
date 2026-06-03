@@ -56,7 +56,7 @@ ui/
 │   ├── molecules/    # NavBar, CtaBand, AgentMarquee, WhyRow, InstallTabs, ActionCard,
 │   │                 # RecentScanCard, TrendScanCard (Phase A1)
 │   │                 # CatalogToolbar, CatalogFilterSide, CatalogResultsRow, ScanSplit,
-│   │                 # ScanInput, ScanProgressBar, ScanStageCard, ScanReportHero,
+│   │                 # ScanInput, ScanProgressBar, ScanStepper, ScanTerminal, ScanReportHero,
 │   │                 # SubScoreAccordion, FindingRow, InstallCommandBox (Phase B)
 │   │                 # ScoreHistoryChart, InstallActivity, RelatedItems, EmbedBadgeBox,
 │   │                 # VendorResponseCard (Phase C)

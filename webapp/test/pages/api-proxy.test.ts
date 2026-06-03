@@ -102,6 +102,31 @@ describe('same-origin /api/* reverse proxy', () => {
     expect((init.headers as Headers).get('cf-turnstile-response')).toBe('tok')
   })
 
+  it('strips content-encoding from the response (undici already decoded the body)', async () => {
+    // Regression: undici transparently decompresses the upstream body, so the
+    // bytes we stream back are plaintext. Re-emitting the upstream
+    // `content-encoding: br` made the browser double-decode → the
+    // ERR_CONTENT_DECODING_FAILED seen on every /api/* call on staging.
+    const fetchMock = vi.fn(
+      async () =>
+        new Response('{"catalog_total":0}', {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'content-encoding': 'br' },
+        })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const { GET } = await import('@/pages/api/[...path]')
+
+    const res = await GET(ctx(new Request('http://localhost:5173/api/v1/stats'), 'v1/stats'))
+
+    expect(res.status).toBe(200)
+    // The corrupting header must be gone; content-type stays.
+    expect(res.headers.get('content-encoding')).toBeNull()
+    expect(res.headers.get('content-type')).toBe('application/json')
+    // Body still readable (decoded plaintext, not double-decoded).
+    expect(await res.text()).toBe('{"catalog_total":0}')
+  })
+
   it('returns 502 when the backend is unreachable', async () => {
     vi.stubGlobal(
       'fetch',
