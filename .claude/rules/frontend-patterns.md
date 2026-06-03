@@ -19,6 +19,7 @@ webapp/src/pages/
 ├── catalog/[id].astro     → /catalog/:id
 ├── scans/[id].astro       → /scans/:id          (public run report; 404s unlisted runs)
 ├── scans/r/[token].astro  → /scans/r/:token     (unlisted capability URL — SSR, noindex, no-store)
+├── api/[...path].ts       → /api/*              (same-origin reverse proxy → backend; SSR)
 ├── methodology.astro      → /methodology
 └── appeal.astro           → /appeal       (W6)
 ```
@@ -72,6 +73,16 @@ export async function listArtifacts(): Promise<ArtifactList> {
 - Always type the return via the generated DTO. Never `as` cast away the generated type — if a route returns an undocumented shape, fix the backend response_model first.
 - Fetch errors throw; the React island's error boundary catches.
 - Server-rendered pages can call the same `lib/api.ts` functions from Astro's frontmatter — `fetch` is universal in Astro.
+- **`env.PUBLIC_API_URL` is resolved per execution context** (`webapp/src/env.ts`), NOT a build-time constant: in the **browser** it is `window.location.origin` (same-origin → the call lands on the proxy below); on the **server** (SSR + prerender build) it is the runtime `API_ORIGIN`. Call-sites keep using `` `${env.PUBLIC_API_URL}${path}` `` unchanged — both contexts yield an absolute origin. This is what makes one webapp image valid on every host with no per-env build-arg and no `localhost` baked in.
+
+## Same-origin API proxy (`/api/[...path].ts`)
+
+The browser never calls the backend cross-origin. `webapp/src/pages/api/[...path].ts` is an SSR catch-all (`prerender = false`) that reverse-proxies every same-origin `/api/*` request to the backend at `process.env.API_ORIGIN` (a **runtime, server-only** var — not `PUBLIC_*`, never inlined into the client bundle; set per env in `webapp/fly.*.toml` + `docker-compose.yml`, default `http://localhost:8000`).
+
+- **Why**: same-origin ⇒ no CORS, and the client URL is identical across staging/prod (only `API_ORIGIN` differs, at runtime). The proxy lives **in the app** — no edge/CDN rule required, so the deployment stays portable (build-once / deploy-many). See `.claude/rules/environment-config.md` (`API_ORIGIN`) + `.claude/rules/security.md` § Public-input handling.
+- **Streaming, not buffering**: request + response bodies are piped (`new Response(upstream.body, …)`, `duplex: 'half'` on bodied requests), so it transparently carries JSON, `.zip` downloads, `text/event-stream` SSE (scan progress), and multipart uploads. Never `.json()`/`.text()` the upstream body.
+- **Headers**: hop-by-hop + `content-length`/`host` are stripped; custom headers (`Cf-Turnstile-Response`) pass through. The real visitor IP is forwarded as `X-Forwarded-For` (from `Fly-Client-IP` / inbound XFF / peer); when `SAFERSKILLS_PROXY_SHARED_SECRET` is set the proxy also sends `X-Proxy-Secret` (overwriting any client value) so the backend trusts that IP for per-IP rate limiting without exposing a spoof hole on the public API. See `security.md` § Public-input handling #11.
+- Unreachable backend → `502 {"error":"upstream_unreachable"}`.
 
 ## Form validation — Zod
 

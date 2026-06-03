@@ -7,6 +7,14 @@ dockerfile = "Dockerfile"
 [deploy]
 strategy = "rolling"
 
+[env]
+# Backend origin the in-app `/api/*` reverse proxy forwards to (server-only,
+# runtime — NOT a `PUBLIC_*` build-arg, so it is per-environment without a
+# rebuild). The browser calls same-origin `/api/*`; this is where the webapp
+# Node server sends it. See webapp/src/pages/api/[...path].ts +
+# .claude/rules/environment-config.md.
+API_ORIGIN = "https://saferskills-api-staging.fly.dev"
+
 [http_service]
 internal_port = 5173
 force_https = true
