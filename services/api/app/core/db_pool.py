@@ -33,7 +33,7 @@ async def init_pool() -> asyncpg.Pool:
     _pool = await asyncpg.create_pool(  # pyright: ignore[reportUnknownMemberType]
         _sqlalchemy_dsn_to_asyncpg(settings.database_url),
         min_size=1,
-        max_size=10,
+        max_size=settings.asyncpg_pool_max_size,  # budgeted (crash-resilience §1.4)
         command_timeout=10,
     )
     return _pool

@@ -28,8 +28,12 @@ async_engine = create_async_engine(
     _settings.database_url,
     echo=False,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=_settings.db_pool_size,
+    max_overflow=_settings.db_max_overflow,
+    # Back-pressure: raise TimeoutError after this many seconds instead of
+    # blocking forever when ingestion + API jointly exhaust the shared pool.
+    # A bounded, observable 503 beats a silent hang (crash-resilience §1.3).
+    pool_timeout=_settings.db_pool_timeout_s,
 )
 
 AsyncSessionLocal = async_sessionmaker(

@@ -68,6 +68,48 @@ class Settings(BaseSettings):
         description="Async PostgreSQL DSN consumed by SQLAlchemy.",
     )
 
+    # ── Connection budget (crash-resilience addendum §1) ───────────────────
+    # Three pools open against one small Postgres per Machine: SQLAlchemy
+    # (API + ingestion-task sessions), asyncpg (LISTEN/NOTIFY), and the
+    # Procrastinate job-queue connector. The DB is a shared-cpu-1x:256MB box —
+    # RAM, not the 300 max_connections, is the constraint (~5-10 MB per backend).
+    # Lowered defaults keep idle footprint modest while still bursting on demand;
+    # all env-configurable so they scale with prod RAM when real users arrive.
+    db_pool_size: int = Field(
+        default=5,
+        ge=1,
+        description="SQLAlchemy persistent pool size. API queries are short-lived.",
+    )
+    db_max_overflow: int = Field(
+        default=10,
+        ge=0,
+        description="SQLAlchemy burst overflow above pool_size (released when idle).",
+    )
+    db_pool_timeout_s: float = Field(
+        default=10.0,
+        gt=0,
+        description=(
+            "Seconds a checkout waits for a free SQLAlchemy connection before "
+            "raising TimeoutError — the back-pressure lever. Fail fast (503) "
+            "under contention rather than hang every request until the worker "
+            "frees a slot."
+        ),
+    )
+    asyncpg_pool_max_size: int = Field(
+        default=5,
+        ge=1,
+        description="asyncpg LISTEN/NOTIFY pool max size (SSE + scan worker).",
+    )
+    ingestion_queue_pool_max_size: int = Field(
+        default=5,
+        ge=1,
+        description=(
+            "Procrastinate job-queue connector pool max size — job poll + "
+            "advisory locks + NOTIFY. Set explicitly; never inherit the library "
+            "default. Task DB work uses the SQLAlchemy pool, not this one."
+        ),
+    )
+
     # ── HTTP ───────────────────────────────────────────────────────────────
     cors_allowed_origins: list[str] = Field(
         default=["http://localhost:4321", "http://localhost:5173"],
@@ -275,8 +317,9 @@ class Settings(BaseSettings):
         ge=1,
         description=(
             "Procrastinate worker concurrency. INVARIANT: must stay below "
-            "db pool_size + max_overflow (10 + 20 = 30) so the API keeps headroom "
-            "(crash-resilience addendum §1)."
+            "db_pool_size + db_max_overflow (5 + 10 = 15) so the API keeps "
+            "headroom (default 4 ⇒ ≥11 SQLAlchemy slots reserved for API "
+            "traffic). Asserted at startup (crash-resilience addendum §1.5)."
         ),
     )
     github_app_id: str | None = Field(

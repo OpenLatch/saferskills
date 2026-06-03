@@ -88,7 +88,7 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - Advisory lock `0x5AFE5C13` (distinct from migration lock `0x5AFE5C11` and sweep lock `0x5AFE5C12`).
 - Procrastinate schema applied via `procrastinate_app.schema_manager.apply_schema_async()` at startup — **never a migration**.
 - Retry schedule: escalating 1 min → 5 min → 30 min → 6 h, then dead-letter (`IngestionRetry` exception). Per-adapter independent.
-- Worker concurrency: `INGESTION_WORKER_CONCURRENCY` (default 4). INVARIANT: must be below `db pool_size + max_overflow` (10 + 20 = 30) so the API keeps headroom. See `crash-resilience-hardening` plan §1.
+- Worker concurrency: `INGESTION_WORKER_CONCURRENCY` (default 4). INVARIANT: must be below `db_pool_size + db_max_overflow` (5 + 10 = 15) so the API keeps headroom — ingestion tasks draw their sessions from the **same** SQLAlchemy pool the public API serves from. **Asserted at startup** (`app/ingestion/worker.py::assert_worker_concurrency_budget`; the API refuses to boot on a bad budget). The shared pool's `DB_POOL_TIMEOUT_S` is the back-pressure lever (saturation → bounded 503, not a hang). See `crash-resilience-hardening` plan §1 + `environment-config.md`.
 - The SCAN worker (`app/queue/scan_runner.py`) is **NOT Procrastinate** — it keeps its on-demand `asyncio.create_task` pattern per I-03 D-FE-34. Do not migrate it.
 
 ## HTTP client (D-04-06)

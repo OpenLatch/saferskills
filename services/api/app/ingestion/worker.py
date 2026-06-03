@@ -38,9 +38,32 @@ async def apply_procrastinate_schema_locked() -> None:
             await lock_session.commit()
 
 
+def assert_worker_concurrency_budget() -> None:
+    """Refuse a config that lets the worker drain the API's SQLAlchemy pool.
+
+    Ingestion tasks draw their sessions from the SAME SQLAlchemy pool the public
+    API serves from, so the worker concurrency must leave comfortable headroom
+    for API traffic (crash-resilience addendum §1.5). Asserted against
+    `db_pool_size + db_max_overflow` (the worker may legitimately consume
+    overflow under load; the headroom default — 4 vs 15 — keeps it well clear).
+
+    Called both synchronously at lifespan startup (so a misconfigured deploy
+    refuses to boot rather than silently mis-size a background task) and at the
+    top of the supervisor (so a direct call validates too).
+    """
+    settings = get_settings()
+    if settings.ingestion_worker_concurrency >= settings.db_pool_size + settings.db_max_overflow:
+        raise RuntimeError(
+            "ingestion_worker_concurrency must leave SQLAlchemy headroom for the API; "
+            f"got concurrency={settings.ingestion_worker_concurrency} vs "
+            f"pool={settings.db_pool_size}+{settings.db_max_overflow}"
+        )
+
+
 async def ingestion_worker_supervisor() -> None:
     """Run the worker with an auto-restart backoff loop. Cancellation propagates."""
     settings = get_settings()
+    assert_worker_concurrency_budget()
     backoff_s = 5.0
     while True:
         try:
