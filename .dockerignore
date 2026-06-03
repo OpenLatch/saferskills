@@ -1,7 +1,9 @@
-# Dependencies — always reinstalled during Docker build
+# Dependencies — always reinstalled during Docker build. Use a recursive glob so
+# EVERY package's node_modules is excluded (incl. ui/node_modules) — pnpm symlinks
+# copied into the build context dangle in the container and break module resolution
+# (e.g. rollup "failed to resolve cmdk" from ui/) on a local `docker build`.
 node_modules
-webapp/node_modules
-services/*/node_modules
+**/node_modules
 
 # pnpm store (content-addressable cache — massive, never needed in Docker)
 .pnpm-store
