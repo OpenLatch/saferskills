@@ -230,6 +230,16 @@ class CatalogItem(Base):
         server_default=sa.text("'long_tail'"),
     )
 
+    last_deep_scan_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
+    last_lite_scan_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
     owner_run_id: Mapped[UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
         sa.ForeignKey("scan_runs.id", ondelete="CASCADE"),

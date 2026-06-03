@@ -22,7 +22,7 @@ from app.core.middleware import StartupGuardMiddleware
 from app.core.observability import init_observability
 from app.core.startup import run_startup
 from app.core.startup_state import startup_state
-from app.routers import health, items, scans, stats, vendor, webhooks
+from app.routers import admin, health, items, scans, stats, vendor, webhooks
 
 logger = logging.getLogger(__name__)
 
@@ -126,5 +126,7 @@ app.include_router(scans.router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(vendor.router, prefix="/api/v1")
+# Admin surface (I-04 Phase C) — X-Admin-Key gated; /api/v1/admin/*.
+app.include_router(admin.router, prefix="/api/v1")
 # Webhook intake (I-04) — note: NO /api/v1 prefix; GitHub posts to /webhooks/github.
 app.include_router(webhooks.router)

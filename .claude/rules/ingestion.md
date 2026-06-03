@@ -162,6 +162,23 @@ When an aggregator contacts us to request a stop, or when a source becomes unava
 
 The `disabled` state is permanent until manually re-enabled. `paused` is temporary (operator pause). `blocked` indicates a persistent technical block (e.g. Cloudflare tier-3 failure + no response from operator).
 
+## Phase C periodic tasks (popularity / auto-scan / archive / authors / retention / alerts)
+
+All six run in the in-process Procrastinate worker under advisory lock `0x5AFE5C13`, registered via `import_paths` in `app/ingestion/__init__.py`. Each delegates to a testable session-taking inner function (`recompute_all`, `run_trigger`, `run_archive_check`, `sweep_access_log`, `evaluate_alerts`) so the task wrapper is just `AsyncSessionLocal()` + the call. **Every catalog/scan query hard-filters `source_kind='github' AND visibility='public'`** — uploads + unlisted shadow rows are never ranked, auto-scanned, or archived (G-uploads invariant).
+
+- **Popularity (`popularity_recompute`, nightly 02:00 + on-add `recompute_one_item`)** — the weighted-blend formula (D-04-13) lives in `app/ingestion/popularity.py`; weights are version-locked in the `popularity_formulas` table (`active=true` row, seeded `popularity_v1`). Writes `popularity_score` (the [0,1] score scaled to the 0-100 int column), `popularity_breakdown` (per-term jsonb), and `popularity_rank_tier` (`top500`/`top5k`/`long_tail`, rank-based — **distinct** from the pre-existing `popularity_tier` scan-tier). On-add is best-effort (a defer failure never breaks the merge — the nightly run is the guarantee).
+- **Auto-scan (`auto_scan_trigger_deep` nightly 02:30, `auto_scan_trigger_lite` hourly)** — select popular public-github capabilities and call `app/queue/scan_runner.py::enqueue_scan` (the SAME on-demand path `POST /scans` uses; the scan worker stays non-Procrastinate per D-FE-34). Deep: `popularity_rank_tier='top500'` + no Deep scan in 30 days. Lite: `top500`/`top5k` + no Lite scan in 7 days + a 1h debounce on brand-new arrivals. Recency reads `catalog_items.last_deep_scan_at` / `last_lite_scan_at` (migration 0012), which the `enqueue_scan` completion wrapper stamps. **`scans.tier` is the trust badge, never a scan depth** — never gate auto-scan on `scans.tier`.
+- **Archive (`archive_check`, daily 03:00)** — flips `availability` on the 404 timeline (D-04-17): 3-6 consecutive 404s → `unavailable`; 7+ → `archived` (+`archived=true`); back to 0 → recover to `available`. The `consecutive404_count` is advanced inside the MergeEngine (a repo-level 404 fans across every capability row sharing the `github_url`); this task only reads it. Emits `catalog_item_archived` per archived row.
+- **Authors (`author_summary_refresh`, nightly 04:30)** — `REFRESH MATERIALIZED VIEW CONCURRENTLY author_summary` (needs the autocommit connection, not a transaction).
+- **Retention (`access_log_retention`, daily 04:00)** — DELETEs `access_log` rows older than 30 days (privacy.md § Retention). IPs are already /24-//48-redacted at write time, so this is a row sweep, not a redaction pass.
+- **Alerts (`alert_evaluator`, every 15 min)** — per-source health from the `ingestion_events` outbox + `crawler_cursors.last_successful_cycle_at`, data-driven over the 14 YAML sources. **Warn** (failure_rate > 5% / 1h) → Sentry breadcrumb + PostHog `ingestion_cycle_failed`. **Page** (>25% / 1h OR >10% / 24h OR no successful cycle in 2× the YAML `cadence_cron`) → Slack `SLACK_ALERTS_WEBHOOK_URL`. A failure is any `http_status` not in {200, 304, 0}. The rug-pull/hash-change alert (D-04-16) was descoped from Phase C.
+
+## Admin endpoints + CLI (D-04-28)
+
+`POST/GET /api/v1/admin/*` (`app/routers/admin.py`) are gated by the `X-Admin-Key` header (`SAFERSKILLS_ADMIN_KEY`; **fails closed** — every endpoint 403s when the secret is unset). Every mutation writes one `admin_audit_log` row (`security.md` § Audit Trail). Surface: `sources` (list / pause / unpause / force-cycle), `merge-candidates` (list / decide), `catalog` (re-classify / inspect-events / archive / un-archive), `popularity` (recompute-now / top-n). `re-classify` re-runs the deterministic classifier on stored signals (no network re-fetch — `metadata_files` are reconstructed from the stored `kind_signals` so file-derived kind/agent classifications are preserved).
+
+The operator CLI is the **separate** `tools/saferskills-admin/` uv package (a thin Typer client over these endpoints — no DB access; mirrors `tools/data-seed/` but mutates production). Dangerous verbs (`merge-candidates approve/reject`, `catalog archive/un-archive`, `sources disable`, `popularity recompute-now`) require `--yes` or `SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it` (`shared/safety.py`).
+
 ## When to update this rule
 
 | Change | Updates here |
@@ -176,3 +193,7 @@ The `disabled` state is permanent until manually re-enabled. `paused` is tempora
 | New ToS-respect mandate | "ToS-respect mandates" + adapter review checklist in PR template |
 | Halt procedure change | "Halt procedure" + admin CLI docs |
 | New source added to allowlist | "Outbound allowlist coupling" — add the YAML `hosts:` + `pnpm run generate` (self-derived; no `security.md`/validator hand edit) |
+| Popularity formula / weights change | "Phase C periodic tasks" — bump `popularity_formulas` (new `active` row + migration) + `app/ingestion/popularity.py` |
+| Auto-scan cadence / recency-gate change | "Phase C periodic tasks" — `tasks_auto_scan.py` + the `last_*_scan_at` columns (`database.md`) |
+| Archive timeline / alert-tier threshold change | "Phase C periodic tasks" — `tasks_archive.py` / `framework/alerts.py` |
+| New admin endpoint / CLI verb | "Admin endpoints + CLI" + `app/routers/admin.py` (+ `admin_audit_log`) + `tools/saferskills-admin/` + `security.md` Audit Trail; dangerous verbs → `shared/safety.py::DANGEROUS_OPS` |
