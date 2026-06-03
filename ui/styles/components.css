@@ -5972,7 +5972,9 @@ html.dark .chk-row .chk-tt {
   padding: 26px 28px;
   max-width: 440px;
   width: calc(100% - 32px);
-  box-shadow: var(--shadow-stamp);
+  /* Soft ambient lift, not a brutalist stamp (forbidden on overlays — see
+     design-system.md). Aligns with .turnstile-gate. */
+  box-shadow: var(--shadow-overlay);
   /* Centre the modal — a global reset zeroes the UA `dialog` auto-margin. */
   margin: auto;
 }
@@ -5982,6 +5984,8 @@ html.dark .confirm-dialog {
 }
 .confirm-dialog::backdrop {
   background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .confirm-dialog h3 {
   font-family: var(--font-sans);
@@ -6019,73 +6023,285 @@ html.dark .confirm-dialog {
 
 
 /* ===== TURNSTILE GATE (TurnstileGate molecule) =====
-   Native <dialog> human-verification modal — Cloudflare Turnstile widget
-   auto-proceeds on token. Shares the confirm-dialog chrome; adds a widget slot
-   + a short enter animation (short-circuited under reduced-motion). */
+   Native <dialog> human-verification modal. Floats on a 1px hairline + a soft
+   --shadow-overlay ambient lift over a dimmed, blurred backdrop — NO brutalist
+   --shadow-stamp (forbidden on interactive overlays, see design-system.md).
+   appearance:"managed"; the framed widget slot shows a teal scan-line "verifying"
+   state + a drawn success check. Enter = scale-fade + staggered rows; exit is
+   faster; every motion is reduced-motion-guarded. */
 .turnstile-gate {
-  border: 1px solid var(--color-ink);
+  position: relative;
+  border: 1px solid var(--color-line);
   border-radius: 0;
   background: var(--color-paper);
-  color: var(--color-ink);
-  padding: 26px 28px;
-  max-width: 400px;
-  width: calc(100% - 32px);
-  box-shadow: var(--shadow-stamp);
-  margin: auto;
-}
-html.dark .turnstile-gate {
-  border-color: var(--color-line);
   color: var(--fg-1);
+  padding: 26px 28px 22px;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  box-shadow: var(--shadow-overlay);
+  margin: auto; /* centre — a global reset zeroes the UA dialog auto-margin */
 }
 .turnstile-gate::backdrop {
   background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
-.turnstile-gate[open] {
-  animation: turnstile-gate-in 160ms ease-out;
+
+/* top page-head tick-ruler accent (orange) */
+.turnstile-gate .tg-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background:
+    repeating-linear-gradient(90deg, var(--brand-accent) 0 1px, transparent 1px 9px) top left /
+      100% 6px no-repeat,
+    repeating-linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--brand-accent) 40%, transparent) 0 1px,
+        transparent 1px 5px
+      )
+      bottom left / 100% 3px no-repeat;
 }
-@keyframes turnstile-gate-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+
+.turnstile-gate .tg-head {
+  margin: 6px 0 8px;
+}
+.turnstile-gate .tg-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ol-brand-primary-dark);
+  margin-bottom: 6px;
+}
+html.dark .turnstile-gate .tg-eyebrow {
+  color: var(--ol-brand-primary-light);
 }
 .turnstile-gate h3 {
   font-family: var(--font-sans);
   font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.01em;
-  margin: 0 0 8px;
+  line-height: 1.15;
+  margin: 0;
 }
 .turnstile-gate .tg-sub {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.5;
   color: var(--fg-2);
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   text-wrap: pretty;
 }
+
+/* framed widget slot — the Cloudflare widget mounts in .tg-widget; the overlays
+   cover it during loading / success so managed mode never looks empty. */
+.turnstile-gate .tg-frame {
+  position: relative;
+  min-height: 78px;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border: 1px dashed var(--color-line);
+  background: var(--color-paper-deep);
+  overflow: hidden;
+}
 .turnstile-gate .tg-widget {
-  min-height: 65px;
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-height: 65px;
 }
+.turnstile-gate .tg-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--color-paper-deep);
+}
+.turnstile-gate .tg-ov-label {
+  color: var(--fg-2);
+}
+.turnstile-gate .tg-frame[data-phase="loading"] .tg-loading {
+  display: flex;
+}
+.turnstile-gate .tg-frame[data-phase="success"] .tg-done {
+  display: flex;
+}
+.turnstile-gate .tg-frame[data-phase="success"] {
+  border-style: solid;
+  border-color: var(--brand-primary);
+}
+
+/* teal scan-line sweep (shares the DropZone D-UP-ANIM motion language) */
+.turnstile-gate .tg-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand-primary), transparent);
+  animation: tg-scan 1.25s linear infinite;
+}
+@keyframes tg-scan {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(78px);
+  }
+}
+.turnstile-gate .tg-spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--brand-primary) 30%, transparent);
+  border-top-color: var(--brand-primary);
+  animation: tg-spin 0.7s linear infinite;
+}
+@keyframes tg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.turnstile-gate .tg-done .tg-ov-label {
+  color: var(--ol-brand-primary-dark);
+}
+html.dark .turnstile-gate .tg-done .tg-ov-label {
+  color: var(--ol-brand-primary-light);
+}
+.turnstile-gate .tg-check {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--score-green) 16%, transparent);
+}
+.turnstile-gate .tg-check svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--score-green);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: tg-draw 0.34s var(--ease-out) forwards;
+}
+@keyframes tg-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 .turnstile-gate .tg-retry {
   color: var(--score-red);
   font-family: var(--font-mono);
   font-size: 12px;
-  margin: 12px 0 0;
+  margin: 11px 0 0;
 }
 .turnstile-gate .tg-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 18px;
+  margin-top: 16px;
 }
+
+/* enter / exit — transform + opacity only, transform-origin:center (modals are
+   origin-exempt). Exit is faster than enter (Emil Kowalski: respond instantly
+   on dismiss). */
+.turnstile-gate[open] {
+  transform-origin: center;
+  animation: tg-in 310ms var(--ease-emphasized);
+}
+.turnstile-gate[open]::backdrop {
+  animation: tg-bd 280ms var(--ease-out);
+}
+.turnstile-gate[data-closing] {
+  animation: tg-out 160ms var(--ease-out) forwards;
+}
+@keyframes tg-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tg-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+@keyframes tg-bd {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* staggered inner rows — "a thousand barely-audible voices in tune" */
+.turnstile-gate[open]:not([data-closing]) .tg-head,
+.turnstile-gate[open]:not([data-closing]) .tg-sub,
+.turnstile-gate[open]:not([data-closing]) .tg-frame,
+.turnstile-gate[open]:not([data-closing]) .tg-actions {
+  animation: tg-rise 440ms var(--ease-emphasized) backwards;
+}
+.turnstile-gate[open]:not([data-closing]) .tg-head {
+  animation-delay: 40ms;
+}
+.turnstile-gate[open]:not([data-closing]) .tg-sub {
+  animation-delay: 90ms;
+}
+.turnstile-gate[open]:not([data-closing]) .tg-frame {
+  animation-delay: 140ms;
+}
+.turnstile-gate[open]:not([data-closing]) .tg-actions {
+  animation-delay: 190ms;
+}
+@keyframes tg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .turnstile-gate[open] {
+  /* keep the comprehension-aiding opacity fade; drop all movement + loops */
+  .turnstile-gate[open],
+  .turnstile-gate[data-closing] {
+    animation: tg-bd 200ms linear;
+  }
+  .turnstile-gate[open]::backdrop {
+    animation: none;
+  }
+  .turnstile-gate[open]:not([data-closing]) .tg-head,
+  .turnstile-gate[open]:not([data-closing]) .tg-sub,
+  .turnstile-gate[open]:not([data-closing]) .tg-frame,
+  .turnstile-gate[open]:not([data-closing]) .tg-actions,
+  .turnstile-gate .tg-scan,
+  .turnstile-gate .tg-spin,
+  .turnstile-gate .tg-check svg {
     animation: none;
   }
 }

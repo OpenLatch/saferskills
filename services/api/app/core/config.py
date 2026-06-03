@@ -80,6 +80,20 @@ class Settings(BaseSettings):
             "(`/scans/r/<token>`) and upload `sources[].registryUrl`."
         ),
     )
+    saferskills_proxy_shared_secret: str | None = Field(
+        default=None,
+        description=(
+            "Shared secret proving a request came from the trusted same-origin "
+            "webapp proxy. When set, the per-IP rate limiter trusts the left-most "
+            "X-Forwarded-For entry (the real visitor the proxy preserved) ONLY on "
+            "requests carrying a matching `X-Proxy-Secret` header — so a direct "
+            "caller to the public API cannot spoof XFF to dodge the cap. Unset "
+            "(dev/test) → the raw TCP peer is used. The loopback exemption always "
+            "keys on the real peer, never XFF. The webapp proxy reads the same "
+            "value from `SAFERSKILLS_PROXY_SHARED_SECRET`. See security.md § "
+            "Public-input handling #11 + scans.py::_rate_limit_ip."
+        ),
+    )
 
     # ── Observability (all optional at W1) ────────────────────────────────
     sentry_dsn: str | None = Field(default=None, description="Sentry DSN; None disables.")

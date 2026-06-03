@@ -33,7 +33,11 @@ from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
 from app.models.vendor import VendorResponse
 from app.queries import latest_scan_tier_distribution
-from app.routers.scans import _is_loopback  # pyright: ignore[reportPrivateUsage]
+from app.routers.scans import (
+    _is_loopback,  # pyright: ignore[reportPrivateUsage]
+    _peer_host,  # pyright: ignore[reportPrivateUsage]
+    _rate_limit_ip,  # pyright: ignore[reportPrivateUsage]
+)
 from app.scan.report_builder import build_scan_report_detail
 from app.schemas.catalog_summary import (
     CatalogFacets,
@@ -829,11 +833,10 @@ async def download_item_snapshot(
     if not _has_servable_snapshot(target):
         raise HTTPException(status_code=404, detail="snapshot not available for this scan")
 
-    ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
+    if not _is_loopback(_peer_host(request)):
         await enforce_ip_rate_limit(
             session,
-            ip=ip,
+            ip=_rate_limit_ip(request, settings),
             bucket="artifact_download",
             limit=settings.artifact_download_daily_limit,
         )

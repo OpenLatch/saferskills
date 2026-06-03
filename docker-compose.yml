@@ -28,6 +28,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ""
       GIT_SHA: dev
       VERSION: 0.0.0-foundation
+      # Shared secret matching the webapp proxy's value, so the API trusts the
+      # proxy-forwarded visitor IP for per-IP rate limiting (security.md #11).
+      SAFERSKILLS_PROXY_SHARED_SECRET: ${SAFERSKILLS_PROXY_SHARED_SECRET:-dev-proxy-shared-secret}
       # Phase B scan engine reads detector specs from rubric/ at startup.
       # In source-checkout layout the engine auto-discovers from the monorepo
       # root; in Docker the rubric tree is mounted read-only since it lives
@@ -50,7 +53,12 @@ services:
     container_name: saferskills-webapp
     depends_on: [api]
     environment:
-      PUBLIC_API_URL: http://api:8000
+      # Backend origin the in-app `/api/*` reverse proxy forwards to (server-only,
+      # runtime). The browser calls same-origin `/api/*` on :5173; the webapp Node
+      # server proxies it here. See webapp/src/pages/api/[...path].ts.
+      API_ORIGIN: http://api:8000
+      # Must match the api service's value — the proxy sends it as X-Proxy-Secret.
+      SAFERSKILLS_PROXY_SHARED_SECRET: ${SAFERSKILLS_PROXY_SHARED_SECRET:-dev-proxy-shared-secret}
       # Optional Turnstile site key (empty → the scan-submit gate is skipped).
       PUBLIC_TURNSTILE_SITE_KEY: ${PUBLIC_TURNSTILE_SITE_KEY:-}
     ports: ["5173:5173"]

@@ -138,6 +138,46 @@ def _is_loopback(host: str) -> bool:
         return False
 
 
+def _peer_host(request: Request) -> str:
+    """The raw TCP peer — the unspoofable basis for the loopback exemption."""
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limit_ip(request: Request, settings: Settings) -> str:
+    """The per-IP rate-limit bucket key.
+
+    Behind the same-origin webapp proxy the TCP peer is the proxy, not the
+    visitor, so all callers would share one bucket. The proxy proves itself with
+    a shared secret (`X-Proxy-Secret` header == `SAFERSKILLS_PROXY_SHARED_SECRET`);
+    on a secret-matched request we trust the left-most `X-Forwarded-For` entry (the
+    real visitor the proxy preserved). A direct caller to the public API cannot
+    forge the secret, so its spoofed XFF is ignored and it falls back to the real
+    peer. No secret configured (dev/test/direct) → the peer. This is the bucket
+    key ONLY — the loopback exemption stays on `_peer_host`, so neither a spoofed
+    XFF nor a spoofed secret can ever grant the loopback exemption.
+    """
+    secret = settings.saferskills_proxy_shared_secret
+    if secret and secrets.compare_digest(request.headers.get("x-proxy-secret", ""), secret):
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            first = forwarded.split(",")[0].strip()
+            if first:
+                return first
+    return _peer_host(request)
+
+
+async def _enforce_private_lookup_limit(request: Request, session: AsyncSession) -> None:
+    """Loopback-exempt `private_lookup` per-IP cap shared by the four unlisted-run
+    token routes (view / promote / delete / download)."""
+    if not _is_loopback(_peer_host(request)):
+        await enforce_ip_rate_limit(
+            session,
+            ip=_rate_limit_ip(request, get_settings()),
+            bucket="private_lookup",
+            limit=settings_private_limit(),
+        )
+
+
 def _run_summary_row(run: ScanRun, findings_count: int) -> ScanReportSummary:
     """Project a repo scan run → the slim feed/catalog row. slug/author/title are
     derived from the repo URL (github) or the artifact (upload) — a run groups
@@ -255,8 +295,8 @@ async def submit_scan(
     # ~50-item corpus would blow past the 10/day budget on the first run. See
     # `_is_loopback` for why this never exempts real public traffic. The same
     # exemption covers the Turnstile human gate.
-    ip = request.client.host if request.client else "unknown"
-    is_loopback = _is_loopback(ip)
+    is_loopback = _is_loopback(_peer_host(request))
+    ip = _rate_limit_ip(request, settings)
 
     # CAPTCHA precedes URL parsing AND the rate limit AND the idempotency cache:
     # a tokenless bot must not be able to probe the URL-validation oracle or farm
@@ -483,8 +523,8 @@ async def submit_upload(
     per-IP daily bucket (loopback exempt). `visibility` defaults to `public`.
     """
     settings = get_settings()
-    ip = request.client.host if request.client else "unknown"
-    is_loopback = _is_loopback(ip)
+    is_loopback = _is_loopback(_peer_host(request))
+    ip = _rate_limit_ip(request, settings)
 
     # Verify the human gate BEFORE streaming/parsing the multipart body — reject a
     # bot before we spend bandwidth/CPU on the parse. Loopback (trusted seed) skips.
@@ -688,11 +728,7 @@ async def get_unlisted_run(
     """View an unlisted run via its share token. Invalid / expired / deleted /
     not-unlisted ALL → generic 404 (no oracle). A promoted (now public) run
     307-redirects to the run report."""
-    ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
-        await enforce_ip_rate_limit(
-            session, ip=ip, bucket="private_lookup", limit=settings_private_limit()
-        )
+    await _enforce_private_lookup_limit(request, session)
 
     run = (
         await session.execute(select(ScanRun).where(ScanRun.share_token == token))
@@ -734,11 +770,7 @@ async def promote_unlisted_run(
 ) -> PromoteRunResponse:
     """Promote unlisted → public, one-way. Returns a structured 200 (never a 301).
     Idempotent: an already-public run returns `promoted=False`."""
-    ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
-        await enforce_ip_rate_limit(
-            session, ip=ip, bucket="private_lookup", limit=settings_private_limit()
-        )
+    await _enforce_private_lookup_limit(request, session)
 
     run = (
         await session.execute(select(ScanRun).where(ScanRun.share_token == token))
@@ -774,11 +806,7 @@ async def delete_unlisted_run(
 ) -> Response:
     """Delete an unlisted run + everything it owns (ordered cascade). Only
     unlisted runs are token-deletable (public → generic 404). Token → 404."""
-    ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
-        await enforce_ip_rate_limit(
-            session, ip=ip, bucket="private_lookup", limit=settings_private_limit()
-        )
+    await _enforce_private_lookup_limit(request, session)
 
     run = (
         await session.execute(select(ScanRun).where(ScanRun.share_token == token))
@@ -810,11 +838,7 @@ async def download_unlisted_run(
     the view route — the public `/items/<slug>/download` 404s for shadow rows, so
     unlisted bytes are reachable only here. Bytes come from the storage-split
     resolver (`upload_files` for unlisted uploads)."""
-    ip = request.client.host if request.client else "unknown"
-    if not _is_loopback(ip):
-        await enforce_ip_rate_limit(
-            session, ip=ip, bucket="private_lookup", limit=settings_private_limit()
-        )
+    await _enforce_private_lookup_limit(request, session)
 
     run = (
         await session.execute(select(ScanRun).where(ScanRun.share_token == token))

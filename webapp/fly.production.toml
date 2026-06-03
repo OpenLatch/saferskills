@@ -7,6 +7,13 @@ dockerfile = "Dockerfile"
 [deploy]
 strategy = "canary"
 
+[env]
+# Backend origin the in-app `/api/*` reverse proxy forwards to (server-only,
+# runtime — NOT a `PUBLIC_*` build-arg, so prod and staging share one image but
+# point at different APIs without a rebuild). Prod = staging config, different
+# domain. See webapp/src/pages/api/[...path].ts + environment-config.md.
+API_ORIGIN = "https://saferskills-api.fly.dev"
+
 [http_service]
 internal_port = 5173
 force_https = true

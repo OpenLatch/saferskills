@@ -36,21 +36,23 @@ describe('TurnstileGate', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the heading + a Cancel button, and renders the managed widget when open', async () => {
+  it('renders the heading + eyebrow + Cancel, and renders the managed widget when open', async () => {
     render(<TurnstileGate open siteKey="1x00AA" onVerified={() => {}} onCancel={() => {}} />)
-    expect(screen.getByText(/verify you're human/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /verify you're human/i })).toBeInTheDocument()
+    expect(screen.getByText(/human check/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
     await waitFor(() => expect(renderMock).toHaveBeenCalledTimes(1))
     expect(lastOpts.sitekey).toBe('1x00AA')
     expect(lastOpts.appearance).toBe('managed')
   })
 
-  it('auto-proceeds: the widget callback forwards the token to onVerified', async () => {
+  it('auto-proceeds: the widget callback forwards the token to onVerified after the success beat', async () => {
     const onVerified = vi.fn()
     render(<TurnstileGate open siteKey="k" onVerified={onVerified} onCancel={() => {}} />)
     await waitFor(() => expect(renderMock).toHaveBeenCalled())
     act(() => lastOpts.callback('tok-123'))
-    expect(onVerified).toHaveBeenCalledWith('tok-123')
+    // The host receives the token after the brief "Verified" beat (setTimeout).
+    await waitFor(() => expect(onVerified).toHaveBeenCalledWith('tok-123'), { timeout: 2000 })
   })
 
   it('Cancel fires onCancel', () => {

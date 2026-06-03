@@ -26,7 +26,8 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | no | unset | OpenTelemetry collector |
 | `ENV` | yes | `development` | One of `development` / `staging` / `production` — drives Sentry env tag and log format. (Does NOT gate migrations: `alembic upgrade head` runs in-process on every boot in all envs — see `ci-cd.md` § Deployment.) |
 | `LOG_LEVEL` | no | `INFO` | Python logging level |
-| `CORS_ALLOWED_ORIGINS` | yes | `http://localhost:4321` | Comma-separated origin list |
+| `CORS_ALLOWED_ORIGINS` | yes | `http://localhost:4321` | Comma-separated origin list. With the webapp's same-origin `/api/*` proxy the browser never calls cross-origin, so CORS is exercised only by direct/tooling callers. |
+| `SAFERSKILLS_PROXY_SHARED_SECRET` | no | unset | Shared secret proving a request came from the trusted same-origin webapp proxy. When set, the per-IP rate limiter trusts the left-most `X-Forwarded-For` (the real visitor the proxy preserved) **only** on requests whose `X-Proxy-Secret` header matches (constant-time) — so a direct caller to the public API cannot spoof XFF to dodge the cap. **Must equal the webapp's `SAFERSKILLS_PROXY_SHARED_SECRET`** (frontend table). Unset (dev/test) → the raw TCP peer is used. The loopback exemption always keys on the real peer, never XFF. **Delivery:** a SECRET — staged via `flyctl secrets set --stage` in `deploy.yml` (per API env), not a committed `[env]`. See `security.md` § Public-input handling #11 + `scans.py::_rate_limit_ip` + `ci-cd.md` § Deployment. |
 | `SCAN_SUBMIT_DAILY_LIMIT` | no | `10` | Max scan submissions per IP per 24h (D-FE-11), **shared by `POST /scans` and `POST /scans/upload`**. Loopback callers are exempt (trusted local seeding) — see `security.md` § Public-input handling #5. |
 | `ARTIFACT_DOWNLOAD_DAILY_LIMIT` | no | `200` | Max stored-snapshot `.zip` downloads per IP per 24h (`GET /items/{slug}/download`). Same loopback exemption — see `security.md` § Public-input handling #6. |
 | `PUBLIC_BASE_URL` | no | `http://localhost:4321` | Public webapp origin. Builds the unlisted `share_url` + the upload source `registryUrl`. |
@@ -68,7 +69,9 @@ Frontend env vars MUST be prefixed `PUBLIC_*` (Astro convention) to be exposed a
 
 | Var | Required | Default | Purpose |
 |---|---|---|---|
-| `PUBLIC_API_URL` | yes | `http://localhost:8000` | Backend base URL |
+| `API_ORIGIN` | no | `http://localhost:8000` | **Server-only, RUNTIME** (intentionally NOT `PUBLIC_*`, so it is per-environment without a rebuild — set in `webapp/fly.*.toml` + `docker-compose.yml`). The backend origin the in-app `/api/*` reverse proxy (`webapp/src/pages/api/[...path].ts`) forwards to, and the base for SSR/prerender-build fetches (`env.ts` server branch). The browser never sees it. |
+| `SAFERSKILLS_PROXY_SHARED_SECRET` | no | unset | **Server-only, RUNTIME secret** (NOT `PUBLIC_*`). The `/api/*` proxy sends it as the `X-Proxy-Secret` header so the API trusts the forwarded visitor IP for per-IP rate limiting. **Must equal the API's `SAFERSKILLS_PROXY_SHARED_SECRET`** (backend table). Unset → no header (the API keys rate limits on the raw peer). **Delivery:** a Fly **runtime secret** on the webapp app — staged via `flyctl secrets set --stage` in `deploy.yml` (the proxy reads it at request time, so it is not a build-arg). See `security.md` § Public-input handling #11. |
+| `PUBLIC_API_URL` | no | `http://localhost:8000` | **Local-dev/test fallback only.** The client API base is derived at **runtime** by `env.ts` (browser → `window.location.origin` → same-origin `/api/*` proxy; server → `API_ORIGIN`), so this is no longer the production source of the URL and is no longer a deploy build-arg. Kept as the Zod default for local `pnpm dev`/tests. See `frontend-patterns.md` § Same-origin API proxy. |
 | `PUBLIC_POSTHOG_KEY` | no | unset | Client-side PostHog project key |
 | `PUBLIC_POSTHOG_HOST` | no | `https://eu.posthog.com` | PostHog ingestion host (EU region default) |
 | `PUBLIC_SENTRY_DSN` | no | unset | Browser Sentry project |

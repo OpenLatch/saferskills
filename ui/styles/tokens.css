@@ -189,6 +189,9 @@
   --shadow-hairline: 0 0 0 1px var(--color-ink);
   --shadow-hairline-soft: 0 0 0 1px var(--color-line);
   --shadow-stamp: 4px 4px 0 0 var(--color-ink);
+  /* Soft ambient lift for floating overlays/modals (NOT a brutalist offset).
+     Theme-stable color via the raw slate scale (the semantic aliases flip). */
+  --shadow-overlay: 0 18px 40px -24px color-mix(in srgb, var(--ol-slate-900) 34%, transparent);
 
   /* ============================================================
      MOTION
@@ -200,6 +203,9 @@
   --dur-lg:      480ms;
   --ease-std:    cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  /* Emphasized decelerate — softer landing, more "punch" than --ease-out.
+     For overlay/modal enter sequences (TurnstileGate). */
+  --ease-emphasized: cubic-bezier(0.23, 1, 0.32, 1);
 
   /* ============================================================
      INTERACTIVE-CONTROL TOKENS — Toggle / DropZone / SegmentedTabs
@@ -334,6 +340,8 @@ html.dark {
   --shadow-hairline: 0 0 0 1px var(--ol-slate-100);
   --shadow-hairline-soft: 0 0 0 1px var(--ol-slate-700);
   --shadow-stamp: 4px 4px 0 0 var(--ol-slate-50);
+  /* Deeper ambient lift on dark surfaces so the overlay still reads as floating. */
+  --shadow-overlay: 0 22px 48px -22px color-mix(in srgb, var(--ol-slate-900) 70%, transparent);
 
   --bg-plus-grid: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.14'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
   --bg-plus-grid-soft: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.08'><line x1='24' y1='19' x2='24' y2='29'/><line x1='19' y1='24' x2='29' y2='24'/></g></svg>");

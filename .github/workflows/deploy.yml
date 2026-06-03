@@ -170,14 +170,20 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
-          # Stage the Turnstile siteverify secret so the image + secret roll is
-          # atomic (one release picks up both). Skip when unset so deploys still
-          # work before the GH secret is configured. See ci-cd.md § Deployment.
+          # Stage runtime secrets so the image + secrets roll is atomic (one
+          # release picks up all). Skip each when unset so deploys still work
+          # before the GH secret is configured. See ci-cd.md § Deployment.
+          # SAFERSKILLS_PROXY_SHARED_SECRET must match the value set on the webapp
+          # app — it is how the API trusts the proxy's forwarded IP (security.md #11).
           if [ -n "$TURNSTILE_SECRET_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api-staging TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
@@ -200,9 +206,17 @@ jobs:
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
+          SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd webapp
+          # The /api/* reverse proxy sends this as `X-Proxy-Secret` so the API
+          # trusts the forwarded visitor IP. It is a server-side RUNTIME secret
+          # (read by the Node server, not inlined into the bundle), and must match
+          # the value on the API app. Staged atomically before deploy.
+          if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-webapp-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
+          fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
           flyctl machine list --app saferskills-webapp-staging --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-webapp-staging "$mid" || true
@@ -262,14 +276,20 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
-          # Atomic image + secret roll (one release). Skip when unset. With
-          # ENV=production the API startup guard REQUIRES this secret — set the
-          # GH secret before the first prod deploy. See ci-cd.md § Deployment.
+          # Atomic image + secrets roll (one release). Skip each when unset. With
+          # ENV=production the API startup guard REQUIRES the Turnstile secret —
+          # set the GH secret before the first prod deploy.
+          # SAFERSKILLS_PROXY_SHARED_SECRET must match the webapp app's value
+          # (security.md #11). See ci-cd.md.
           if [ -n "$TURNSTILE_SECRET_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-api SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do
@@ -292,9 +312,16 @@ jobs:
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
+          SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd webapp
+          # Server-side RUNTIME secret the /api/* proxy sends as `X-Proxy-Secret`
+          # so the API trusts the forwarded visitor IP. Must match the API app's
+          # value. Staged atomically before deploy (security.md #11).
+          if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-webapp SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
+          fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
           flyctl machine list --app saferskills-webapp --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-webapp "$mid" || true
