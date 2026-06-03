@@ -62,6 +62,7 @@ from app.schemas.item_detail import (
     VersionPoint,
 )
 from app.services.artifact_diff import diff_snapshots, load_snapshot
+from app.services.finding_evidence import resolve_finding_excerpts
 
 logger = logging.getLogger(__name__)
 
@@ -633,7 +634,8 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
             .all()
         )
         findings_count = len(findings)
-        latest_scan_detail = build_scan_report_detail(latest, item, findings)
+        evidence = await resolve_finding_excerpts(session, latest, findings)
+        latest_scan_detail = build_scan_report_detail(latest, item, findings, evidence=evidence)
 
     # Sub-scores of the 2nd-most-recent scan → powers the item page's per-category
     # "Δ vs last scan" column. None when the item has fewer than two scans.

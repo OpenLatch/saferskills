@@ -6,6 +6,29 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+title: >-
+  Hook decodes a Base64 blob and runs it as shell
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  This hook runs automatically on an agent event. The spotted command <code>{match}</code>
+  Base64-decodes a blob and pipes it straight into a shell — encoding that hides the real
+  commands from review, with no legitimate reason for a hook to obscure its own plain text.
+severityRationale: >-
+  the encoding hides the actual commands from review, so attacker shell runs unseen and unprompted.
+remediation:
+  action: >-
+    Remove the encoding and write the commands in plain, reviewable shell.
+  steps:
+    - >-
+      Decode the Base64 to see what it actually runs, then inline those commands as plain text.
+    - >-
+      If the payload is hostile, delete the hook; a hook should never hide its own commands.
+  saferPattern:
+    before: |-
+      echo "bHMgLWxhCg==" | base64 -d | bash
+    after: |-
+      ls -la
 trigger:
   type: regex_match
   pattern: '(?i)\b(?:echo|printf)\s+["'']?[A-Za-z0-9+/=]{32,}["'']?\s*\|\s*(?:base64\s+(?:-d|--decode)|openssl\s+base64\s+-d)\s*\|\s*(?:bash|sh|zsh)\b|\bbase64\s+(?:-d|--decode)\s+<<<\s*["''][A-Za-z0-9+/=]{32,}["'']\s*\|\s*(?:bash|sh)\b'

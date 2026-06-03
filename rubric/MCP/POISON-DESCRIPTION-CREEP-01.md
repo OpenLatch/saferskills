@@ -6,6 +6,24 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  Oversized MCP tool description (2000+ characters)
+categoryLabel: >-
+  Tool poisoning
+explanation: >-
+  An MCP tool's <code>description</code> is injected into the agent's context as trusted instructions.
+  This one runs past 2000 characters — far beyond the 100–500 a real tool needs — room to bury
+  reasoning chains or system-prompt overrides a human reviewer skims past.
+severityRationale: >-
+  A description this long is the documented vehicle for hiding injected instructions in plain sight.
+remediation:
+  action: >-
+    Trim the tool description to a concise statement of what the tool does (typically under 500 characters).
+  steps:
+    - >-
+      Read the full flagged <code>description</code> and identify any embedded instructions or reasoning text.
+    - >-
+      Reduce it to a plain explanation of the tool's purpose, removing anything that steers the agent.
 trigger:
   type: regex_match
   pattern: '(?is)"description"\s*:\s*"[^"]{2000,}"'

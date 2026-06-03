@@ -6,6 +6,24 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  Zero-width characters hidden in an MCP tool manifest
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  An MCP tool's description is read by the agent as trusted instructions.
+  This manifest packs three or more invisible zero-width characters (<code>{match}</code>) that the agent
+  tokenizes but a human reviewer cannot see — a way to smuggle hidden instructions past review.
+severityRationale: >-
+  Clustered zero-width characters in a trusted manifest signal deliberate hiding of tokenized content.
+remediation:
+  action: >-
+    Remove the zero-width characters (U+200B–U+200D, U+2060, U+FEFF) from the manifest.
+  steps:
+    - >-
+      Open the flagged manifest and delete every zero-width / word-joiner / BOM codepoint.
+    - >-
+      Confirm no invisible characters remain in any tool <code>description</code>.
 trigger:
   type: regex_match
   pattern: '[\u{200B}-\u{200D}\u{2060}\u{FEFF}]'

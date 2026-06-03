@@ -53,6 +53,30 @@ class ScanUploadResponse(OrmBaseModel):
     share_url: str | None = None
 
 
+class EvidenceLine(OrmBaseModel):
+    """One line of a finding's matched-line window (mirrors the `.ex-line` markup)."""
+
+    line_no: int
+    text: str
+    hit: bool
+
+
+class EvidenceExcerpt(OrmBaseModel):
+    """Report-DTO-only matched-line window resolved from the stored snapshot.
+
+    Verbatim bytes (invisible chars preserved — the client reveals them). This is
+    NOT a scan-trace field and is NOT persisted on the `findings` table; the trace
+    stays hash-only per security.md § Scan-trace transparency. The bytes come from
+    the stored public snapshot / token-gated unlisted store, carried only on the
+    report response.
+    """
+
+    file: str
+    lang: str | None = None
+    truncated: bool = False
+    lines: list[EvidenceLine]
+
+
 class FindingResponse(OrmBaseModel):
     id: str
     rule_id: str
@@ -66,6 +90,9 @@ class FindingResponse(OrmBaseModel):
     matched_content_sha256: str
     remediation_link: str
     rubric_version: str
+    # Report-DTO-only: the matched-line window for the explainable FindingDetail
+    # card. Null when snapshot bytes are absent (binary / oversize / expired).
+    evidence_excerpt: EvidenceExcerpt | None = None
 
 
 class ScanReportDetail(OrmBaseModel):

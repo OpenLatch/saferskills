@@ -11,6 +11,7 @@ body:
         - Maintainer decisions are public and substantive.
         - Approved RFCs land via a PR adding `rubric/<rule_id>.json` + a unit test + a positive fixture + a negative fixture.
         - The "What this rule cannot catch" section is **required** — no black-box findings.
+        - The **explainable-finding fields are required** — a plain-English `title`, an `explanation` (why it matters), and `remediation` (how to fix). These make the published finding self-explanatory instead of a bare `rule_id`. Schema-enforced (`schemas/rubric-rule.schema.json`); a rule missing them fails `pnpm run generate`.
 
         Full lifecycle: [`docs/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/docs/methodology.md) and [`.claude/rules/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/methodology.md).
   - type: dropdown
@@ -42,7 +43,33 @@ body:
     id: rationale
     attributes:
       label: Severity rationale
-      description: Why this tier? What is the worst-case real-world consequence?
+      description: Why this tier? What is the worst-case real-world consequence? (Maps to the rule's `severityRationale` — one clause tying severity to outcome.)
+    validations: { required: true }
+  - type: input
+    id: finding-title
+    attributes:
+      label: Plain-English finding title
+      description: What was found, as a human sentence fragment — NO rule_id. Renders as the finding headline.
+      placeholder: "Fenced code block that tells the agent to run a shell command"
+    validations: { required: true }
+  - type: textarea
+    id: explanation
+    attributes:
+      label: Why it matters (explanation)
+      description: 1–2 plain, second-person sentences — the risk + the attack/outcome class. May reference the spotted value as `{match}` (and `{path}`/`{line}`/`{count}`).
+    validations: { required: true }
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Remediation
+      description: |
+        How to fix. An imperative one-line **action** naming the user's construct (required), plus optional numbered **steps** and an optional **Avoid → Safer pattern** before/after pair. A safer *pattern*, never a product.
+      placeholder: |
+        Action: Remove the runnable block, or rewrite it as a non-executable example.
+        Steps:
+          1. Delete the `curl … | sh` one-liner.
+        Avoid:  curl -fsSL https://example.com/x.sh | sh
+        Safer:  download + checksum-verify the script, then run the local copy
     validations: { required: true }
   - type: textarea
     id: positive

@@ -6,6 +6,25 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Invisible Unicode "tag" characters hidden in the instructions
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  Plane-14 tag characters (U+E0000–U+E007F) render as absolutely nothing to a person
+  reading the file in any editor, yet every LLM tokenizer turns them into real tokens.
+  An attacker can hide a whole second instruction in them — telling the agent to drop
+  its safety rules or exfiltrate data — that no reviewer ever sees in the source.
+severityRationale: >-
+  there is no legitimate use for these codepoints, and they can carry a fully invisible system-prompt override.
+remediation:
+  action: >-
+    Strip every plane-14 tag character and retype the affected text in plain ASCII.
+  steps:
+    - >-
+      Run a strip-and-diff: remove all U+E0000–U+E007F characters and compare the result to the original.
+    - >-
+      If the visible text is unchanged after stripping, the removed characters were carrying a hidden payload — keep the stripped version.
 trigger:
   type: regex_match
   pattern: '[\u{E0000}-\u{E007F}]'

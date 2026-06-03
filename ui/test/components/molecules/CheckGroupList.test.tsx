@@ -55,6 +55,30 @@ describe('CheckGroupList', () => {
     expect(screen.getByText('No findings in this category for this scan.')).toBeInTheDocument()
   })
 
+  it('renders the renderCategoryFindings slot for a flagged category', () => {
+    const findings: CheckGroupFinding[] = [
+      { id: 'a', ruleId: 'SS-A-01', severity: 'high', subScore: 'security', filePath: 'a.sh', lineStart: 1 },
+    ]
+    const { container } = render(
+      <CheckGroupList
+        categories={CATEGORIES}
+        subScores={SUB}
+        findings={findings}
+        renderCategoryFindings={(key) => (
+          <div data-testid="slot" data-key={key}>
+            slot
+          </div>
+        )}
+      />,
+    )
+    // security has a finding → slot replaces the compact warn/fail rows
+    expect(screen.getByTestId('slot')).toHaveAttribute('data-key', 'security')
+    expect(container.querySelector('.chk-row.fail')).toBeNull()
+    expect(container.querySelector('.chk-row.warn')).toBeNull()
+    // maintenance is empty → still a green pass row
+    expect(container.querySelectorAll('.chk-row.pass').length).toBe(1)
+  })
+
   it('has no critical a11y violations', async () => {
     const { container } = render(
       <CheckGroupList categories={CATEGORIES} subScores={SUB} findings={[]} />,

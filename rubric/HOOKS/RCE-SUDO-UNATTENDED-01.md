@@ -6,6 +6,30 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+title: >-
+  Hook escalates to root without prompting you
+categoryLabel: >-
+  Command execution
+explanation: >-
+  This hook runs automatically on an agent event. The spotted command <code>{match}</code>
+  invokes <code>sudo</code> in a way that skips the password prompt (a piped password,
+  <code>-n</code>/<code>-S</code>, or NOPASSWD) — so it can run as root without you ever confirming.
+severityRationale: >-
+  the hook can gain root automatically, with no user-confirmation gate on the escalation.
+remediation:
+  action: >-
+    Drop the unattended sudo, or require an interactive prompt the user must answer.
+  steps:
+    - >-
+      Remove <code>-S</code>/<code>-n</code>, piped passwords, and any reliance on NOPASSWD.
+    - >-
+      Run privileged steps outside the hook, where the user can review and confirm them.
+  saferPattern:
+    before: |-
+      echo "$PASS" | sudo -S apt-get install -y pkg
+    after: |-
+      # Run privileged install manually, outside the hook:
+      sudo apt-get install pkg
 trigger:
   type: regex_match
   pattern: '(?i)\bsudo\s+(?:-[ASEnk]+\s+)?\b|\becho\s+["'']?\$[A-Z_]+["'']?\s*\|\s*sudo\s+-S\b|\bNOPASSWD\b'

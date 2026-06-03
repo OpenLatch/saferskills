@@ -6,6 +6,24 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  MCP server content changed since the last scan (possible rug-pull)
+categoryLabel: >-
+  Supply chain
+explanation: >-
+  This server's file content hashes differ from a prior scan with no matching CHANGELOG or release note.
+  That's the rug-pull signature: a trusted server quietly updated to introduce exfiltration,
+  persistence, or tool-poisoning after consumers learned to trust it.
+severityRationale: >-
+  A single rug-pull on an established server can compromise every consumer who pulled the update.
+remediation:
+  action: >-
+    Review the diff against the prior scan and confirm the change matches a documented, announced release.
+  steps:
+    - >-
+      Compare the changed files against the last reviewed version of the server.
+    - >-
+      Pin to a known-good ref until the maintainer documents the change in a CHANGELOG or release note.
 trigger:
   type: metadata_check
   field: stars

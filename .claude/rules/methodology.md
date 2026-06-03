@@ -56,8 +56,15 @@ Every `rubric/<CATEGORY>/<NAME>-NN.md` MUST carry the following YAML frontmatter
 | `shadow_until` | iff `status: shadow` | ISO date (e.g. `2026-W3-end`) when the FP-audit harness re-evaluates promotion |
 | `applies_to` | yes | Array; subset of `[skill, mcp, rules, hooks, plugin]` |
 | `trigger` | yes | One of the 6 primitive types (`regex_match`, `file_glob_present`, `file_glob_absent`, `commit_history_check`, `metadata_check`, `composite_and_or`). Closed set; new primitives require an RFC |
+| `title` | yes | Plain-English headline for the finding (NO rule_id) — a human sentence fragment naming what was found. Renders as the `.fc-title` on every report |
+| `explanation` | yes | The "why it matters" paragraph (1–2 plain, second-person sentences: the risk + attack/outcome class). May use the closed placeholder set `{match}` `{path}` `{line}` `{count}` (filled at render from backend evidence; dropped gracefully when empty) + inline `<code>…</code>` |
+| `severityRationale` | no | One clause tying severity to outcome ("HIGH — …"). Omit for `info`-tier |
+| `categoryLabel` | no | Human category label for the meta line (e.g. "Prompt injection"). Falls back to the sub_score title |
+| `remediation` | yes | Object `{ action (req), steps?: string[], saferPattern?: { before, after } }`. `action` is an imperative one-liner naming the user's construct; `saferPattern` is an Avoid→Safer **pattern** (never a product — anti-recommendation). `info`-tier → action "No action required — context only." |
 | `limitations` | yes | What the rule cannot catch. **Mandatory** — no rule ships without limitations. Non-empty list |
 | `prior_art` | yes | Array of URLs to CVEs, research papers, OWASP entries, vendor write-ups that motivate the rule |
+
+The explainable-finding fields (`title` / `explanation` / `severityRationale` / `categoryLabel` / `remediation`) flow through `generate-methodology.cjs` into `webapp/src/generated/rules/content.ts` (the `RULE_CONTENT` map). The report surfaces compose the shared `FindingDetail` card (the v3 `.find-card`) from that map + the backend's per-finding `evidence_excerpt`. **The excerpt (the matched-line window shown in the card) is snapshot-sourced and lives ONLY on the report DTO — it is NOT a scan-trace field; the trace stays hash-only** (see `security.md` § Scan-trace transparency). New / changed rules ship `title` + `explanation` + `remediation` (+ `severityRationale` unless `info`); the schema marks them required so a rule missing them fails `pnpm run generate`.
 
 Body sections (human-readable, not enforced):
 
@@ -152,6 +159,7 @@ Every rule's `limitations` frontmatter field names what it cannot catch. Example
 4. **Rule-RFC for additions + changes.** 7-day comment window minimum.
 5. **No silent retirements.** Deprecation goes through the documented policy.
 6. **`docs/methodology.md` (root, public) and this rule stay in sync.** Public-facing changes ship in both.
+7. **Every rule ships explainable-finding content** — `title` + `explanation` + `remediation` (+ `severityRationale` unless `info`). Enforced structurally by `schemas/rubric-rule.schema.json` (required) + the `validate` drift gate. The RFC (`03-rule-proposal.yml`) must include the proposed title/explanation/remediation.
 
 ## When to update this rule
 

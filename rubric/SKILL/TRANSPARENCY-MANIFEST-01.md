@@ -6,6 +6,33 @@ weight: 15
 status: active
 shadowUntil: null
 appliesTo: [skill]
+title: >-
+  No skill manifest (SKILL.md) in the repository
+categoryLabel: >-
+  Transparency
+explanation: >-
+  This capability has no <code>SKILL.md</code> (or <code>skill.yaml</code>/<code>.yml</code>/<code>.json</code>) manifest.
+  The manifest is what declares the skill's purpose, inputs, and behavior contract, so without it
+  you cannot tell what the skill does or how it behaves without reading every file in the repo.
+severityRationale: >-
+  an undocumented skill cannot be evaluated or audited before you let an agent run it.
+remediation:
+  action: >-
+    Add a SKILL.md manifest at the skill's root describing its purpose, inputs, and behavior.
+  steps:
+    - >-
+      Create <code>SKILL.md</code> (or <code>skill.yaml</code>) declaring what the skill does.
+    - >-
+      State the expected inputs and the behavior contract a reviewer can check against.
+  saferPattern:
+    before: |-
+      # repo has source files but no SKILL.md — purpose is opaque
+    after: |-
+      # SKILL.md
+      ---
+      name: pdf-extract
+      description: Extracts text from PDF files in the working directory.
+      ---
 trigger:
   type: file_glob_absent
   paths: ['SKILL.md', '**/SKILL.md', 'skill.yaml', 'skill.yml', 'skill.json']

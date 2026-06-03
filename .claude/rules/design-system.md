@@ -57,10 +57,12 @@ ui/
 │   │                 # RecentScanCard, TrendScanCard (Phase A1)
 │   │                 # CatalogToolbar, CatalogFilterSide, CatalogResultsRow, ScanSplit,
 │   │                 # ScanInput, ScanProgressBar, ScanStepper, ScanTerminal, ScanReportHero,
-│   │                 # SubScoreAccordion, FindingRow, InstallCommandBox (Phase B)
+│   │                 # InstallCommandBox (Phase B)
 │   │                 # ScoreHistoryChart, InstallActivity, RelatedItems, EmbedBadgeBox,
 │   │                 # VendorResponseCard (Phase C)
 │   │                 # DropZone (I-3.5 — animated upload state machine, D-UP-ANIM)
+│   │                 # FindingDetail (the v3 `.find-card` — explainable finding, shared
+│   │                 #   by repo scan + upload/item checklist; supersedes FindingRow + SubScoreAccordion)
 │   │                 # ScoreBreakdownTable, MarkdownSourceViewer, CheckGroupList
 │   │                 # (audit extraction — shared by ItemTabs + CapabilityReportTabs)
 │   │                 # TurnstileGate (scan-submit human-verification modal — native <dialog>)
@@ -136,14 +138,20 @@ The `.sk-tabs/.sk-tab/.t-ct` CSS was **moved** from `webapp/src/styles/page-item
 - **`MarkdownSourceViewer`** — the `.md-*` macOS-chrome source viewer with the Rendered/Raw toggle + copy. Renderer-agnostic: the caller passes pre-rendered markdown as `renderedHtml: ReactNode` (`renderMarkdown` stays in `webapp/` — `ui/` must not import a markdown renderer).
 - **`CheckGroupList`** — the `.chk-*` grouped pass/warn/fail checklist (`score × empty-category` copy via `emptyScanNoun`).
 
-### `FindingRow` vs `CheckGroupList` — deliberately distinct, do NOT consolidate
+### Explainable findings — `FindingDetail` is the shared flagged-finding card
 
-Both render scan findings but model different surfaces and must stay separate:
+The v3 mockups (`SaferSkills-Scan-Results-{Private,File}-v3`) ratified **consolidating** the flagged-finding presentation into one shared molecule, **superseding** the earlier "FindingRow vs CheckGroupList — do NOT consolidate" rule (and retiring `FindingRow` + its container `SubScoreAccordion`, both now removed).
 
-- **`FindingRow`** is the link-rich evidence `<li>` for the **repo-level** report (rendered inside `SubScoreAccordion`): severity `BandPill`, a rule-id link to the methodology, a category column, the finding text + matched-content hash, and a GitHub `blob/<sha>#L<line>` evidence href.
-- **`CheckGroupList`** is the terse **per-capability** checklist: one `.chk-group` per score axis, a green "all checks passed" row for empty categories, and a compact warn/fail glyph row (no links, no GitHub href) per finding.
+- **`FindingDetail`** (`ui/components/molecules/FindingDetail.tsx`, the `.find-card`) is THE flagged-finding card on **every** scan surface — the repo scan cap-bodies (`ScanReportView`) and the per-capability checklist (`CheckGroupList`'s flagged-category slot). It is a native `<details>` whose collapsed summary (severity pill · plain-English title · `rule_id · category · file` meta · `×N` count) expands to: severity rationale → why-it-matters → the matched-line excerpt (line gutter, hit line, **revealed invisibles**) → occurrences → how-to-fix (action · steps · Avoid→Safer) → a collapsed trace footer (rule link · sha256 copy · rubric · GitHub). It is **fully presentational** — the webapp (`FindingExplanation`) composes it from the generated `RULE_CONTENT` map + the backend `evidence_excerpt`; `ui/` never imports the map (`webapp/src/lib/findings/explain.ts` does the grouping + lookup + interpolation).
+- **`CheckGroupList`** keeps only its **shell**: one `.chk-group` per score axis with a green "all checks passed" row for empty categories. Flagged categories render `FindingDetail` cards via the `renderCategoryFindings` slot the webapp supplies (kept as a slot so `ui/` stays map-free). Without the slot (Ladle / standalone) the compact `CheckRow` warn/fail row is the fallback.
 
-They are NOT interchangeable — a future "consolidate the finding components" pass should reaffirm this divergence, not merge them.
+**Dedup**: one card per `(rule_id, file_path)` — occurrences collapse to a count + locations list (`groupFindings`).
+
+**Severity pill deviation**: `FindingDetail` renders the `.sev` pill inline rather than reusing `BandPill`. `BandPill` is **tier**-colored (4 bands g/y/o/r) and cannot express the v3 5-tier **severity** palette — notably `info`=blue and `high`=solid fill. The `.sev` pill is part of the ported `.find-card` vocabulary, so it lives with the card, not as a separate atom.
+
+### `.fc-*` / `.ex` / `.ic` / `.sp` CSS vocabulary (DS-owned)
+
+All `FindingDetail` CSS lives in `ui/styles/components.css` (the one-way CSS-ownership rule): `.find-cards` (container) + `.find-card`/`.fc-*` (card chrome), `.sev`/`.sw` (severity pill), `.ex`/`.ex-line`/`.ln`/`.code`/`.ex-elide` (the always-dark code excerpt — a terminal surface, token + intentional `#fff`, per the components.css terminal-palette exemption to rule (a)), `.ic.{zw,bidi,homo,space}` (revealed invisible-char chips), `.fc-occ-*` (occurrences), `.fc-fix`/`.fc-safer`/`.sp` (remediation + Avoid→Safer), `.fc-trace*` (footer). The native `<details>` collapse + the chevron rotation are the only motion — **reduced-motion guarded** (`@media (prefers-reduced-motion: reduce)`). `ui/lib/reveal-invisible.ts` (pure) classifies codepoints into the four `.ic` buckets; the component renders each segment as escaped React text / a labelled chip — **never innerHTML**, so verbatim scanned bytes (incl. a `{match}` placeholder value) cannot inject markup.
 
 ### `.cap-filter` is a filter group, NOT `SegmentedTabs`
 

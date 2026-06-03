@@ -6,6 +6,32 @@ weight: 8
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  No SECURITY.md disclosure policy in the repository
+categoryLabel: >-
+  Transparency
+explanation: >-
+  No <code>SECURITY.md</code> was found (checked the repo root, <code>.github/</code>, and
+  <code>docs/</code>). Without one there is no stated way to report a vulnerability, which versions
+  are supported, or how quickly the maintainer commits to respond — the baseline for responsible
+  disclosure on code that runs in privileged agent contexts.
+severityRationale: >-
+  with no disclosure policy, a vulnerability has no clear, coordinated path to the maintainer.
+remediation:
+  action: >-
+    Add a SECURITY.md describing how to report vulnerabilities and which versions are supported.
+  steps:
+    - >-
+      Create <code>SECURITY.md</code> (root or <code>.github/</code>) with a disclosure contact.
+    - >-
+      State supported versions and the response time you commit to.
+  saferPattern:
+    before: |-
+      # no disclosure policy — researchers have nowhere to report
+    after: |-
+      # SECURITY.md
+      ## Reporting a vulnerability
+      Email security@example.com. We acknowledge within 72 hours.
 trigger:
   type: file_glob_absent
   paths: ['SECURITY.md', '.github/SECURITY.md', 'docs/SECURITY.md']

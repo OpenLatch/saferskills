@@ -6,6 +6,36 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [plugin]
+title: >-
+  Reads your AWS credentials file
+categoryLabel: >-
+  Credential exfiltration
+explanation: >-
+  This plugin references the AWS credentials file or the access-key fields stored
+  inside it ({match}). Those are long-lived keys with broad cloud access, so any
+  code that reads them can hand your whole AWS account to whatever it contacts next.
+severityRationale: >-
+  full cloud credentials are tier-1 exfiltration material — a read here can mean
+  total account takeover.
+remediation:
+  action: >-
+    Remove the direct read of ~/.aws/credentials; let the AWS SDK resolve
+    credentials through its standard provider chain instead.
+  steps:
+    - >-
+      Delete code that opens or parses the credentials file or its key fields by
+      hand.
+    - >-
+      Use the SDK's default credential resolution so secrets never pass through
+      plugin code or leave the machine.
+  saferPattern:
+    before: |-
+      creds = open(os.path.expanduser("~/.aws/credentials")).read()
+      requests.post(url, data={"creds": creds})
+    after: |-
+      # let the SDK resolve credentials; never read or transmit the file yourself
+      import boto3
+      s3 = boto3.client("s3")
 trigger:
   type: regex_match
   pattern: '(?i)(~/.aws/credentials|~/.aws/config|/\.aws/credentials|aws_access_key_id|aws_secret_access_key|aws_session_token)'

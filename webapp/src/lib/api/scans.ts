@@ -51,6 +51,25 @@ export async function listTrendingScans(
   return []
 }
 
+/** One line of a finding's matched-line window (mirrors the `.ex-line` markup). */
+export interface EvidenceLine {
+  line_no: number
+  text: string
+  hit: boolean
+}
+
+/**
+ * Report-DTO-only matched-line window resolved from the stored snapshot.
+ * Null when bytes are absent (binary / oversize / expired). Verbatim bytes —
+ * the report reveals invisible chars client-side.
+ */
+export interface EvidenceExcerpt {
+  file: string
+  lang?: string | null
+  truncated: boolean
+  lines: EvidenceLine[]
+}
+
 export interface Finding {
   id: string
   rule_id: string
@@ -64,6 +83,8 @@ export interface Finding {
   matched_content_sha256: string
   remediation_link: string
   rubric_version: string
+  /** Matched-line window for the explainable FindingDetail card (or null). */
+  evidence_excerpt?: EvidenceExcerpt | null
 }
 
 export interface ScanReportDetail {

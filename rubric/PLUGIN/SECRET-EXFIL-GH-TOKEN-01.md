@@ -6,6 +6,33 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [plugin]
+title: >-
+  Contains a committed GitHub token
+categoryLabel: >-
+  Credential exfiltration
+explanation: >-
+  A GitHub token ({match}) is committed directly into this plugin's source. Anyone
+  who reads the repo — including everyone who installs the plugin — gets the token,
+  so it must be treated as already compromised.
+severityRationale: >-
+  a committed token is exposed the moment it lands on a public repo — the
+  credential is leaked outright, not merely at risk.
+remediation:
+  action: >-
+    Revoke the leaked token immediately, then remove it from the code and from
+    Git history.
+  steps:
+    - >-
+      Revoke the token in GitHub settings now — anything pushed is already public.
+    - >-
+      Delete it from the source and purge it from history; load credentials at
+      runtime from the environment or a secrets store instead.
+  saferPattern:
+    before: |-
+      GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    after: |-
+      # never commit the token; read it at runtime from the environment
+      GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 trigger:
   type: regex_match
   pattern: '\b(?:ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{82}|gho_[A-Za-z0-9]{36}|ghu_[A-Za-z0-9]{36}|ghs_[A-Za-z0-9]{36}|ghr_[A-Za-z0-9]{36})\b'

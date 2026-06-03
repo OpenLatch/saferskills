@@ -6,6 +6,24 @@ weight: 12
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Last commit on the default branch is over a year old
+categoryLabel: >-
+  Maintenance
+explanation: >-
+  The default branch has had no commit in more than 365 days. That points to either abandonment or
+  a finished project at steady state — and stale code accumulates unfixed CVEs and compatibility
+  drift over time.
+severityRationale: >-
+  a year of silence means dependency CVEs and breaking-change fixes are unlikely to be applied.
+remediation:
+  action: >-
+    Resume maintenance, or note in the README that the project is intentionally complete.
+  steps:
+    - >-
+      Land pending dependency and compatibility updates on the default branch.
+    - >-
+      If the project is deliberately finished, say so explicitly so consumers can judge the risk.
 trigger:
   type: commit_history_check
   signal: last_commit_age_days

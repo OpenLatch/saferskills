@@ -53,6 +53,8 @@ Every scan emits a per-finding trace: which `rule_id` fired, which rubric versio
 
 This is **orthogonal to** the stored-snapshot feature (§ Vendor-data isolation → stored public artifact snapshots) **and to uploads**. Snapshots (and `upload_files`) store verbatim bytes on purpose (to render diffs + serve a zip); the trace stores only hashes/positions/rule_ids. An uploaded artifact is scanned by the same engine and produces the same no-raw-payload trace — the upload front-end changes where the bytes are stored, never what the trace contains. The stores are separate from the trace with separate contracts — never fold raw payload into a trace, and never treat a snapshot/upload as a trace.
 
+**Finding `evidence_excerpt` is report-DTO-only, never a trace field.** The explainable-finding report (the v3 `FindingDetail` card) shows the matched-line window verbatim so a reader sees the exact value spotted. Those lines are resolved at request time **from the stored snapshot** (`app/services/finding_evidence.py` → `artifact_bytes.resolve_snapshot`; public `artifact_blobs` or the token-gated `upload_files`) and carried **only on the report response** (`FindingResponse.evidence_excerpt` / the inline `evidenceExcerpt` in the two report schemas). It is the same already-public/published bytes the snapshot tier already exposes — NOT new disclosure. The `findings` table and the scan **trace** stay hash-only (this invariant is unchanged): the excerpt is never persisted on `findings`, never written into a trace, and degrades to absent when the snapshot has no bytes (binary / oversize / expired).
+
 ## Public-input handling
 
 Every user-submitted GitHub URL is treated as untrusted:
@@ -88,3 +90,4 @@ Every user-submitted GitHub URL is treated as untrusted:
 | Same-origin proxy / trusted-proxy-secret change | "Public-input handling" #11 + `webapp/src/pages/api/[...path].ts` + `scans.py::_rate_limit_ip` + `SAFERSKILLS_PROXY_SHARED_SECRET` in `environment-config.md` + `deploy.yml` (staged on both apps) |
 | Upload validation / zip-safety / token-redaction change | "Public-input handling" #8/#9 + `app/scan/upload.py` + `app/core/log_redaction.py` |
 | Access-log writer / IP-redaction change | `privacy.md` + `app/core/access_log_middleware.py` (redact at write time; never store raw IP) |
+| Finding `evidence_excerpt` (explainable findings) change | "Scan-trace transparency" (report-DTO-only, snapshot-sourced) + `app/services/finding_evidence.py` — re-verify the `findings` table + trace stay hash-only |

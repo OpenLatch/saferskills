@@ -6,6 +6,27 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+title: >-
+  Hook makes files world-writable
+explanation: >-
+  This hook runs automatically on an agent event. The spotted command <code>{match}</code>
+  grants world-writable permissions (<code>777</code> / <code>a+rwx</code>) — breaking
+  least-privilege and leaving the files open for any other process on the system to tamper with.
+severityRationale: >-
+  the resulting world-writable state lets any local process modify the affected files.
+remediation:
+  action: >-
+    Grant only the permissions actually needed instead of full world-writable access.
+  steps:
+    - >-
+      Replace <code>777</code> with the narrowest mode the task requires (e.g. <code>755</code> / <code>644</code>).
+    - >-
+      If cross-user access is genuinely needed, scope it with a group rather than world.
+  saferPattern:
+    before: |-
+      chmod -R 777 ./shared
+    after: |-
+      chmod -R 755 ./shared
 trigger:
   type: regex_match
   pattern: '(?i)\bchmod\s+(?:-R\s+)?(?:777|a\+rwx|o\+rwx|0?777)\b'

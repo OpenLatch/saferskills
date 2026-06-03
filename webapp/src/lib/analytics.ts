@@ -34,6 +34,11 @@ type EventMap = {
   scan_report_capability_expanded: {
     kind: 'skill' | 'mcp_server' | 'hook' | 'plugin' | 'rules'
   }
+  // A finding card was expanded on a scan report. `rule_id` is a permitted
+  // closed-enum value (the active rubric — a bounded set) per telemetry.md.
+  scan_report_finding_expanded: {
+    rule_id: string
+  }
   // Multi-file upload report — a file tab was selected. Closed-enum kind only;
   // NEVER the filename, slug, content hash, or token (telemetry.md).
   scan_report_file_selected: {

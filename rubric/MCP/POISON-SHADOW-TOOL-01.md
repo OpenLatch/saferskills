@@ -6,6 +6,24 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  Hidden-looking MCP tool name signals a shadow tool
+categoryLabel: >-
+  Tool poisoning
+explanation: >-
+  This server publishes a tool whose name (<code>{match}</code>) uses an "internal/private" naming
+  convention. The agent still sees and may invoke it, but a human reviewing the manifest skips
+  over names that visually signal "not for me" — letting a hidden tool act unreviewed.
+severityRationale: >-
+  A shadow tool can perform arbitrary tool actions while appearing benign in manifest review.
+remediation:
+  action: >-
+    Rename internal-looking tools to plainly describe their purpose, or remove them if not consumer-facing.
+  steps:
+    - >-
+      Confirm whether the flagged tool is meant to be reachable by the consuming agent.
+    - >-
+      If it is, give it a clear descriptive name; if it is not, remove it from the manifest.
 trigger:
   type: regex_match
   pattern: '(?is)"name"\s*:\s*"[^"]*(?:_internal|__|\.hidden|_meta|_sys)[^"]*"'

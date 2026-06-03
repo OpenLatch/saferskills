@@ -6,6 +6,24 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  BiDi-override characters reorder text in an MCP tool description
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  An MCP tool's <code>description</code> is read by the agent as trusted instructions.
+  This one embeds bidirectional-override characters (<code>{match}</code>) so the manifest renders one
+  thing to a human reviewer but tokenizes a different, reordered instruction to the agent.
+severityRationale: >-
+  Reordered hidden text in a trusted tool description can steer the consuming agent against the reviewer's intent.
+remediation:
+  action: >-
+    Remove the BiDi-override control characters (U+202A–U+202E, U+2066–U+2069) from the tool description.
+  steps:
+    - >-
+      Open the flagged tool's <code>description</code> and delete every BiDi-override codepoint.
+    - >-
+      Verify the rendered text matches the byte order — no hidden reordering remains.
 trigger:
   type: regex_match
   pattern: '[\u{202A}-\u{202E}\u{2066}-\u{2069}]'

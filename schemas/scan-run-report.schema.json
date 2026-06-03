@@ -264,7 +264,33 @@
         "lineEnd": {"type": ["integer", "null"], "minimum": 1},
         "matchedContentSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "remediationLink": {"type": "string", "format": "uri"},
-        "rubricVersion": {"type": "string", "pattern": "^[a-f0-9]{7,40}$"}
+        "rubricVersion": {"type": "string", "pattern": "^[a-f0-9]{7,40}$"},
+        "evidenceExcerpt": {"$ref": "#/$defs/evidenceExcerpt"}
+      }
+    },
+    "evidenceExcerpt": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["file", "truncated", "lines"],
+      "description": "Report-DTO-only matched-line window, resolved from the stored snapshot (verbatim bytes — invisible chars preserved for client-side reveal). NOT a scan-trace field and NOT persisted on the findings table; the trace stays hash-only per security.md § Scan-trace transparency. Null when bytes are absent (binary / oversize / expired snapshot).",
+      "properties": {
+        "file": {"type": "string", "maxLength": 1024, "description": "Path the excerpt was taken from."},
+        "lang": {"type": ["string", "null"], "description": "Language hint from the file extension (display only)."},
+        "truncated": {"type": "boolean", "description": "True if the line window or any line was capped."},
+        "lines": {
+          "type": "array",
+          "description": "Ordered line window around the match.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["lineNo", "text", "hit"],
+            "properties": {
+              "lineNo": {"type": "integer", "minimum": 1, "description": "1-indexed source line number."},
+              "text": {"type": "string", "description": "Verbatim line text (bytes preserved; client reveals invisibles)."},
+              "hit": {"type": "boolean", "description": "True if this line is within [lineStart, lineEnd]."}
+            }
+          }
+        }
       }
     }
   },

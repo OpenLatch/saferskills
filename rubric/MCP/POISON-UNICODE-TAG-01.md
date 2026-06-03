@@ -6,6 +6,24 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+title: >-
+  Invisible Unicode tag characters hidden in an MCP tool description
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  An MCP tool's <code>description</code> is fed into the agent's context as trusted instructions.
+  This one hides invisible plane-14 tag characters (<code>{match}</code>) the agent tokenizes as commands,
+  while a human reading the manifest sees the description unchanged.
+severityRationale: >-
+  Invisible commands in a trusted tool description can fully override the consuming agent's behavior.
+remediation:
+  action: >-
+    Strip the U+E0000–U+E007F tag characters from the tool description and re-publish the manifest.
+  steps:
+    - >-
+      Open the flagged tool's <code>description</code> and remove every plane-14 tag codepoint.
+    - >-
+      Confirm the visible text is the entire description — no invisible payload remains.
 trigger:
   type: regex_match
   pattern: '[\u{E0000}-\u{E007F}]'

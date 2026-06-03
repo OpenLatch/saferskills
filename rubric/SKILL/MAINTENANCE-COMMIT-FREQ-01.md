@@ -6,6 +6,24 @@ weight: 8
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Fewer than 3 commits in the last 90 days
+categoryLabel: >-
+  Maintenance
+explanation: >-
+  The default branch saw fewer than three commits in the trailing 90 days. Read alongside the
+  last-commit-age signal, low recent activity suggests the project may not keep pace with bug
+  reports or dependency updates.
+severityRationale: >-
+  low recent commit volume signals limited capacity to ship fixes promptly.
+remediation:
+  action: >-
+    Maintain a steadier commit cadence, or document that the project is in maintenance-only mode.
+  steps:
+    - >-
+      Land outstanding fixes and dependency bumps rather than batching them indefinitely.
+    - >-
+      If activity is low by design, note the maintenance status in the README.
 trigger:
   type: commit_history_check
   signal: commit_freq_90d

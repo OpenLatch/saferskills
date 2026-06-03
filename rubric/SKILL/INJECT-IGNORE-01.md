@@ -6,6 +6,24 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  "Ignore previous instructions" command embedded in the skill
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  The text <code>{match}</code> is the classic direct prompt-injection phrasing. Placed in a
+  skill body that the agent reads as trusted instructions, it tries to make the agent
+  abandon its prior rules and follow whatever comes next — a full system-prompt override.
+severityRationale: >-
+  when it fires on hostile content the impact is full system-prompt override.
+remediation:
+  action: >-
+    Remove the override phrase, or rephrase the passage so it does not instruct the agent to discard its rules.
+  steps:
+    - >-
+      Delete the <code>ignore/disregard/forget … previous instructions</code> sentence.
+    - >-
+      If this is jailbreak-research or tutorial content, move the example into a clearly fenced, non-instruction block and label it as a quoted sample.
 trigger:
   type: regex_match
   pattern: '(?i)\b(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|rules?|system\s+prompts?)\b'

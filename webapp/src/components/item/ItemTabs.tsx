@@ -3,7 +3,7 @@ import CheckGroupList from '@ui/components/molecules/CheckGroupList'
 import MarkdownSourceViewer from '@ui/components/molecules/MarkdownSourceViewer'
 import ScoreBreakdownTable from '@ui/components/molecules/ScoreBreakdownTable'
 import { useEffect, useState } from 'react'
-
+import FindingExplanation from '@/components/scan/FindingExplanation'
 import {
   type DiffResponse,
   fetchItemDiff,
@@ -90,6 +90,14 @@ export default function ItemTabs({ slug, scan, versions, manifest }: Props) {
             lineStart: f.line_start,
           }))}
           emptyScanNoun="the latest scan"
+          renderCategoryFindings={(key) => (
+            <FindingExplanation
+              findings={findings.filter((f) => f.sub_score === key)}
+              githubUrl={scan.github_url}
+              refSha={scan.ref_sha}
+              rubricVersion={scan.rubric_version}
+            />
+          )}
         />
       </div>
 

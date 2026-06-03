@@ -6,6 +6,24 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [mcp]
+title: >-
+  MCP server spawns subprocesses without declaring the capability
+categoryLabel: >-
+  Undeclared capability
+explanation: >-
+  The server's source spawns processes (e.g. <code>subprocess</code>, <code>child_process</code>, <code>exec()</code>)
+  but its manifest never declares that capability, so the consuming client can't warn the user
+  that this server may run shell commands on their machine.
+severityRationale: >-
+  Undeclared shell-exec is the prototypical MCP sandbox-escape vector documented in the research.
+remediation:
+  action: >-
+    Declare the process-spawning behavior in the manifest's capabilities, or remove the unnecessary exec call.
+  steps:
+    - >-
+      Confirm whether the subprocess/exec call is needed for a consumer-facing tool.
+    - >-
+      If it is, declare the capability so clients can surface it; if not, remove the call.
 trigger:
   type: composite_and_or
   op: and

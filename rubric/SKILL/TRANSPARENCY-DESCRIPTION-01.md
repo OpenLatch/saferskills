@@ -6,6 +6,31 @@ weight: 5
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  No README in the repository
+categoryLabel: >-
+  Transparency
+explanation: >-
+  No <code>README</code> file was found. The README is the canonical entry point that explains what
+  an artifact does; without it you would have to read the source or run it speculatively to find
+  out — both unacceptable for code that auto-installs into an agent context.
+severityRationale: >-
+  with no README, the only way to learn what the artifact does is to read or run it blind.
+remediation:
+  action: >-
+    Add a README describing the artifact's purpose and basic usage.
+  steps:
+    - >-
+      Create <code>README.md</code> at the repo root.
+    - >-
+      State what the artifact does and how to install or invoke it.
+  saferPattern:
+    before: |-
+      # repository has code but no README — purpose is unstated
+    after: |-
+      # README.md
+      # pdf-extract
+      A Claude Code skill that extracts text from PDFs in the working directory.
 trigger:
   type: file_glob_absent
   paths: ['README.md', 'README', 'README.rst', 'README.txt']

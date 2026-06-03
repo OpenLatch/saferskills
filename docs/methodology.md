@@ -103,6 +103,20 @@ weight: 0..40
 status: shadow | active | deprecated
 shadow_until: 2026-W3-end       # required iff status: shadow
 applies_to: [skill, mcp, rules, hooks, plugin]   # subset
+title: >-                        # plain-English headline (no rule_id)
+  Fenced code block that tells the agent to run a shell command
+categoryLabel: Prompt injection  # optional; falls back to the sub-score title
+explanation: >-                  # "why it matters"; may use {match} {path} {line} {count}
+  SKILL.md is read by the agent as trusted instructions ...
+severityRationale: >-            # optional; one clause tying severity to outcome (omit for info)
+  a successful injection runs attacker-supplied shell on your machine.
+remediation:                     # actionable fix shown on every finding
+  action: Remove the runnable block, or rewrite it as a non-executable example.
+  steps:                         # optional ordered steps
+    - "Delete the curl … | sh one-liner."
+  saferPattern:                  # optional Avoid → Safer pattern pair
+    before: "curl … | sh"
+    after: "review the pinned script before running it"
 trigger:
   type: regex_match | file_glob_present | file_glob_absent | commit_history_check | metadata_check | composite_and_or
   ...                          # primitive-specific params
@@ -113,7 +127,7 @@ prior_art:
 ---
 ```
 
-CATEGORY is one of `{MCP, SKILL, RULES, HOOKS, PLUGIN}`. The 6 primitive trigger types are a closed enum extended only by RFC.
+CATEGORY is one of `{MCP, SKILL, RULES, HOOKS, PLUGIN}`. The 6 primitive trigger types are a closed enum extended only by RFC. **Every rule MUST carry the explainable-finding fields** `title`, `explanation`, and `remediation` (and SHOULD carry `severityRationale` unless `info`-tier): they make each published finding self-explanatory — a plain-English title, why it matters, and how to fix it — instead of a bare `rule_id`. The schema (`schemas/rubric-rule.schema.json`) marks them required, so a rule missing them fails `pnpm run generate` (the `validate` CI lane). They flow through codegen into `webapp/src/generated/rules/content.ts`, which the report surfaces render alongside the matched-line excerpt.
 
 ## Reproducibility
 

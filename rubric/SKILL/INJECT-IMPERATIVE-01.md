@@ -6,6 +6,25 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  "Never tell the user" non-disclosure imperative in the skill
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  A bulleted imperative like <code>{match}</code> tells the agent to never reveal, disclose,
+  or mention something to the user. Used adversarially it can instruct the agent to hide its
+  tool calls or lie about what it did — stripping the transparency a user relies on to trust
+  the agent.
+severityRationale: >-
+  it fires on intent; whether the agent honors the non-disclosure imperative depends on the host model.
+remediation:
+  action: >-
+    Remove the non-disclosure imperative, or rescope it so it limits output format, not honesty to the user.
+  steps:
+    - >-
+      Delete any "never reveal / never tell the user" line aimed at the model's own behavior.
+    - >-
+      Keep legitimate confidentiality rules about external data (e.g. "do not echo API keys"), which are user-protective, not user-deceiving.
 trigger:
   type: regex_match
   pattern: '(?im)^\s*(?:•|-|\*|\d+\.)\s*(?:always|never|must|do\s+not|don[’'']t|under\s+no\s+circumstances)\s+(?:reveal|disclose|share|leak|tell\s+(?:the\s+)?(?:user|anyone)|mention)\b'

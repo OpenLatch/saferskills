@@ -6,6 +6,30 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+title: >-
+  Hook builds and runs commands at runtime with eval
+categoryLabel: >-
+  Obfuscation
+explanation: >-
+  This hook runs automatically on an agent event. The spotted command <code>{match}</code>
+  uses <code>eval</code> on command-substituted or variable content — the actual code is
+  assembled at runtime from values not visible in the source, defeating any static review.
+severityRationale: >-
+  the executed code is built from runtime values, so what actually runs can't be reviewed in the source.
+remediation:
+  action: >-
+    Replace eval with explicit commands so the executed code is visible in the source.
+  steps:
+    - >-
+      Rewrite <code>eval</code> as a direct call with explicitly constructed, reviewable arguments.
+    - >-
+      If a value must come from the environment, validate it before use instead of eval-ing it.
+  saferPattern:
+    before: |-
+      eval "$(get_cmd)"
+    after: |-
+      cmd="$(get_cmd)"
+      case "$cmd" in build|test|lint) "$cmd" ;; *) exit 1 ;; esac
 trigger:
   type: regex_match
   pattern: '(?i)\beval\s+["'']?\$\(.*\)|\beval\s+["'']?[^"''\n]*\$\{?\w+\}?[^"''\n]*["'']?|\bsource\s+<\(.+\)'

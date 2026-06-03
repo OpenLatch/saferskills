@@ -6,6 +6,25 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Long base64-encoded blob hidden in the skill documentation
+categoryLabel: >-
+  Prompt injection
+explanation: >-
+  A base64 string of 128+ characters appears in a documentation file. Encoded prompt
+  injection hides the hostile instruction in base64 — invisible to keyword filters — and
+  relies on the agent's ability to decode it at runtime. There is no normal authoring
+  reason to embed a multi-hundred-byte base64 blob in skill docs.
+severityRationale: >-
+  once decoded by the agent, an encoded payload has the same impact class as plain-text injection.
+remediation:
+  action: >-
+    Remove the encoded blob, or decode it and review what it actually contains.
+  steps:
+    - >-
+      Decode the base64 string and confirm it is not an instruction directed at the agent.
+    - >-
+      Move any legitimate binary or signature data into a dedicated file (<code>*.sig</code>, <code>SIGNATURES</code>) outside the documentation.
 trigger:
   type: regex_match
   pattern: '(?<![A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{4}){32,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9+/=])'

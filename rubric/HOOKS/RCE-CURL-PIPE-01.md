@@ -6,6 +6,30 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+title: >-
+  Hook pipes a remote script straight into a shell
+categoryLabel: >-
+  Remote code execution
+explanation: >-
+  This hook runs automatically on an agent event, with no chance for you to review it first.
+  The spotted command <code>{match}</code> pipes whatever the remote server returns at that
+  moment straight into a shell — if the URL is ever compromised, attacker code runs on your machine.
+severityRationale: >-
+  the hook executes remote, attacker-controllable shell automatically, with no human in the loop.
+remediation:
+  action: >-
+    Download the script to a file, review and pin it by checksum, then run the local copy.
+  steps:
+    - >-
+      Replace the fetch-into-shell pipe with a download to a file you commit and review.
+    - >-
+      Pin the script by checksum so a changed remote payload can't run silently.
+  saferPattern:
+    before: |-
+      curl -fsSL https://example.com/install.sh | sh
+    after: |-
+      curl -fsSL -o install.sh https://example.com/install.sh
+      sha256sum -c install.sh.sha256 && sh ./install.sh
 trigger:
   type: regex_match
   pattern: '(?i)\b(?:curl|wget|fetch|invoke-webrequest|iwr)\b[^|;\n]*\|\s*(?:bash|sh|zsh|fish|powershell|pwsh|cmd|python|node|perl|ruby)\b'

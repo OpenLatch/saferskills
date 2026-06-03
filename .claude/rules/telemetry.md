@@ -31,7 +31,7 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 |---|---|
 | `homepage_*` | Homepage CTA + hero clicks; the dual-mode scan submit (`homepage_scan_submitted`) + the homepage audit-panel affordance (`homepage_scan_panel_started`) — I-3.5 |
 | `catalog_*` | Catalog browse + filter + search — landed Phase B |
-| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy — incl. the `zip` download-bytes button on upload reports, embed badge copy, **capability type-filter + capability-row expand** on the repo scan report, **file-tab select** (`scan_report_file_selected`) on a multi-file upload report — I-3.5) — landed Phase B |
+| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy — incl. the `zip` download-bytes button on upload reports, embed badge copy, **capability type-filter + capability-row expand** on the repo scan report, **file-tab select** (`scan_report_file_selected`) on a multi-file upload report — I-3.5, **finding-card expand** (`scan_report_finding_expanded` `{rule_id}`) on every report surface) — landed Phase B |
 | `item_detail_*` | Item-detail page interactions (chart hover/click) — lands Phase C |
 | `unlisted_*` | Unlisted (capability-URL) manage-bar actions — `unlisted_manage_action` `{action: copy_link\|promote\|delete}` (I-3.5). **Never** carries the `share_token`, slug, filename, or any path content. |
 | `artifact_*` | Artifact detail page interactions |
@@ -44,7 +44,7 @@ Closed-enum + bucketed-numeric values only. **No PII, no source-content hashes i
 
 - Closed enums: `artifact_kind` ∈ {`mcp`, `skill`, `rules`, `hooks`, `plugin`}; `severity` ∈ {`info`, `low`, `medium`, `high`, `critical`} (5-tier per locked decision D-02); `sub_score` ∈ {`security`, `supply_chain`, `maintenance`, `transparency`, `community`} (5-axis per D-01); `rubric_version` (git SHA string).
 - Bucketed numerics: score buckets `0-39 / 40-69 / 70-89 / 90-100`; counts bucketed to `0 / 1 / 2-5 / 6-20 / 21+`; latency_ms bucketed to `<10 / <60 / <300 / >=300`; backoff_seconds bucketed identically; installation_id hashed via `hash%16`.
-- Forbidden: raw URLs, raw repo names, raw user input in property values. **`rule_id` IS a permitted closed-enum property value** for `rule_*` events (the enum is the active rubric — bounded set), per the scan-engine event allowlist below.
+- Forbidden: raw URLs, raw repo names, raw user input in property values. **`rule_id` IS a permitted closed-enum property value** for `rule_*` events **and the `scan_report_finding_expanded` event** (the enum is the active rubric — a bounded set), per the scan-engine event allowlist below.
 - `kind` ∈ {`skill`, `mcp_server`, `hook`, `plugin`, `rules`} (+ `all` on the filter event) is a permitted closed-enum value for the `scan_report_capability_filtered` / `scan_report_capability_expanded` / `scan_report_file_selected` events (the repo scan report's per-capability surface + the multi-file upload report's file-tab strip). `scan_report_file_selected` carries **only** `{kind}` — never the filename, slug, content hash, or token.
 - `artifact_source` ∈ {`github`, `upload`} and `visibility` ∈ {`public`, `unlisted`} are permitted closed-enum values for the `homepage_scan_submitted` / `homepage_scan_panel_started` dual-mode scan events (I-3.5). **Never** the URL, filename, file bytes, or the unlisted `share_token` — the FE event is an intent signal; the backend `scan_submitted` (scan-engine allowlist below) is authoritative.
 

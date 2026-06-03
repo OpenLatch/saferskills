@@ -6,6 +6,17 @@ weight: 0
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+title: >-
+  Single-author repository
+categoryLabel: >-
+  Community
+explanation: >-
+  Only one contributor is detected. Shown as community context only — solo projects are common and
+  often legitimate, so this signal carries weight 0 and does not affect the score. It lets you weigh
+  the bus-factor risk before deep integration.
+remediation:
+  action: >-
+    No action required — context only.
 trigger:
   type: commit_history_check
   signal: contributor_count

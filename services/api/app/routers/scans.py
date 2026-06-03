@@ -71,6 +71,7 @@ from app.schemas.scan_submit import (
     ScanUploadResponse,
 )
 from app.services.artifact_bytes import build_zip, resolve_snapshot, snapshot_byte_size
+from app.services.finding_evidence import resolve_finding_excerpts, resolve_run_evidence
 from app.services.turnstile import verify_turnstile
 
 logger = logging.getLogger(__name__)
@@ -746,6 +747,7 @@ async def get_unlisted_run(
 
     capabilities = await _load_run_capabilities(session, run.id)
     extras, manifest, download = await _run_capability_extras(session, capabilities)
+    evidence = await resolve_run_evidence(session, capabilities)
     _set_unlisted_headers(response)
     return build_scan_run_report(
         run,
@@ -754,6 +756,7 @@ async def get_unlisted_run(
         manifest=manifest,
         download=download,
         capability_extras=extras,
+        evidence=evidence,
     )
 
 
@@ -896,8 +899,14 @@ async def get_scan_run(
 
     capabilities = await _load_run_capabilities(session, run_id)
     extras, manifest, download = await _run_capability_extras(session, capabilities)
+    evidence = await resolve_run_evidence(session, capabilities)
     return build_scan_run_report(
-        run, capabilities, manifest=manifest, download=download, capability_extras=extras
+        run,
+        capabilities,
+        manifest=manifest,
+        download=download,
+        capability_extras=extras,
+        evidence=evidence,
     )
 
 
@@ -923,7 +932,8 @@ async def get_scan(
     findings_stmt = select(Finding).where(Finding.scan_id == scan_id)
     findings = (await session.execute(findings_stmt)).scalars().all()
 
-    return build_scan_report_detail(scan, item, findings)
+    evidence = await resolve_finding_excerpts(session, scan, findings)
+    return build_scan_report_detail(scan, item, findings, evidence=evidence)
 
 
 @router.get(
