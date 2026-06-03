@@ -114,6 +114,10 @@ const proxy: APIRoute = async ({ request, params, clientAddress }) => {
   // decode them a second time → `ERR_CONTENT_DECODING_FAILED` on every /api/*
   // call. Drop it (content-length is already dropped as hop-by-hop, and the
   // framing is chunked here anyway).
+  // This is RESPONSE-only — deliberately NOT in `HOP_BY_HOP` (which runs on the
+  // request too): the request body is forwarded RAW (undici doesn't decode
+  // outgoing bodies), so a request's `content-encoding` must stay to match its
+  // bytes. Only the decoded response must shed it.
   responseHeaders.delete('content-encoding')
   return new Response(upstream.body, {
     status: upstream.status,
