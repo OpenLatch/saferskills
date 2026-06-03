@@ -69,7 +69,7 @@
     "decidedBy": {
       "type": ["string", "null"],
       "maxLength": 20,
-      "description": "Admin key fingerprint (first chars of sha256) — anonymized identity of the decider."
+      "description": "Admin key fingerprint (first chars of sha256) — the decider's anonymized handle."
     },
     "decidedAt": {
       "type": ["string", "null"],

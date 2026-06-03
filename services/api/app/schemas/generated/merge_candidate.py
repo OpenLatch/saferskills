@@ -57,7 +57,7 @@ class MergeCandidate(OrmBaseModel):
     decided_by: constr(max_length=20) | None = Field(
         None,
         alias="decidedBy",
-        description="Admin key fingerprint (first chars of sha256) — anonymized identity of the decider.",
+        description="Admin key fingerprint (first chars of sha256) — the decider's anonymized handle.",
     )
     decided_at: AwareDatetime | None = Field(
         None, alias="decidedAt", description="When the decision was recorded."
