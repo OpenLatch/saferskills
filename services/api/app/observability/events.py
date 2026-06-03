@@ -353,6 +353,28 @@ def emit_ingestion_cycle_failed(*, source: str, reason: IngestionFailureReason) 
     _emit("ingestion_cycle_failed", source=source, reason_enum=reason)
 
 
+type ArchiveReason = Literal["404_timeline", "maintainer_archived", "yanked"]
+
+
+def emit_ingestion_cycle_archived(*, source: str, reason: ArchiveReason) -> None:
+    """`catalog_item_archived` (D-04-22 #20) — one per item flipped to archived.
+
+    `source` is the trigger (e.g. 'archive_check'); `reason` is a closed enum.
+    No item ID, no slug, no URL.
+    """
+    _emit("catalog_item_archived", source=source, reason_enum=reason)
+
+
+def emit_popularity_recompute_completed(*, top500_changed_count: int) -> None:
+    """`popularity_recompute_completed` (D-04-22 #21) — fired once per nightly
+    recompute. The top-500 churn count is bucketed before emission (no raw count).
+    """
+    _emit(
+        "popularity_recompute_completed",
+        top500_changed_count_bucket=ingestion_items_bucket(top500_changed_count),
+    )
+
+
 # ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────
 
 _CAP_TOKEN_RE = re.compile(r"(/scans/r/)[^/?#\s]+")

@@ -38,6 +38,13 @@ procrastinate_app = App(
     connector=PsycopgConnector(conninfo=_libpq_conninfo(_settings.database_url)),
     import_paths=[
         "app.ingestion.tasks",
+        # Phase C periodic tasks — listed so the worker registers their cron tasks.
+        "app.ingestion.tasks_popularity",
+        "app.ingestion.tasks_auto_scan",
+        "app.ingestion.tasks_archive",
+        "app.ingestion.tasks_authors",
+        "app.ingestion.tasks_retention",
+        "app.ingestion.framework.alerts",
         "app.ingestion.sources.github_skills_webhook",
         "app.ingestion.sources.github_topics",
         "app.ingestion.sources.mcp_registry",

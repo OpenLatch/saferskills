@@ -45,7 +45,7 @@ Public-tier data (including stored snapshots) is **never** retroactively scrubbe
 
 ## Audit Trail
 
-Every maintainer-facing mutation MUST emit an audit record. At W1 the surface is mostly read-only, so this covers: scan-pipeline invocations, rubric edits via PR, and vendor-appeal lifecycle transitions. Expand when auth lands.
+Every maintainer-facing mutation MUST emit an audit record. At W1 the surface is mostly read-only, so this covers: scan-pipeline invocations, rubric edits via PR, and vendor-appeal lifecycle transitions. **I-04 Phase C adds the operator-admin surface:** every `POST /api/v1/admin/*` mutation (source pause/unpause/force-cycle, merge-candidate decide, catalog re-classify/archive/un-archive, popularity recompute) writes one `admin_audit_log` row (`action`, `actor_admin_key_fp`, `target`, `before`, `after`, `note`) inside the request — gated by the `X-Admin-Key` header (`SAFERSKILLS_ADMIN_KEY`; fails closed when unset). See `.claude/rules/ingestion.md` § Admin endpoints. Expand when auth lands (the X-Admin-Key gate becomes SSO).
 
 ## Scan-trace transparency
 

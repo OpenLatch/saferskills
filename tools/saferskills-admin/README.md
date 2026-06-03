@@ -1,0 +1,48 @@
+# saferskills-admin
+
+Operator CLI for SaferSkills production (I-04 Phase C, D-04-28). A thin Typer
+client over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints. Distinct
+from `tools/data-seed/` (dev fixtures) and `tools/fp-audit/` (rubric FP audit) —
+this one mutates **production** via the API, so every mutation is audit-logged
+server-side and dangerous verbs require confirmation.
+
+## Auth
+
+Every command sends the `X-Admin-Key` header. Provide it via `--admin-key` or the
+`SAFERSKILLS_ADMIN_KEY` env var. Generate one with:
+
+```bash
+uv run saferskills-admin auth gen-admin-key
+# → opk_admin_a9b3…  (set as the API's SAFERSKILLS_ADMIN_KEY Fly secret + your .env)
+```
+
+## Usage
+
+```bash
+# point at an environment (default http://localhost:8000)
+export SAFERSKILLS_ADMIN_KEY=opk_admin_…
+uv run saferskills-admin --api-url https://saferskills-api-staging.fly.dev sources list
+
+# sources
+uv run saferskills-admin sources list
+uv run saferskills-admin sources status mcp_so
+uv run saferskills-admin sources pause mcp_so --reason "operator-request" --contact abuse@mcp.so
+uv run saferskills-admin sources unpause mcp_so
+uv run saferskills-admin sources force-cycle npm
+
+# merge candidates (approve/reject are dangerous → --yes)
+uv run saferskills-admin merge-candidates list --status pending --limit 20
+uv run saferskills-admin merge-candidates approve <id> --note "same project" --yes
+
+# catalog (archive/un-archive are dangerous → --yes)
+uv run saferskills-admin catalog re-classify acme--github-mcp
+uv run saferskills-admin catalog inspect-events acme--github-mcp --limit 50
+uv run saferskills-admin catalog archive dead--repo --reason "spam" --yes
+
+# popularity (recompute-now is expensive → --yes)
+uv run saferskills-admin popularity recompute-now --yes
+uv run saferskills-admin popularity top-n 500 --kind mcp_server
+```
+
+`--json` emits CI-parseable output. Dangerous mutations require `--yes` or
+`SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it`.

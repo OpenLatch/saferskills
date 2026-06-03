@@ -23,6 +23,7 @@ import json
 import uuid
 from typing import Any
 
+import structlog
 from rapidfuzz import fuzz
 from rapidfuzz.distance import JaroWinkler
 from sqlalchemy import select, text
@@ -34,6 +35,8 @@ from app.ingestion.framework.classifier import classify_all
 from app.models import Author, CatalogItem, ItemSource
 from app.scan.fetch import GithubRef
 from app.scan.persistence import capability_slug
+
+logger = structlog.get_logger(__name__)
 
 _FUZZY_TRGM_PREFILTER = 0.6
 _RAPIDFUZZ_THRESHOLD = 85.0
@@ -76,15 +79,30 @@ class MergeEngine:
         ).scalar_one_or_none()
 
         if existing is None:
-            await self._insert_new(n, slug=slug, raw_hash=raw_hash, source=source)
+            new_id = await self._insert_new(n, slug=slug, raw_hash=raw_hash, source=source)
+            await self._defer_on_add_recompute(new_id)
             return "added"
 
         await self._apply_update(existing, n, raw_hash=raw_hash, source=source)
         return "updated"
 
+    async def _defer_on_add_recompute(self, catalog_item_id: uuid.UUID) -> None:
+        """On-add lightweight popularity recompute for the new public-github row
+        (D-04-13). Best-effort: the nightly `popularity_recompute` is the real
+        guarantee, so a defer failure (e.g. the Procrastinate app isn't open in a
+        unit test) must never break the upsert."""
+        try:
+            from app.ingestion.tasks_popularity import recompute_one_item
+
+            await recompute_one_item.defer_async(catalog_item_id=str(catalog_item_id))
+        except Exception:
+            logger.debug(
+                "merger.on_add_recompute_defer_skipped", catalog_item_id=str(catalog_item_id)
+            )
+
     async def _insert_new(
         self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
-    ) -> None:
+    ) -> uuid.UUID:
         kind, kind_signals, quality_tier, quality_signals, agents = classify_all(n)
         now = _now()
         item = CatalogItem(
@@ -130,6 +148,7 @@ class MergeEngine:
         await self.session.flush()  # assigns item.id
         await self._upsert_item_source(item.id, source, n.source_url)
         await self._upsert_author(n)
+        return item.id
 
     async def _apply_update(
         self, existing: CatalogItem, n: NormalizedItem, *, raw_hash: str, source: str
@@ -180,7 +199,8 @@ class MergeEngine:
 
         if existing.content_hash_sha256 != raw_hash:
             meta["last_hash_change_at"] = _now().isoformat()
-            # NOTE: Phase C wires the top-500 rug-pull alert + deep re-scan defer here.
+            # The top-500 rug-pull alert (D-04-16) was descoped from Phase C; the
+            # hash-change timestamp is still recorded here for a future re-scan trigger.
 
         meta["conflicts"] = conflicts
         existing.item_metadata = meta

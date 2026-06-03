@@ -17,15 +17,18 @@ half; the AsyncSession is per-emit so each event is a separate small commit
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import secrets
 import traceback
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.db_pool import get_pool
 from app.db.session import AsyncSessionLocal
 from app.models.scan import Scan, ScanEvent
@@ -36,6 +39,18 @@ logger = logging.getLogger(__name__)
 
 
 STAGES_SCORING = ("security", "supply_chain", "maintenance", "transparency", "community")
+
+# Closed map: scan depth → the catalog_items recency column it stamps on
+# completion (migration 0012). Used by enqueue_scan's completion wrapper; the
+# keys are the only legal `depth` values so the column name is never user-derived.
+_RECENCY_COLUMN: dict[str, str] = {
+    "deep": "last_deep_scan_at",
+    "lite": "last_lite_scan_at",
+}
+
+# Strong refs to auto-scan background tasks so the event loop can't GC them
+# mid-run (mirrors `_background_tasks` in routers/scans.py for the submit path).
+_enqueue_tasks: set[asyncio.Task[None]] = set()
 
 
 async def _next_event_seq(
@@ -391,6 +406,78 @@ async def scan_run_upload(
             )
         except Exception:
             logger.exception("scan_run_upload %s final emit also failed", run_id)
+
+
+async def _run_scan_and_stamp(
+    run_id: UUID, github_url: str, rubric_version: str, depth: str
+) -> None:
+    """Run a repo scan to completion, then stamp the scan-depth recency column on
+    every PUBLIC GITHUB capability sharing this repo URL (migration 0012).
+
+    A repo fans out to N capability rows (migration 0007); a Deep/Lite re-scan
+    refreshes all of them, so the recency stamp lands on all public github rows of
+    the repo. `scans.tier` stays the trust badge — this only records *when* a scan
+    of this depth last completed, which the auto-scan triggers read for recency.
+    """
+    await scan_run_repo(run_id, github_url, rubric_version)
+    column = _RECENCY_COLUMN[depth]  # KeyError on an illegal depth — never user input
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                text(
+                    f"UPDATE catalog_items SET {column} = now(), updated_at = now() "
+                    "WHERE github_url = :url "
+                    "AND source_kind = 'github' AND visibility = 'public'"
+                ),
+                {"url": github_url},
+            )
+            await session.commit()
+    except Exception:
+        logger.exception("enqueue_scan: stamping %s for %s failed", column, github_url)
+
+
+async def enqueue_scan(*, catalog_item_id: str, github_url: str, depth: str) -> UUID:
+    """Auto-scan entry point for the ingestion periodic tasks (D-04-14/15).
+
+    Reuses the EXACT on-demand path POST /scans uses — insert a pending
+    `scan_runs` row, then `asyncio.create_task` the repo scan — so auto-triggered
+    scans flow through the one deterministic engine. A per-call nonce in the
+    idempotency key forces a fresh run every time (we want a new scan to refresh
+    the recency stamp, never a cached-run no-op). On completion the wrapper stamps
+    `last_<depth>_scan_at`. `depth` ∈ {"deep","lite"}.
+
+    `catalog_item_id` identifies the triggering capability for the caller's
+    bookkeeping; the scan itself is repo-level (fans out to all capabilities).
+    """
+    if depth not in _RECENCY_COLUMN:
+        raise ValueError(f"depth must be 'deep' or 'lite', got {depth!r}")
+    settings = get_settings()
+    rubric_version = settings.rubric_version or settings.git_sha or "unknown"
+    engine_version = settings.engine_version or settings.git_sha or "unknown"
+    idempotency_key = persistence.compute_idempotency_key(
+        github_url,
+        ref_sha="0" * 40,
+        rubric_version=rubric_version,
+        nonce=secrets.token_hex(16),
+    )
+    async with AsyncSessionLocal() as session:
+        run = await persistence.persist_pending_scan_run(
+            session,
+            idempotency_key=idempotency_key,
+            github_url=github_url,
+            rubric_version=rubric_version,
+            engine_version=engine_version,
+            source="ingestion",
+            visibility="public",
+            source_kind="github",
+        )
+        await session.commit()
+        run_id = run.id
+
+    task = asyncio.create_task(_run_scan_and_stamp(run_id, github_url, rubric_version, depth))
+    _enqueue_tasks.add(task)
+    task.add_done_callback(_enqueue_tasks.discard)
+    return run_id
 
 
 async def recover_stale_scans() -> None:
