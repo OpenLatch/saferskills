@@ -21,7 +21,7 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 
 | Var | Required | Default | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | yes | (none) | PostgreSQL connection string (`postgresql+asyncpg://...`) |
+| `DATABASE_URL` | yes | (none) | PostgreSQL connection string. Auto-normalized by `config.py::_normalize_db_dsn`: a managed-Postgres `postgres://` / `postgresql://` DSN is coerced to `postgresql+asyncpg://`, and a libpq `?sslmode=…` query param (Fly Managed Postgres / Supabase / Neon) is renamed to asyncpg's `?ssl=…` — without it the asyncpg dialect crashes `alembic upgrade head` at boot (`connect() got an unexpected keyword argument 'sslmode'`) and the API drops into degraded mode. |
 | `SENTRY_DSN` | no | unset | Errors-only Sentry project (cf. `telemetry.md`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | no | unset | OpenTelemetry collector |
 | `ENV` | yes | `development` | One of `development` / `staging` / `production` — drives Sentry env tag and log format. (Does NOT gate migrations: `alembic upgrade head` runs in-process on every boot in all envs — see `ci-cd.md` § Deployment.) |
