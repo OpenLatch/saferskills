@@ -16,7 +16,7 @@ const SCHEMAS_DIR = path.join(ROOT, 'schemas')
 let Ajv2020
 try {
   Ajv2020 = require('ajv/dist/2020').default
-} catch (e) {
+} catch {
   console.error('[validate-schemas] ajv not installed. Run `pnpm install` first.')
   process.exit(2)
 }
