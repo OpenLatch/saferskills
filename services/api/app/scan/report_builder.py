@@ -18,12 +18,13 @@ from app.models.scan_run import ScanRun
 from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.scan_run import CapabilityRow, FindingsSummary, ScanRunReportDetail
 from app.schemas.scan_submit import ScanReportDetail
+from app.services.finding_evidence import EvidenceExcerptDict
 
 ScanStatus = Literal["pending", "running", "completed", "failed"]
 
-# Map of {finding_id -> evidence-excerpt dict} (report-DTO-only, see
+# Map of {finding_id -> evidence-excerpt} (report-DTO-only, see
 # app.services.finding_evidence). None when the caller resolves no excerpts.
-Evidence = Mapping[str, dict[str, object]] | None
+Evidence = Mapping[str, EvidenceExcerptDict] | None
 
 
 def derive_scan_status(scan: Scan, findings: Sequence[Finding]) -> ScanStatus:

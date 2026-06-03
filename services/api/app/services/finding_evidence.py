@@ -19,13 +19,32 @@ a "value not stored" affordance rather than breaking.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
+from typing import TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
 from app.services.artifact_bytes import resolve_snapshot
+
+
+class EvidenceLineDict(TypedDict):
+    """One line of the matched-line window (mirrors the wire `evidence_excerpt`)."""
+
+    line_no: int
+    text: str
+    hit: bool
+
+
+class EvidenceExcerptDict(TypedDict):
+    """Report-DTO-only matched-line window resolved from the stored snapshot."""
+
+    file: str
+    lang: str | None
+    truncated: bool
+    lines: list[EvidenceLineDict]
+
 
 # Window budget — keep each excerpt small + bounded (the wire stays lean).
 _CONTEXT_LINES = 2  # lines of context to show each side of the match
@@ -67,7 +86,7 @@ def _lang_for(path: str) -> str | None:
     return _LANG_BY_EXT.get(ext)
 
 
-def _excerpt_for(content: bytes, finding: Finding) -> dict[str, object] | None:
+def _excerpt_for(content: bytes, finding: Finding) -> EvidenceExcerptDict | None:
     """Build the bounded matched-line window for one finding, or None.
 
     None when the recorded line range cannot be located in the (possibly drifted)
@@ -96,7 +115,7 @@ def _excerpt_for(content: bytes, finding: Finding) -> dict[str, object] | None:
     win_start = max(1, start - ctx)
     win_end = min(len(lines), end + ctx)
 
-    out_lines: list[dict[str, object]] = []
+    out_lines: list[EvidenceLineDict] = []
     for line_no in range(win_start, win_end + 1):
         raw = lines[line_no - 1]
         if len(raw) > _MAX_LINE_CHARS:
@@ -114,7 +133,7 @@ def _excerpt_for(content: bytes, finding: Finding) -> dict[str, object] | None:
 
 async def resolve_finding_excerpts(
     session: AsyncSession, scan: Scan, findings: Sequence[Finding]
-) -> dict[str, dict[str, object]]:
+) -> dict[str, EvidenceExcerptDict]:
     """Resolve `{finding_id -> excerpt}` for one scan's findings.
 
     Calls `resolve_snapshot` once for the scan, then slices the matched-line
@@ -125,7 +144,7 @@ async def resolve_finding_excerpts(
     if not findings:
         return {}
     snapshot = await resolve_snapshot(session, scan)
-    out: dict[str, dict[str, object]] = {}
+    out: dict[str, EvidenceExcerptDict] = {}
     for finding in findings:
         content = snapshot.get(finding.file_path)
         if content is None:
@@ -139,24 +158,14 @@ async def resolve_finding_excerpts(
 async def resolve_run_evidence(
     session: AsyncSession,
     capabilities: Sequence[tuple[Scan, CatalogItem, Sequence[Finding]]],
-) -> dict[str, dict[str, object]]:
+) -> dict[str, EvidenceExcerptDict]:
     """Resolve excerpts across every capability of a repo scan run.
 
     Each capability's scan has its own per-subtree `file_hashes`, so the snapshot
     is resolved per scan. Finding ids are globally unique, so the merged map is a
     flat `{finding_id -> excerpt}`.
     """
-    out: dict[str, dict[str, object]] = {}
+    out: dict[str, EvidenceExcerptDict] = {}
     for scan, _item, findings in capabilities:
         out.update(await resolve_finding_excerpts(session, scan, findings))
     return out
-
-
-def fold_evidence(
-    finding_dict: dict[str, object],
-    finding_id: str,
-    evidence: Mapping[str, dict[str, object]] | None,
-) -> dict[str, object]:
-    """Attach `evidence_excerpt` (or None) to an already-built finding dict."""
-    finding_dict["evidence_excerpt"] = (evidence or {}).get(finding_id)
-    return finding_dict
