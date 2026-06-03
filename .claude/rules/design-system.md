@@ -28,7 +28,9 @@ All visual tokens live in `ui/styles/tokens.css` — colors, radii, spacing, typ
 | `--radius-pill` | `999px` | Badges only (used sparingly) |
 | `--shadow-hairline` | `0 0 0 1px var(--color-ink)` | Single hairline borders, never thicker on UI chrome |
 | `--focus-ring` | `0 0 0 2px var(--brand-primary)` | Keyboard `:focus-visible` ring on interactive DS atoms (SegmentedTabs / Toggle / DropZone) |
-| `--shadow-stamp` | `4px 4px 0 0 var(--color-ink)` | Press-block emphasis on **non-interactive** cards + featured items, used sparingly. **Never on buttons** — see Hex-button vocabulary § brutalist offset shadows |
+| `--shadow-stamp` | `4px 4px 0 0 var(--color-ink)` | Press-block emphasis on **non-interactive** cards + featured items, used sparingly. **Never on buttons or overlays/modals** — see § Brutalist offset shadows |
+| `--shadow-overlay` | `0 18px 40px -24px` slate-900 (deeper in dark) | Soft ambient lift for **floating overlays/modals** (`.turnstile-gate`, `.confirm-dialog`) over a dimmed/blurred backdrop — the sanctioned modal-elevation exception to "no drop shadows". Subtle, never the brutalist offset. |
+| `--ease-emphasized` | `cubic-bezier(0.23, 1, 0.32, 1)` | Emphasized decelerate for overlay/modal enter sequences — more "punch" than `--ease-out` |
 | `--font-display` / `--font-sans` | `DM Sans` (400-800) | Body + display |
 | `--font-mono` | `Space Mono` (400, 700) | Code + rule_ids + monospace meta |
 | `--font-loud` | `Anybody` (variable, wdth=125, weight=800) | Score numbers + loud stat displays |
@@ -107,11 +109,14 @@ The signature button silhouette is a chamfered hexagonal cap shape rendered via 
 - **`Badge`** — 28px h, 12px caps, mono uppercase 700 — status flags ("LIVE", "INDEXED").
 - **`GhStar`** — GitHub star CTA, paired half-cap segments.
 
-### Buttons never use "brutalist" offset shadows
+### Brutalist offset shadows — never on buttons OR overlays/modals
 
-Buttons and any link/control styled as a button (e.g. `.rescan-btn`, `.pkg-gh`) **never** use an offset "stamp"/drop shadow on hover (`box-shadow: 4px 4px 0 …` + `transform: translate(-1px,-1px)`) — that brutalist treatment is banned on interactive controls. Hover state reuses the DS `Button` language: a **background fill** change (e.g. ink→paper, or `primary`→`primary-dark`) plus at most a `translateY(-1px)` lift. No box-shadow, no diagonal nudge.
+The brutalist offset "stamp" shadow (`box-shadow: 4px 4px 0 …`, i.e. `--shadow-stamp`) is **banned on every interactive surface**:
 
-`--shadow-stamp` is reserved for **non-interactive emphasis on cards/featured items** (e.g. `.rule-card:target`), used sparingly — never on a button. (`--shadow-stamp-brand` was removed; it had no remaining sanctioned use.)
+- **Buttons** and any link/control styled as a button (e.g. `.rescan-btn`, `.pkg-gh`) **never** use it on hover (no `box-shadow: 4px 4px 0 …` + `transform: translate(-1px,-1px)`). Hover state reuses the DS `Button` language: a **background fill** change (e.g. ink→paper, or `primary`→`primary-dark`) plus at most a `translateY(-1px)` lift. No box-shadow, no diagonal nudge.
+- **Overlays / modals** (`.turnstile-gate`, `.confirm-dialog`, any `<dialog>` chrome) **never** use the offset stamp either — an interactive overlay stamped like a sticker reads as a card, not a floating surface. Modals float on a **1px hairline border + the soft `--shadow-overlay` ambient lift over a dimmed, blurred `::backdrop`** (`backdrop-filter: blur(3px)`). That ambient lift is the one sanctioned drop-shadow exception, and it is subtle (large blur, negative spread, low opacity) — never the hard 4px offset.
+
+`--shadow-stamp` is reserved for **non-interactive emphasis on cards/featured items** (e.g. `.rule-card:target`), used sparingly — never on a button or an overlay. (`--shadow-stamp-brand` was removed; it had no remaining sanctioned use.)
 
 ## Dual-mode scan controls (I-3.5)
 
@@ -238,7 +243,7 @@ Enforced in code review on every PR that adds catalog content. Violations are a 
 ## Hard rules
 
 1. **Tokens, not literals.** Never write `#0D9488` or `rounded-md` in a component — reference `var(--brand-primary)` / `rounded-none`.
-2. **0 radius, 1px borders, no drop shadows.** `--radius-0` is the default. `--radius-xs` for form fields/chips. `--radius-pill` for badges only. Shadows replaced by `--shadow-hairline` + `--shadow-stamp` (used sparingly on **non-interactive** cards — **never** an offset/brutalist shadow on a button; see Hex-button vocabulary).
+2. **0 radius, 1px borders, no drop shadows.** `--radius-0` is the default. `--radius-xs` for form fields/chips. `--radius-pill` for badges only. Shadows replaced by `--shadow-hairline` + `--shadow-stamp` (used sparingly on **non-interactive** cards — **never** an offset/brutalist shadow on a button **or an overlay/modal**; see § Brutalist offset shadows). The lone drop-shadow exception is `--shadow-overlay`, the soft ambient lift for floating modals.
 3. **`ui/` is framework-agnostic.** No Astro imports in React components. No `import.meta.env` access in component code (read env in the route, pass via props).
 4. **Story + test + axe** for every shared React component; Astro shells need story + Ladle build pass only.
 5. **Anti-recommendation** — catalog never cross-promotes.

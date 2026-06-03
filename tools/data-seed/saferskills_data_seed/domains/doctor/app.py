@@ -9,7 +9,7 @@ from ...shared.context import get_context
 from ...shared.http_client import create_client
 from ..catalog.app import CATALOG_YAML
 
-app = typer.Typer(help="Preflight: API reachable, OpenAPI schema present, corpus validates.")
+app = typer.Typer(help="Preflight: API reachable + fixture corpus validates.")
 console = Console()
 
 

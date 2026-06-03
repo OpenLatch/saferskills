@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import contextlib
+import sys
+
 import typer
 
 from .domains.catalog.app import app as catalog_app
@@ -8,6 +11,13 @@ from .domains.purge.app import app as purge_app
 from .domains.scans.app import app as scans_app
 from .domains.vendors.app import app as vendors_app
 from .shared.context import GlobalContext, attach_context
+
+# Force UTF-8 stdio so Rich's status glyphs (✓ / ✗ / ·) don't crash on a legacy
+# Windows console (cp1252 can't encode U+2713 → UnicodeEncodeError mid-render).
+# One place, every command. No-op on streams that don't support reconfigure.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError):
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
 app = typer.Typer(
     name="saferskills-data-seed",
