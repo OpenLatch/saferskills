@@ -9,10 +9,12 @@ so the exemption can never apply off a developer's machine. Driven by the
 by SSO; the CLI keeps working.
 
 Endpoints (mounted at /api/v1/admin):
-  GET  /sources                          list 14 sources + status
+  GET  /sources                          eagle-eye snapshot: summary rollup +
+                                         critical[] + rich per-provider detail
+  GET  /sources/{source}/runs            keyset-paginated ingestion_runs history
   POST /sources/{source}/pause           pause (reason, contact)
   POST /sources/{source}/unpause         re-activate
-  POST /sources/{source}/force-cycle     defer one adapter cycle
+  POST /sources/{source}/force-cycle     defer one adapter cycle (trigger='force')
   GET  /merge-candidates                  list (status, limit)
   POST /merge-candidates/{id}/decide      merged | rejected
   POST /catalog/{slug}/re-classify        re-run kind/quality/agent heuristics
@@ -38,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.ingestion.config.loader import load_source_configs
+from app.ingestion.framework import health
 from app.ingestion.framework.classifier import CLASSIFIER_VERSION, classify_all
 from app.ingestion.framework.halt import get_source_status, set_source_status
 from app.models import AdminAuditLog, CatalogItem
@@ -108,14 +111,61 @@ async def _audit(
 # ─── Sources ─────────────────────────────────────────────────────────────────
 
 
+def _iso(value: dt.datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+_LAST_RUN_SQL = text("""
+    SELECT DISTINCT ON (source)
+        source, id, trigger, status, started_at, ended_at, duration_ms,
+        items_seen, items_added, items_updated, http_304_count, http_5xx_count,
+        attempt, error_class, error_message
+    FROM ingestion_runs
+    ORDER BY source, started_at DESC
+""")
+
+# Rolling 1h/24h windows + the oldest still-running row per source. Bounded to
+# 24h OR running, so the (source, started_at DESC) + partial running indexes apply.
+_RUN_AGG_SQL = text("""
+    SELECT source,
+        count(*) FILTER (WHERE started_at > now() - interval '1 hour')                          AS total_1h,
+        count(*) FILTER (WHERE status='failed' AND started_at > now() - interval '1 hour')      AS failed_1h,
+        count(*) FILTER (WHERE started_at > now() - interval '24 hours')                        AS total_24h,
+        count(*) FILTER (WHERE status='failed' AND started_at > now() - interval '24 hours')    AS failed_24h,
+        min(started_at) FILTER (WHERE status='running')                                         AS running_since
+    FROM ingestion_runs
+    WHERE started_at > now() - interval '24 hours' OR status = 'running'
+    GROUP BY source
+""")
+
+_PROC_SQL = text("""
+    SELECT task_name,
+        count(*) FILTER (WHERE status='doing')  AS doing,
+        count(*) FILTER (WHERE status='failed') AS failed,
+        min(scheduled_at) FILTER (WHERE status='todo' AND scheduled_at IS NOT NULL) AS next_scheduled
+    FROM procrastinate_jobs
+    WHERE task_name LIKE 'ingest_cycle_%'
+    GROUP BY task_name
+""")
+
+
 @router.get("/sources")
 async def admin_list_sources(
     _: str = Depends(require_admin_key),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """All YAML-declared sources merged with their crawler_cursors status."""
+    """Eagle-eye pipeline snapshot: every YAML source merged with its
+    crawler_cursors status, last ingestion_runs row + rolling failure windows,
+    live/dead-letter/next-retry from procrastinate_jobs, croniter schedule, and a
+    derived health verdict — plus a top-level summary rollup + deduped critical[].
+
+    Additive over the original endpoint: every prior field name is preserved; the
+    `live` / `last_run` / `schedule` / `health` objects are new nested additions.
+    """
     configs = load_source_configs()
-    rows = {
+    now = dt.datetime.now(tz=dt.UTC)
+
+    cursors = {
         r.source: r
         for r in (
             await session.execute(
@@ -127,28 +177,189 @@ async def admin_list_sources(
             )
         ).all()
     }
+    last_runs = {r.source: r for r in (await session.execute(_LAST_RUN_SQL)).all()}
+    aggs = {r.source: r for r in (await session.execute(_RUN_AGG_SQL)).all()}
+
+    # procrastinate_jobs is applied at boot (not by Alembic), so it may be absent
+    # in a fresh DB / under the test ASGITransport — guard before querying.
+    proc: dict[str, Any] = {}
+    if (
+        await session.execute(text("SELECT to_regclass('procrastinate_jobs')"))
+    ).scalar() is not None:
+        proc = {
+            r.task_name.removeprefix("ingest_cycle_"): r
+            for r in (await session.execute(_PROC_SQL)).all()
+        }
+
     data: list[dict[str, Any]] = []
+    signals: list[health.CriticalSignal] = []
+    by_status: dict[str, int] = {}
+
     for name, cfg in sorted(configs.items()):
-        cur = rows.get(name)
+        cur = cursors.get(name)
+        agg = aggs.get(name)
+        lr = last_runs.get(name)
+        pj = proc.get(name)
+
+        cursor_status = cur.status if cur else "active"
+        last_success = cur.last_successful_cycle_at if cur else None
+        last_attempt = cur.last_attempted_cycle_at if cur else None
+        consecutive_failures = cur.consecutive_failure_count if cur else 0
+        running_since = agg.running_since if agg else None
+        has_live = bool(pj and pj.doing)
+        has_dead_letter = bool(pj and pj.failed)
+
+        snap = health.SourceSnapshot(
+            source=name,
+            enabled=cfg.enabled,
+            cursor_status=cursor_status,
+            consecutive_failures=consecutive_failures,
+            last_success_at=last_success,
+            last_attempt_at=last_attempt,
+            cadence_cron=cfg.cadence_cron,
+            has_live_job=has_live,
+            has_dead_letter=has_dead_letter,
+            running_since=running_since,
+            runs_total_1h=agg.total_1h if agg else 0,
+            runs_failed_1h=agg.failed_1h if agg else 0,
+            runs_total_24h=agg.total_24h if agg else 0,
+            runs_failed_24h=agg.failed_24h if agg else 0,
+            now=now,
+        )
+        derived = health.derive_status(snap)
+        by_status[derived] = by_status.get(derived, 0) + 1
+        signal = health.classify_critical(snap)
+        if signal is not None:
+            signals.append(signal)
+
+        next_expected = health.next_expected_run(cfg.cadence_cron, now)
         data.append(
             {
+                # ── original fields (unchanged) ──
                 "source": name,
                 "kind": cfg.kind,
                 "cadence": cfg.cadence_cron,
                 "enabled": cfg.enabled,
                 "registry_id": cfg.registry_id,
                 "policy_summary": cfg.policy.summary,
-                "status": cur.status if cur else "active",
+                "status": cursor_status,
                 "status_reason": cur.status_reason if cur else None,
-                "last_successful_cycle_at": (
-                    cur.last_successful_cycle_at.isoformat()
-                    if cur and cur.last_successful_cycle_at
+                "last_successful_cycle_at": _iso(last_success),
+                "consecutive_failure_count": consecutive_failures,
+                # ── new nested detail ──
+                "live": {
+                    "running": has_live or running_since is not None,
+                    "running_since": _iso(running_since),
+                    "dead_letter": has_dead_letter,
+                },
+                "last_run": (
+                    {
+                        "id": str(lr.id),
+                        "trigger": lr.trigger,
+                        "status": lr.status,
+                        "started_at": _iso(lr.started_at),
+                        "ended_at": _iso(lr.ended_at),
+                        "duration_ms": lr.duration_ms,
+                        "items_seen": lr.items_seen,
+                        "items_added": lr.items_added,
+                        "items_updated": lr.items_updated,
+                        "http_304_count": lr.http_304_count,
+                        "http_5xx_count": lr.http_5xx_count,
+                        "error_class": lr.error_class,
+                        "error_message": lr.error_message,
+                    }
+                    if lr is not None
                     else None
                 ),
-                "consecutive_failure_count": cur.consecutive_failure_count if cur else 0,
+                "schedule": {
+                    "cadence_cron": cfg.cadence_cron,
+                    "next_expected_run": _iso(next_expected),
+                    "next_retry_at": _iso(pj.next_scheduled) if pj else None,
+                    "overdue": health.is_overdue(snap),
+                },
+                "health": {
+                    "status": derived,
+                    "reason_code": signal.reason_code if signal else None,
+                    "tier": signal.tier if signal else None,
+                    "failure_rate_1h": round(health.failure_rate_1h(snap), 4),
+                    "failure_rate_24h": round(health.failure_rate_24h(snap), 4),
+                    "runs_24h": snap.runs_total_24h,
+                    "consecutive_failures": consecutive_failures,
+                    "last_success_at": _iso(last_success),
+                    "last_attempt_at": _iso(last_attempt),
+                },
             }
         )
-    return {"data": data}
+
+    critical = sorted(
+        (
+            {"source": s.source, "reason_code": s.reason_code, "tier": s.tier, "detail": s.detail}
+            for s in signals
+        ),
+        key=lambda c: (c["tier"] != "critical", c["source"]),
+    )
+    return {
+        "generated_at": now.isoformat(),
+        "summary": {
+            "overall": health.rollup_overall(signals),
+            "total": len(data),
+            "by_status": by_status,
+            "critical_count": sum(1 for s in signals if s.tier == "critical"),
+            "warn_count": sum(1 for s in signals if s.tier == "warn"),
+        },
+        "critical": critical,
+        "data": data,
+    }
+
+
+@router.get("/sources/{source}/runs")
+async def admin_source_runs(
+    source: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    before: dt.datetime | None = Query(
+        default=None, description="Keyset cursor — return runs with started_at < this."
+    ),
+    _: str = Depends(require_admin_key),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Keyset-paginated `ingestion_runs` history for one source (started_at DESC)."""
+    if source not in load_source_configs():
+        raise HTTPException(404, f"unknown source {source!r}")
+    sql = """
+        SELECT id, source, trigger, status, started_at, ended_at, duration_ms,
+               items_seen, items_added, items_updated, http_304_count, http_5xx_count,
+               attempt, error_class, error_message
+        FROM ingestion_runs
+        WHERE source = :source
+    """
+    params: dict[str, Any] = {"source": source, "limit": limit}
+    if before is not None:
+        sql += " AND started_at < :before"
+        params["before"] = before
+    sql += " ORDER BY started_at DESC LIMIT :limit"
+    rows = (await session.execute(text(sql), params)).all()
+    data = [
+        {
+            "id": str(r.id),
+            "source": r.source,
+            "trigger": r.trigger,
+            "status": r.status,
+            "started_at": _iso(r.started_at),
+            "ended_at": _iso(r.ended_at),
+            "duration_ms": r.duration_ms,
+            "items_seen": r.items_seen,
+            "items_added": r.items_added,
+            "items_updated": r.items_updated,
+            "http_304_count": r.http_304_count,
+            "http_5xx_count": r.http_5xx_count,
+            "attempt": r.attempt,
+            "error_class": r.error_class,
+            "error_message": r.error_message,
+        }
+        for r in rows
+    ]
+    next_before = data[-1]["started_at"] if len(data) == limit else None
+    return {"data": data, "next_before": next_before}
 
 
 @router.post("/sources/{source}/pause")
@@ -213,7 +424,7 @@ async def admin_force_cycle_source(
 
     try:
         await procrastinate_app.configure_task(name=f"ingest_cycle_{source}").defer_async(
-            timestamp=int(time.time())
+            timestamp=int(time.time()), trigger="force"
         )
     except Exception as exc:  # task not registered (disabled/non-api source)
         raise HTTPException(

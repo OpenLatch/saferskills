@@ -17,6 +17,14 @@ uv project with a different audience + safety surface:
 (`sources`, `merge_candidates`, `catalog`, `popularity`, `auth`). Each domain is a
 `typer.Typer()` registered via `app.add_typer`.
 
+The `sources` domain also ships the **eagle-eye TUI** under `domains/sources/tui/`
+(`app.py` Textual screens + `client.py` robust HTTP wrapper + `format.py` pure
+helpers), launched by `sources dashboard`. It is the one interactive surface — every
+other command is one-shot. The TUI reuses the same `AdminContext` (api_url + admin_key,
+keyless on dev) and the same admin endpoints; pure presentation/state logic is unit-
+tested via Textual `run_test()` pilots (`tests/test_dashboard_tui.py`). New dep:
+`textual` (in `pyproject.toml`).
+
 ## Conventions
 
 - **No DB access.** This CLI only calls the API; the backend owns all mutation +

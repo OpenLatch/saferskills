@@ -2906,7 +2906,7 @@
     },
     "/api/v1/admin/sources": {
       "get": {
-        "description": "All YAML-declared sources merged with their crawler_cursors status.",
+        "description": "Eagle-eye pipeline snapshot: every YAML source merged with its\ncrawler_cursors status, last ingestion_runs row + rolling failure windows,\nlive/dead-letter/next-retry from procrastinate_jobs, croniter schedule, and a\nderived health verdict \u2014 plus a top-level summary rollup + deduped critical[].\n\nAdditive over the original endpoint: every prior field name is preserved; the\n`live` / `last_run` / `schedule` / `health` objects are new nested additions.",
         "operationId": "admin_list_sources_api_v1_admin_sources_get",
         "parameters": [
           {
@@ -3082,6 +3082,98 @@
           }
         },
         "summary": "Admin Pause Source",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/sources/{source}/runs": {
+      "get": {
+        "description": "Keyset-paginated `ingestion_runs` history for one source (started_at DESC).",
+        "operationId": "admin_source_runs_api_v1_admin_sources__source__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Keyset cursor \u2014 return runs with started_at < this.",
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keyset cursor \u2014 return runs with started_at < this.",
+              "title": "Before"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Admin Source Runs Api V1 Admin Sources  Source  Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Source Runs",
         "tags": [
           "admin"
         ]

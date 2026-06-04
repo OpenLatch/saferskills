@@ -22,7 +22,7 @@ def main() -> int:
         print("usage: python -m app.ingestion.run_one_cycle <source>", file=sys.stderr)
         return 2
     source = sys.argv[1]
-    counters = asyncio.run(run_source_cycle(source))
+    counters = asyncio.run(run_source_cycle(source, trigger="manual"))
     print(counters)
     return 0
 

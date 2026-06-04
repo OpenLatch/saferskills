@@ -8,6 +8,7 @@ dependencies = [
     "httpx >= 0.28",
     "rich >= 13.0",
     "pydantic >= 2.10",
+    "textual >= 0.80",
 ]
 
 [dependency-groups]
