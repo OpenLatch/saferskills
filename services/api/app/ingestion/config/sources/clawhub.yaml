@@ -1,16 +1,30 @@
-# clawhub.dev aggregator scraper (Phase B — config stub, adapter not yet built).
+# clawhub.dev skill aggregator (I-04 Phase B PR2). Enabled, but the host is currently
+# DNS-unreachable (no A record resolves) — the sitemap fetch fails, list_items yields
+# zero items, and the cycle records a clean no-op (the adapter never crashes). If the
+# host comes back this adapter scrapes it with no code change; until then it is the
+# documented "may land blocked / unreachable" contingency (see docs/sources.md).
 name: clawhub
 kind: scrape
 hosts:
   - clawhub.dev
-cadence_cron: null
-rate_limit_per_second: 0.1
-enabled: false
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "15 5 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_aggregator
+enabled: true
 registry_id: clawhub
-description: Placeholder for the clawhub.dev skill aggregator scraper (Phase B).
+discovery:
+  sitemap_url: https://clawhub.dev/sitemap.xml
+  item_url_regex: "clawhub\\.dev/[^/]+$"
+  kind: skill
+  name_from: og_title
+  max_items: 150
+description: Scrapes public skill listings from clawhub.dev via its sitemap, crediting each item with a backlink.
 policy:
   summary: >-
-    Planned: index public skill listings from clawhub.dev, crediting each item
-    with a backlink. Disabled until the scraping adapter ships (Phase B).
+    We index public skill listings from clawhub.dev via its sitemap, paraphrase
+    each listing, credit every item with a backlink, and respect robots.txt + a
+    conservative rate limit.
   contact: bot@saferskills.ai
-  robots_txt: respected (Phase B)
+  robots_txt: respected

@@ -142,10 +142,24 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - **`kind: scrape` schedules automatically.** `tasks.py` registers a periodic task for
   every `enabled` source whose `kind ∈ {api, scrape}` has a `cadence_cron` (webhook
   sources are dispatched, not cronned). No per-adapter task wiring.
-- **Reference adapters (PR1):** `smithery` (feed `registry.smithery.ai/servers`,
+- **Feed adapters (PR1):** `smithery` (feed `registry.smithery.ai/servers`,
   `page`/`pageSize`) + `glama` (feed `glama.ai/api/mcp/v1/servers`, Relay `first`/`after`
   cursor). Glama records carry `repository.url` → real tiers; Smithery exposes GitHub
-  only via the OSS subset's `homepage`. The remaining 7 HTML scrapers land in PR2.
+  only via the OSS subset's `homepage`.
+- **HTML scrapers (PR2) — one shared `SitemapHtmlAdapter`** (`framework/sitemap_scraper.py`).
+  The 7 sites (`mcp_so`, `pulsemcp`, `clawhub`, `skillsmp`, `skills_sh`, `claudeskills_info`,
+  `skillhub_club`) share one shape: a sitemap (often a sitemap-**index**) enumerates
+  item-detail URLs; each item page is server-rendered with `og:` meta + a GitHub link.
+  The base fetches the sitemap via **curl_cffi** (most hosts are Cloudflare-proxied and
+  reject plain HTTPX), recurses one level into child sitemaps matching `item_sitemap_substr`,
+  filters item URLs by `item_url_regex`, caps at `max_items`, then per item extracts: the
+  GitHub repo (first `github.com/<org>/<repo>` not in the global + per-site
+  `github_denylist`), the name (`og:title` stripped of `name_strip`, branding split off;
+  or the URL slug at `name_slug_index` when `name_from: slug`), and the description
+  (`og:description`). **Every per-site difference lives in the YAML `discovery` block**, so
+  each adapter module is a one-line `@register_adapter` subclass. Repo-less items still
+  index (fuzzy queue); an unreachable host (clawhub's dead DNS) yields zero items + a log,
+  never a crash; a genuine CF challenge raises `AdapterBlockedError` → `status='blocked'`.
 
 > **Deps (Phase B):** `curl_cffi` (browser-impersonating tier-1 fetch), `trafilatura`
 > (`extract_main_content`), `beautifulsoup4` + `lxml` (PR2 DOM parsing), `defusedxml`

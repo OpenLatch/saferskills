@@ -1,16 +1,29 @@
-# pulsemcp.com aggregator scraper (Phase B — config stub, adapter not yet built).
+# pulsemcp.com MCP-server aggregator (I-04 Phase B PR2). Flat sitemap → /servers/<slug>
+# item pages (curl_cffi; Cloudflare-proxied — plain HTTPX gets a 403). The listing is
+# client-rendered, so we read the GitHub repo from each item-detail page.
 name: pulsemcp
 kind: scrape
 hosts:
   - pulsemcp.com
-cadence_cron: null
-rate_limit_per_second: 0.1
-enabled: false
+  - www.pulsemcp.com
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "0 5 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_aggregator
+enabled: true
 registry_id: pulsemcp
-description: Placeholder for the pulsemcp.com MCP-server aggregator scraper (Phase B).
+discovery:
+  sitemap_url: https://www.pulsemcp.com/sitemap.xml
+  item_url_regex: "pulsemcp\\.com/servers/[^/]+$"
+  kind: mcp_server
+  name_from: og_title
+  max_items: 150
+description: Scrapes public MCP-server listings from pulsemcp.com via its sitemap, crediting each item with a backlink.
 policy:
   summary: >-
-    Planned: index public MCP-server listings from pulsemcp.com, crediting each
-    item with a backlink. Disabled until the scraping adapter ships (Phase B).
+    We index public MCP-server listings from pulsemcp.com via its sitemap,
+    paraphrase each listing, credit every item with a backlink, and respect
+    robots.txt + a conservative rate limit.
   contact: bot@saferskills.ai
-  robots_txt: respected (Phase B)
+  robots_txt: respected
