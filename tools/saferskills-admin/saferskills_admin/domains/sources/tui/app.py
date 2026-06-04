@@ -13,8 +13,10 @@ good snapshot. The client is injected so `run_test()` pilots can mock it.
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
+from rich.markup import escape
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
@@ -26,11 +28,31 @@ from textual.widgets import Button, DataTable, Footer, Header, Label, Static
 from .client import HealthClientError, SourcesHealthClient
 from .format import duration, overall_style, rel_time, run_status_style, status_style
 
+_BLINK_SECONDS = 0.18
+
+
+def _blink(widget: DataTable) -> None:
+    """Briefly tint a widget (see CSS `.refreshing`) as manual-refresh feedback."""
+    widget.add_class("refreshing")
+    widget.set_timer(_BLINK_SECONDS, lambda: widget.remove_class("refreshing"))
+
 
 class ConfirmModal(ModalScreen[bool]):
-    """Yes/no gate before a mutating admin action."""
+    """Yes/no gate before a mutating admin action.
 
-    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+    Fully keyboard-navigable: ←/→ (and h/l) move between the two buttons, Enter
+    activates the focused one, y confirms, n/Esc cancels. (Tab also works, but a
+    horizontal two-button row invites the arrow keys — without these bindings the
+    arrows were dead and the dialog felt un-navigable.)
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("left,up,h", "focus_confirm", show=False),
+        Binding("right,down,l", "focus_cancel", show=False),
+        Binding("y", "confirm", show=False),
+        Binding("n", "cancel", show=False),
+    ]
 
     def __init__(self, prompt: str) -> None:
         super().__init__()
@@ -48,6 +70,15 @@ class ConfirmModal(ModalScreen[bool]):
 
     def action_cancel(self) -> None:
         self.dismiss(False)
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_focus_confirm(self) -> None:
+        self.query_one("#confirm-yes", Button).focus()
+
+    def action_focus_cancel(self) -> None:
+        self.query_one("#confirm-no", Button).focus()
 
 
 class SourceDetailScreen(Screen[None]):
@@ -71,8 +102,11 @@ class SourceDetailScreen(Screen[None]):
         yield Header()
         with VerticalScroll():
             yield Static("", id="detail-cards")
+            yield Static("", id="action-status")
             yield Label("Run history", id="runs-title")
             yield DataTable(id="runs-table")
+            yield Label("Errors", id="errors-title")
+            yield Static("", id="errors-list")
         yield Static("", id="detail-error")
         yield Footer()
 
@@ -81,6 +115,7 @@ class SourceDetailScreen(Screen[None]):
         table = self.query_one("#runs-table", DataTable)
         table.cursor_type = "row"
         table.add_columns("Started", "Trigger", "Status", "Dur", "Seen", "Add", "Upd", "Error")
+        table.loading = True  # spinner until the first fetch lands
         self.load()
         self.set_interval(5.0, self.load)
 
@@ -94,12 +129,15 @@ class SourceDetailScreen(Screen[None]):
             )
         except HealthClientError as exc:
             self.query_one("#detail-error", Static).update(f"[red]{exc}[/]")
+            self.query_one("#runs-table", DataTable).loading = False
             return
         self.query_one("#detail-error", Static).update("")
         provider = next((p for p in snap.get("data", []) if p.get("source") == self.source), None)
         if provider is not None:
             self._render_cards(provider)
         self._render_runs(runs.get("data", []))
+        self._render_errors(runs.get("data", []))
+        self.query_one("#runs-table", DataTable).loading = False
 
     def _render_cards(self, p: dict[str, Any]) -> None:
         live = p.get("live", {})
@@ -156,10 +194,37 @@ class SourceDetailScreen(Screen[None]):
                 (r.get("error_class") or ""),
             )
 
+    def _render_errors(self, runs: list[dict[str, Any]]) -> None:
+        """List every recent run carrying an error, with the full message.
+
+        The run-history table only has room for `error_class`; this panel shows
+        the full `error_message` (bounded ≤2048 chars server-side) so failures
+        are diagnosable without leaving the dashboard. Built as a rich `Text`
+        (not markup) so an error body containing `[...]` can't break rendering.
+        """
+        errored = [r for r in runs if r.get("error_message") or r.get("error_class")]
+        # Red heading only when something actually failed.
+        self.query_one("#errors-title", Label).set_class(bool(errored), "has-errors")
+        panel = self.query_one("#errors-list", Static)
+        if not errored:
+            panel.update("[dim]no errors in recent runs[/]")
+            return
+        body = Text()
+        for r in errored:
+            cls = r.get("error_class") or "error"
+            body.append(f"{rel_time(r.get('started_at'))}  ", style="dim")
+            body.append(f"{cls}\n", style="bold red")
+            msg = r.get("error_message")
+            if msg:
+                body.append(f"{msg}\n", style="red")
+            body.append("\n")
+        panel.update(body)
+
     def action_back(self) -> None:
         self.app.pop_screen()
 
     def action_refresh(self) -> None:
+        _blink(self.query_one("#runs-table", DataTable))
         self.load()
 
     def action_force_cycle(self) -> None:
@@ -176,12 +241,34 @@ class SourceDetailScreen(Screen[None]):
         ok = await self.app.push_screen_wait(ConfirmModal(f"{verb} '{self.source}'?"))
         if not ok:
             return
+        # A PERSISTENT inline line (not a toast) — toasts auto-dismiss in ~5s
+        # and overlay in a corner, easy to miss. This updates the instant you
+        # confirm (before the round-trip), so there is always visible feedback
+        # even if the API is slow/down. load() never clears it (unlike
+        # #detail-error), so it stays until the next action.
+        status = self.query_one("#action-status", Static)
+        status.update(f"[yellow]⟳ {escape(verb)} '{escape(self.source)}' — sending…[/]")
         try:
             await asyncio.to_thread(fn, self.source)
         except HealthClientError as exc:
-            self.query_one("#detail-error", Static).update(f"[red]{exc}[/]")
+            status.update(f"[red]✗ {escape(verb)} failed — {escape(str(exc))}[/]")
+            self.notify(str(exc), title=f"{verb} failed", severity="error", markup=False)
             return
+        now = time.strftime("%H:%M:%S")
+        status.update(
+            f"[green]✓ {escape(verb)} '{escape(self.source)}' accepted at {now}[/]"
+            "  [dim]— watch Live / Run history below[/]"
+        )
+        self.notify(f"✓ {verb} '{self.source}' accepted", severity="information", timeout=8)
+        # Re-poll a few times so the result surfaces promptly: a force-cycle's
+        # new run row + the brief `running` state, or a pause/unpause status
+        # flip — instead of waiting up to 5s for the next auto-refresh (a fast
+        # cycle can otherwise start AND finish entirely between two polls, so
+        # the status looks like it never moved). _blink draws the eye to it.
+        _blink(self.query_one("#runs-table", DataTable))
         self.load()
+        for delay in (0.8, 1.8, 3.2, 5.0):
+            self.set_timer(delay, self.load)
 
 
 class DashboardScreen(Screen[None]):
@@ -190,7 +277,9 @@ class DashboardScreen(Screen[None]):
     BINDINGS = [
         Binding("r", "refresh", "Refresh"),
         Binding("f", "cycle_filter", "Filter"),
-        Binding("q", "quit", "Quit"),
+        # `app.quit` (namespaced) resolves to App.action_quit; a bare `quit`
+        # binding on a screen does NOT bubble up, so it would be a no-op.
+        Binding("q", "app.quit", "Quit"),
     ]
     _FILTERS = ("all", "critical", "running")
 
@@ -213,6 +302,8 @@ class DashboardScreen(Screen[None]):
         table = self.query_one("#sources-table", DataTable)
         table.cursor_type = "row"
         table.add_columns("Source", "Status", "Last run", "Added/Upd", "Next run", "Fails")
+        table.loading = True  # spinner until the first snapshot lands
+        self.query_one("#summary", Static).update("[dim]Loading sources…[/]")
         self.load()
         self.set_interval(5.0, self.load)
 
@@ -224,10 +315,12 @@ class DashboardScreen(Screen[None]):
             self.query_one("#error", Static).update(
                 f"[red]connection error: {exc} — showing last snapshot[/]"
             )
+            self.query_one("#sources-table", DataTable).loading = False
             return
         self.query_one("#error", Static).update("")
         self._snapshot = snap
         self._apply_snapshot(snap)
+        self.query_one("#sources-table", DataTable).loading = False
 
     def _filtered(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if self._filter == "critical":
@@ -278,6 +371,7 @@ class DashboardScreen(Screen[None]):
             )
 
     def action_refresh(self) -> None:
+        _blink(self.query_one("#sources-table", DataTable))
         self.load()
 
     def action_cycle_filter(self) -> None:
@@ -301,8 +395,15 @@ class SourcesDashboardApp(App[None]):
     #critical { padding: 0 1; height: auto; }
     #error { padding: 0 1; height: auto; color: red; }
     #sources-table { height: 1fr; }
+    /* Brief blink overlay so a manual refresh (r) gives visible feedback. */
+    DataTable.refreshing { tint: $accent 40%; }
     #detail-cards { padding: 1 1; height: auto; }
+    #action-status { padding: 0 1; height: auto; text-style: bold; }
     #runs-title { padding: 1 1 0 1; text-style: bold; }
+    #runs-table { height: auto; }
+    #errors-title { padding: 1 1 0 1; text-style: bold; }
+    #errors-title.has-errors { color: red; }
+    #errors-list { padding: 0 1 1 1; height: auto; }
     #detail-error { padding: 0 1; height: auto; color: red; }
     #confirm-box {
         width: 50; height: auto; padding: 1 2;

@@ -227,10 +227,16 @@ const installsTotal = install_activity.all_time
       </section>
     </>
   ) : (
-    <section class="sk-main"><div class="container"><div class="item-unscored">
-      <h2>Not scanned yet.</h2>
-      <p>This item is indexed but hasn't been audited. Be the first to run a scan.</p>
-      <a class="btn primary" href={`/scan?prefill=${encodeURIComponent(githubUrl)}`}>Scan it now →</a>
+    <section class="sk-main sk-unscored"><div class="container"><div class="item-unscored">
+      <span class="sb-eyebrow">Indexed · awaiting first scan</span>
+      <h2>Not scanned yet</h2>
+      <p>This {kindLabel.toLowerCase()} is in the catalog but hasn't been audited. Run the deterministic scan — every finding cites a rule ID and a line of evidence.</p>
+      <a class="btn primary lg iu-cta" href={`/scan?prefill=${encodeURIComponent(githubUrl)}`}>Scan it now →</a>
+      <div class="iu-facts">
+        <div class="iu-fact"><b>{methodologyRuleCount}</b><span>detectors</span></div>
+        <div class="iu-fact"><b>5</b><span>categories</span></div>
+        <div class="iu-fact"><b>~30s</b><span>deterministic</span></div>
+      </div>
     </div></div></section>
   )}
 

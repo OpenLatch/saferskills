@@ -27,7 +27,14 @@ app = typer.Typer(
 @app.callback()
 def root(
     ctx: typer.Context,
-    api_url: str = typer.Option("http://localhost:8000", help="API base URL"),
+    api_url: str = typer.Option(
+        # 127.0.0.1, not `localhost`, to dodge the Windows IPv6 stall — an
+        # operator-supplied `localhost` is still rewritten in http_client.py
+        # (_prefer_ipv4_localhost), which is the canonical chokepoint.
+        "http://127.0.0.1:8000",
+        envvar="SAFERSKILLS_API_URL",
+        help="API base URL (use 127.0.0.1 not localhost to avoid IPv6 stalls)",
+    ),
     admin_key: str | None = typer.Option(
         None,
         envvar="SAFERSKILLS_ADMIN_KEY",

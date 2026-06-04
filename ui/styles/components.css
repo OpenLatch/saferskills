@@ -5427,16 +5427,26 @@ html.dark .md-body strong {
   color: var(--color-ink-soft);
   padding: 1px 6px;
 }
+/* Theme-aware code block: a subtly-recessed surface that reads in both modes.
+   (`--color-slate` is an ink-token that FLIPS light↔dark, so it can't back a
+   fixed code surface — it made the block too dark in light mode and near-white,
+   unreadable, in dark mode.) */
 .md-body pre {
   margin: 0 0 16px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   overflow-x: auto;
-  background: var(--color-slate);
-  border-left: 3px solid var(--brand-primary);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-soft);
+}
+html.dark .md-body pre {
+  background: var(--bg-page-alt);
+  border-color: var(--color-line);
+  color: var(--fg-1);
 }
 .md-body pre code {
   background: transparent;
-  color: #e2e8f0;
+  color: inherit;
   padding: 0;
   font-size: 12.5px;
   line-height: 1.65;
@@ -5467,6 +5477,57 @@ html.dark .md-body strong {
   border: 0;
   border-top: 1px solid var(--color-line);
   margin: 24px 0;
+}
+.md-body img.md-img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+/* Badge / image links: drop the text-link underline + zero out line-box gaps. */
+.md-body a.md-img-link {
+  border-bottom: 0;
+  display: inline-block;
+  line-height: 0;
+}
+.md-body .md-tablewrap {
+  margin: 0 0 18px;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+}
+.md-body table.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.md-body table.md-table th,
+.md-body table.md-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 14px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  border-bottom: 1px solid var(--color-line-soft);
+  border-right: 1px solid var(--color-line-soft);
+}
+.md-body table.md-table th:last-child,
+.md-body table.md-table td:last-child {
+  border-right: 0;
+}
+.md-body table.md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.md-body table.md-table thead th {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--color-ink);
+  background: var(--bg-page-alt);
+  border-bottom: 1px solid var(--color-line);
+}
+html.dark .md-body table.md-table thead th {
+  color: var(--fg-1);
+}
+.md-body table.md-table tbody tr:nth-child(even) td {
+  background: var(--bg-page-alt);
 }
 
 /* ===== FINDINGS & CHECKS CHECKLIST (CheckGroupList) ===== */

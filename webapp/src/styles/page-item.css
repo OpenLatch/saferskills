@@ -490,16 +490,154 @@ html.dark .sk-vendor {
 }
 
 /* unscored fallback */
+/* Boxed, anchored empty state — replaces the old floating centered text.
+   Echoes the .sk-scorebox chrome (hairline border + plus-grid texture) and
+   seams to the header via a top border, so it reads as a defined surface
+   rather than an island hovering in open paper. */
+.sk-unscored {
+  border-top: 1px solid var(--color-ink);
+}
+html.dark .sk-unscored {
+  border-top-color: var(--color-line);
+}
 .item-unscored {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  margin-inline: auto;
+  border: 1px solid var(--color-ink);
+  background-image: var(--bg-plus-grid);
+  background-size: 40px 40px;
+  padding: clamp(40px, 6vw, 60px) clamp(28px, 5vw, 52px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: 24px 0;
+  gap: 15px;
+  animation: iu-settle var(--dur-lg) var(--ease-emphasized) both;
+}
+html.dark .item-unscored {
+  border-color: var(--color-line);
+  background-image: none;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+.item-unscored .sb-eyebrow {
+  color: var(--brand-primary);
+}
+.item-unscored .sb-eyebrow::before {
+  display: none;
 }
 .item-unscored h2 {
   font-family: var(--font-sans);
-  font-size: 24px;
+  font-size: clamp(26px, 3.4vw, 33px);
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 8px;
+  line-height: 1.05;
+  color: var(--color-ink);
+  margin: 0;
+}
+html.dark .item-unscored h2 {
+  color: var(--fg-1);
+}
+.item-unscored p {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--fg-2);
+}
+/* The fix for the cramped CTA: clear breathing room above the button, on top
+   of the flex `gap`, so it never crowds the lede. */
+.item-unscored .iu-cta {
+  margin-top: 9px;
+}
+.iu-facts {
+  display: flex;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-line);
+}
+.iu-fact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+}
+.iu-fact + .iu-fact {
+  border-left: 1px solid var(--color-line);
+}
+.iu-fact b {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 23px;
+  line-height: 1;
+  color: var(--color-ink);
+}
+html.dark .iu-fact b {
+  color: var(--fg-1);
+}
+.iu-fact span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Staggered entrance — the one high-impact page-load moment. The box settles
+   in, then its contents rise into place. Transform + opacity only. */
+.item-unscored > * {
+  opacity: 0;
+  animation: iu-rise var(--dur-md) var(--ease-out) forwards;
+}
+.item-unscored > *:nth-child(1) {
+  animation-delay: 110ms;
+}
+.item-unscored > *:nth-child(2) {
+  animation-delay: 165ms;
+}
+.item-unscored > *:nth-child(3) {
+  animation-delay: 220ms;
+}
+.item-unscored > *:nth-child(4) {
+  animation-delay: 275ms;
+}
+.item-unscored > *:nth-child(5) {
+  animation-delay: 330ms;
+}
+
+@keyframes iu-settle {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes iu-rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-unscored,
+  .item-unscored > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ============================================================ RESPONSIVE (item-only) ============================================================ */

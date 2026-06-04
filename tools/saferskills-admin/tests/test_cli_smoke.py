@@ -7,9 +7,27 @@ import typer
 from typer.testing import CliRunner
 
 from saferskills_admin.cli import app
+from saferskills_admin.shared.http_client import _prefer_ipv4_localhost
 from saferskills_admin.shared.safety import DANGEROUS_OPS, require_confirmation
 
 runner = CliRunner()
+
+
+def test_localhost_rewritten_to_ipv4() -> None:
+    # On Windows `localhost` resolves to IPv6 ::1 first and uvicorn binds IPv4
+    # only, stalling ~2s/request. The host-exact rewrite avoids that.
+    assert _prefer_ipv4_localhost("http://localhost:8000") == "http://127.0.0.1:8000"
+    assert _prefer_ipv4_localhost("http://localhost") == "http://127.0.0.1"
+    assert _prefer_ipv4_localhost("https://localhost:9/x") == "https://127.0.0.1:9/x"
+
+
+def test_non_localhost_urls_untouched() -> None:
+    # Only a bare `localhost` host is rewritten — never a real remote.
+    assert _prefer_ipv4_localhost("http://localhost.evil.com:8000") == (
+        "http://localhost.evil.com:8000"
+    )
+    assert _prefer_ipv4_localhost("https://api.saferskills.ai") == "https://api.saferskills.ai"
+    assert _prefer_ipv4_localhost("http://127.0.0.1:8000") == "http://127.0.0.1:8000"
 
 
 def test_help_lists_five_subapps() -> None:
