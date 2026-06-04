@@ -34,9 +34,12 @@ from app.ingestion.config.loader import load_source_configs
 
 logger = structlog.get_logger(__name__)
 
-_WARN_1H = 0.05
-_PAGE_1H = 0.25
-_PAGE_24H = 0.10
+# Failure-rate thresholds. Public because `framework/health.py` (the eagle-eye
+# /sources view) shares them — the dashboard and this 15-min pager MUST agree on
+# what "failing" means.
+WARN_1H = 0.05
+PAGE_1H = 0.25
+PAGE_24H = 0.10
 
 # One query per source: 1h + 24h failure/total counts (via FILTER over a single
 # 24h scan) + the cursor's last-success timestamp (scalar subquery). An aggregate
@@ -57,8 +60,11 @@ _HEALTH = text("""
 """)
 
 
-def _cadence_seconds(cadence_cron: str | None) -> float | None:
-    """Interval between two consecutive cron fires, or None for webhook sources."""
+def cadence_seconds(cadence_cron: str | None) -> float | None:
+    """Interval between two consecutive cron fires, or None for webhook sources.
+
+    Public — shared with `framework/health.py`.
+    """
     if not cadence_cron:
         return None
     try:
@@ -98,18 +104,18 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
         fr_1h = row.fail_1h / row.total_1h if row.total_1h else 0.0
         fr_24h = row.fail_24h / row.total_24h if row.total_24h else 0.0
 
-        cadence_s = _cadence_seconds(cfg.cadence_cron)
+        cadence_s = cadence_seconds(cfg.cadence_cron)
         silent_too_long = False
         if cadence_s is not None and last_success is not None:
             age = (dt.datetime.now(tz=dt.UTC) - last_success).total_seconds()
             silent_too_long = age > (cadence_s * 2)
 
-        if fr_1h > _WARN_1H:
+        if fr_1h > WARN_1H:
             alerts_warn += 1
             _breadcrumb(source, fr_1h)
             emit_ingestion_cycle_failed(source=source, reason="other")
 
-        if fr_1h > _PAGE_1H or fr_24h > _PAGE_24H or silent_too_long:
+        if fr_1h > PAGE_1H or fr_24h > PAGE_24H or silent_too_long:
             alerts_page += 1
             if settings.slack_alerts_webhook_url:
                 msg = f":rotating_light: *Ingestion alert* — `{source}` "

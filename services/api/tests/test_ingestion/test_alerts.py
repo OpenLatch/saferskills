@@ -1,5 +1,4 @@
 """alert_evaluator tiers (D-04-21) — warn @5%/1h, page @25%/1h."""
-# pyright: reportPrivateUsage=false
 
 from __future__ import annotations
 
@@ -9,7 +8,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ingestion.framework.alerts import _cadence_seconds, evaluate_alerts
+from app.ingestion.framework.alerts import cadence_seconds, evaluate_alerts
 
 
 async def _event(session: AsyncSession, *, source: str, http_status: int) -> None:
@@ -25,9 +24,9 @@ async def _event(session: AsyncSession, *, source: str, http_status: int) -> Non
 
 
 def test_cadence_seconds() -> None:
-    assert _cadence_seconds(None) is None
-    assert _cadence_seconds("0 * * * *") == 3600.0  # hourly
-    assert _cadence_seconds("0 0 * * *") == 86400.0  # daily
+    assert cadence_seconds(None) is None
+    assert cadence_seconds("0 * * * *") == 3600.0  # hourly
+    assert cadence_seconds("0 0 * * *") == 86400.0  # daily
 
 
 @pytest.mark.asyncio

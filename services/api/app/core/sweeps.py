@@ -64,23 +64,57 @@ async def sweep_unlisted(session: AsyncSession) -> int:
         await session.commit()
 
 
+async def sweep_ingestion_runs(session: AsyncSession, *, days: int = 90) -> int:
+    """Delete `ingestion_runs` rows older than `days` (90-day retention). Returns
+    rows swept. Guarded by the SAME advisory lock as `sweep_unlisted` so only one
+    Machine sweeps per tick; releases it before returning.
+    """
+    got = (
+        await session.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _SWEEP_LOCK_KEY})
+    ).scalar_one()
+    if not got:
+        return 0
+    try:
+        deleted = (
+            await session.execute(
+                text(
+                    "WITH d AS (DELETE FROM ingestion_runs "
+                    "WHERE started_at < now() - make_interval(days => :days) RETURNING 1) "
+                    "SELECT count(*) FROM d"
+                ),
+                {"days": days},
+            )
+        ).scalar_one()
+        await session.commit()
+        return deleted
+    finally:
+        await session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _SWEEP_LOCK_KEY})
+        await session.commit()
+
+
 async def run_sweep_loop() -> None:
-    """Every `settings.sweep_interval_seconds`, try the lock + sweep. On error,
-    log + continue (one bad tick never kills the task). Cancellation-safe."""
+    """Every `settings.sweep_interval_seconds`, try the lock + sweep (unlisted runs
+    + ingestion_runs retention). On error, log + continue (one bad tick never kills
+    the task). Cancellation-safe."""
     interval = get_settings().sweep_interval_seconds
-    logger.info("unlisted expiry sweep loop started (interval=%ss)", interval)
+    logger.info("expiry sweep loop started (interval=%ss)", interval)
     try:
         while True:
             try:
                 async with AsyncSessionLocal() as session:
                     swept = await sweep_unlisted(session)
-                if swept:
-                    logger.info("unlisted expiry sweep removed %d run(s)", swept)
+                    swept_runs = await sweep_ingestion_runs(session)
+                if swept or swept_runs:
+                    logger.info(
+                        "expiry sweep removed %d unlisted run(s), %d ingestion_run(s)",
+                        swept,
+                        swept_runs,
+                    )
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("unlisted expiry sweep tick failed; continuing")
+                logger.exception("expiry sweep tick failed; continuing")
             await asyncio.sleep(interval)
     except asyncio.CancelledError:
-        logger.info("unlisted expiry sweep loop cancelled")
+        logger.info("expiry sweep loop cancelled")
         raise

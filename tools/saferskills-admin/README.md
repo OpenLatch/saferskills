@@ -33,6 +33,8 @@ uv run saferskills-admin --api-url https://saferskills-api-staging.fly.dev sourc
 # sources
 uv run saferskills-admin sources list
 uv run saferskills-admin sources status mcp_so
+uv run saferskills-admin sources runs npm --limit 50          # ingestion-run history (scriptable)
+uv run saferskills-admin sources dashboard                    # eagle-eye TUI (interactive)
 uv run saferskills-admin sources pause mcp_so --reason "operator-request" --contact abuse@mcp.so
 uv run saferskills-admin sources unpause mcp_so
 uv run saferskills-admin sources force-cycle npm
@@ -53,3 +55,19 @@ uv run saferskills-admin popularity top-n 500 --kind mcp_server
 
 `--json` emits CI-parseable output. Dangerous mutations require `--yes` or
 `SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it`.
+
+## Dashboard TUI (`sources dashboard`)
+
+`sources dashboard` launches an interactive [Textual](https://textual.textualize.io/)
+"eagle-eye" view over `GET /admin/sources` + `…/{source}/runs`:
+
+- **Overview** — overall-status chip + counts, a `critical[]` banner, and a table of
+  every source (status · last run · added/updated · next run · fails). Auto-refreshes
+  every 5s. `↑/↓` select, `Enter` drills in, `r` refresh, `f` cycles the
+  all/critical/running filter, `q` quits. A connection error shows a red bar and keeps
+  the last good snapshot.
+- **Drill-down** — live/last-run/schedule/health cards + run history. `Esc`/`backspace`
+  goes back; `c` force-cycle, `p` pause, `u` unpause — each behind a confirm modal, then
+  the same audit-logged admin endpoint + refresh.
+
+Terminal-only (no browser). Needs the `textual` dependency (installed via `uv sync`).
