@@ -185,8 +185,22 @@ async def _load_repo_file_index(session: AsyncSession, github_url: str) -> list[
 # ── the three scan paths ──────────────────────────────────────────────────
 
 
-async def _full_scan(github_url: str, rubric: str, engine_v: str, resolved: ResolvedRef) -> None:
-    """Fetch the repo fresh, run the engine, persist + stamp (content change / new)."""
+async def _full_scan(
+    github_url: str, rubric: str, engine_v: str, resolved: ResolvedRef, *, reason: str
+) -> str:
+    """Fetch the repo fresh, run the engine, persist + stamp (content change / new).
+
+    Returns the action taken: `"scan"` on success, `"error"` on a PERMANENT fetch
+    failure. A `FetchError` from `run_repo_scan` (oversized tarball past the
+    anti-DOS cap, repo deleted mid-window, invalid ref) is deterministic — a retry
+    re-downloads for the same failure — so it must NOT bubble out of the durable
+    job (that would burn 3 retries then dead-letter, re-fetching the whole repo
+    each time). Instead we mark the run `failed` and stamp the recency columns so
+    the drainer throttles the repo to the freshness cadence (an occasional re-check
+    in case it later shrinks) rather than re-selecting it every tick. Transient
+    failures (5xx / timeout) surface as httpx errors, not `FetchError`, so they
+    still propagate and retry.
+    """
     from app.db.session import AsyncSessionLocal
 
     ref_sha = resolved.ref_sha or "0" * 40
@@ -208,7 +222,26 @@ async def _full_scan(github_url: str, rubric: str, engine_v: str, resolved: Reso
         run_id = run.id
 
     # Network + CPU OUTSIDE any DB session (don't hold a pooled connection).
-    repo = await engine.run_repo_scan(github_url, rubric)
+    try:
+        repo = await engine.run_repo_scan(github_url, rubric)
+    except FetchError as exc:
+        async with AsyncSessionLocal() as session:
+            run = await session.get(ScanRun, run_id)
+            if run is not None:
+                run.status = "failed"
+            # Stamp recency (not just last_checked_at) so a never-scanned repo
+            # leaves the `last_scanned_at IS NULL` coverage selection — the failed
+            # scan_runs row is the honest record; the drainer re-checks on the
+            # freshness window, not every 10 min.
+            await _stamp_scanned(session, github_url, rubric, engine_v)
+            await session.commit()
+        logger.info(
+            "scan_capability_repo.fetch_failed",
+            github_url=github_url,
+            reason=reason,
+            error=str(exc),
+        )
+        return "error"
 
     async with AsyncSessionLocal() as session:
         run = await session.get(ScanRun, run_id)
@@ -223,6 +256,7 @@ async def _full_scan(github_url: str, rubric: str, engine_v: str, resolved: Reso
             ref_sha=repo.ref_sha,
         )
         await session.commit()
+    return "scan"
 
 
 async def _reeval_from_bytes(
@@ -350,8 +384,8 @@ async def execute_scan(github_url: str, *, reason: str = "reconcile") -> dict[st
             return {"action": "reeval", "reason": reason}
         # No reconstructable bytes — fall through to a fresh fetch.
 
-    await _full_scan(github_url, rubric, engine_v, resolved)
-    return {"action": "scan", "reason": reason}
+    action = await _full_scan(github_url, rubric, engine_v, resolved, reason=reason)
+    return {"action": action, "reason": reason}
 
 
 # ── Procrastinate tasks ────────────────────────────────────────────────────

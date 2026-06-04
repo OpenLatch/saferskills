@@ -44,6 +44,21 @@ def test_pick_manifest_prefers_skill_md_over_loose_fallback() -> None:
     assert result[0] == "SKILL.md"
 
 
+def test_pick_manifest_strips_nul_from_utf16_readme() -> None:
+    # A UTF-16 README (BOM + interleaved NUL bytes) must never reach the
+    # `manifest_source` VARCHAR write — Postgres text columns reject U+0000 with
+    # CharacterNotInRepertoireError. Decode is BOM-aware (stays readable) and any
+    # residual NUL is stripped as the hard guarantee.
+    body = "# Felix MCP (Smithery)\n\nA tool.".encode("utf-16")  # BOM + UTF-16-LE
+    assert b"\x00" in body  # the byte that crashes the naive utf-8 decode path
+    result = persistence._pick_manifest([("README.md", body)], "mcp_server")  # pyright: ignore[reportPrivateUsage]
+    assert result is not None
+    path, text = result
+    assert path == "README.md"
+    assert "\x00" not in text
+    assert "Felix MCP" in text
+
+
 def _scan_result(score: int, tier: str, findings: list[EngineFinding] | None = None) -> ScanResult:
     return ScanResult(
         findings=findings or [],

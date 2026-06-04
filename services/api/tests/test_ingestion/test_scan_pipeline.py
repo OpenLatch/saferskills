@@ -46,6 +46,61 @@ def test_decide_full_scan_when_never_scanned() -> None:
     )
 
 
+# ── permanent fetch failure does not dead-letter ───────────────────────────
+
+
+class _Ctx:
+    """Yield the test session from a patched AsyncSessionLocal (commit kept — the
+    SAVEPOINT fixture owns teardown rollback)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> AsyncSession:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_full_scan_records_failed_on_permanent_fetch_error(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An oversized tarball (FetchError) marks the run failed + returns 'error'
+    instead of bubbling out to a Procrastinate retry → dead-letter."""
+    from app.db import session as session_module
+    from app.ingestion import tasks_scan
+    from app.scan import engine as engine_module
+    from app.scan.fetch import FetchError, ResolvedRef
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", lambda: _Ctx(db_session))
+
+    async def _raise_oversize(github_url: str, rubric_version: str) -> object:
+        raise FetchError("tarball exceeded 26214400 bytes; aborting (anti-DOS cap)")
+
+    monkeypatch.setattr(engine_module, "run_repo_scan", _raise_oversize)
+
+    url = "https://github.com/acme/oversized-repo"
+    resolved = ResolvedRef(
+        org="acme",
+        repo="oversized-repo",
+        default_branch="main",
+        ref_sha="a" * 40,
+        etag=None,
+        last_modified=None,
+        not_modified=False,
+    )
+
+    action = await tasks_scan._full_scan(  # pyright: ignore[reportPrivateUsage]
+        url, "rub1", "eng1", resolved, reason="reconcile"
+    )
+    assert action == "error"
+
+    run = (await db_session.execute(select(ScanRun).where(ScanRun.github_url == url))).scalar_one()
+    assert run.status == "failed"
+
+
 # ── merger on-ingest scan hook ─────────────────────────────────────────────
 
 

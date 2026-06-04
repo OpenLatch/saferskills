@@ -54,6 +54,26 @@ def _looks_binary(content: bytes) -> bool:
     return b"\x00" in content[:8192]
 
 
+def _decode_manifest_text(content: bytes) -> str:
+    """Decode manifest bytes to text safe for a Postgres `text`/`varchar` column.
+
+    BOM-aware: a UTF-16 / UTF-8-SIG manifest (Windows-authored READMEs are common
+    in the wild) decodes correctly instead of degrading to a wall of replacement
+    chars. Postgres text columns cannot store U+0000, so NUL chars are stripped
+    unconditionally as the final guarantee — a UTF-16 file naively decoded as
+    UTF-8 keeps its interleaved NULs (U+0000 is itself valid UTF-8, so
+    `errors="replace"` does NOT remove them) and would otherwise crash the
+    `manifest_source` write with `CharacterNotInRepertoireError`.
+    """
+    if content.startswith((b"\xff\xfe", b"\xfe\xff")):
+        text = content.decode("utf-16", errors="replace")
+    elif content.startswith(b"\xef\xbb\xbf"):
+        text = content.decode("utf-8-sig", errors="replace")
+    else:
+        text = content.decode("utf-8", errors="replace")
+    return text.replace("\x00", "")
+
+
 async def _capture_snapshot(
     session: AsyncSession,
     files_index: list[tuple[str, bytes]],
@@ -179,7 +199,7 @@ def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str
         hit = by_base.get(base)
         if hit is not None:
             path, content = hit
-            text = content[:_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
+            text = _decode_manifest_text(content[:_MANIFEST_MAX_BYTES])
             return path, text
 
     # Fallback (I-3.5): a loose single-file capability (install.sh / server.json /
@@ -188,7 +208,7 @@ def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str
     non_wide = [(p, c) for p, c in files_index if not _is_repo_wide(p) and not _looks_binary(c)]
     if len(non_wide) == 1:
         path, content = non_wide[0]
-        text = content[:_MANIFEST_MAX_BYTES].decode("utf-8", errors="replace")
+        text = _decode_manifest_text(content[:_MANIFEST_MAX_BYTES])
         return path, text
     return None
 
