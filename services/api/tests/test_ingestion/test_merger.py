@@ -383,3 +383,94 @@ async def test_bare_update_never_downgrades_tiered_row(db_session: AsyncSession)
     await db_session.flush()
     await db_session.refresh(item)
     assert item.quality_tier == before  # unchanged — no enrichment signals → no re-tier
+
+
+# ---------------------------------------------------------------------------
+# Tests: concurrent-insert race + deadlock resilience (DB log ERRORs in prod)
+# ---------------------------------------------------------------------------
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_upsert_slug_race_falls_through_to_update(db_session: AsyncSession) -> None:
+    """Regression: aggregators crawl overlapping repos, so two concurrent cycles
+    raced to INSERT the same capability slug — the loser hit `duplicate key …
+    uq_catalog_items_slug`, which Postgres logs as an ERROR and which aborted its
+    batch. `_insert_new` now uses INSERT … ON CONFLICT (slug) DO NOTHING (a clean
+    no-op, never logged); a NULL returned id signals the conflict so the merger
+    re-reads the peer's row and takes the UPDATE path.
+
+    Simulated deterministically: the row already exists, but the pre-INSERT
+    SELECT is forced to miss it once (the race window), so the INSERT hits the
+    ON CONFLICT no-op and the merger recovers via re-read + update.
+    """
+    engine = MergeEngine(db_session)
+    n = make_normalized(github_org="acme", github_repo="raced", display_name="cap")
+    assert await engine.upsert(n, raw_hash=_HASH_A, source="github_topics") == "added"
+
+    real_select = engine._select_by_slug  # pyright: ignore[reportPrivateUsage]
+    calls = {"n": 0}
+
+    async def flaky_select(slug: str) -> Any:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None  # race: peer's row not visible to our SELECT yet
+        return await real_select(slug)
+
+    engine._select_by_slug = flaky_select  # type: ignore[method-assign]
+
+    outcome = await engine.upsert(n, raw_hash=_HASH_B, source="github_topics")
+    assert outcome == "updated"  # recovered via IntegrityError → re-read → update
+
+    rows = (
+        (await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "raced")))
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1  # the failed INSERT was rolled back to the savepoint
+    assert rows[0].content_hash_sha256 == _HASH_B  # the update was applied
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_upsert_retries_on_deadlock(db_session: AsyncSession) -> None:
+    """Regression: two batches inserting overlapping slugs in different order
+    deadlocked on the unique index (`deadlock detected`), aborting a whole cycle.
+    A deadlock (SQLSTATE 40P01) is now retried inside the upsert."""
+    from sqlalchemy.exc import DBAPIError
+
+    class _Deadlock(Exception):
+        sqlstate = "40P01"
+
+    engine = MergeEngine(db_session)
+    n = make_normalized(github_org="acme", github_repo="deadlocked", display_name="cap")
+
+    real_insert = engine._insert_new  # pyright: ignore[reportPrivateUsage]
+    calls = {"n": 0}
+
+    async def flaky_insert(*args: Any, **kwargs: Any) -> Any:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise DBAPIError("INSERT", {}, _Deadlock())  # first attempt deadlocks
+        return await real_insert(*args, **kwargs)
+
+    engine._insert_new = flaky_insert  # type: ignore[method-assign]
+
+    outcome = await engine.upsert(n, raw_hash=_HASH_A, source="github_topics")
+    assert outcome == "added"
+    assert calls["n"] == 2  # retried once after the deadlock
+
+
+def test_is_deadlock_detects_sqlstate_40p01() -> None:
+    from sqlalchemy.exc import DBAPIError
+
+    from app.ingestion.framework.merger import _is_deadlock  # pyright: ignore[reportPrivateUsage]
+
+    class _Orig(Exception):
+        sqlstate = "40P01"
+
+    class _Other(Exception):
+        sqlstate = "23505"  # unique_violation, not a deadlock
+
+    assert _is_deadlock(DBAPIError("s", {}, _Orig())) is True
+    assert _is_deadlock(DBAPIError("s", {}, _Other())) is False

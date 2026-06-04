@@ -411,10 +411,18 @@ async def defer_scan_job(github_url: str, reason: str = "reconcile") -> bool:
     and lets the partial-unique-index violation raise `AlreadyEnqueued`. Postgres
     logs every such failed INSERT as an ERROR even though we catch it — so during a
     full-feed crawl the merger on-ingest hook re-deferring thousands of
-    already-queued repos floods the DB log. Checking the lock first (the index only
-    covers `status='todo'`, so this matches exactly what the INSERT would conflict
-    on) keeps the steady-state path INSERT-free. The `AlreadyEnqueued` catch stays
-    as the race backstop.
+    already-queued repos floods the DB log. Checking the lock first keeps the
+    steady-state path INSERT-free; the `AlreadyEnqueued` catch stays as the race
+    backstop.
+
+    The check covers `doing` as well as `todo`: the `queueing_lock` partial unique
+    index only blocks a second `todo`, so a fresh enqueue is allowed *while one is
+    running*. Then when the running job fails and Procrastinate retries it
+    (`procrastinate_retry_job_v2` flips it back to `todo`), it collides with that
+    sibling `todo` on the index → `duplicate key … queueing_lock_idx_v1` ERROR in
+    the DB log. Skipping the enqueue while a job is `doing` prevents the sibling
+    from ever being created (the 10-min drainer re-selects the repo if it still
+    needs a scan, so freshness is preserved).
     """
     if not github_url:
         return False
@@ -422,10 +430,8 @@ async def defer_scan_job(github_url: str, reason: str = "reconcile") -> bool:
     try:
         from procrastinate.exceptions import AlreadyEnqueued
 
-        existing = await procrastinate_app.job_manager.list_jobs_async(
-            queueing_lock=lock, status="todo"
-        )
-        if next(iter(existing), None) is not None:
+        existing = await procrastinate_app.job_manager.list_jobs_async(queueing_lock=lock)
+        if any(j.status in ("todo", "doing") for j in existing):
             return False
 
         try:

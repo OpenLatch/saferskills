@@ -119,7 +119,14 @@ class SourceDetailScreen(Screen[None]):
         self.load()
         self.set_interval(5.0, self.load)
 
-    @work(exclusive=True)
+    # group="detail-load": load() is exclusive so overlapping refreshes (the 5s
+    # interval + manual `r` + the post-action re-polls) don't stack. It MUST have
+    # its own group, though — `_confirm_action` runs on this same node, and
+    # Textual's exclusive cancellation targets node+group. With the default group
+    # a 5s auto-refresh tick that fired while the confirm modal was open (or while
+    # the force-cycle HTTP call was in flight) cancelled the pending confirm
+    # worker, so Confirm did nothing: no API call, no inline status, no toast.
+    @work(exclusive=True, group="detail-load")
     async def load(self) -> None:
         try:
             # The snapshot + runs reads are independent — fetch them concurrently.
