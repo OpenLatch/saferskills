@@ -8,7 +8,7 @@ export const Subset: Story = () => (
     agents={[
       { id: 'claude-code', name: 'Claude Code' },
       { id: 'cursor', name: 'Cursor' },
-      { id: 'codex-cli', name: 'Codex CLI' },
+      { id: 'codex', name: 'Codex CLI' },
     ]}
   />
 )

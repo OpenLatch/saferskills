@@ -19,11 +19,11 @@ interface Props {
 const DEFAULT_AGENTS: Agent[] = [
   { id: 'claude-code', name: 'Claude Code', glyph: 'CC', installPath: 'claude-code', configPath: '~/.claude/settings.json' },
   { id: 'cursor', name: 'Cursor', glyph: 'Cu', installPath: 'cursor', configPath: '~/.cursor/mcp.json' },
-  { id: 'codex-cli', name: 'Codex CLI', glyph: 'Cx', installPath: 'codex-cli', configPath: '~/.codex/skills/' },
+  { id: 'codex', name: 'Codex CLI', glyph: 'Cx', installPath: 'codex', configPath: '~/.codex/skills/' },
   { id: 'copilot', name: 'GH Copilot', glyph: 'Co', installPath: 'copilot', configPath: '~/.github/copilot/' },
   { id: 'windsurf', name: 'Windsurf', glyph: 'Wd', installPath: 'windsurf', configPath: '~/.windsurf/' },
   { id: 'cline', name: 'Cline', glyph: 'Cl', installPath: 'cline', configPath: '~/.cline/skills/' },
-  { id: 'gemini-cli', name: 'Gemini CLI', glyph: 'Gm', installPath: 'gemini-cli', configPath: '~/.gemini/config/' },
+  { id: 'gemini', name: 'Gemini CLI', glyph: 'Gm', installPath: 'gemini', configPath: '~/.gemini/config/' },
   { id: 'openclaw', name: 'OpenClaw', glyph: 'OC', installPath: 'openclaw', configPath: 'openclaw.json' },
 ]
 

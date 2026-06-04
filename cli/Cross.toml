@@ -1,0 +1,9 @@
+# Cross-compilation config for the aarch64-unknown-linux-gnu target.
+#
+# Unlike openlatch-client, the SaferSkills CLI has NO keyring / secret-service
+# dependency, so there is no `libdbus-1-dev` pre-build step — the default
+# `cross` container image already has everything a rustls-only reqwest build
+# needs. We only forward the PostHog key so `build.rs` can bake it inside the
+# Docker container the same way the native legs do.
+[build.env]
+passthrough = ["SAFERSKILLS_POSTHOG_KEY"]

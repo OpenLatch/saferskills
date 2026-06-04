@@ -20,6 +20,6 @@
     { "type": "style", "section": "Style", "hidden": true }
   ],
   "packages": {
-    "cli": {}
+    "cli": { "release-type": "rust" }
   }
 }

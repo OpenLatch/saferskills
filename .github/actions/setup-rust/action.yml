@@ -1,0 +1,46 @@
+# Composite action: install the Rust toolchain + restore the cargo cache for
+# the `cli/` crate. Adapted from openlatch-client's setup-rust — SaferSkills has
+# NO keyring / secret-service dependency, so there is no `libdbus-1-dev` system
+# step.
+
+name: Setup Rust
+description: Install the Rust toolchain and restore the cli/ cargo cache
+
+inputs:
+  components:
+    description: Comma-separated components (e.g., rustfmt,clippy,llvm-tools-preview)
+    default: ""
+  targets:
+    description: Additional compilation targets
+    default: ""
+  cache-key-suffix:
+    description: Extra suffix for cache key differentiation (e.g., target triple)
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust stable
+      shell: bash
+      run: |
+        ARGS="--profile minimal"
+        if [ -n "${{ inputs.components }}" ]; then
+          ARGS="$ARGS --component ${{ inputs.components }}"
+        fi
+        if [ -n "${{ inputs.targets }}" ]; then
+          ARGS="$ARGS --target ${{ inputs.targets }}"
+        fi
+        rustup toolchain install stable $ARGS
+        rustup default stable
+
+    - name: Restore cargo cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          cli/target/
+        key: ${{ runner.os }}-${{ inputs.cache-key-suffix && format('{0}-', inputs.cache-key-suffix) || '' }}cargo-${{ hashFiles('cli/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-${{ inputs.cache-key-suffix && format('{0}-', inputs.cache-key-suffix) || '' }}cargo-
