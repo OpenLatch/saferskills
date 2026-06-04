@@ -1,16 +1,31 @@
-# claudeskills.info aggregator scraper (Phase B — config stub, adapter not yet built).
+# claudeskills.info skill aggregator (I-04 Phase B PR2). Sitemap-index → skills
+# child → /skill/<slug> item pages (curl_cffi; Cloudflare-proxied). Item pages carry
+# item-specific og tags + GitHub links (mostly the anthropics/skills monorepo).
 name: claudeskills_info
 kind: scrape
 hosts:
   - claudeskills.info
-cadence_cron: null
-rate_limit_per_second: 0.1
-enabled: false
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "0 4 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_aggregator
+enabled: true
 registry_id: claudeskills_info
-description: Placeholder for the claudeskills.info skill aggregator scraper (Phase B).
+discovery:
+  sitemap_url: https://claudeskills.info/sitemap.xml
+  item_sitemap_substr: [skills]
+  item_url_regex: "claudeskills\\.info/skill/[^/]+$"
+  kind: skill
+  name_from: og_title
+  name_strip: [" - Free Download | Claude Skills Hub", " Skill for Claude Code"]
+  github_denylist: [anthropics/claude-code]
+  max_items: 200
+description: Scrapes public skill listings from claudeskills.info via its sitemap, crediting each item with a backlink.
 policy:
   summary: >-
-    Planned: index public skill listings from claudeskills.info, crediting each
-    item with a backlink. Disabled until the scraping adapter ships (Phase B).
+    We index public skill listings from claudeskills.info via its sitemap,
+    paraphrase each listing, credit every item with a backlink, and respect
+    robots.txt + a conservative rate limit.
   contact: bot@saferskills.ai
-  robots_txt: respected (Phase B)
+  robots_txt: respected

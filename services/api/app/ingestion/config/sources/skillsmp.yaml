@@ -1,16 +1,28 @@
-# skillsmp.com aggregator scraper (Phase B — config stub, adapter not yet built).
+# skillsmp.com skill aggregator (I-04 Phase B PR2). Sitemap-index → skills-recent
+# child → /skills/<slug> item pages (curl_cffi; Cloudflare-proxied).
 name: skillsmp
 kind: scrape
 hosts:
   - skillsmp.com
-cadence_cron: null
-rate_limit_per_second: 0.1
-enabled: false
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "15 4 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_aggregator
+enabled: true
 registry_id: skillsmp
-description: Placeholder for the skillsmp.com skill aggregator scraper (Phase B).
+discovery:
+  sitemap_url: https://skillsmp.com/sitemap.xml
+  item_sitemap_substr: [skills]
+  item_url_regex: "skillsmp\\.com/skills/[^/]+$"
+  kind: skill
+  name_from: og_title
+  max_items: 200
+description: Scrapes public skill listings from skillsmp.com via its sitemap, crediting each item with a backlink.
 policy:
   summary: >-
-    Planned: index public skill listings from skillsmp.com, crediting each item
-    with a backlink. Disabled until the scraping adapter ships (Phase B).
+    We index public skill listings from skillsmp.com via its sitemap, paraphrase
+    each listing, credit every item with a backlink, and respect robots.txt + a
+    conservative rate limit.
   contact: bot@saferskills.ai
-  robots_txt: respected (Phase B)
+  robots_txt: respected

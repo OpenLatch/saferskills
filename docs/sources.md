@@ -40,17 +40,28 @@ here, not force-cracked.
 | `pypi` | api | PyPI | active | per config | MCP/skill packages |
 | `smithery` | scrape | Smithery registry API (`registry.smithery.ai/servers`) | **active (Phase B)** | 03:15 daily | feed-first; OSS subset carries GitHub repo |
 | `glama` | scrape | Glama MCP REST API (`glama.ai/api/mcp/v1/servers`) | **active (Phase B)** | 03:30 daily | feed-first; records carry `repository.url` |
-| `mcp_so` | scrape | — | disabled (PR2) | — | HTML scraper pending |
-| `pulsemcp` | scrape | — | disabled (PR2) | — | HTML scraper pending |
-| `clawhub` | scrape | — | disabled (PR2) | — | Cloudflare-gated (may land `blocked`) |
-| `skillsmp` | scrape | — | disabled (PR2) | — | HTML scraper pending |
-| `skills_sh` | scrape | — | disabled (PR2) | — | HTML scraper pending |
-| `claudeskills_info` | scrape | — | disabled (PR2) | — | HTML scraper pending |
-| `skillhub_club` | scrape | — | disabled (PR2) | — | HTML scraper pending |
+| `mcp_so` | scrape | sitemap → `/server/<name>/<author>` item pages | **active (PR2)** | 03:45 daily | CF-proxied (curl_cffi); name from URL slug, repo from page |
+| `claudeskills_info` | scrape | sitemap → `/skill/<slug>` item pages | **active (PR2)** | 04:00 daily | item-specific og tags; mostly `anthropics/skills` |
+| `skillsmp` | scrape | sitemap → `/skills/<slug>` item pages | **active (PR2)** | 04:15 daily | CF-proxied (curl_cffi) |
+| `skillhub_club` | scrape | sitemap → `/skills/<slug>` item pages | **active (PR2)** | 04:30 daily | Vercel; apex→www redirect |
+| `skills_sh` | scrape | sitemap → `/<owner>/skills/<name>` item pages | **active (PR2)** | 04:45 daily | Vercel; owner segment = GitHub org |
+| `pulsemcp` | scrape | sitemap → `/servers/<slug>` item pages | **active (PR2)** | 05:00 daily | CF-proxied; client-rendered listing → repo-sparse |
+| `clawhub` | scrape | sitemap → item pages | **active (PR2, unreachable)** | 05:15 daily | host DNS currently dead → yields 0, logged, no crash |
 
-> The 7 `disabled (PR2)` rows are `enabled: false` config stubs — their HTML
-> scrapers land in Phase B PR2. The eagle-eye `GET /admin/sources` view already lists
-> all 14 (the 7 show inactive).
+> All 14 sources are now `enabled: true`. The 7 PR2 HTML scrapers share one
+> configurable `SitemapHtmlAdapter` (`framework/sitemap_scraper.py`): each fetches a
+> sitemap via curl_cffi (browser impersonation — most are Cloudflare-proxied and reject
+> plain HTTPX), enumerates item-detail URLs, and reads the GitHub repo + name +
+> description from each server-rendered item page. Per-site quirks (sitemap URL, item-URL
+> filter, name source, repo denylist) live entirely in each `config/sources/<name>.yaml`
+> `discovery` block — the adapter modules are one-line registrations.
+>
+> **Lean-stack contingencies (documented, acceptable):** `clawhub.dev` is DNS-unreachable
+> today → its cycles are clean no-ops until the host returns. `pulsemcp.com` renders its
+> listing client-side, so many items resolve no GitHub repo and stay in the fuzzy queue.
+> A source that ever serves a genuine Cloudflare *challenge* (vs a normal CF-proxied 200)
+> flips to `status='blocked'` — the Playwright-deferred contingency (no headless tier).
+> Catalog-growth from these sources is best-effort, not a correctness gate.
 
 ## Take-down / halt procedure
 

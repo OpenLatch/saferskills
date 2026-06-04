@@ -1,16 +1,28 @@
-# skillhub.club aggregator scraper (Phase B — config stub, adapter not yet built).
+# skillhub.club skill aggregator (I-04 Phase B PR2). Flat sitemap → /skills/<slug>
+# item pages (Vercel-hosted; redirects apex → www, so both hosts are allowlisted).
 name: skillhub_club
 kind: scrape
 hosts:
   - skillhub.club
-cadence_cron: null
-rate_limit_per_second: 0.1
-enabled: false
+  - www.skillhub.club
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "30 4 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_aggregator
+enabled: true
 registry_id: skillhub_club
-description: Placeholder for the skillhub.club skill aggregator scraper (Phase B).
+discovery:
+  sitemap_url: https://www.skillhub.club/sitemap.xml
+  item_url_regex: "skillhub\\.club/skills/[^/]+$"
+  kind: skill
+  name_from: og_title
+  max_items: 200
+description: Scrapes public skill listings from skillhub.club via its sitemap, crediting each item with a backlink.
 policy:
   summary: >-
-    Planned: index public skill listings from skillhub.club, crediting each item
-    with a backlink. Disabled until the scraping adapter ships (Phase B).
+    We index public skill listings from skillhub.club via its sitemap, paraphrase
+    each listing, credit every item with a backlink, and respect robots.txt + a
+    conservative rate limit.
   contact: bot@saferskills.ai
-  robots_txt: respected (Phase B)
+  robots_txt: respected

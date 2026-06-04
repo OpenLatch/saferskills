@@ -54,12 +54,16 @@ REGISTRY_IDS: frozenset[str] = frozenset(
 SOURCE_HOSTS: dict[str, frozenset[str]] = {
     "claudeskills_info": frozenset(
         {
+            "api.github.com",
             "claudeskills.info",
+            "raw.githubusercontent.com",
         }
     ),
     "clawhub": frozenset(
         {
+            "api.github.com",
             "clawhub.dev",
+            "raw.githubusercontent.com",
         }
     ),
     "github_skills": frozenset(
@@ -90,7 +94,9 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "mcp_so": frozenset(
         {
+            "api.github.com",
             "mcp.so",
+            "raw.githubusercontent.com",
         }
     ),
     "npm": frozenset(
@@ -102,7 +108,10 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "pulsemcp": frozenset(
         {
+            "api.github.com",
             "pulsemcp.com",
+            "raw.githubusercontent.com",
+            "www.pulsemcp.com",
         }
     ),
     "pypi": frozenset(
@@ -112,16 +121,24 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "skillhub_club": frozenset(
         {
+            "api.github.com",
+            "raw.githubusercontent.com",
             "skillhub.club",
+            "www.skillhub.club",
         }
     ),
     "skills_sh": frozenset(
         {
+            "api.github.com",
+            "raw.githubusercontent.com",
             "skills.sh",
+            "www.skills.sh",
         }
     ),
     "skillsmp": frozenset(
         {
+            "api.github.com",
+            "raw.githubusercontent.com",
             "skillsmp.com",
         }
     ),
@@ -155,5 +172,8 @@ ALL_HOSTS: frozenset[str] = frozenset(
         "skills.sh",
         "skillsmp.com",
         "smithery.ai",
+        "www.pulsemcp.com",
+        "www.skillhub.club",
+        "www.skills.sh",
     }
 )
