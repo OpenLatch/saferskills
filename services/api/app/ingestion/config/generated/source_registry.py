@@ -81,6 +81,8 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "mcp_registry": frozenset(
         {
+            "api.github.com",
+            "raw.githubusercontent.com",
             "registry.modelcontextprotocol.io",
         }
     ),

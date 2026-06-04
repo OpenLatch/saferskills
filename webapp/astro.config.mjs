@@ -22,6 +22,10 @@ export default defineConfig({
   // directly reachable and guarded by Turnstile + per-IP rate limits, not by
   // origin. So this check only breaks legitimate uploads; turn it off.
   security: { checkOrigin: false },
+  // The dev toolbar's client entrypoint persistently 504s ("Outdated Optimize
+  // Dep") under Astro 6.4.3 + Vite — dev-only console noise with no app impact.
+  // The toolbar is optional tooling; disable it so the dev console stays clean.
+  devToolbar: { enabled: false },
   integrations: [react(), mdx()],
   vite: {
     plugins: [tailwindcss()],

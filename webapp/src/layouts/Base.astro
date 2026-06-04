@@ -102,8 +102,12 @@ const ogUrl = noindex ? new URL('/', Astro.site).href : Astro.url.href
     <slot />
 
     {/* Site-wide live refresh for the NavBar GitHub-star count (patches every
-        [data-live-stat="stars"] node). Position-independent. */}
-    <NavStars client:idle />
+        [data-live-stat="stars"] node). Position-independent.
+        client:only — it renders null + is effect-only; SSR-ing it throws a React
+        "Invalid hook call". It produces no SSR markup either way. The GhStar count
+        span it patches carries suppressHydrationWarning (this island mounts eagerly
+        and may write the count before NavBar's client:idle GhStar hydrates). */}
+    <NavStars client:only="react" />
 
     {/*
       Observability bootstrap — env-checked init for Sentry + PostHog.

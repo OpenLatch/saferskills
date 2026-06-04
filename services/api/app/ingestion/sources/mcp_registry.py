@@ -12,7 +12,7 @@ import datetime as dt
 import hashlib
 import json
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -45,15 +45,17 @@ def _parse_github_coords(url: str) -> tuple[str | None, str | None]:
 
 
 def _parse_name_coords(name: str) -> tuple[str | None, str | None]:
-    """Try to extract (org, repo) from an MCP Registry `name` like `io.github.<org>/<repo>`."""
-    # Format: io.github.<org>/<repo>  or  <org>/<repo>
+    """Extract (org, repo) from an MCP Registry `name` ONLY when it is GitHub-namespaced.
+
+    Registry names are reverse-DNS namespaced — `io.github.<org>/<repo>` is the one
+    namespace that maps to a real GitHub repo. Any other `<namespace>/<name>` (e.g.
+    `ac.tandem/docs-mcp`) is NOT a GitHub coordinate; treating it as one would mint a
+    fake `github.com/<namespace>/<name>` identity. Repo-less servers fall through to
+    the no-GitHub-URL path (D-04-09 fuzzy queue).
+    """
     if name.startswith("io.github."):
         rest = name[len("io.github.") :]
         parts = rest.split("/", 1)
-        if len(parts) == 2 and parts[0] and parts[1]:
-            return parts[0], parts[1]
-    if "/" in name:
-        parts = name.split("/", 1)
         if len(parts) == 2 and parts[0] and parts[1]:
             return parts[0], parts[1]
     return None, None
@@ -80,12 +82,16 @@ class McpRegistryAdapter(RegistryAdapter):
         async with AsyncSessionLocal() as session:
             cursor = await read_cursor(session, self.config.name)
 
+        page_limit = int(self.config.discovery.get("page_limit", 100))
         updated_since: str = cursor.get("updated_since", "1970-01-01T00:00:00Z")
         opaque_cursor: str | None = cursor.get("next_cursor")
         new_high_water: str = updated_since
 
         while True:
-            params: dict[str, str] = {"updated_since": updated_since}
+            params: dict[str, str] = {
+                "updated_since": updated_since,
+                "limit": str(page_limit),
+            }
             if opaque_cursor:
                 params["cursor"] = opaque_cursor
 
@@ -123,11 +129,31 @@ class McpRegistryAdapter(RegistryAdapter):
             data = r.json()
             servers: list[dict[str, Any]] = data.get("servers") or []
             for record in servers:
-                body = json.dumps(record, separators=(",", ":"), sort_keys=True).encode()
-                server_id: str = (
-                    record.get("id") or record.get("name") or hashlib.sha256(body).hexdigest()[:16]
+                # The /v0/servers feed wraps each entry: the server object lives under
+                # `server`, registry bookkeeping under `_meta`. Unwrap both (fall back
+                # to the bare record if an older unwrapped shape ever reappears).
+                inner: Any = record.get("server")
+                server: dict[str, Any] = (
+                    cast("dict[str, Any]", inner) if isinstance(inner, dict) else record
                 )
-                updated_at: str = record.get("updatedAt") or record.get("updated_at") or ""
+                meta_raw: Any = record.get("_meta")
+                meta_outer: dict[str, Any] = (
+                    cast("dict[str, Any]", meta_raw) if isinstance(meta_raw, dict) else {}
+                )
+                meta_inner: Any = meta_outer.get("io.modelcontextprotocol.registry/official")
+                meta: dict[str, Any] = (
+                    cast("dict[str, Any]", meta_inner) if isinstance(meta_inner, dict) else {}
+                )
+
+                # Latest version only — the feed returns every published version.
+                if meta.get("isLatest") is False:
+                    continue
+
+                body = json.dumps(server, separators=(",", ":"), sort_keys=True).encode()
+                server_id: str = (
+                    str(server.get("name") or "") or hashlib.sha256(body).hexdigest()[:16]
+                )
+                updated_at: str = str(meta.get("updatedAt") or meta.get("updated_at") or "")
                 if updated_at > new_high_water:
                     new_high_water = updated_at
                 yield RawItem(
@@ -138,10 +164,11 @@ class McpRegistryAdapter(RegistryAdapter):
                     fetched_at=dt.datetime.now(tz=dt.UTC).isoformat(),
                     from_cache=False,
                     fetch_tier=1,
-                    payload_hint=record,
+                    payload_hint=server,
                 )
 
-            opaque_cursor = data.get("nextCursor") or data.get("next_cursor")
+            page_meta: dict[str, Any] = data.get("metadata") or {}
+            opaque_cursor = page_meta.get("nextCursor") or page_meta.get("next_cursor")
             if not opaque_cursor:
                 break
 
@@ -159,18 +186,19 @@ class McpRegistryAdapter(RegistryAdapter):
         """Map an MCP Registry server record to a NormalizedItem."""
         if raw.http_status != 200:
             return None
-        record: dict[str, Any] = raw.payload_hint
-        if not isinstance(record, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+        # payload_hint is the unwrapped `server` object (see list_items).
+        server: dict[str, Any] = raw.payload_hint
+        if not isinstance(server, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
             return None
 
-        name: str = str(record.get("name") or "")
-        description: str = (record.get("description") or "")[:280]
+        name: str = str(server.get("name") or "")
+        description: str = (server.get("description") or "")[:280]
         github_org: str | None = None
         github_repo: str | None = None
         github_url: str | None = None
 
-        # Try repository.url first, then fall back to namespaced name.
-        repo_obj: dict[str, Any] = record.get("repository") or {}
+        # Try repository.url first, then fall back to a GitHub-namespaced name.
+        repo_obj: dict[str, Any] = server.get("repository") or {}
         repo_url: str = repo_obj.get("url") or ""
         if repo_url:
             github_org, github_repo = _parse_github_coords(repo_url)
@@ -181,17 +209,15 @@ class McpRegistryAdapter(RegistryAdapter):
         if github_org and github_repo:
             github_url = f"https://github.com/{github_org}/{github_repo}"
 
-        # Use the human-readable name as display_name, falling back to the full namespaced name.
-        display_name = record.get("displayName") or name.split("/")[-1] or name or "unknown"
+        # Prefer the human-readable title; fall back to the last name segment.
+        display_name = server.get("title") or name.split("/")[-1] or name or "unknown"
 
-        # Source URL on the MCP Registry itself.
+        # No per-server public permalink is exposed (by-name lookups 404); credit the
+        # registry root as the source backlink.
         api_base: str = self.config.discovery.get(
             "api_base", "https://registry.modelcontextprotocol.io"
         )
-        source_url: str | None = None
-        server_id = record.get("id") or record.get("name")
-        if server_id:
-            source_url = f"{api_base.rstrip('/')}/v0/servers/{server_id}"
+        source_url: str | None = api_base.rstrip("/")
 
         return NormalizedItem(
             github_org=github_org,
@@ -202,6 +228,62 @@ class McpRegistryAdapter(RegistryAdapter):
             github_url=github_url,
             source_url=source_url,
             kind="mcp_server",
-            metadata_files={},
+            metadata_files={},  # populated by enrich()
             aggregator_listings=[self.config.name],
         )
+
+    async def enrich(self, client: Any, normalized: NormalizedItem) -> None:
+        """Fetch GitHub repo facts + manifest/README so the quality classifier can
+        tier registry servers instead of defaulting every one to `empty`.
+
+        The /v0/servers feed carries no repo signals, so `classify_quality_tier`
+        sees `is_empty=True` for every item and the default catalog gate
+        (`quality_tier IN ('high','medium')`, D-04-19) hides the whole catalog.
+        This pass populates `stars` + a `commit_count` proxy (repo `size`) +
+        manifest/README bytes so a real listing tiers to `medium`/`high`.
+
+        Best-effort: any fetch failure leaves the item as the feed presented it
+        (still indexable, just lower-tier). Mirrors `github_topics.enrich`.
+        """
+        org, repo = normalized.github_org, normalized.github_repo
+        if not org or not repo:
+            return
+
+        try:
+            r = await client.get(f"https://api.github.com/repos/{org}/{repo}")
+            if r.status_code == 200:
+                body: dict[str, Any] = r.json()
+                stars = body.get("stargazers_count")
+                if isinstance(stars, int):
+                    normalized.stars = stars
+                # GitHub repo `size` (KB) is the same commit-count proxy
+                # github_topics uses — a non-zero size lifts an item out of `empty`.
+                size = body.get("size")
+                if isinstance(size, int):
+                    normalized.payload_hint = {**normalized.payload_hint, "commit_count": size}
+                branch = body.get("default_branch")
+                if isinstance(branch, str) and branch:
+                    normalized.default_branch = branch
+                pushed = body.get("pushed_at")
+                if isinstance(pushed, str) and pushed:
+                    normalized.pushed_at = pushed
+                if body.get("archived"):
+                    normalized.repo_archived = True
+                lic = body.get("license")
+                if isinstance(lic, dict):
+                    spdx = cast("dict[str, Any]", lic).get("spdx_id")
+                    # GitHub returns "NOASSERTION" for unrecognized licenses.
+                    if isinstance(spdx, str) and spdx and spdx != "NOASSERTION":
+                        normalized.license_spdx = spdx
+        except Exception:
+            logger.debug("mcp_registry.enrich_repo_meta_failed", org=org, repo=repo)
+
+        branch = normalized.default_branch or "main"
+        for filename in ("mcp.json", "server.json", "README.md"):
+            url = f"https://raw.githubusercontent.com/{org}/{repo}/{branch}/{filename}"
+            try:
+                r = await client.get(url)
+                if r.status_code == 200:
+                    normalized.metadata_files[filename] = r.content
+            except Exception:
+                logger.debug("mcp_registry.enrich_file_failed", org=org, repo=repo, file=filename)

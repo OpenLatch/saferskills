@@ -16,6 +16,13 @@ uv run saferskills-admin auth gen-admin-key
 # → opk_admin_a9b3…  (set as the API's SAFERSKILLS_ADMIN_KEY Fly secret + your .env)
 ```
 
+**Local development needs no key.** A local API running with the default
+`ENV=development` and no `SAFERSKILLS_ADMIN_KEY` configured exempts the admin gate,
+so `uv run saferskills-admin sources list` (default `--api-url http://localhost:8000`)
+works out of the box — those mutations audit as `local-dev`. A key is only required
+when targeting **staging/production** (their `ENV` is set, so the gate stays
+mandatory). Set one there as an `X-Admin-Key` / `SAFERSKILLS_ADMIN_KEY` value.
+
 ## Usage
 
 ```bash

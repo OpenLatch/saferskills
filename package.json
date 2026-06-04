@@ -25,7 +25,7 @@
     "test": "pnpm -r --filter=./webapp --filter=./ui test",
     "build": "pnpm -r --filter=./webapp --filter=./ui build",
     "verify-build": "pnpm lint && pnpm tsc --noEmit && pnpm test",
-    "prepare": "pre-commit install || true"
+    "prepare": "pre-commit install || exit 0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
@@ -33,5 +33,15 @@
     "@types/node": "^25.0.0",
     "ajv": "^8.17.1",
     "yaml": "^2.6.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "core-js",
+      "esbuild",
+      "msw",
+      "protobufjs",
+      "sharp"
+    ]
   }
 }

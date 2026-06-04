@@ -171,6 +171,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
+          SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -184,6 +185,12 @@ jobs:
           fi
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
+          fi
+          # SAFERSKILLS_ADMIN_KEY gates /api/v1/admin/* (env-scoped GH secret →
+          # distinct value per env). Without it staging fails closed (403) since
+          # ENV=staging — the keyless exemption is local-dev only.
+          if [ -n "$SAFERSKILLS_ADMIN_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_ADMIN_KEY="$SAFERSKILLS_ADMIN_KEY"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
@@ -277,6 +284,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
+          SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -290,6 +298,12 @@ jobs:
           fi
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
+          fi
+          # SAFERSKILLS_ADMIN_KEY gates /api/v1/admin/* (env-scoped GH secret →
+          # distinct value per env). Without it production fails closed (403) since
+          # ENV=production — the keyless exemption is local-dev only.
+          if [ -n "$SAFERSKILLS_ADMIN_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api SAFERSKILLS_ADMIN_KEY="$SAFERSKILLS_ADMIN_KEY"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do

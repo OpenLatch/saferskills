@@ -43,9 +43,12 @@ export default function GhStar({
       aria-label={`Star ${repo} on GitHub`}
     >
       <span className="gh-l">{GH_ICON} Star</span>
-      {/* data-live-stat: the homepage HomepageLive island patches this with the
-          live repo star count once it clears the fallback threshold. */}
-      <span className="gh-r" data-live-stat="stars">
+      {/* data-live-stat: the site-wide NavStars island (Base.astro) patches this
+          with the live repo star count on the client. It is therefore an
+          intentionally externally-managed node — suppressHydrationWarning tells
+          React not to flag (and not to revert) the count NavStars writes before
+          this island hydrates. */}
+      <span className="gh-r" data-live-stat="stars" suppressHydrationWarning>
         {count != null ? formatStars(count) : ''}
       </span>
     </a>

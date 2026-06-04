@@ -80,6 +80,7 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - 304 responses produce an outbox row with `http_status=304`, `from_cache=true`, `body_sha256` = the cached body's hash.
 - Setting `applied_at = now()` at commit marks the event as applied. `applied_at IS NULL` rows are retry candidates.
 - Re-deriving the catalog from `ingestion_events` alone must produce the same state (replayable invariant). Vendor appeals reference `body_sha256` to prove the source content at fetch time.
+- **`run_cycle` commits in batches** (`registry_adapter._COMMIT_BATCH`, 25 items) rather than once at the end — a full-feed crawl (mcp_registry ~10k items, each doing per-item enrich fetches) is durable + visible incrementally, and a mid-crawl failure keeps the committed prefix. The invariant holds **per item within a batch** (each catalog row + its `ingestion_events` row commit together); batching never splits a pair across commits.
 
 ## Procrastinate worker (D-04-03)
 
@@ -102,6 +103,13 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - **User-Agent**: `SaferSkillsBot/1.0 (+https://saferskills.ai/bot)`.
 - **From**: `bot@saferskills.ai`.
 - Timeouts: 30s connect, 60s read.
+
+## Enrichment + quality tiering (D-04-19)
+
+`run_cycle` calls `adapter.enrich(client, normalized)` between `normalize()` and the merge — the hook that populates `metadata_files` (manifest/README) + repo signals (stars, a `size`-based commit-count proxy, default branch, license) the quality classifier needs. **An adapter whose listing feed carries no repo signals MUST implement `enrich()`**, or every item classifies `quality_tier='empty'` (`classify_quality_tier`: no README + no manifest + commit_count 0 → `empty`) and the default catalog gate (`quality_tier IN ('high','medium')`, the `list_items` soft gate) hides the whole source while the facet/header counts still count it.
+
+- `github_topics` enriches from `raw.githubusercontent.com`; `mcp_registry` enriches from **both** `api.github.com` (repo facts) **and** `raw.githubusercontent.com` (mcp.json/server.json/README) — its YAML `hosts:` declares all three so the per-adapter SSRF allowlist + the GitHub-App-token hook (`http_client.py`, keyed on `api.github.com` in the host set) cover the fetch. Adding the hosts to the YAML + `pnpm run generate` is the only wiring needed (self-derived allowlist).
+- **Re-tier on update**: `merger._apply_update` recomputes `quality_tier` from a re-crawled item **only** when it carries enrichment signals (`_has_enrichment_signals`: any `metadata_files`, `stars is not None`, or a `commit_count` proxy). This heals rows ingested before the source learned to enrich — but a cursor-based feed (mcp_registry) only re-yields a server on a **cursor reset**, so backfilling already-ingested rows requires resetting `crawler_cursors.updated_since` (e.g. to epoch) to force a full re-crawl. A signal-less aggregator update never downgrades a tiered row.
 
 ## Conflict resolution (D-04-11)
 
@@ -175,7 +183,7 @@ All six run in the in-process Procrastinate worker under advisory lock `0x5AFE5C
 
 ## Admin endpoints + CLI (D-04-28)
 
-`POST/GET /api/v1/admin/*` (`app/routers/admin.py`) are gated by the `X-Admin-Key` header (`SAFERSKILLS_ADMIN_KEY`; **fails closed** — every endpoint 403s when the secret is unset). Every mutation writes one `admin_audit_log` row (`security.md` § Audit Trail). Surface: `sources` (list / pause / unpause / force-cycle), `merge-candidates` (list / decide), `catalog` (re-classify / inspect-events / archive / un-archive), `popularity` (recompute-now / top-n). `re-classify` re-runs the deterministic classifier on stored signals (no network re-fetch — `metadata_files` are reconstructed from the stored `kind_signals` so file-derived kind/agent classifications are preserved).
+`POST/GET /api/v1/admin/*` (`app/routers/admin.py`) are gated by the `X-Admin-Key` header (`SAFERSKILLS_ADMIN_KEY`; **fails closed** — every endpoint 403s when the secret is unset, **except** local development where `ENV=development` with no key configured is exempt and audits as the `local-dev` fingerprint; staging/production always set `ENV` so the exemption never applies on a deploy). Every mutation writes one `admin_audit_log` row (`security.md` § Audit Trail). Surface: `sources` (list / pause / unpause / force-cycle), `merge-candidates` (list / decide), `catalog` (re-classify / inspect-events / archive / un-archive), `popularity` (recompute-now / top-n). `re-classify` re-runs the deterministic classifier on stored signals (no network re-fetch — `metadata_files` are reconstructed from the stored `kind_signals` so file-derived kind/agent classifications are preserved).
 
 The operator CLI is the **separate** `tools/saferskills-admin/` uv package (a thin Typer client over these endpoints — no DB access; mirrors `tools/data-seed/` but mutates production). Dangerous verbs (`merge-candidates approve/reject`, `catalog archive/un-archive`, `sources disable`, `popularity recompute-now`) require `--yes` or `SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it` (`shared/safety.py`).
 

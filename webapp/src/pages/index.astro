@@ -42,7 +42,7 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
 
   {/* Live-refresh island — re-runs the homepage view-model client-side and
       patches the SSR DOM (scalars + Popular chips + recently-scanned feed). */}
-  <HomepageLive client:idle initial={data} />
+  <HomepageLive client:only="react" initial={data} />
 
   {/* ─────────────────────────────────────────────────────────
        BAND 1 — HERO

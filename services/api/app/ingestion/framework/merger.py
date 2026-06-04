@@ -11,7 +11,10 @@ Contracts:
   - D-04-09 dedup: per-capability slug auto-merge ONLY; no GitHub URL → fuzzy queue.
   - D-04-11 conflict: GitHub always wins (other sources fill blanks, never override).
   - D-04-31 agent_compatibility: classifier writes the EXISTING column (0003).
-  - D-04-19 quality_tier: soft gate.
+  - D-04-19 quality_tier: soft gate. Set on insert; RE-tiered on update only when
+    the incoming item carries enrichment signals (`_has_enrichment_signals`) so a
+    re-crawl that enriches (e.g. mcp_registry) heals rows first ingested without
+    repo signals. A signal-less update never downgrades a tiered row.
 
 Returns: 'added' | 'updated' | 'added_with_merge_candidate'.
 """
@@ -45,6 +48,33 @@ _JARO_WINKLER_THRESHOLD = 90.0  # percent
 
 def _now() -> dt.datetime:
     return dt.datetime.now(tz=dt.UTC)
+
+
+_LICENSE_SPDX_MAX = 100  # catalog_items.license_spdx is VARCHAR(100)
+
+
+def _clamp_license(value: str | None) -> str | None:
+    """Defensive backstop for the VARCHAR(100) license column.
+
+    Adapters are responsible for extracting a short SPDX id, but `license` is
+    free-form upstream data we don't fully control (PyPI's field can hold the whole
+    license body). Reduce to the first line + cap so a pathological value can never
+    abort an ingestion cycle. Belt-and-suspenders to the per-adapter extraction.
+    """
+    if not value:
+        return None
+    first = value.strip().splitlines()[0].strip() if value.strip() else ""
+    return first[:_LICENSE_SPDX_MAX] or None
+
+
+def _has_enrichment_signals(n: NormalizedItem) -> bool:
+    """True when the incoming item carries repo signals an `enrich()` pass fetched
+    (manifest/README bytes, stars, or a commit-count proxy).
+
+    Gates re-tiering on update: only a source that actually fetched repo facts may
+    recompute `quality_tier`. A bare/aggregator update with no signals must never
+    downgrade a well-tiered row back to `empty` (D-04-19 soft gate)."""
+    return bool(n.metadata_files) or n.stars is not None or bool(n.payload_hint.get("commit_count"))
 
 
 def _capability_slug(n: NormalizedItem, kind: str) -> str | None:
@@ -103,7 +133,11 @@ class MergeEngine:
     async def _insert_new(
         self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
     ) -> uuid.UUID:
-        kind, kind_signals, quality_tier, quality_signals, agents = classify_all(n)
+        ckind, kind_signals, quality_tier, quality_signals, agents = classify_all(n)
+        # Honor the adapter's declared kind (contract: "classifier finalises when
+        # None") so the stored column matches the slug, which upsert() built from
+        # the same hint. classify_all already resolved agents against n.kind.
+        kind = n.kind or ckind
         now = _now()
         item = CatalogItem(
             kind=kind,
@@ -129,12 +163,12 @@ class MergeEngine:
             last_seen200_at=now,
             pushed_at=_parse_dt(n.pushed_at),
             github_stars=n.stars,
-            license_spdx=n.license_spdx,
+            license_spdx=_clamp_license(n.license_spdx),
             popularity_breakdown={},
             sources=[_source_entry(source, n.source_url)],
             item_metadata={
                 "description": n.description,
-                "license_spdx": n.license_spdx,
+                "license_spdx": _clamp_license(n.license_spdx),
                 "stars": n.stars,
                 "weekly_downloads": n.weekly_downloads,
                 "pushed_at": n.pushed_at,
@@ -195,12 +229,28 @@ class MergeEngine:
             if n.weekly_downloads is not None:
                 meta["weekly_downloads"] = n.weekly_downloads
             if n.license_spdx is not None and existing.license_spdx is None:
-                existing.license_spdx = n.license_spdx
+                existing.license_spdx = _clamp_license(n.license_spdx)
 
         if existing.content_hash_sha256 != raw_hash:
             meta["last_hash_change_at"] = _now().isoformat()
             # The top-500 rug-pull alert (D-04-16) was descoped from Phase C; the
             # hash-change timestamp is still recorded here for a future re-scan trigger.
+
+        # Re-tier from fresh enrichment so a re-crawl heals rows ingested before the
+        # source learned to enrich (e.g. the mcp_registry backfill — its cursor-based
+        # feed only re-yields a server on a reset). Gated to items that actually
+        # carry repo signals so a bare update never downgrades a tiered row (D-04-19).
+        if _has_enrichment_signals(n):
+            _ckind, kind_signals, quality_tier, quality_signals, _agents = classify_all(n)
+            existing.quality_tier = quality_tier
+            existing.quality_signals = quality_signals
+            existing.kind_signals = kind_signals
+            if n.stars is not None:
+                existing.github_stars = n.stars
+                meta["stars"] = n.stars
+            if n.pushed_at is not None:
+                existing.pushed_at = _parse_dt(n.pushed_at)
+                meta["pushed_at"] = n.pushed_at
 
         meta["conflicts"] = conflicts
         existing.item_metadata = meta
@@ -259,7 +309,8 @@ class MergeEngine:
         return "added_with_merge_candidate"
 
     async def _insert_staging_row(self, n: NormalizedItem, source: str) -> uuid.UUID:
-        kind, kind_signals, _qt, quality_signals, agents = classify_all(n)
+        ckind, kind_signals, _qt, quality_signals, agents = classify_all(n)
+        kind = n.kind or ckind  # honor the adapter hint (see _insert_new)
         now = _now()
         item = CatalogItem(
             kind=kind,

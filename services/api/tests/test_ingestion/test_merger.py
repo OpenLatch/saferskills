@@ -32,6 +32,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ingestion.framework.base_adapter import NormalizedItem
 from app.ingestion.framework.merger import MergeEngine
 from app.models import CatalogItem, ItemSource, MergeCandidate
 from tests.test_ingestion.conftest import make_normalized
@@ -239,3 +240,146 @@ async def test_fuzzy_path_creates_merge_candidate_for_similar_name(
     mc_rows = (await db_session.execute(select(MergeCandidate))).scalars().all()
     assert len(mc_rows) >= 1
     assert all(mc.status == "pending" for mc in mc_rows)
+
+
+# ---------------------------------------------------------------------------
+# Tests: adapter kind hint is honored on the stored column (contract:
+# "classifier finalises when None") — regression for the slug/column divergence
+# where mcp_registry/npm/pypi items were stored as 'skill' despite an
+# 'mcp_server' hint and an mcp-server slug.
+# ---------------------------------------------------------------------------
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_adapter_kind_hint_is_stored_on_column(db_session: AsyncSession) -> None:
+    """An mcp_server hint with no enriched manifest must store kind='mcp_server'
+    (not the file-classifier default 'skill') and universal agent_compatibility."""
+    from app.services.agent_compat import ALL_AGENTS
+
+    engine = MergeEngine(db_session)
+    n = make_normalized(
+        github_org="acme",
+        github_repo="hinted",
+        display_name="hinted",
+        kind="mcp_server",  # adapter hint; no metadata_files → classifier alone says 'skill'
+    )
+    await engine.upsert(n, raw_hash=_HASH_A, source="mcp_registry")
+    await db_session.flush()
+
+    item = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "hinted"))
+    ).scalar_one()
+    # Slug already encoded mcp-server from the hint; the column must agree.
+    assert item.kind == "mcp_server"
+    assert "mcp-server-hinted" in item.slug
+    # mcp_server with no transport signal → universal agent compatibility.
+    assert set(item.agent_compatibility) == set(ALL_AGENTS)
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_overlong_license_is_clamped_not_crashed(db_session: AsyncSession) -> None:
+    """Regression: a license_spdx longer than the VARCHAR(100) column must be clamped
+    (first line, ≤100 chars) rather than aborting the insert with
+    StringDataRightTruncationError (the pypi free-form-license crash)."""
+    engine = MergeEngine(db_session)
+    long_license = "MIT License\n\nCopyright (c) 2026 Acme Corp\n" + ("blah " * 500)
+    n = make_normalized(
+        github_org="acme",
+        github_repo="licensed",
+        display_name="licensed",
+        license_spdx=long_license,
+    )
+    outcome = await engine.upsert(n, raw_hash=_HASH_A, source="pypi")
+    await db_session.flush()  # would raise StringDataRightTruncationError before the fix
+    assert outcome == "added"
+
+    item = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "licensed"))
+    ).scalar_one()
+    assert item.license_spdx == "MIT License"
+    assert len(item.license_spdx) <= 100
+
+
+# ---------------------------------------------------------------------------
+# Tests: re-tier on update from fresh enrichment (the empty-catalog fix).
+# A mcp_registry server first ingested without repo signals tiers as `empty`
+# (hidden by the default catalog gate); a re-crawl that enriches must lift it.
+# ---------------------------------------------------------------------------
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_reingest_with_enrichment_retiers_empty_row(db_session: AsyncSession) -> None:
+    engine = MergeEngine(db_session)
+    # 1) Unenriched ingest — no manifest/README, no commit_count → `empty`.
+    n_bare = make_normalized(
+        github_org="acme",
+        github_repo="retier",
+        display_name="retier",
+        kind="mcp_server",
+    )
+    await engine.upsert(n_bare, raw_hash=_HASH_A, source="mcp_registry")
+    await db_session.flush()
+    item = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "retier"))
+    ).scalar_one()
+    assert item.quality_tier == "empty"
+
+    # 2) Re-crawl with enrichment (stars + commit_count proxy + manifest/README)
+    #    → the row re-tiers and becomes catalog-visible.
+    n_rich = make_normalized(
+        github_org="acme",
+        github_repo="retier",
+        display_name="retier",
+        kind="mcp_server",
+        stars=120,
+        metadata_files={"mcp.json": b"{}", "README.md": b"# x"},
+        payload_hint={"commit_count": 64},
+    )
+    outcome = await engine.upsert(n_rich, raw_hash=_HASH_B, source="mcp_registry")
+    assert outcome == "updated"
+    await db_session.flush()
+    await db_session.refresh(item)
+
+    assert item.quality_tier in {"high", "medium"}
+    assert item.quality_tier != "empty"
+    assert item.github_stars == 120
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_bare_update_never_downgrades_tiered_row(db_session: AsyncSession) -> None:
+    """A signal-less update (no files, stars=None, no commit_count) must NOT
+    recompute quality_tier — it would wrongly downgrade a tiered row to `empty`."""
+    engine = MergeEngine(db_session)
+    n_rich = make_normalized(
+        github_org="acme",
+        github_repo="keepme",
+        display_name="keepme",
+        kind="mcp_server",
+        stars=200,
+        metadata_files={"mcp.json": b"{}", "README.md": b"# x"},
+        payload_hint={"commit_count": 80},
+    )
+    await engine.upsert(n_rich, raw_hash=_HASH_A, source="mcp_registry")
+    await db_session.flush()
+    item = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "keepme"))
+    ).scalar_one()
+    assert item.quality_tier in {"high", "medium"}
+    before = item.quality_tier
+
+    # A bare aggregator update — explicitly no signals (stars=None).
+    n_bare = NormalizedItem(
+        github_org="acme",
+        github_repo="keepme",
+        display_name="keepme",
+        kind="mcp_server",
+        stars=None,
+    )
+    await engine.upsert(n_bare, raw_hash=_HASH_B, source="mcp_so")
+    await db_session.flush()
+    await db_session.refresh(item)
+    assert item.quality_tier == before  # unchanged — no enrichment signals → no re-tier

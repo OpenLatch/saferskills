@@ -1,9 +1,12 @@
 """Admin endpoints (D-04-28) — gated by the `X-Admin-Key` header.
 
 Every mutation writes one `admin_audit_log` row (security.md Audit-trail
-invariant). The gate fails CLOSED: when `SAFERSKILLS_ADMIN_KEY` is unset (dev/test)
-every endpoint returns 403. Driven by the `saferskills-admin` CLI. When auth lands
-(Track E) the X-Admin-Key gate is replaced by SSO; the CLI keeps working.
+invariant). The gate fails CLOSED: when `SAFERSKILLS_ADMIN_KEY` is unset, every
+endpoint returns 403 — EXCEPT under local development (`ENV=development`), which is
+exempt and audits as `local-dev`. Real deploys always set `ENV=staging`/`production`
+so the exemption can never apply off a developer's machine. Driven by the
+`saferskills-admin` CLI. When auth lands (Track E) the X-Admin-Key gate is replaced
+by SSO; the CLI keeps working.
 
 Endpoints (mounted at /api/v1/admin):
   GET  /sources                          list 14 sources + status
@@ -24,6 +27,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import secrets
 import time
 from typing import Any, cast
 
@@ -48,14 +52,20 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def require_admin_key(
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
 ) -> str:
-    """Validate the X-Admin-Key header against the configured secret; return a
-    short fingerprint of the key for the audit log. Fails closed when the secret
-    is unset."""
+    """Validate the X-Admin-Key header; return a short fingerprint for the audit log.
+
+    A configured SAFERSKILLS_ADMIN_KEY is mandatory (constant-time compare). When the
+    key is unset, local development (ENV=development) is exempt and audits as
+    "local-dev"; every other environment fails closed (403)."""
     settings = get_settings()
     expected = settings.saferskills_admin_key
-    if not expected or not x_admin_key or x_admin_key != expected:
+    if expected:
+        if x_admin_key and secrets.compare_digest(x_admin_key, expected):
+            return hashlib.sha256(x_admin_key.encode()).hexdigest()[:20]
         raise HTTPException(status_code=403, detail="invalid admin key")
-    return hashlib.sha256(x_admin_key.encode()).hexdigest()[:20]
+    if settings.env == "development":
+        return "local-dev"
+    raise HTTPException(status_code=403, detail="invalid admin key")
 
 
 def _json_safe(value: Any) -> Any:

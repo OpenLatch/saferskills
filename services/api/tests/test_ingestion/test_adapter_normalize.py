@@ -6,6 +6,8 @@ import hashlib
 import json
 from typing import Any
 
+import pytest
+
 # Ensure all adapters are registered by importing their modules.
 import app.ingestion.sources.github_topics  # pyright: ignore[reportUnusedImport]
 import app.ingestion.sources.mcp_registry  # pyright: ignore[reportUnusedImport]
@@ -182,6 +184,111 @@ class TestMcpRegistryNormalize:
         assert result is not None
         assert "mcp_registry" in result.aggregator_listings
 
+    def test_normalize_leaves_metadata_files_empty(self) -> None:
+        """normalize() carries no repo signals — enrich() fills them (else every
+        registry server classifies `empty` and the catalog gate hides it all)."""
+        adapter = build_adapter("mcp_registry")
+        result = adapter.normalize(_raw(self._mcp_record()))
+        assert result is not None
+        assert result.metadata_files == {}
+        assert result.stars is None
+
+
+class _FakeResp:
+    def __init__(self, status_code: int, json_body: Any = None, content: bytes = b"") -> None:
+        self.status_code = status_code
+        self._json = json_body
+        self.content = content
+
+    def json(self) -> Any:
+        return self._json
+
+
+class _FakeClient:
+    """Routes a `.get(url)` by first matching substring; 404 otherwise."""
+
+    def __init__(self, routes: dict[str, _FakeResp]) -> None:
+        self.routes = routes
+        self.calls: list[str] = []
+
+    async def get(self, url: str, **_: Any) -> _FakeResp:
+        self.calls.append(url)
+        for key, resp in self.routes.items():
+            if key in url:
+                return resp
+        return _FakeResp(404)
+
+
+class TestMcpRegistryEnrich:
+    """enrich() fetches GitHub repo facts + manifest/README so registry servers
+    tier into the catalog instead of defaulting to quality_tier='empty'."""
+
+    def _record(self, github_url: str = "https://github.com/acme/mcp-tool") -> dict[str, Any]:
+        return {
+            "id": "server-1",
+            "name": "io.github.acme/mcp-tool",
+            "description": "An MCP server",
+            "repository": {"url": github_url},
+        }
+
+    @pytest.mark.asyncio
+    async def test_enrich_populates_repo_signals_and_files(self) -> None:
+        adapter = build_adapter("mcp_registry")
+        n = adapter.normalize(_raw(self._record()))
+        assert n is not None
+        client = _FakeClient(
+            {
+                "api.github.com/repos/acme/mcp-tool": _FakeResp(
+                    200,
+                    {
+                        "stargazers_count": 120,
+                        "size": 64,
+                        "default_branch": "main",
+                        "pushed_at": "2026-01-01T00:00:00Z",
+                        "archived": False,
+                        "license": {"spdx_id": "MIT"},
+                    },
+                ),
+                "/acme/mcp-tool/main/mcp.json": _FakeResp(200, content=b'{"name":"x"}'),
+                "/acme/mcp-tool/main/README.md": _FakeResp(200, content=b"# readme"),
+            }
+        )
+        await adapter.enrich(client, n)
+
+        assert n.stars == 120
+        assert n.payload_hint.get("commit_count") == 64  # repo size → commit-count proxy
+        assert n.license_spdx == "MIT"
+        assert n.metadata_files.keys() == {"mcp.json", "README.md"}
+
+    @pytest.mark.asyncio
+    async def test_enrich_noop_without_github_coords(self) -> None:
+        adapter = build_adapter("mcp_registry")
+        # A non-github-namespaced name + no repository.url → no GitHub coordinate
+        # (the `io.github.` name fallback does not apply).
+        record: dict[str, Any] = {
+            "id": "s",
+            "name": "ac.tandem/docs-mcp",
+            "description": "x",
+            "repository": {},
+        }
+        n = adapter.normalize(_raw(record))
+        assert n is not None
+        assert n.github_org is None
+        client = _FakeClient({})
+        await adapter.enrich(client, n)
+        assert client.calls == []  # never touches the network without a repo
+        assert n.metadata_files == {}
+
+    @pytest.mark.asyncio
+    async def test_enrich_best_effort_on_missing_repo(self) -> None:
+        """A 404 repo / absent files leaves the item as the feed presented it."""
+        adapter = build_adapter("mcp_registry")
+        n = adapter.normalize(_raw(self._record()))
+        assert n is not None
+        await adapter.enrich(_FakeClient({}), n)  # everything 404s
+        assert n.stars is None
+        assert n.metadata_files == {}
+
 
 # ---------------------------------------------------------------------------
 # npm normalize
@@ -325,3 +432,26 @@ class TestPypiNormalize:
         result = adapter.normalize(raw)
         assert result is not None
         assert result.repo_yanked is True
+
+    def test_normalize_full_text_license_resolved_to_short_spdx(self) -> None:
+        """Regression: PyPI's free-form `license` often holds the ENTIRE license body
+        (~1.2 KB). It must resolve to a short SPDX id from the trove classifier, never
+        the verbatim text (which overflows license_spdx VARCHAR(100) and crashes the
+        cycle)."""
+        adapter = build_adapter("pypi")
+        payload = self._pypi_payload()
+        payload["info"]["license"] = "MIT License\n\nCopyright (c) 2026 Acme\n" + ("x " * 600)
+        payload["info"]["classifiers"] = ["License :: OSI Approved :: MIT License"]
+        result = adapter.normalize(raw=_raw(payload))
+        assert result is not None
+        assert result.license_spdx == "MIT"
+        assert len(result.license_spdx) <= 100
+
+    def test_normalize_prefers_license_expression(self) -> None:
+        adapter = build_adapter("pypi")
+        payload = self._pypi_payload()
+        payload["info"]["license_expression"] = "Apache-2.0"
+        payload["info"]["license"] = "full apache text " * 100
+        result = adapter.normalize(raw=_raw(payload))
+        assert result is not None
+        assert result.license_spdx == "Apache-2.0"
