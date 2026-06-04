@@ -214,9 +214,10 @@ fn man_emits_troff() {
 
 #[test]
 fn stub_command_reports_not_implemented() {
+    // `scan` is the remaining Phase-C stub (install/uninstall/etc. shipped in B).
     let tmp = tempfile::tempdir().unwrap();
     cli(tmp.path())
-        .args(["install", "some-skill"])
+        .args(["scan", "./some-path"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("SS-E-1090"));

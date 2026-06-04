@@ -40,6 +40,42 @@ Redacted `/24` or `/48` prefixes are never exported raw to third parties. Aggreg
 3. **Closed action enum.** New action type = update the enum in `app/core/access_log_middleware.py` + this rule + `privacy.astro`.
 4. **No PII fields.** No `user_agent`, no `referer`, no raw `path`, no slug. Only `action`, `redacted_ip`, `timestamp`, and optionally `source_kind` (closed enum) for aggregate faceting.
 
+## `install_events` table (I-05)
+
+The `install_events` table records **opt-in** install reports from the `saferskills`
+CLI (D-05-31), powering the real `install_activity` counts on item pages (replacing
+the deterministic mock). It is a **new store distinct from `access_log`** — required
+because `access_log` is write-only-until-I-06, closed-action, and 30-day-swept, so it
+can neither serve the read nor preserve the `all_time` count.
+
+### What is stored
+
+`catalog_item_id` (FK), `agent` (the 8-agent native enum), `kind` (the 5-kind native
+enum), `cli_version` (≤32 chars), `redacted_ip`, `created_at`. **No slug-in-clear, no
+URL, no PII.** The reported install is anonymous — closed-enum agent + kind only.
+
+### IP redaction (mandatory)
+
+Same contract as `access_log`: the submitter IP is redacted to `/24` (IPv4) or `/48`
+(IPv6) **at write time** in `app/routers/installs.py` (via
+`access_log_middleware.redact_ip`) — a raw IP is never stored.
+
+### Opt-in only
+
+Reporting is **opt-in** (first-run CLI consent; off by default, skipped + off in
+non-TTY/CI/`--json`/`--no-input`). A row exists only because a user chose to report.
+
+### Retention
+
+**Retained** (redacted IP, closed-enum, no PII) so the `all_time` aggregate survives
+— distinct from `access_log`'s 30-day sweep. A future per-item rollup counter is an
+optimization, not required. See `security.md` § Vendor-data isolation.
+
+### No export
+
+Row-level `install_events` are internal; only bucketed aggregates (counts per agent
+per window) surface on the public item page.
+
 ## Public disclosure
 
 `webapp/src/pages/privacy.astro` is the canonical privacy policy surface. The access_log disclosure section must be kept in sync with this rule. See Section 3 of the policy for the at-a-glance table and the IP-redaction statement.
@@ -50,6 +86,7 @@ Link to `security.md` § Vendor-data isolation for the full retention-tier break
 
 | Change | Updates here |
 |---|---|
+| `install_events` column / retention / enum change | "install_events table" + `app/models/install_event.py` + `app/routers/installs.py` + migration 0014 + `security.md` |
 | New `action` enum value added | "What is stored" + `app/core/access_log_middleware.py` enum + `privacy.astro` |
 | IP redaction granularity changed | "IP redaction" + `app/core/access_log_middleware.py` + `privacy.astro` |
 | `access_log` reader ships (I-06) | "access_log table" — remove "write-only at I-04" note; document the read surface |

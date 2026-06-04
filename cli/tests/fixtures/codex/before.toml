@@ -1,0 +1,6 @@
+# Codex configuration — the user's own comment must survive a SaferSkills merge.
+model = "o3"
+
+[mcp_servers.existing]
+command = "node"
+args = ["server.js"]

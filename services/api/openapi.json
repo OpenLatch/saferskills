@@ -2,9 +2,19 @@
   "components": {
     "schemas": {
       "AgentShare": {
-        "description": "One slice of the install agent-distribution row.",
+        "description": "One slice of the install agent-distribution row.\n\n`agent` is the canonical agent id (the 8-agent closed enum, D-05-14) \u2014 no\nlonger a free string now that real install telemetry (D-05-31) populates it.",
         "properties": {
           "agent": {
+            "enum": [
+              "claude-code",
+              "cursor",
+              "codex",
+              "copilot",
+              "windsurf",
+              "cline",
+              "gemini",
+              "openclaw"
+            ],
             "title": "Agent",
             "type": "string"
           },
@@ -1034,6 +1044,61 @@
         "title": "InstallActivity",
         "type": "object"
       },
+      "InstallReportRequest": {
+        "description": "One reported install: which capability, which agent, which kind.",
+        "properties": {
+          "agent": {
+            "enum": [
+              "claude-code",
+              "cursor",
+              "codex",
+              "copilot",
+              "windsurf",
+              "cline",
+              "gemini",
+              "openclaw"
+            ],
+            "title": "Agent",
+            "type": "string"
+          },
+          "cli_version": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cli Version"
+          },
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "slug": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "agent",
+          "kind"
+        ],
+        "title": "InstallReportRequest",
+        "type": "object"
+      },
       "ItemDetailResponse": {
         "description": "Full payload for the item-detail page.",
         "properties": {
@@ -1460,6 +1525,139 @@
           }
         },
         "title": "RepoMeta",
+        "type": "object"
+      },
+      "RubricContentResponse": {
+        "description": "`{rubric_version, rules}` \u2014 the full explainable-finding content map.\n\n`rubric_version` is the content-addressable git tree SHA of `rubric/`; the CLI\nkeys its cache on it and refetches only when it changes.",
+        "properties": {
+          "rubric_version": {
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "rules": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuleContent"
+            },
+            "title": "Rules",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rubric_version",
+          "rules"
+        ],
+        "title": "RubricContentResponse",
+        "type": "object"
+      },
+      "RuleContent": {
+        "description": "Plain-English content for one rule_id (no rule_id-specific PII).",
+        "properties": {
+          "category_label": {
+            "title": "Category Label",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "remediation": {
+            "$ref": "#/components/schemas/RuleRemediation"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "severity_rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity Rationale"
+          },
+          "sub_score": {
+            "title": "Sub Score",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "severity",
+          "sub_score",
+          "category_label",
+          "title",
+          "explanation",
+          "remediation"
+        ],
+        "title": "RuleContent",
+        "type": "object"
+      },
+      "RuleRemediation": {
+        "description": "How to fix a finding. `action` is always present; the rest are optional.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "safer_pattern": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleSaferPattern"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "RuleRemediation",
+        "type": "object"
+      },
+      "RuleSaferPattern": {
+        "description": "Optional Avoid \u2192 Safer before/after pair for a remediation.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "title": "RuleSaferPattern",
         "type": "object"
       },
       "ScanHistoryPoint": {
@@ -3260,6 +3458,40 @@
         ]
       }
     },
+    "/api/v1/installs": {
+      "post": {
+        "operationId": "report_install_api_v1_installs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report an opt-in install (CLI).",
+        "tags": [
+          "installs"
+        ]
+      }
+    },
     "/api/v1/items": {
       "get": {
         "description": "Catalog list with the per-row latest-scan join + filters.",
@@ -3912,6 +4144,27 @@
         "summary": "Verify Start",
         "tags": [
           "vendor"
+        ]
+      }
+    },
+    "/api/v1/rubric/content": {
+      "get": {
+        "operationId": "get_rubric_content_api_v1_rubric_content_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RubricContentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Explainable-finding content map (offline CLI prose).",
+        "tags": [
+          "rubric"
         ]
       }
     },

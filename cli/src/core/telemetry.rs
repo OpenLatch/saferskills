@@ -21,7 +21,7 @@
 use std::io::IsTerminal;
 
 use crate::cli::output::OutputConfig;
-use crate::core::config::saferskills_dir;
+use crate::core::config::{saferskills_dir, set_install_telemetry, Config};
 
 /// The PostHog project key baked by `build.rs` (empty when unset).
 pub const fn baked_key() -> &'static str {
@@ -38,6 +38,12 @@ const NOTICE_SENTINEL: &str = ".telemetry-notice";
 
 fn env_present(key: &str) -> bool {
     std::env::var_os(key).is_some_and(|v| !v.is_empty())
+}
+
+fn env_bool(key: &str) -> Option<bool> {
+    std::env::var(key)
+        .ok()
+        .map(|v| matches!(v.as_str(), "true" | "1"))
 }
 
 /// Whether any universal opt-out env var is set.
@@ -94,6 +100,49 @@ pub fn maybe_first_run_notice(output: &OutputConfig, enabled: bool) {
          Disable any time with SAFERSKILLS_NO_TELEMETRY=1 (DO_NOT_TRACK and CI are also honored).\n\
          Details: https://saferskills.ai/privacy\n"
     );
+}
+
+/// Resolve whether to report opt-in install telemetry (D-05-31), prompting once
+/// on the first interactive install.
+///
+/// Precedence: a universal opt-out env (`CI` / `DO_NOT_TRACK` /
+/// `SAFERSKILLS_NO_TELEMETRY`) forces OFF; then an explicit
+/// `SAFERSKILLS_INSTALL_TELEMETRY` env; then the `install_telemetry` config key.
+/// If still unset: in any non-interactive context (`--json` / `--quiet` /
+/// `--non-interactive` / non-TTY / CI) reporting **stays OFF** (opt-in default,
+/// never hangs the pipeline); only an interactive TTY prompts — and the choice
+/// is persisted to `config.toml` so it is asked just once.
+pub fn resolve_install_consent(
+    output: &OutputConfig,
+    config: &Config,
+    non_interactive: bool,
+) -> bool {
+    if opted_out_env() {
+        return false;
+    }
+    if let Some(v) = env_bool("SAFERSKILLS_INSTALL_TELEMETRY") {
+        return v;
+    }
+    if let Some(v) = config.install_telemetry {
+        return v;
+    }
+    let interactive = !non_interactive
+        && !output.is_json()
+        && !output.is_quiet()
+        && std::io::stderr().is_terminal();
+    if !interactive {
+        return false; // opt-in default — stays off, never prompts
+    }
+    let choice = inquire::Confirm::new(
+        "Report anonymous install counts to SaferSkills (improves catalog popularity signals)?",
+    )
+    .with_default(false)
+    .with_help_message("Anonymous: agent + capability kind only — never names, paths, or any PII. Change anytime in ~/.saferskills/config.toml.")
+    .prompt()
+    .unwrap_or(false);
+    // Persist so we ask exactly once (best-effort — applies this run regardless).
+    let _ = set_install_telemetry(choice);
+    choice
 }
 
 /// Build the `command_invoked` event payload. Extracted from the send path so

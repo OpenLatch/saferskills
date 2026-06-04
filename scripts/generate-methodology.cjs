@@ -27,6 +27,19 @@ const ROOT = path.resolve(__dirname, '..')
 const RUBRIC_DIR = path.join(ROOT, 'rubric')
 const OUT_DIR = path.join(ROOT, 'webapp', 'src', 'generated', 'methodology')
 const RULES_OUT_DIR = path.join(ROOT, 'webapp', 'src', 'generated', 'rules')
+// Backend mirror of the explainable-finding content map, consumed by
+// `GET /api/v1/rubric/content` so the install CLI can render finding prose
+// offline (D-05-32). Snake_case keys (it is served over the API, which is
+// snake_case) — emitted from the SAME rule walk as content.ts so the two
+// never drift.
+const BACKEND_RULES_OUT = path.join(
+  ROOT,
+  'services',
+  'api',
+  'app',
+  'generated',
+  'rule_content.json'
+)
 const RUBRIC_SCHEMA = path.join(ROOT, 'schemas', 'rubric-rule.schema.json')
 
 let yaml
@@ -301,6 +314,43 @@ function emitRuleContent(rules) {
   return header + body
 }
 
+// ─── Emit services/api/app/generated/rule_content.json ───────────────────────
+
+// The backend-served projection of the same rule prose (D-05-32). Keys are
+// snake_case because this file is loaded by the API and re-served over the wire
+// (the API is snake_case end-to-end). The install CLI fetches it once from
+// `GET /api/v1/rubric/content`, caches it under `~/.saferskills/cache/`, and
+// renders finding explanations offline. Emitted from the same `rules` walk as
+// `content.ts` so the two contents can never drift.
+function emitRuleContentJson(rules, rubricShaValue) {
+  const sorted = [...rules].sort((a, b) => a.frontmatter.ruleId.localeCompare(b.frontmatter.ruleId))
+  const map = {}
+  for (const { frontmatter: fm } of sorted) {
+    const remediation = { action: fm.remediation.action }
+    if (Array.isArray(fm.remediation.steps) && fm.remediation.steps.length > 0) {
+      remediation.steps = fm.remediation.steps
+    }
+    if (fm.remediation.saferPattern) {
+      remediation.safer_pattern = {
+        before: fm.remediation.saferPattern.before,
+        after: fm.remediation.saferPattern.after,
+      }
+    }
+    const entry = {
+      rule_id: fm.ruleId,
+      severity: fm.severity,
+      sub_score: fm.subScore,
+      category_label: fm.categoryLabel || SUB_SCORE_TITLES[fm.subScore],
+      title: fm.title,
+      explanation: fm.explanation,
+    }
+    if (fm.severityRationale) entry.severity_rationale = fm.severityRationale
+    entry.remediation = remediation
+    map[fm.ruleId] = entry
+  }
+  return `${JSON.stringify({ rubric_version: rubricShaValue, rules: map }, null, 2)}\n`
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 function main() {
@@ -371,6 +421,13 @@ function main() {
   const contentPath = path.join(RULES_OUT_DIR, 'content.ts')
   fs.writeFileSync(contentPath, emitRuleContent(rules))
   console.log(`[methodology] Wrote ${path.relative(ROOT, contentPath)} (${rules.length} rule(s)).`)
+
+  // Backend mirror for the CLI offline finding prose (D-05-32).
+  fs.mkdirSync(path.dirname(BACKEND_RULES_OUT), { recursive: true })
+  fs.writeFileSync(BACKEND_RULES_OUT, emitRuleContentJson(rules, sha))
+  console.log(
+    `[methodology] Wrote ${path.relative(ROOT, BACKEND_RULES_OUT)} (rubric_version=${sha.slice(0, 7)}).`
+  )
 }
 
 main()

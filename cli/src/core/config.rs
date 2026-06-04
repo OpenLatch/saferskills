@@ -173,6 +173,18 @@ pub fn default_config_toml() -> &'static str {
      # install_telemetry = false\n"
 }
 
+/// Persist the opt-in `install_telemetry` choice to `config.toml`, preserving
+/// the commented template + any existing keys (toml_edit). Best-effort: the
+/// caller treats a write failure as non-fatal (consent still applies this run).
+pub fn set_install_telemetry(value: bool) -> Result<(), SsError> {
+    let path = config_path();
+    let base = fs::read_to_string(&path).unwrap_or_else(|_| default_config_toml().to_string());
+    let mut doc = base.parse::<toml_edit::DocumentMut>().unwrap_or_default();
+    doc["install_telemetry"] = toml_edit::value(value);
+    ensure_dir()?;
+    atomic_write(&path, doc.to_string().as_bytes())
+}
+
 /// Write the default `config.toml` if it does not already exist.
 pub fn write_default_config_if_missing() -> Result<(), SsError> {
     let path = config_path();

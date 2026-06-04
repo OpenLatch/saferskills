@@ -69,9 +69,10 @@ async fn run() -> i32 {
     };
 
     let (cmd_label, sub_label) = cli::command_label(command);
+    let inter = cli::interaction(&cli);
     let started = std::time::Instant::now();
 
-    let result = dispatch(command, &output).await;
+    let result = dispatch(command, inter, &output).await;
     let exit_code = match &result {
         Ok(()) => 0,
         Err(e) => e.exit_code(),
@@ -93,16 +94,22 @@ async fn run() -> i32 {
     exit_code
 }
 
-/// Single `match` over the clap enum → one free `run_*` fn per command.
-async fn dispatch(command: &Commands, output: &OutputConfig) -> Result<(), SsError> {
+/// Single `match` over the clap enum → one free `run_*` fn per command. The
+/// gating commands (install/uninstall/update/doctor) also receive the resolved
+/// interaction flags (D-05-21).
+async fn dispatch(
+    command: &Commands,
+    inter: cli::Interaction,
+    output: &OutputConfig,
+) -> Result<(), SsError> {
     match command {
         Commands::Info(args) => commands::info::run_info(args, output).await,
-        Commands::Install(args) => commands::install::run_install(args, output).await,
-        Commands::Uninstall(args) => commands::uninstall::run_uninstall(args, output).await,
-        Commands::Update(args) => commands::update::run_update(args, output).await,
+        Commands::Install(args) => commands::install::run_install(args, inter, output).await,
+        Commands::Uninstall(args) => commands::uninstall::run_uninstall(args, inter, output).await,
+        Commands::Update(args) => commands::update::run_update(args, inter, output).await,
         Commands::List(args) => commands::list::run_list(args, output).await,
         Commands::Scan(args) => commands::scan::run_scan(args, output).await,
-        Commands::Doctor(args) => commands::doctor::run_doctor(args, output).await,
+        Commands::Doctor(args) => commands::doctor::run_doctor(args, inter, output).await,
         Commands::Completion { shell } => commands::completion::run_completion(*shell, output),
         Commands::Man => commands::completion::run_man(output),
     }

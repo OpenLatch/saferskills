@@ -209,6 +209,40 @@ pub const ERR_API_DECODE: &str = "SS-E-1103";
 pub const ERR_ITEM_NOT_FOUND: &str = "SS-E-1200";
 
 // ---------------------------------------------------------------------------
+// SS-E-1300s — install gating (Phase B)
+// ---------------------------------------------------------------------------
+
+/// An already-installed item collided with the registry and no resolution flag
+/// (`--update` / `--reinstall` / `--to`) was given. Exit `5` (conflict).
+pub const ERR_CONFLICT: &str = "SS-E-1300";
+/// The user declined a severity gate (answered no / mismatched the type-the-name
+/// confirm). Exit `1`.
+pub const ERR_GATE_CANCELLED: &str = "SS-E-1301";
+/// A required choice could not be made non-interactively (e.g. `--to`/`--all`
+/// needed, or a gate hit without `--yes`/`--force`). Exit `2` (usage).
+pub const ERR_NEEDS_FLAG: &str = "SS-E-1302";
+
+// ---------------------------------------------------------------------------
+// SS-E-1400s — agent detection (Phase B)
+// ---------------------------------------------------------------------------
+
+/// No supported agents were detected on the machine (CLI-9). Exit `1`.
+pub const ERR_NO_AGENTS: &str = "SS-E-1400";
+/// A `--to <agent>` token did not name a known agent. Exit `2` (usage).
+pub const ERR_UNKNOWN_AGENT: &str = "SS-E-1401";
+
+// ---------------------------------------------------------------------------
+// SS-E-1500s — config writers (Phase B)
+// ---------------------------------------------------------------------------
+
+/// A config write failed mid-flight; partial edits were rolled back (D-05-24).
+/// Exit `1`.
+pub const ERR_WRITE_ROLLBACK: &str = "SS-E-1500";
+/// The selected agent cannot install this capability (kind/scope unsupported).
+/// Exit `1`.
+pub const ERR_WRITER_UNSUPPORTED: &str = "SS-E-1501";
+
+// ---------------------------------------------------------------------------
 // SS-E-9999 — internal bug
 // ---------------------------------------------------------------------------
 

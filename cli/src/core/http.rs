@@ -5,6 +5,7 @@
 //! tree to keep openssl-sys / native-tls out) with an explicit 10s timeout.
 
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::core::error::{
     SsError, ERR_API_DECODE, ERR_API_STATUS, ERR_ITEM_NOT_FOUND, ERR_NETWORK, ERR_RATE_LIMITED,
@@ -69,6 +70,46 @@ impl ApiClient {
                 "This usually means the CLI is out of date — try `npx saferskills@latest`.",
             )
         })
+    }
+
+    /// `GET {base}{path}` → raw response bytes (e.g. a stored-snapshot `.zip`).
+    /// Same error mapping as [`ApiClient::get`].
+    pub async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, SsError> {
+        let url = format!("{}{}", self.base, path);
+        let resp = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.status_error(status));
+        }
+        resp.bytes().await.map(|b| b.to_vec()).map_err(|e| {
+            SsError::new(
+                ERR_API_DECODE,
+                format!("Failed to read response bytes: {e}"),
+            )
+        })
+    }
+
+    /// `POST {base}{path}` with a JSON body; treats any 2xx (incl. 204) as ok.
+    /// Used by opt-in install telemetry (the caller swallows errors — fail-open).
+    pub async fn post_json<B: Serialize>(&self, path: &str, body: &B) -> Result<(), SsError> {
+        let url = format!("{}{}", self.base, path);
+        let resp = self
+            .http
+            .post(&url)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.status_error(status));
+        }
+        Ok(())
     }
 
     fn transport_error(&self, e: reqwest::Error) -> SsError {

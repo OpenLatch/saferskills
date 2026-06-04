@@ -15,8 +15,13 @@ Keep the two in sync — when this mapping changes, ship a new backfill migratio
 
 from __future__ import annotations
 
-# Closed enum — mirrors schemas/catalog-item.schema.json::agentCompatibility.
-ALL_AGENTS: tuple[str, ...] = (
+from typing import Literal, get_args
+
+# Closed enum — mirrors schemas/catalog-item.schema.json::agentCompatibility +
+# app/models/install_event.py::AGENT_VALUES (the native `agent` PG enum). The
+# canonical agent ids the install CLI's `--to` flag uses (D-05-14); the legacy
+# `codex-cli`/`gemini-cli` ids are reconciled to `codex`/`gemini`.
+AgentName = Literal[
     "claude-code",
     "cursor",
     "codex",
@@ -25,7 +30,10 @@ ALL_AGENTS: tuple[str, ...] = (
     "cline",
     "gemini",
     "openclaw",
-)
+]
+
+# Runtime tuple derived from the Literal so the two never drift (order preserved).
+ALL_AGENTS: tuple[str, ...] = get_args(AgentName)
 
 # kind → the agents that can consume that artifact kind.
 #   mcp_server : MCP is a cross-agent transport standard → every agent.

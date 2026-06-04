@@ -1,10 +1,9 @@
 //! Command handlers. Dispatch is a single `match` in `main.rs` over the clap
 //! enum → one free `run_*` fn per command (no command trait), per D-05-03.
 //!
-//! Phase A wires `info`, `completion`, and `man`. The lifecycle commands
-//! (`install` / `uninstall` / `update` / `list` / `doctor`) and `scan` are
-//! present so the binary is whole + `--help` shows the full surface, but return
-//! `SS-E-1090` until Phase B/C fill them in.
+//! Phase A wired `info`, `completion`, and `man`; Phase B fills in the lifecycle
+//! commands (`install` / `uninstall` / `update` / `list` / `doctor`). `scan`
+//! remains a Phase-C stub returning `SS-E-1090`.
 
 pub mod completion;
 pub mod doctor;
@@ -31,65 +30,38 @@ pub(crate) fn not_implemented(command: &str, phase: &str) -> SsError {
 mod tests {
     use super::*;
     use crate::cli::output::{OutputConfig, OutputFormat};
-    use crate::cli::{DoctorArgs, InstallArgs, ListArgs, ScanArgs, UninstallArgs, UpdateArgs};
+    use crate::cli::ScanArgs;
     use crate::core::error::ERR_NOT_IMPLEMENTED;
 
     fn out() -> OutputConfig {
         OutputConfig {
-            format: OutputFormat::Human,
+            format: OutputFormat::Json, // suppress human output during the test
             verbose: false,
-            quiet: false,
+            quiet: true,
             color: false,
         }
     }
 
     #[test]
     fn not_implemented_carries_code_and_help() {
-        let err = not_implemented("install", "Phase B");
+        let err = not_implemented("scan", "Phase C");
         assert_eq!(err.code, ERR_NOT_IMPLEMENTED);
-        assert!(err.suggestion.unwrap().contains("Phase B"));
+        assert!(err.suggestion.unwrap().contains("Phase C"));
     }
 
     #[tokio::test]
-    async fn every_stub_returns_not_implemented() {
+    async fn scan_is_still_a_phase_c_stub() {
         let o = out();
-        let install = InstallArgs {
-            name: "x".into(),
-            to: vec![],
-            all: false,
-            project: false,
-            update: false,
-            reinstall: false,
-            seen_score: None,
-            dry_run: false,
-        };
-        assert!(install::run_install(&install, &o).await.is_err());
-        assert!(
-            uninstall::run_uninstall(&UninstallArgs { name: "x".into() }, &o)
-                .await
-                .is_err()
-        );
-        assert!(update::run_update(
-            &UpdateArgs {
-                name: None,
-                all: false,
-                prune_red: false
-            },
-            &o
-        )
-        .await
-        .is_err());
-        assert!(list::run_list(&ListArgs {}, &o).await.is_err());
-        assert!(scan::run_scan(
+        let err = scan::run_scan(
             &ScanArgs {
                 target: None,
                 local: false,
-                private: false
+                private: false,
             },
-            &o
+            &o,
         )
         .await
-        .is_err());
-        assert!(doctor::run_doctor(&DoctorArgs {}, &o).await.is_err());
+        .unwrap_err();
+        assert_eq!(err.code, ERR_NOT_IMPLEMENTED);
     }
 }

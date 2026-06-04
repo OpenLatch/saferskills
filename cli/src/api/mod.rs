@@ -7,12 +7,22 @@
 pub mod dto;
 
 use dto::{
-    CatalogItemSummary, CatalogListEnvelope, HealthResponse, ItemDetailResponse,
+    CatalogItemSummary, CatalogListEnvelope, HealthResponse, ItemDetailResponse, RubricContent,
     ScanRunReportDetail,
 };
+use serde::Serialize;
 
 use crate::core::error::{SsError, ERR_ITEM_NOT_FOUND};
 use crate::core::http::ApiClient;
+
+/// The opt-in install-report body (`POST /api/v1/installs`, D-05-31).
+#[derive(Debug, Serialize)]
+pub struct InstallReport<'a> {
+    pub slug: &'a str,
+    pub agent: &'a str,
+    pub kind: &'a str,
+    pub cli_version: &'a str,
+}
 
 /// jaro_winkler floor for a did-you-mean suggestion (D-05-12).
 const SUGGEST_THRESHOLD: f64 = 0.7;
@@ -66,6 +76,41 @@ impl Api {
     /// `GET /api/v1/health`.
     pub async fn health(&self) -> Result<HealthResponse, SsError> {
         self.client.get("/api/v1/health", &[]).await
+    }
+
+    /// `GET /api/v1/rubric/content` — the offline finding-prose map (D-05-32).
+    pub async fn get_rubric_content(&self) -> Result<RubricContent, SsError> {
+        self.client.get("/api/v1/rubric/content", &[]).await
+    }
+
+    /// `GET /api/v1/items/{slug}/download` — the stored snapshot `.zip` bytes,
+    /// the source for a skill folder copy (D-05-16).
+    pub async fn download_item_zip(&self, slug: &str) -> Result<Vec<u8>, SsError> {
+        self.client
+            .get_bytes(&format!("/api/v1/items/{slug}/download"))
+            .await
+    }
+
+    /// `POST /api/v1/installs` — report an opt-in install (D-05-31). Fail-open:
+    /// the caller swallows the error so a failed report never fails the install.
+    pub async fn report_install(
+        &self,
+        slug: &str,
+        agent: &str,
+        kind: &str,
+        cli_version: &str,
+    ) -> Result<(), SsError> {
+        self.client
+            .post_json(
+                "/api/v1/installs",
+                &InstallReport {
+                    slug,
+                    agent,
+                    kind,
+                    cli_version,
+                },
+            )
+            .await
     }
 
     /// Resolve a typed name to a single catalog item.

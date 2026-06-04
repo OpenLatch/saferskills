@@ -1,0 +1,7 @@
+{
+  // user's own comment — must survive a SaferSkills merge
+  "mcpServers": {
+    "existing-server": { "command": "node", "args": ["server.js"] }
+  },
+  "otherSetting": true
+}

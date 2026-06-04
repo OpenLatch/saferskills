@@ -254,6 +254,46 @@ pub struct ScanRunReportDetail {
     pub expires_at: Option<String>,
 }
 
+/// An Avoid → Safer before/after pair on a rule's remediation (D-05-32).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RuleSaferPattern {
+    pub before: String,
+    pub after: String,
+}
+
+/// How to fix a finding (from `GET /rubric/content`).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RuleRemediation {
+    pub action: String,
+    #[serde(default)]
+    pub steps: Option<Vec<String>>,
+    #[serde(default)]
+    pub safer_pattern: Option<RuleSaferPattern>,
+}
+
+/// Plain-English prose for one rule_id — the offline finding explanation.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RuleContent {
+    pub rule_id: String,
+    pub severity: String,
+    pub sub_score: String,
+    pub category_label: String,
+    pub title: String,
+    pub explanation: String,
+    #[serde(default)]
+    pub severity_rationale: Option<String>,
+    pub remediation: RuleRemediation,
+}
+
+/// `GET /api/v1/rubric/content` — the explainable-finding content map (D-05-32).
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct RubricContent {
+    #[serde(default)]
+    pub rubric_version: String,
+    #[serde(default)]
+    pub rules: BTreeMap<String, RuleContent>,
+}
+
 /// `GET /health`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct HealthResponse {
