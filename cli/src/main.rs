@@ -72,6 +72,12 @@ async fn run() -> i32 {
     let inter = cli::interaction(&cli);
     let started = std::time::Instant::now();
 
+    // First-launch security audit (D-05-26): a one-time opt-in offer to scan
+    // everything already installed. Fail-open + persisted, so it never re-prompts
+    // and never affects the user's command outcome. Calls run_scan directly (no
+    // dispatch recursion).
+    commands::audit::maybe_first_run_audit(inter, &output).await;
+
     let result = dispatch(command, inter, &output).await;
     let exit_code = match &result {
         Ok(()) => 0,

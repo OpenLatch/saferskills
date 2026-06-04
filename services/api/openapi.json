@@ -610,6 +610,31 @@
         "title": "CatalogListEnvelope",
         "type": "object"
       },
+      "CliChallengeResponse": {
+        "description": "`GET /api/v1/scans/cli-challenge` \u2014 a fresh stateless PoW challenge for the\ninstall CLI (D-05-30). The CLI solves it offline and replays it in the\n`X-SaferSkills-CLI-PoW` header on its next scan-submit.",
+        "properties": {
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "difficulty": {
+            "title": "Difficulty",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge",
+          "difficulty",
+          "expires_at"
+        ],
+        "title": "CliChallengeResponse",
+        "type": "object"
+      },
       "DiffFile": {
         "description": "Per-file diff entry. `note` is set (and `hunks` empty) for binary /\nnot-stored / collapsed-oversize files that carry no renderable line body.",
         "properties": {
@@ -821,6 +846,17 @@
       },
       "FindingResponse": {
         "properties": {
+          "category_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Label"
+          },
           "evidence_excerpt": {
             "anyOf": [
               {
@@ -830,6 +866,17 @@
                 "type": "null"
               }
             ]
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
           },
           "file_path": {
             "title": "File Path",
@@ -862,6 +909,16 @@
             "title": "Penalty",
             "type": "integer"
           },
+          "remediation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleRemediation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "remediation_link": {
             "title": "Remediation Link",
             "type": "string"
@@ -885,6 +942,17 @@
             "title": "Severity",
             "type": "string"
           },
+          "severity_rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity Rationale"
+          },
           "status_at_scan": {
             "enum": [
               "shadow",
@@ -903,6 +971,17 @@
             ],
             "title": "Sub Score",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -1525,82 +1604,6 @@
           }
         },
         "title": "RepoMeta",
-        "type": "object"
-      },
-      "RubricContentResponse": {
-        "description": "`{rubric_version, rules}` \u2014 the full explainable-finding content map.\n\n`rubric_version` is the content-addressable git tree SHA of `rubric/`; the CLI\nkeys its cache on it and refetches only when it changes.",
-        "properties": {
-          "rubric_version": {
-            "title": "Rubric Version",
-            "type": "string"
-          },
-          "rules": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/RuleContent"
-            },
-            "title": "Rules",
-            "type": "object"
-          }
-        },
-        "required": [
-          "rubric_version",
-          "rules"
-        ],
-        "title": "RubricContentResponse",
-        "type": "object"
-      },
-      "RuleContent": {
-        "description": "Plain-English content for one rule_id (no rule_id-specific PII).",
-        "properties": {
-          "category_label": {
-            "title": "Category Label",
-            "type": "string"
-          },
-          "explanation": {
-            "title": "Explanation",
-            "type": "string"
-          },
-          "remediation": {
-            "$ref": "#/components/schemas/RuleRemediation"
-          },
-          "rule_id": {
-            "title": "Rule Id",
-            "type": "string"
-          },
-          "severity": {
-            "title": "Severity",
-            "type": "string"
-          },
-          "severity_rationale": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Severity Rationale"
-          },
-          "sub_score": {
-            "title": "Sub Score",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "rule_id",
-          "severity",
-          "sub_score",
-          "category_label",
-          "title",
-          "explanation",
-          "remediation"
-        ],
-        "title": "RuleContent",
         "type": "object"
       },
       "RuleRemediation": {
@@ -4147,27 +4150,6 @@
         ]
       }
     },
-    "/api/v1/rubric/content": {
-      "get": {
-        "operationId": "get_rubric_content_api_v1_rubric_content_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RubricContentResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Explainable-finding content map (offline CLI prose).",
-        "tags": [
-          "rubric"
-        ]
-      }
-    },
     "/api/v1/scans": {
       "get": {
         "description": "Slim summary list of repo scan RUNS (one row per repo scan, not per\ncapability \u2014 a multi-capability repo would otherwise flood the feed).\nFindings count sums across the run's per-capability scans.",
@@ -4325,6 +4307,28 @@
           }
         },
         "summary": "Submit a public GitHub URL for scanning.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/cli-challenge": {
+      "get": {
+        "description": "Mint a fresh signed PoW challenge for the install CLI (D-05-30). Declared\nBEFORE the greedy `/{scan_id}` route so the literal path wins. 503 when the\nPoW secret is unconfigured (dev/test/CI \u2014 the CLI then falls back to Turnstile).",
+        "operationId": "cli_challenge_api_v1_scans_cli_challenge_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliChallengeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Issue a stateless Proof-of-Work challenge for the install CLI.",
         "tags": [
           "scans"
         ]

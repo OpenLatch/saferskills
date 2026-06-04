@@ -11,9 +11,7 @@ use serde_json::{json, Value};
 
 use crate::agents::writer::{ResolvedItem, VerifyStatus};
 use crate::agents::{detect_all, no_agents_error, writers, AgentId, DetectedAgent, Scope};
-use crate::api::dto::{
-    CatalogItemSummary, FindingResponse, ItemDetailResponse, RubricContent, Severity, Tier,
-};
+use crate::api::dto::{CatalogItemSummary, FindingResponse, ItemDetailResponse, Severity, Tier};
 use crate::api::Api;
 use crate::cli::output::OutputConfig;
 use crate::cli::{header, InstallArgs, Interaction};
@@ -23,7 +21,7 @@ use crate::core::error::{
     ERR_WRITE_ROLLBACK,
 };
 use crate::core::registry::{self, InstallChange, InstallRecord};
-use crate::core::{rules_content, telemetry};
+use crate::core::telemetry;
 
 /// Run `install`.
 pub async fn run_install(
@@ -73,16 +71,9 @@ pub async fn run_install(
     surface_score(output, &detail, score, tier);
     drift_reprompt(output, inter, args.seen_score, score, &findings)?;
 
-    let rubric = if findings.is_empty() {
-        RubricContent::default()
-    } else {
-        let want = detail
-            .latest_scan
-            .as_ref()
-            .and_then(|s| s.rubric_version.as_deref());
-        rules_content::load_or_fetch(&api, want).await
-    };
-    apply_severity_gate(output, inter, &config, &detail.item, &findings, &rubric)?;
+    // Finding prose is inlined on the report findings (D-05-32 reversed) — no
+    // rule-corpus fetch; the gate renders straight from each finding.
+    apply_severity_gate(output, inter, &config, &detail.item, &findings)?;
 
     // 6. Conflict (D-05-22).
     let mut records = registry::load()?;
@@ -323,7 +314,6 @@ fn apply_severity_gate(
     config: &Config,
     item: &CatalogItemSummary,
     findings: &[FindingResponse],
-    rubric: &RubricContent,
 ) -> Result<(), SsError> {
     if inter.force {
         return Ok(()); // --force bypasses every gate
@@ -352,7 +342,7 @@ fn apply_severity_gate(
             false,
         ),
         Severity::High => {
-            render_findings(output, findings, rubric);
+            render_findings(output, findings);
             confirm(
                 output,
                 inter,
@@ -361,7 +351,7 @@ fn apply_severity_gate(
             )
         }
         Severity::Critical => {
-            render_findings(output, findings, rubric);
+            render_findings(output, findings);
             type_name_gate(output, inter, item)
         }
         Severity::Unknown => Ok(()),
@@ -431,40 +421,44 @@ fn type_name_gate(
     }
 }
 
-fn render_findings(output: &OutputConfig, findings: &[FindingResponse], rubric: &RubricContent) {
+fn render_findings(output: &OutputConfig, findings: &[FindingResponse]) {
     use crate::cli::color;
     output.print_info("");
     for f in findings.iter().take(5) {
-        let badge = color::severity_badge(f.severity, output.color);
-        let title = rubric
-            .rules
-            .get(&f.rule_id)
-            .map(|c| c.title.as_str())
-            .unwrap_or(&f.rule_id);
-        output.print_info(&format!(
-            "  {badge}  {}  {}",
-            f.rule_id,
-            color::dim(title, output.color)
-        ));
+        output.print_info(&format_finding_line(f, output.color));
         if let Some(line) = f.evidence_excerpt.as_ref().and_then(|e| e.hit_line()) {
             output.print_info(&color::dim(
                 &format!("      {}", line.text.trim_end()),
                 output.color,
             ));
         }
-        match rubric
-            .rules
-            .get(&f.rule_id)
-            .map(|c| c.remediation.action.clone())
-        {
-            Some(rem) => output.print_info(&color::dim(&format!("      → {rem}"), output.color)),
-            None => output.print_info(&color::dim(
-                &format!("      → {}", f.remediation_link),
-                output.color,
-            )),
+        // Inlined remediation action, else the remediation link (D-05-32 reversed).
+        let action = f
+            .remediation
+            .as_ref()
+            .map(|r| r.action.as_str())
+            .unwrap_or(&f.remediation_link);
+        output.print_info(&color::dim(&format!("      → {action}"), output.color));
+        // The explanation/severity rationale is verbose-only (keeps the gate tight).
+        if output.verbose {
+            if let Some(expl) = f.explanation.as_deref() {
+                output.print_info(&color::dim(&format!("      {expl}"), output.color));
+            }
+            if let Some(why) = f.severity_rationale.as_deref() {
+                output.print_info(&color::dim(&format!("      {why}"), output.color));
+            }
         }
     }
     output.print_info("");
+}
+
+/// One finding headline: `<badge>  <rule_id>  <title>` — pure + testable. The
+/// title falls back to the rule_id when no prose was inlined on the finding.
+pub(crate) fn format_finding_line(f: &FindingResponse, color: bool) -> String {
+    use crate::cli::color as c;
+    let badge = c::severity_badge(f.severity, color);
+    let title = f.title.as_deref().unwrap_or(&f.rule_id);
+    format!("  {badge}  {}  {}", f.rule_id, c::dim(title, color))
 }
 
 // ─── conflict (D-05-22) ──────────────────────────────────────────────────────
@@ -763,6 +757,57 @@ mod tests {
         let entry = derive_mcp_entry(&item);
         assert_eq!(entry["command"], "npx");
         assert_eq!(entry["args"][1], "acme/repo");
+    }
+
+    fn finding(
+        rule_id: &str,
+        title: Option<&str>,
+        remediation_action: Option<&str>,
+    ) -> FindingResponse {
+        FindingResponse {
+            id: "f1".into(),
+            rule_id: rule_id.into(),
+            severity: Severity::High,
+            sub_score: "security".into(),
+            penalty: 12,
+            status_at_scan: "active".into(),
+            file_path: "server.py".into(),
+            line_start: 1,
+            line_end: None,
+            matched_content_sha256: "0".repeat(64),
+            remediation_link: "https://example.com/fix".into(),
+            rubric_version: "abc1234".into(),
+            evidence_excerpt: None,
+            title: title.map(String::from),
+            explanation: None,
+            category_label: None,
+            severity_rationale: None,
+            remediation: remediation_action.map(|a| crate::api::dto::FindingRemediation {
+                action: a.into(),
+                steps: None,
+                safer_pattern: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn finding_line_uses_inline_title() {
+        let f = finding(
+            "SS-MCP-RULE-01",
+            Some("Poisoned tool description"),
+            Some("Remove the tag"),
+        );
+        let line = format_finding_line(&f, false);
+        assert!(line.contains("SS-MCP-RULE-01"));
+        assert!(line.contains("Poisoned tool description"));
+    }
+
+    #[test]
+    fn finding_line_falls_back_to_rule_id() {
+        // No inlined prose → the rule_id stands in for the title.
+        let f = finding("SS-MCP-RULE-02", None, None);
+        let line = format_finding_line(&f, false);
+        assert!(line.contains("SS-MCP-RULE-02"));
     }
 
     #[test]

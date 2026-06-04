@@ -65,12 +65,14 @@ from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.scan_report_summary import ListEnvelope, ScanReportSummary
 from app.schemas.scan_run import PromoteRunResponse, ScanRunReportDetail
 from app.schemas.scan_submit import (
+    CliChallengeResponse,
     ScanReportDetail,
     ScanSubmitRequest,
     ScanSubmitResponse,
     ScanUploadResponse,
 )
 from app.services.artifact_bytes import build_zip, resolve_snapshot, snapshot_byte_size
+from app.services.cli_pow import PowDisabled, PowRejected, issue_challenge, verify_pow
 from app.services.finding_evidence import resolve_finding_excerpts, resolve_run_evidence
 from app.services.turnstile import verify_turnstile
 
@@ -125,6 +127,46 @@ async def _enforce_captcha(request: Request) -> None:
     token = request.headers.get("cf-turnstile-response")
     if not await verify_turnstile(token):
         raise _captcha_http_error()
+
+
+async def _gate_submission(
+    request: Request, session: AsyncSession, *, ip: str, settings: Settings
+) -> None:
+    """Human/bot gate + per-IP rate limit for BOTH scan-submit endpoints (D-05-30).
+
+    Loopback callers (trusted seed) are exempt and never reach here. Otherwise:
+
+    - **CLI Proof-of-Work path** — an `X-SaferSkills-CLI-PoW` header present AND no
+      `Cf-Turnstile-Response` → verify the stateless PoW (the CLI can't solve a
+      Turnstile CAPTCHA). Counts against the `cli_scan_submit` bucket.
+    - **Browser/Turnstile path** — otherwise verify Turnstile (`scan_submit` bucket).
+
+    Verify ALWAYS precedes the rate-limit (a failed gate never consumes budget) and
+    precedes URL-parse / multipart streaming / the idempotency-cache lookup — a
+    tokenless bot can neither probe URL validation nor farm a cached public run.
+    """
+    pow_header = request.headers.get("x-saferskills-cli-pow")
+    turnstile_token = request.headers.get("cf-turnstile-response")
+    if pow_header and not turnstile_token:
+        try:
+            await verify_pow(pow_header, session)
+        except PowDisabled as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "pow_unavailable"},
+            ) from exc
+        except PowRejected as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail={"error": "pow_failed"}
+            ) from exc
+        await enforce_ip_rate_limit(
+            session, ip=ip, bucket="cli_scan_submit", limit=settings.cli_scan_submit_daily_limit
+        )
+    else:
+        await _enforce_captcha(request)
+        await enforce_ip_rate_limit(
+            session, ip=ip, bucket="scan_submit", limit=settings.scan_submit_daily_limit
+        )
 
 
 def _is_loopback(host: str) -> bool:
@@ -312,11 +354,12 @@ async def submit_scan(
     is_loopback = _is_loopback(_peer_host(request))
     ip = _rate_limit_ip(request, settings)
 
-    # CAPTCHA precedes URL parsing AND the rate limit AND the idempotency cache:
-    # a tokenless bot must not be able to probe the URL-validation oracle or farm
-    # a cached public run. Loopback (trusted seed) skips it.
+    # Gate (Turnstile OR CLI Proof-of-Work) + per-IP rate limit precede URL parsing
+    # AND the idempotency cache: a tokenless bot must not be able to probe the
+    # URL-validation oracle or farm a cached public run. Loopback (trusted seed)
+    # skips it. See `_gate_submission`.
     if not is_loopback:
-        await _enforce_captcha(request)
+        await _gate_submission(request, session, ip=ip, settings=settings)
 
     try:
         ref = parse_github_url(body.github_url)
@@ -325,14 +368,6 @@ async def submit_scan(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
-
-    if not is_loopback:
-        await enforce_ip_rate_limit(
-            session,
-            ip=ip,
-            bucket="scan_submit",
-            limit=settings.scan_submit_daily_limit,
-        )
 
     # Resolve a stable idempotency key. We don't know the head SHA until the
     # engine fetches; the key is computed against the URL + rubric only — this
@@ -540,13 +575,11 @@ async def submit_upload(
     is_loopback = _is_loopback(_peer_host(request))
     ip = _rate_limit_ip(request, settings)
 
-    # Verify the human gate BEFORE streaming/parsing the multipart body — reject a
-    # bot before we spend bandwidth/CPU on the parse. Loopback (trusted seed) skips.
+    # Verify the gate (Turnstile OR CLI Proof-of-Work) + rate limit BEFORE
+    # streaming/parsing the multipart body — reject a bot before we spend
+    # bandwidth/CPU on the parse. Loopback (trusted seed) skips. See `_gate_submission`.
     if not is_loopback:
-        await _enforce_captcha(request)
-        await enforce_ip_rate_limit(
-            session, ip=ip, bucket="scan_submit", limit=settings.scan_submit_daily_limit
-        )
+        await _gate_submission(request, session, ip=ip, settings=settings)
 
     try:
         parts, fields = await _read_multipart_upload(request, max_bytes=settings.upload_max_bytes)
@@ -893,6 +926,26 @@ async def download_unlisted_run(
 
 def settings_private_limit() -> int:
     return get_settings().private_lookup_daily_limit
+
+
+@router.get(
+    "/cli-challenge",
+    response_model=CliChallengeResponse,
+    summary="Issue a stateless Proof-of-Work challenge for the install CLI.",
+)
+async def cli_challenge() -> CliChallengeResponse:
+    """Mint a fresh signed PoW challenge for the install CLI (D-05-30). Declared
+    BEFORE the greedy `/{scan_id}` route so the literal path wins. 503 when the
+    PoW secret is unconfigured (dev/test/CI — the CLI then falls back to Turnstile).
+    """
+    try:
+        challenge, difficulty, expires_at = issue_challenge()
+    except PowDisabled as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "pow_unavailable"},
+        ) from exc
+    return CliChallengeResponse(challenge=challenge, difficulty=difficulty, expires_at=expires_at)
 
 
 @router.get(

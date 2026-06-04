@@ -76,6 +76,22 @@ optimization, not required. See `security.md` § Vendor-data isolation.
 Row-level `install_events` are internal; only bucketed aggregates (counts per agent
 per window) surface on the public item page.
 
+## First-launch audit (I-05, D-05-26)
+
+On the install CLI's first interactive run it offers a **one-time, opt-in** security
+audit of everything already installed across the user's agents (`scan --local`). On
+accept it uploads that installed inventory's content to the API for server-side
+scanning; **public by default**, with the prompt letting the user choose a **private
+(unlisted)** report instead. The choice is persisted so it never re-prompts; the
+audit is skipped (and never prompts) in any non-interactive context
+(`--json`/`--quiet`/non-TTY/`--no-input`).
+
+The scanned bytes follow the **existing snapshot/upload retention tiers** — a public
+audit lands in the public `artifact_blobs` snapshot tier (indefinite, immutable per
+scan); a private audit lands in the per-run `upload_files` tier (90-day `expires_at`,
+reachable only via the unguessable `share_token`). No new store, no new retention
+rule. See `security.md` § Vendor-data isolation + `database.md` § Upload + visibility.
+
 ## Public disclosure
 
 `webapp/src/pages/privacy.astro` is the canonical privacy policy surface. The access_log disclosure section must be kept in sync with this rule. See Section 3 of the policy for the at-a-glance table and the IP-redaction statement.

@@ -19,6 +19,7 @@ from app.schemas.item_detail import DownloadInfo, ManifestSource
 from app.schemas.scan_run import CapabilityRow, FindingsSummary, ScanRunReportDetail
 from app.schemas.scan_submit import ScanReportDetail
 from app.services.finding_evidence import EvidenceExcerptDict
+from app.services.rule_prose import lookup as lookup_prose
 
 ScanStatus = Literal["pending", "running", "completed", "failed"]
 
@@ -35,6 +36,10 @@ def derive_scan_status(scan: Scan, findings: Sequence[Finding]) -> ScanStatus:
 
 
 def _finding_dict(f: Finding, evidence: Evidence = None) -> dict[str, object]:
+    # Inline the explainable-finding prose from the generated rule-content map
+    # (D-05-32 reversed). The single chokepoint for both report builders. Missing
+    # rule_id → all None; the finding still renders from rule_id + remediation_link.
+    prose = lookup_prose(f.rule_id)
     return {
         "id": str(f.id),
         "rule_id": f.rule_id,
@@ -50,6 +55,12 @@ def _finding_dict(f: Finding, evidence: Evidence = None) -> dict[str, object]:
         "rubric_version": f.rubric_version,
         # Report-DTO-only matched-line window (None when bytes are absent).
         "evidence_excerpt": (evidence or {}).get(str(f.id)),
+        # Report-DTO-only explainable-finding prose (None when no content entry).
+        "title": prose.title if prose else None,
+        "explanation": prose.explanation if prose else None,
+        "category_label": prose.category_label if prose else None,
+        "severity_rationale": prose.severity_rationale if prose else None,
+        "remediation": prose.remediation.model_dump() if prose else None,
     }
 
 

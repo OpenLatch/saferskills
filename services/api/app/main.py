@@ -29,7 +29,6 @@ from app.routers import (
     health,
     installs,
     items,
-    rubric,
     scans,
     stats,
     vendor,
@@ -160,8 +159,8 @@ app.include_router(scans.router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(vendor.router, prefix="/api/v1")
-# I-05 Install CLI supports — offline finding prose + opt-in install telemetry.
-app.include_router(rubric.router, prefix="/api/v1")
+# I-05 Install CLI support — opt-in install telemetry. (Finding prose is inlined
+# server-side onto each report finding, not served from a corpus endpoint.)
 app.include_router(installs.router, prefix="/api/v1")
 # Admin surface (I-04 Phase C) — X-Admin-Key gated; /api/v1/admin/*.
 app.include_router(admin.router, prefix="/api/v1")

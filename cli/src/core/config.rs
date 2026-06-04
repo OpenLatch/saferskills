@@ -93,6 +93,9 @@ pub struct Config {
     pub telemetry: Option<bool>,
     /// Opt-IN install telemetry. Default `false`.
     pub install_telemetry: Option<bool>,
+    /// Whether the one-time first-launch security audit has been offered/run.
+    /// `Some(true)` short-circuits the prompt so it never re-asks (D-05-26).
+    pub audited: Option<bool>,
 }
 
 impl Config {
@@ -170,7 +173,11 @@ pub fn default_config_toml() -> &'static str {
      # telemetry = true\n\
      \n\
      # Report installs to improve catalog popularity signals (opt-IN). Default: false.\n\
-     # install_telemetry = false\n"
+     # install_telemetry = false\n\
+     \n\
+     # Set true once the one-time first-launch security audit has been offered.\n\
+     # Managed by the CLI; you should not need to edit this.\n\
+     # audited = false\n"
 }
 
 /// Persist the opt-in `install_telemetry` choice to `config.toml`, preserving
@@ -181,6 +188,18 @@ pub fn set_install_telemetry(value: bool) -> Result<(), SsError> {
     let base = fs::read_to_string(&path).unwrap_or_else(|_| default_config_toml().to_string());
     let mut doc = base.parse::<toml_edit::DocumentMut>().unwrap_or_default();
     doc["install_telemetry"] = toml_edit::value(value);
+    ensure_dir()?;
+    atomic_write(&path, doc.to_string().as_bytes())
+}
+
+/// Persist the one-time first-launch audit flag to `config.toml`, preserving the
+/// commented template + any existing keys (toml_edit). Best-effort — the caller
+/// treats a write failure as non-fatal (the audit is fail-open).
+pub fn set_audited(value: bool) -> Result<(), SsError> {
+    let path = config_path();
+    let base = fs::read_to_string(&path).unwrap_or_else(|_| default_config_toml().to_string());
+    let mut doc = base.parse::<toml_edit::DocumentMut>().unwrap_or_default();
+    doc["audited"] = toml_edit::value(value);
     ensure_dir()?;
     atomic_write(&path, doc.to_string().as_bytes())
 }

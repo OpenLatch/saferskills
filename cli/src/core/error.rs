@@ -243,6 +243,21 @@ pub const ERR_WRITE_ROLLBACK: &str = "SS-E-1500";
 pub const ERR_WRITER_UNSUPPORTED: &str = "SS-E-1501";
 
 // ---------------------------------------------------------------------------
+// SS-E-1600s — scan / upload (Phase C)
+// ---------------------------------------------------------------------------
+
+/// A scan submission was rejected by the API gate (PoW / rate-limit / captcha).
+/// Exit `1`.
+pub const ERR_SCAN_SUBMIT: &str = "SS-E-1600";
+/// The submitted scan did not complete before the client timeout. Exit `1`.
+pub const ERR_SCAN_TIMEOUT: &str = "SS-E-1601";
+/// The Proof-of-Work challenge could not be obtained or solved. Exit `1`.
+pub const ERR_POW_FAILED: &str = "SS-E-1602";
+/// The scan target is missing / empty / not a readable path or GitHub URL.
+/// Exit `1`.
+pub const ERR_SCAN_TARGET: &str = "SS-E-1603";
+
+// ---------------------------------------------------------------------------
 // SS-E-9999 — internal bug
 // ---------------------------------------------------------------------------
 
