@@ -51,6 +51,8 @@ The API origin resolves as `SAFERSKILLS_API_URL` env → `config.toml` `api_url`
 
 Anonymous, opt-out usage analytics (which command ran, its exit code, a coarse duration — never arguments, names, paths, or any personal data). Disable with `SAFERSKILLS_NO_TELEMETRY=1`; `DO_NOT_TRACK` and `CI` are also honored. See <https://saferskills.ai/privacy>.
 
+Source and fork builds send **nothing**: analytics require a key baked in at release time, so any binary you build yourself is always inert.
+
 ## Building from source
 
 ```bash
