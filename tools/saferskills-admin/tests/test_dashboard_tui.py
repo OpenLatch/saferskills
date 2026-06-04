@@ -294,6 +294,38 @@ def test_force_cycle_shows_persistent_inline_status() -> None:
     asyncio.run(scenario())
 
 
+def test_force_cycle_survives_concurrent_autorefresh() -> None:
+    # Regression: SourceDetailScreen.load is @work(exclusive=True) and shared the
+    # default worker group with _confirm_action (same screen node). A 5s
+    # auto-refresh load() tick that fired while the confirm modal was open
+    # CANCELLED the pending confirm worker — clicking Confirm then did nothing:
+    # no force_cycle call, no inline status, no toast (the exact "no visual
+    # confirmation" symptom). load() now has its own group so its exclusive
+    # cancellation can't reach the action worker.
+    async def scenario() -> None:
+        client = FakeClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test(notifications=True) as pilot:
+            await _settle(pilot)
+            detail = SourceDetailScreen(client, "npm")
+            app.push_screen(detail)
+            await _settle(pilot)
+            await pilot.press("c")  # opens the modal; _confirm_action awaits the gate
+            await _settle(pilot)
+            # Simulate the 5s auto-refresh firing while the modal is up. Under the
+            # bug this exclusive load() cancels the in-flight _confirm_action.
+            detail.load()
+            detail.load()
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=12)
+            assert client.force_cycle_calls == ["npm"]
+            status = detail.query_one("#action-status", Static)
+            assert "accepted" in str(status.render())
+
+    asyncio.run(scenario())
+
+
 def test_action_status_shows_failure_inline() -> None:
     class RaisingClient(FakeClient):
         def force_cycle(self, source: str) -> dict[str, Any]:

@@ -38,6 +38,16 @@ SaferSkills scans Skills, MCP servers, hooks, and plugins for security, supply-c
 
 Output discipline: **stdout is machine data** (JSON), **stderr is everything human** (steps, warnings, errors, the banner). Honors `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`.
 
+## Show your score — README badge
+
+Every scanned capability has a **live trust badge** that re-renders on each re-scan. Embed it in your project's README so installers see the independent SaferSkills score before they run anything:
+
+```markdown
+[![SaferSkills 92/100](https://saferskills.ai/badge/<scan_id>/<score>.svg)](https://saferskills.ai/items/<slug>)
+```
+
+The badge links to the full [public report at `saferskills.ai/items/<slug>`](https://saferskills.ai) — score, four-tier breakdown, every rule that fired, and the vendor right-of-reply. Copy the exact snippet for your capability from its report page (the **⧉ Copy to MD** button on `saferskills.ai/items/<slug>`).
+
 ## Configuration
 
 State lives under `~/.saferskills/` (override with `SAFERSKILLS_DIR`):

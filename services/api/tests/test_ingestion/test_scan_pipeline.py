@@ -219,3 +219,72 @@ async def test_mark_stale_runs_failed(db_session: AsyncSession) -> None:
     }
     assert refreshed["https://github.com/acme/orphan"] == "failed"
     assert refreshed["https://github.com/acme/live"] == "running"
+
+
+# ── defer_scan_job dedup pre-check (queueing_lock retry collision) ──────────
+
+
+@pytest.mark.asyncio
+async def test_defer_scan_job_skips_while_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: the pre-check only looked at `todo`, so a fresh enqueue was
+    allowed while a job was `doing`. When that running job later failed and
+    Procrastinate retried it (todo again), it collided with the sibling todo on
+    `procrastinate_jobs_queueing_lock_idx_v1` → duplicate-key ERROR in the DB log.
+    A `doing` job must now suppress the enqueue."""
+    from app.ingestion import tasks_scan
+
+    class _Job:
+        def __init__(self, status: str) -> None:
+            self.status = status
+
+    # Faithfully model the DB: one job is `doing`. Honour the `status` kwarg the
+    # way Postgres would — so the OLD pre-check (`status="todo"`) sees nothing and
+    # wrongly enqueues, while the NEW unfiltered pre-check sees the `doing` job.
+    async def _list_doing(**kwargs: object) -> list[_Job]:
+        jobs = [_Job("doing")]
+        status = kwargs.get("status")
+        if status is not None:
+            jobs = [j for j in jobs if j.status == status]
+        return jobs
+
+    deferred: list[str] = []
+
+    async def _defer(**kwargs: object) -> None:
+        deferred.append(str(kwargs.get("github_url")))
+
+    monkeypatch.setattr(tasks_scan.procrastinate_app.job_manager, "list_jobs_async", _list_doing)
+
+    # If the pre-check wrongly proceeds, this configure(...).defer_async would run.
+    def _configure(**_: object) -> object:
+        return type("C", (), {"defer_async": staticmethod(_defer)})()
+
+    monkeypatch.setattr(tasks_scan.scan_capability_repo, "configure", _configure)
+
+    result = await tasks_scan.defer_scan_job("https://github.com/acme/running-repo")
+    assert result is False
+    assert deferred == []  # no enqueue while a job is running
+
+
+@pytest.mark.asyncio
+async def test_defer_scan_job_enqueues_when_idle(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The flip side: no active (todo/doing) job → the enqueue proceeds."""
+    from app.ingestion import tasks_scan
+
+    async def _list_none(**kwargs: object) -> list[object]:
+        return []
+
+    deferred: list[str] = []
+
+    async def _defer(**kwargs: object) -> None:
+        deferred.append(str(kwargs.get("github_url")))
+
+    monkeypatch.setattr(tasks_scan.procrastinate_app.job_manager, "list_jobs_async", _list_none)
+
+    def _configure(**_: object) -> object:
+        return type("C", (), {"defer_async": staticmethod(_defer)})()
+
+    monkeypatch.setattr(tasks_scan.scan_capability_repo, "configure", _configure)
+
+    result = await tasks_scan.defer_scan_job("https://github.com/acme/idle-repo")
+    assert result is True
+    assert deferred == ["https://github.com/acme/idle-repo"]

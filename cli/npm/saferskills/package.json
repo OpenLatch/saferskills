@@ -1,7 +1,7 @@
 {
   "name": "saferskills",
   "version": "0.0.0",
-  "description": "Every AI capability, independently scanned — install Skills & MCP servers with a verified SaferSkills trust score.",
+  "description": "Install AI-agent Skills & MCP servers with a verified, independent SaferSkills trust score — across Claude Code, Cursor, Windsurf, Copilot, Codex, Gemini, Cline & OpenClaw.",
   "license": "Apache-2.0",
   "homepage": "https://saferskills.ai",
   "repository": {
@@ -13,18 +13,22 @@
     "url": "https://github.com/OpenLatch/saferskills/issues"
   },
   "keywords": [
-    "ai-agents",
+    "ai-agent",
     "mcp",
     "mcp-server",
-    "skill",
-    "skills",
+    "agent-skill",
     "claude-code",
     "cursor",
     "windsurf",
-    "copilot",
+    "github-copilot",
+    "codex",
+    "gemini-cli",
+    "cline",
+    "openclaw",
     "security-scanner",
+    "supply-chain",
     "trust-score",
-    "supply-chain-security",
+    "agent-security",
     "saferskills"
   ],
   "bin": {

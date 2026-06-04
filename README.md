@@ -32,16 +32,20 @@ Methodology, not opinion. Every rule is documented. Every score is reproducible.
 
 ## Quick start
 
+The [`saferskills` CLI](./cli/README.md) installs any cataloged Skill or MCP server to your AI agent with the independent trust score **re-checked at install time** — across Claude Code, Cursor, Windsurf, Copilot, Codex, Gemini, Cline & OpenClaw:
+
 ```bash
-# Install (W4+, once the CLI ships)
-npx saferskills check github.com/some-author/some-mcp-server
-npx saferskills install github.com/some-author/some-mcp-server   # only installs if score ≥ threshold
+npx saferskills info <name>        # an item's score, findings & report URL
+npx saferskills install <name>     # install to your detected agents (severity-gated)
+npx saferskills scan ./my-skill    # scan a local capability — or a GitHub URL
 
 # Or browse the catalog at
 open https://saferskills.ai
 ```
 
-> v0.x — building publicly through 2026-08. The CLI is not yet shipped (Track C, W4). At W1, this repo exists, the codegen pipeline runs end-to-end, and `saferskills.ai` resolves to a placeholder. See [Project status](#project-status).
+The CLI publishes to [npm](https://www.npmjs.com/package/saferskills) + [crates.io](https://crates.io/crates/saferskills). Full command + flag reference: [`cli/README.md`](./cli/README.md).
+
+> v0.x — building publicly through 2026-08, ahead of the headline launch. The catalog at [saferskills.ai](https://saferskills.ai) is filling in. See [Project status](#project-status).
 
 ## How it works
 
@@ -72,9 +76,9 @@ Sub-scores are weighted (Identity 25% · Integrity 25% · Behavior 30% · Proven
 
 | Mode | Audience | Status |
 |---|---|---|
-| **Service** — browse `saferskills.ai`, share a permalink | every dev, every researcher | placeholder live W1; real catalog W3 (Track D) |
-| **CLI** — `npx saferskills check <url>` | individual installers | W4 (Track C) |
-| **Self-host** — `docker compose up` (this repo) | privacy-strict orgs, air-gapped builds | W1 working shell; full scan engine W3 (Track B) |
+| **Service** — browse [`saferskills.ai`](https://saferskills.ai), share a permalink | every dev, every researcher | live — catalog + scan reports |
+| **CLI** — `npx saferskills install <name>` | individual installers | shipped — [npm](https://www.npmjs.com/package/saferskills) + crates.io |
+| **Self-host** — `docker compose up` (this repo) | privacy-strict orgs, air-gapped builds | scan engine shipped (Track B) |
 
 ## Project status
 
@@ -83,10 +87,10 @@ Sub-scores are weighted (Identity 25% · Integrity 25% · Behavior 30% · Proven
 Live tracks (see `vault/05-GTM/Launch/SaferSkills - Build Plan.md` if you have vault access, otherwise see [the Initiative summaries](./.local/.brainstorms/foundation/2026-05-25-design.md)):
 
 - ✅ **I-01 — Foundation** (W1) — this repo, CI, brand, legal chassis, codegen, placeholder homepage
-- ⏳ **I-02 — Scoring engine** (W2-3 / Track B)
-- ⏳ **I-03 — Catalog ingestion** (W2-4 / Track A)
-- ⏳ **I-04 — Web catalog + scan-report** (W3-5 / Track D)
-- ⏳ **I-05 — CLI** (W4-8 / Track C)
+- ✅ **I-02 — Scoring engine** (Track B) — deterministic detector rules, explainable findings, public scan reports
+- ✅ **I-03 — Catalog ingestion** (Track A) — multi-source ingestion + auto-scan of every indexed capability
+- ✅ **I-04 — Web catalog + scan-report** (Track D) — live catalog, item + scan-report surfaces, upload + unlisted scans
+- ✅ **I-05 — CLI** (Track C) — `npx saferskills` on npm + crates.io: install across all 8 agents, install-time score re-verification, severity-gated installs, `scan` / `scan --local`
 - ⏳ **I-06 — Email + watchlist + B2B intel** (W7-9 / Track E)
 - ⏳ **I-07 — Launch headline** (W10)
 

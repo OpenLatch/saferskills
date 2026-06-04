@@ -31,6 +31,7 @@ from rapidfuzz import fuzz
 from rapidfuzz.distance import JaroWinkler
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ingestion.framework.base_adapter import NormalizedItem
@@ -44,6 +45,18 @@ logger = structlog.get_logger(__name__)
 _FUZZY_TRGM_PREFILTER = 0.6
 _RAPIDFUZZ_THRESHOLD = 85.0
 _JARO_WINKLER_THRESHOLD = 90.0  # percent
+
+# Concurrent cycles crawl overlapping repos and race on the same capability slug;
+# the insert path retries a bounded number of times on a PG deadlock (40P01).
+_MAX_UPSERT_ATTEMPTS = 3
+_PG_DEADLOCK_SQLSTATE = "40P01"
+
+
+def _is_deadlock(exc: DBAPIError) -> bool:
+    """True for a Postgres deadlock_detected (SQLSTATE 40P01)."""
+    orig = getattr(exc, "orig", None)
+    code = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
+    return code == _PG_DEADLOCK_SQLSTATE
 
 
 def _now() -> dt.datetime:
@@ -103,22 +116,64 @@ class MergeEngine:
         slug = _capability_slug(n, kind)
         if slug is None:
             return await self._maybe_queue_fuzzy(n, source)
+        return await self._upsert_by_slug(n, slug=slug, raw_hash=raw_hash, source=source)
 
-        existing = (
+    async def _select_by_slug(self, slug: str) -> CatalogItem | None:
+        return (
             await self.session.execute(select(CatalogItem).where(CatalogItem.slug == slug))
         ).scalar_one_or_none()
 
-        if existing is None:
-            new_id = await self._insert_new(n, slug=slug, raw_hash=raw_hash, source=source)
+    async def _upsert_by_slug(
+        self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
+    ) -> str:
+        """Concurrency-safe per-capability upsert.
+
+        The aggregators crawl overlapping GitHub repos, so several cycles running
+        in the same worker can race to insert the SAME capability slug. A plain
+        SELECT-then-INSERT then loses the race with `duplicate key … uq_catalog_
+        items_slug`, and two batches inserting overlapping slugs in different order
+        DEADLOCK on the unique index — either way the whole cycle's batch aborts.
+
+        Fix: do the INSERT inside a SAVEPOINT so a collision can't poison the batch
+        transaction. A unique-violation means a peer committed the same slug between
+        our SELECT and INSERT → re-read it and take the (idempotent, source-
+        re-attributing) UPDATE path. A deadlock is the expected-under-concurrency
+        case Postgres tells us to retry — the savepoint rollback keeps the batch
+        alive and the retry's re-SELECT almost always resolves to the peer's
+        now-committed row.
+        """
+        for attempt in range(_MAX_UPSERT_ATTEMPTS):
+            existing = await self._select_by_slug(slug)
+            if existing is not None:
+                await self._apply_update(existing, n, raw_hash=raw_hash, source=source)
+                return "updated"
+            try:
+                # SAVEPOINT so a deadlock (the rare lock-ordering clash between two
+                # batches inserting overlapping slugs) rolls back THIS insert only,
+                # not the whole cycle's batch — then we retry.
+                async with self.session.begin_nested():
+                    new_id = await self._insert_new(n, slug=slug, raw_hash=raw_hash, source=source)
+            except DBAPIError as exc:
+                if _is_deadlock(exc) and attempt < _MAX_UPSERT_ATTEMPTS - 1:
+                    logger.warning("merger.upsert_deadlock_retry", slug=slug, attempt=attempt)
+                    continue  # savepoint rolled back; re-SELECT + retry the insert
+                raise
+            if new_id is None:
+                # ON CONFLICT DO NOTHING fired: a peer committed this slug first
+                # (the INSERT waited for the peer's txn, so the row is now visible).
+                existing = await self._select_by_slug(slug)
+                if existing is None:
+                    continue  # peer rolled back — retry the insert
+                await self._apply_update(existing, n, raw_hash=raw_hash, source=source)
+                return "updated"
             await self._defer_on_add_recompute(new_id)
             # Index → scan: a brand-new public-github capability is enqueued for an
             # immediate durable scan (the reconciliation drainer is the steady-state
             # guarantee; this just makes a fresh arrival scan promptly).
             await self._defer_on_add_scan(n.github_url)
             return "added"
-
-        await self._apply_update(existing, n, raw_hash=raw_hash, source=source)
-        return "updated"
+        # Only reached if every attempt deadlocked — let the cycle's retry take it.
+        raise RuntimeError(f"upsert exhausted retries for slug {slug!r}")
 
     async def _defer_on_add_scan(self, github_url: str | None) -> None:
         """Best-effort defer of a durable `scan_capability_repo` job on a new item
@@ -151,41 +206,52 @@ class MergeEngine:
 
     async def _insert_new(
         self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
-    ) -> uuid.UUID:
+    ) -> uuid.UUID | None:
+        """Insert a brand-new capability row, or return None if a peer beat us to it.
+
+        Uses INSERT … ON CONFLICT (slug) DO NOTHING, NOT a plain INSERT: the
+        aggregators crawl overlapping repos, so concurrent cycles race on the same
+        slug. A plain INSERT loses that race with a `duplicate key … uq_catalog_
+        items_slug` violation that Postgres LOGS as an ERROR even when the app
+        catches it — flooding the DB log during a crawl. ON CONFLICT DO NOTHING
+        instead waits for the peer's txn then cleanly no-ops (no violation, no
+        log); a NULL `returning` id signals the conflict so the caller re-reads +
+        takes the (idempotent, source-re-attributing) UPDATE path.
+        """
         ckind, kind_signals, quality_tier, quality_signals, agents = classify_all(n)
         # Honor the adapter's declared kind (contract: "classifier finalises when
         # None") so the stored column matches the slug, which upsert() built from
         # the same hint. classify_all already resolved agents against n.kind.
         kind = n.kind or ckind
         now = _now()
-        item = CatalogItem(
-            kind=kind,
-            slug=slug,
-            display_name=n.display_name[:200],
-            github_url=n.github_url,
-            github_org=n.github_org,
-            github_repo=n.github_repo,
-            default_branch=n.default_branch or "main",
-            popularity_tier="indexed",
-            popularity_score=0,
-            popularity_rank_tier="long_tail",
-            agent_compatibility=agents,
-            quality_tier=quality_tier,
-            quality_signals=quality_signals,
-            kind_signals=kind_signals,
-            availability="archived" if (n.repo_archived or n.repo_yanked) else "available",
-            archived=bool(n.repo_archived or n.repo_yanked),
-            source_kind="github",
-            visibility="public",
-            content_hash_sha256=raw_hash,
-            consecutive404_count=0,
-            last_seen200_at=now,
-            pushed_at=_parse_dt(n.pushed_at),
-            github_stars=n.stars,
-            license_spdx=_clamp_license(n.license_spdx),
-            popularity_breakdown={},
-            sources=[_source_entry(source, n.source_url)],
-            item_metadata={
+        values: dict[str, Any] = {
+            "kind": kind,
+            "slug": slug,
+            "display_name": n.display_name[:200],
+            "github_url": n.github_url,
+            "github_org": n.github_org,
+            "github_repo": n.github_repo,
+            "default_branch": n.default_branch or "main",
+            "popularity_tier": "indexed",
+            "popularity_score": 0,
+            "popularity_rank_tier": "long_tail",
+            "agent_compatibility": agents,
+            "quality_tier": quality_tier,
+            "quality_signals": quality_signals,
+            "kind_signals": kind_signals,
+            "availability": "archived" if (n.repo_archived or n.repo_yanked) else "available",
+            "archived": bool(n.repo_archived or n.repo_yanked),
+            "source_kind": "github",
+            "visibility": "public",
+            "content_hash_sha256": raw_hash,
+            "consecutive404_count": 0,
+            "last_seen200_at": now,
+            "pushed_at": _parse_dt(n.pushed_at),
+            "github_stars": n.stars,
+            "license_spdx": _clamp_license(n.license_spdx),
+            "popularity_breakdown": {},
+            "sources": [_source_entry(source, n.source_url)],
+            "item_metadata": {
                 "description": n.description,
                 "license_spdx": _clamp_license(n.license_spdx),
                 "stars": n.stars,
@@ -194,14 +260,21 @@ class MergeEngine:
                 "github_username": n.github_org,
                 "conflicts": [],
             },
-            created_at=now,
-            updated_at=now,
+            "created_at": now,
+            "updated_at": now,
+        }
+        stmt = (
+            pg_insert(CatalogItem)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["slug"])
+            .returning(CatalogItem.id)
         )
-        self.session.add(item)
-        await self.session.flush()  # assigns item.id
-        await self._upsert_item_source(item.id, source, n.source_url)
+        new_id = (await self.session.execute(stmt)).scalar_one_or_none()
+        if new_id is None:
+            return None  # a concurrent cycle inserted this slug first
+        await self._upsert_item_source(new_id, source, n.source_url)
         await self._upsert_author(n)
-        return item.id
+        return new_id
 
     async def _apply_update(
         self, existing: CatalogItem, n: NormalizedItem, *, raw_hash: str, source: str
