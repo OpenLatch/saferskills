@@ -75,19 +75,24 @@ jobs:
         with: { egress-policy: audit }
       - uses: actions/checkout@v6
 
-      # Telemetry key bake. A tagged release SHOULD set SAFERSKILLS_POSTHOG_KEY;
-      # if unset the binary still ships, with analytics inert (build.rs bakes an
-      # empty key → hard no-op). Warn rather than fail so the first release isn't
-      # blocked before the key exists.
+      # Telemetry key bake. The value comes from the shared OpenLatch-portfolio
+      # PostHog project secret POSTHOG_KEY (one project for cost — D-19's
+      # separate-project rule superseded 2026-06-04; SaferSkills events carry a
+      # `product: saferskills` discriminator, see cli/src/core/telemetry.rs).
+      # The compile-time env var name stays SAFERSKILLS_POSTHOG_KEY (build.rs
+      # reads it); only the value source changes. If unset the binary still
+      # ships, with analytics inert (build.rs bakes an empty key → hard no-op).
+      # Warn rather than fail so the first release isn't blocked before the key
+      # is wired.
       - name: Note PostHog key availability
         shell: bash
         env:
-          KEY: ${{ secrets.SAFERSKILLS_POSTHOG_KEY }}
+          KEY: ${{ secrets.POSTHOG_KEY }}
         run: |
           if [ -z "$KEY" ]; then
-            echo "::warning::SAFERSKILLS_POSTHOG_KEY is unset — binaries ship with analytics disabled."
+            echo "::warning::POSTHOG_KEY is unset — binaries ship with analytics disabled."
           else
-            echo "SAFERSKILLS_POSTHOG_KEY is set (length: ${#KEY})"
+            echo "POSTHOG_KEY is set (length: ${#KEY})"
           fi
 
       - uses: ./.github/actions/setup-rust
@@ -104,14 +109,14 @@ jobs:
         if: matrix.cross != true
         shell: bash
         env:
-          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.SAFERSKILLS_POSTHOG_KEY }}
+          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
         run: cargo build --release --features telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
 
       - name: Build (cross via Docker)
         if: matrix.cross == true
         shell: bash
         env:
-          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.SAFERSKILLS_POSTHOG_KEY }}
+          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
         # Cross.toml forwards SAFERSKILLS_POSTHOG_KEY into the container.
         run: cross build --release --features telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
 
