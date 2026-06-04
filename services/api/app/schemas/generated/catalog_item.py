@@ -309,13 +309,3 @@ class CatalogItem(OrmBaseModel):
         alias="popularityRankTier",
         description="Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.",
     )
-    last_deep_scan_at: AwareDatetime | None = Field(
-        None,
-        alias="lastDeepScanAt",
-        description="Most recent completed Deep scan of this capability (D-04-14). NULL = never Deep-scanned. Stamped by enqueue_scan's completion wrapper; read by auto_scan_trigger_deep for the 30-day recency gate. NOT scans.tier (the trust badge) — this is scan-depth recency.",
-    )
-    last_lite_scan_at: AwareDatetime | None = Field(
-        None,
-        alias="lastLiteScanAt",
-        description="Most recent completed Lite scan of this capability (D-04-15). NULL = never Lite-scanned. Stamped by enqueue_scan's completion wrapper; read by auto_scan_trigger_lite for the 7-day recency gate.",
-    )

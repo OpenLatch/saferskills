@@ -284,7 +284,7 @@ class ScanRunReport(OrmBaseModel):
     )
     source: str = Field(
         ...,
-        description="Scan trigger source (submission / ingestion / rescan_drift / rescan_appeal).",
+        description="Scan trigger source (submission / ingestion / rescan_drift / rescan_appeal / rescan_rules).",
     )
     status: Status = Field(
         ...,

@@ -44,7 +44,7 @@ The stack below is the W1 contract. Every dep tracks its current latest major or
 - **The 6-step codegen pipeline is the source of truth.** `pnpm run generate` is the only entry point.
 - **Single Postgres** — in-process LRU caches mirror data inside the process; never reach for Redis at W1.
 - **Artifact storage is in-Postgres by design.** Stored scan-file snapshots (`artifact_blobs`, content-addressed dedup) live in the single Postgres as `bytea` — no object store / bucket / new secret. This **preserves** the single-store rule above; it does not amend it. See `database.md`.
-- **Procrastinate is scoped to I-04 ingestion only.** The scan worker keeps its on-demand `asyncio.create_task` pattern (I-03 D-FE-34 — do not migrate it). Procrastinate is queue-shaped work; the scan worker is a one-shot coroutine. Do not add Procrastinate to other subsystems without a new ratified deviation.
+- **Procrastinate runs I-04 ingestion + the durable bulk-scan queue.** It owns the ingest queues + a `scan` queue (the auto-scan pipeline: `scan_capability_repo` jobs + the `auto_scan_reconcile` drainer + a stalled-job retrier — `app/ingestion/tasks_scan.py`). **Scoped ratified deviation to D-FE-34**: *bulk* scan is queue-shaped (durable, retried, stalled-recovery, `queueing_lock` dedup, worker-concurrency-bounded), so it is a Procrastinate job; the *interactive* `POST /scans` path stays on-demand `asyncio.create_task` (latency-sensitive, SSE — do **not** migrate it). The single in-process worker drains both (concurrency = `INGESTION_WORKER_CONCURRENCY + SCAN_MAX_CONCURRENCY`, asserted < the pool). Do not add Procrastinate to other subsystems without a new ratified deviation.
 
 ## Forbidden tools
 

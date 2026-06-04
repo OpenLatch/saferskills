@@ -78,6 +78,10 @@ logger = logging.getLogger(__name__)
 
 _KINDS = {"skill", "mcp_server", "hook", "plugin", "rules"}
 
+# Bulk auto-scan run sources kept OUT of the public /scans feed (the firehose the
+# durable reconciliation drainer produces). The feed = submissions + drift/appeal.
+_FEED_EXCLUDED_SOURCES = ("ingestion", "rescan_rules")
+
 router = APIRouter(prefix="/scans", tags=["scans"])
 
 
@@ -240,11 +244,16 @@ async def list_scans(
         .subquery()
     )
 
-    # Public-only feed — unlisted runs never appear in any list (D-UP-19).
+    # Public-only feed — unlisted runs never appear in any list (D-UP-19). The
+    # bulk auto-scan firehose (`ingestion` coverage/freshness + `rescan_rules`
+    # version re-evals) is excluded too: the feed is submissions + notable scans,
+    # not the thousands of background runs the reconciliation drainer produces.
+    # Item scores still surface on /items + item pages.
     stmt = (
         select(ScanRun, func.coalesce(findings_per_run.c.c, 0).label("findings_count"))
         .join(findings_per_run, findings_per_run.c.run_id == ScanRun.id, isouter=True)
         .where(ScanRun.visibility == "public")
+        .where(ScanRun.source.notin_(_FEED_EXCLUDED_SOURCES))
     )
     if source is not None:
         stmt = stmt.where(ScanRun.source == source)
@@ -266,7 +275,11 @@ async def list_scans(
     rows = rows[:limit]
 
     total = (
-        await session.execute(select(func.count(ScanRun.id)).where(ScanRun.visibility == "public"))
+        await session.execute(
+            select(func.count(ScanRun.id))
+            .where(ScanRun.visibility == "public")
+            .where(ScanRun.source.notin_(_FEED_EXCLUDED_SOURCES))
+        )
     ).scalar_one()
     next_cursor = rows[-1][0].id.hex if (has_more and rows) else None
 

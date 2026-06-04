@@ -69,13 +69,14 @@ class AggregateMath(OrmBaseModel):
 
 class Source(StrEnum):
     """
-    What triggered this scan.
+    What triggered this scan. `rescan_rules` = an automatic re-evaluation of an already-scanned capability after a rubric/engine version bump (re-scored from stored bytes, no GitHub re-fetch).
     """
 
     submission = "submission"
     ingestion = "ingestion"
     rescan_drift = "rescan_drift"
     rescan_appeal = "rescan_appeal"
+    rescan_rules = "rescan_rules"
 
 
 class Severity(StrEnum):
@@ -285,4 +286,7 @@ class ScanReport(OrmBaseModel):
         alias="latencyMs",
         description="End-to-end scan latency (fetch + extract + detect + aggregate).",
     )
-    source: Source | None = Field(None, description="What triggered this scan.")
+    source: Source | None = Field(
+        None,
+        description="What triggered this scan. `rescan_rules` = an automatic re-evaluation of an already-scanned capability after a rubric/engine version bump (re-scored from stored bytes, no GitHub re-fetch).",
+    )

@@ -423,9 +423,12 @@ async def admin_force_cycle_source(
     from app.ingestion import procrastinate_app
 
     try:
-        await procrastinate_app.configure_task(name=f"ingest_cycle_{source}").defer_async(
-            timestamp=int(time.time()), trigger="force"
-        )
+        # allow_unknown=False so a non-cadenced source (webhook/disabled — no
+        # registered `ingest_cycle_*` task) raises TaskNotFound instead of
+        # silently queueing an orphan job no worker ever runs.
+        await procrastinate_app.configure_task(
+            name=f"ingest_cycle_{source}", allow_unknown=False
+        ).defer_async(timestamp=int(time.time()), trigger="force")
     except Exception as exc:  # task not registered (disabled/non-api source)
         raise HTTPException(
             400, f"source {source!r} is not schedulable (disabled or non-api)"
@@ -697,7 +700,7 @@ async def admin_popularity_top_n(
 ) -> dict[str, Any]:
     sql = """
         SELECT slug, kind, popularity_score, popularity_rank_tier,
-               last_deep_scan_at, last_lite_scan_at
+               last_scanned_at, scanned_rubric_version
         FROM catalog_items
         WHERE archived = false AND source_kind = 'github' AND visibility = 'public'
     """
@@ -714,12 +717,8 @@ async def admin_popularity_top_n(
                 "kind": r.kind,
                 "popularity_score": r.popularity_score,
                 "popularity_rank_tier": r.popularity_rank_tier,
-                "last_deep_scan_at": (
-                    r.last_deep_scan_at.isoformat() if r.last_deep_scan_at else None
-                ),
-                "last_lite_scan_at": (
-                    r.last_lite_scan_at.isoformat() if r.last_lite_scan_at else None
-                ),
+                "last_scanned_at": (r.last_scanned_at.isoformat() if r.last_scanned_at else None),
+                "scanned_rubric_version": r.scanned_rubric_version,
             }
             for r in rows
         ]

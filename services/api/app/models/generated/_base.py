@@ -136,6 +136,7 @@ SCAN_SOURCE_VALUES = (
     "ingestion",
     "rescan_drift",
     "rescan_appeal",
+    "rescan_rules",
 )
 scan_source_enum = sa.Enum(
     *SCAN_SOURCE_VALUES,

@@ -46,7 +46,9 @@ procrastinate_app = App(
         "app.ingestion.tasks",
         # Phase C periodic tasks — listed so the worker registers their cron tasks.
         "app.ingestion.tasks_popularity",
-        "app.ingestion.tasks_auto_scan",
+        # Durable auto-scan pipeline (scan_capability_repo + auto_scan_reconcile
+        # + scan_stalled_retrier) — replaces the popularity-gated deep/lite triggers.
+        "app.ingestion.tasks_scan",
         "app.ingestion.tasks_archive",
         "app.ingestion.tasks_authors",
         "app.ingestion.tasks_retention",
@@ -60,13 +62,15 @@ procrastinate_app = App(
 )
 
 # Queues the worker listens on. Per-source ingest queues + a periodic queue
-# (Phase C tasks) + default. Aggregator queue is declared now for Phase B.
+# (Phase C tasks) + the durable `scan` queue (auto-scan jobs) + default.
+# Aggregator queue is declared now for Phase B.
 ALL_QUEUES: list[str] = [
     "ingest_github",
     "ingest_mcp_registry",
     "ingest_npm",
     "ingest_pypi",
     "ingest_aggregator",
+    "scan",
     "periodic",
     "default",
 ]

@@ -84,6 +84,13 @@ Body sections (human-readable, not enforced):
 - **No LLM in the verdict path.** No probabilistic scoring. No editorial moderation queue. Hard, structural.
 - **No randomness, no ML-as-a-black-box.** Heuristics may use ML-trained classifiers, but the classifier weights ship versioned under `rubric/<CATEGORY>/_models/` and the rule doc names which model version it uses.
 
+## Coverage — every indexed public-github capability is scanned
+
+The catalog's value is the scan, not the index. **Indexing a public-github capability automatically + durably leads to it being scanned** — there is no popularity gate. A reconciliation drainer continuously selects public-github `quality_tier IN ('high','medium')` not-archived repos that are unscanned, stale-version, or stale-freshness (popularity-first, rate-limited) and enqueues a durable scan job; the ingestion merger also enqueues a scan on a new item or a content-hash change (`.claude/rules/ingestion.md` § Durable auto-scan pipeline).
+
+- **Change-gated + content-addressed.** A repo whose HEAD ref is unchanged (a free conditional 304) and whose stored `rubric_version`/`engine_version` match the current ones is **not** re-scanned — only a content change or a version bump triggers work. The scan idempotency key is `(github_url, ref_sha, rubric_version)`, so an unchanged repo at unchanged rules is a cache no-op.
+- **Rule/engine version bumps re-evaluate the corpus from stored bytes.** When `rubric_version` (or the engine) advances, every already-scanned capability is marked stale and a popularity-ordered drainer re-scores it **from the stored `artifact_blobs` snapshot** — no GitHub re-crawl. Such re-evals are recorded with `source='rescan_rules'`. This keeps the whole corpus consistent with the active rubric while respecting the GitHub budget.
+
 ## Capability discovery (per-capability scans)
 
 A scan targets a **GitHub repo**, and one repo can host several capabilities (a Skill, an MCP server, hooks, …). The engine discovers each capability, scores it independently against its kind-scoped rules, and persists one catalog item + one `scans` row per capability — all grouped under one `scan_runs` row (the repo scan). The repo report (`/scans/<run_id>`) is a rollup over them.

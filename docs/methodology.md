@@ -141,6 +141,12 @@ A vendor can re-derive any historical verdict by checking out `rubric_version` +
 
 For a **directly uploaded** artifact there is no Git `ref_sha`; the durable identity is `content_hash_sha256` (sha256 of the sorted `{path → sha256}` map of the uploaded files). Re-running the same `rubric_version` against the same bytes reproduces the verdict identically. Uploads have **no auto-rescan** — there is no upstream ref to poll for drift.
 
+## Coverage — everything indexed gets scanned
+
+The catalog's value is the scan, not the index. **Every public-github capability we index is automatically and durably scanned** — there is no popularity gate keeping rows unscored. Scanning is **change-gated**: a repo whose HEAD commit is unchanged (verified with a free conditional request) and whose stored `rubric_version`/`engine_version` already match the current ones is not re-scanned. A content change, or a new rubric/engine version, is what triggers a fresh scan.
+
+When the rubric or engine version advances, the whole already-scanned corpus is **re-evaluated from the stored artifact bytes** — no GitHub re-crawl — so every published verdict stays consistent with the active methodology while respecting upstream rate limits.
+
 ## Scan-trace transparency
 
 Every finding carries: `rule_id`, `severity`, `file_path`, `line_start`/`line_end`, `matched_content_sha256` (hash only — the raw matched content is never published per [`../.claude/rules/security.md`](../.claude/rules/security.md) § Scan-trace transparency), `remediation_link` to the rule source at the recorded `rubric_version`. The per-finding payload is capped at 4 KiB; the per-scan trace at 256 KiB.

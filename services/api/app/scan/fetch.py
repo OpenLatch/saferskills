@@ -31,6 +31,7 @@ from pathlib import Path
 import httpx
 
 from app.core.config import get_settings
+from app.core.github_app_token import get_github_app_installation_token
 
 GITHUB_URL_RE = re.compile(
     r"^https?://github\.com/(?P<org>[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})?)/"
@@ -68,23 +69,111 @@ def parse_github_url(github_url: str) -> GithubRef:
     return GithubRef(org=match.group("org"), repo=match.group("repo"))
 
 
-def _auth_headers() -> dict[str, str]:
+@dataclass
+class ResolvedRef:
+    """Result of a conditional HEAD-ref resolve (the scan-job change gate).
+
+    `not_modified` is True when api.github.com returned 304 to our conditional
+    request — the repo is unchanged since the stored validators, so the scan job
+    skips the scan and just bumps `last_checked_at`. On a 200, `ref_sha` /
+    `etag` / `last_modified` carry the fresh values to persist.
+    """
+
+    org: str
+    repo: str
+    default_branch: str | None
+    ref_sha: str | None
+    etag: str | None
+    last_modified: str | None
+    not_modified: bool
+
+
+async def _auth_headers() -> dict[str, str]:
+    """Build GitHub request headers, unifying scan fetch onto the ingestion identity.
+
+    Prefer an explicit `GITHUB_TOKEN` PAT, else the shared GitHub App installation
+    token (same 5,000 req/h budget as the ingestion adapters), else anonymous
+    (60 req/h). See `app/core/github_app_token.py`.
+    """
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "SaferSkills-Scan-Engine/0.1",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    token = get_settings().github_token
+    settings = get_settings()
+    token = settings.github_token
+    if not token:
+        token = await get_github_app_installation_token(settings)
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers
+
+
+async def resolve_ref(
+    github_url: str, *, etag: str | None = None, last_modified: str | None = None
+) -> ResolvedRef:
+    """Conditionally resolve the repo's HEAD ref SHA (the scan-job change gate).
+
+    Sends `If-None-Match` / `If-Modified-Since` against the repo endpoint (its
+    ETag changes on every push, so a 304 means "no new commit" — a free hit
+    against the GitHub budget). On 304 returns `not_modified=True`; on 200 it
+    follows up with the branch endpoint to read the HEAD commit SHA + returns the
+    fresh validators to persist in `repo_fetch_state`.
+    """
+    ref = parse_github_url(github_url)
+    headers = await _auth_headers()
+    if etag:
+        headers["If-None-Match"] = etag
+    if last_modified:
+        headers["If-Modified-Since"] = last_modified
+
+    timeout = httpx.Timeout(FETCH_TIMEOUT_SECONDS)
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        repo_response = await client.get(
+            f"https://api.github.com/repos/{ref.org}/{ref.repo}", headers=headers
+        )
+        if repo_response.status_code == 304:
+            return ResolvedRef(
+                org=ref.org,
+                repo=ref.repo,
+                default_branch=None,
+                ref_sha=None,
+                etag=etag,
+                last_modified=last_modified,
+                not_modified=True,
+            )
+        if repo_response.status_code == 404:
+            raise FetchError(f"repo not found: {ref.org}/{ref.repo}")
+        repo_response.raise_for_status()
+        new_etag = repo_response.headers.get("etag")
+        new_last_modified = repo_response.headers.get("last-modified")
+        default_branch = repo_response.json().get("default_branch", "main")
+
+        branch_headers = await _auth_headers()
+        branch_response = await client.get(
+            f"https://api.github.com/repos/{ref.org}/{ref.repo}/branches/{default_branch}",
+            headers=branch_headers,
+        )
+        branch_response.raise_for_status()
+        sha = branch_response.json().get("commit", {}).get("sha")
+        if not isinstance(sha, str) or len(sha) != 40:
+            raise FetchError(f"invalid HEAD sha for {ref.org}/{ref.repo}@{default_branch}")
+        return ResolvedRef(
+            org=ref.org,
+            repo=ref.repo,
+            default_branch=default_branch,
+            ref_sha=sha,
+            etag=new_etag,
+            last_modified=new_last_modified,
+            not_modified=False,
+        )
 
 
 async def _resolve_ref_sha(client: httpx.AsyncClient, ref: GithubRef) -> tuple[str, str]:
     """Return `(default_branch, head_sha)` for the repo at HEAD of default branch."""
     repo_response = await client.get(
         f"https://api.github.com/repos/{ref.org}/{ref.repo}",
-        headers=_auth_headers(),
+        headers=await _auth_headers(),
     )
     if repo_response.status_code == 404:
         raise FetchError(f"repo not found: {ref.org}/{ref.repo}")
@@ -94,7 +183,7 @@ async def _resolve_ref_sha(client: httpx.AsyncClient, ref: GithubRef) -> tuple[s
 
     branch_response = await client.get(
         f"https://api.github.com/repos/{ref.org}/{ref.repo}/branches/{default_branch}",
-        headers=_auth_headers(),
+        headers=await _auth_headers(),
     )
     branch_response.raise_for_status()
     branch_body = branch_response.json()
@@ -107,7 +196,7 @@ async def _resolve_ref_sha(client: httpx.AsyncClient, ref: GithubRef) -> tuple[s
 async def _download_tarball(client: httpx.AsyncClient, ref: GithubRef, branch: str) -> bytes:
     """Stream the tarball with a hard size cap."""
     url = f"https://codeload.github.com/{ref.org}/{ref.repo}/tar.gz/refs/heads/{branch}"
-    async with client.stream("GET", url, headers=_auth_headers()) as response:
+    async with client.stream("GET", url, headers=await _auth_headers()) as response:
         response.raise_for_status()
         buf = bytearray()
         async for chunk in response.aiter_bytes():

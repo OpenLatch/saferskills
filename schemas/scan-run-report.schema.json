@@ -101,7 +101,7 @@
     "source": {
       "type": "string",
       "x-postgresql-enum-type": "scan_source",
-      "description": "Scan trigger source (submission / ingestion / rescan_drift / rescan_appeal)."
+      "description": "Scan trigger source (submission / ingestion / rescan_drift / rescan_appeal / rescan_rules)."
     },
     "status": {
       "type": "string",

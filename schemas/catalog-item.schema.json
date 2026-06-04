@@ -11,7 +11,9 @@
     { "name": "idx_catalog_items_active", "columns": ["popularity_tier", "updated_at"], "where": "archived = false" },
     { "name": "idx_catalog_items_github_url", "columns": ["github_url"] },
     { "name": "idx_catalog_items_visibility", "columns": ["visibility"] },
-    { "name": "idx_catalog_items_owner_run_id", "columns": ["owner_run_id"], "where": "owner_run_id IS NOT NULL" }
+    { "name": "idx_catalog_items_owner_run_id", "columns": ["owner_run_id"], "where": "owner_run_id IS NOT NULL" },
+    { "name": "idx_catalog_items_last_scanned_at", "columns": ["last_scanned_at"] },
+    { "name": "idx_catalog_items_last_checked_at", "columns": ["last_checked_at"] }
   ],
   "x-postgresql-extra-columns": [
     {
@@ -19,6 +21,28 @@
       "type": "uuid",
       "nullable": true,
       "foreign_key": { "table": "scan_runs", "column": "id", "ondelete": "CASCADE" }
+    },
+    {
+      "name": "last_scanned_at",
+      "type": "timestamp",
+      "nullable": true
+    },
+    {
+      "name": "scanned_rubric_version",
+      "type": "varchar",
+      "length": 40,
+      "nullable": true
+    },
+    {
+      "name": "scanned_engine_version",
+      "type": "varchar",
+      "length": 40,
+      "nullable": true
+    },
+    {
+      "name": "last_checked_at",
+      "type": "timestamp",
+      "nullable": true
     }
   ],
   "type": "object",
@@ -312,18 +336,6 @@
       "x-postgresql-default": "'long_tail'",
       "x-postgresql-nullable": false,
       "description": "Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously."
-    },
-    "lastDeepScanAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "default": null,
-      "description": "Most recent completed Deep scan of this capability (D-04-14). NULL = never Deep-scanned. Stamped by enqueue_scan's completion wrapper; read by auto_scan_trigger_deep for the 30-day recency gate. NOT scans.tier (the trust badge) — this is scan-depth recency."
-    },
-    "lastLiteScanAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "default": null,
-      "description": "Most recent completed Lite scan of this capability (D-04-15). NULL = never Lite-scanned. Stamped by enqueue_scan's completion wrapper; read by auto_scan_trigger_lite for the 7-day recency gate."
     }
   },
   "examples": [
