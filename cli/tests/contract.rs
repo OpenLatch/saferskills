@@ -9,8 +9,9 @@
 //! 8-generator pipeline.
 
 use saferskills::api::dto::{
-    CapabilityRow, CatalogItemSummary, CatalogListEnvelope, EvidenceExcerpt, FindingResponse,
-    HealthResponse, ItemDetailResponse, ScanReportDetail, ScanRunReportDetail,
+    CapabilityRow, CatalogItemSummary, CatalogListEnvelope, ChallengeResponse, EvidenceExcerpt,
+    FindingResponse, HealthResponse, ItemDetailResponse, ScanReportDetail, ScanRunReportDetail,
+    ScanSubmitResponse, ScanUploadResponse,
 };
 use serde_json::{json, Value};
 
@@ -135,6 +136,9 @@ fn component_schemas_exist() {
         "ScanRunReportDetail",
         "CapabilityRow",
         "HealthResponse",
+        "CliChallengeResponse",
+        "ScanSubmitResponse",
+        "ScanUploadResponse",
     ] {
         assert!(
             defs.contains_key(name),
@@ -184,10 +188,46 @@ fn dto_scan_report_matches() {
 #[test]
 fn dto_finding_matches() {
     let doc = openapi();
-    // Splice the optional evidence_excerpt so EvidenceExcerpt + EvidenceLine are checked.
+    // Splice the optional evidence_excerpt + remediation so EvidenceExcerpt,
+    // EvidenceLine, and FindingRemediation are all checked (D-05-32 inline prose).
     assert_deserializes::<FindingResponse>(
-        sample_named(&doc, "FindingResponse", &[("evidence_excerpt", "")]),
+        sample_named(
+            &doc,
+            "FindingResponse",
+            &[("evidence_excerpt", ""), ("remediation", "")],
+        ),
         "FindingResponse",
+    );
+}
+
+#[test]
+fn dto_cli_challenge_matches() {
+    let doc = openapi();
+    assert_deserializes::<ChallengeResponse>(
+        sample_named(&doc, "CliChallengeResponse", &[]),
+        "CliChallengeResponse",
+    );
+}
+
+#[test]
+fn dto_scan_submit_matches() {
+    let doc = openapi();
+    assert_deserializes::<ScanSubmitResponse>(
+        sample_named(&doc, "ScanSubmitResponse", &[("share_url", "")]),
+        "ScanSubmitResponse",
+    );
+}
+
+#[test]
+fn dto_scan_upload_matches() {
+    let doc = openapi();
+    assert_deserializes::<ScanUploadResponse>(
+        sample_named(
+            &doc,
+            "ScanUploadResponse",
+            &[("share_url", ""), ("slug", "")],
+        ),
+        "ScanUploadResponse",
     );
 }
 

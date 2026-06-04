@@ -213,13 +213,15 @@ fn man_emits_troff() {
 }
 
 #[test]
-fn stub_command_reports_not_implemented() {
+fn scan_missing_path_is_a_target_error() {
+    // `scan` ships in Phase C; a non-existent local target fails fast with a
+    // target error (SS-E-1603) BEFORE any network — never the old stub code.
     let tmp = tempfile::tempdir().unwrap();
     cli(tmp.path())
-        .args(["install", "some-skill"])
+        .args(["scan", "./definitely-not-a-real-path-xyz"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("SS-E-1090"));
+        .stderr(predicate::str::contains("SS-E-1603"));
 }
 
 #[test]

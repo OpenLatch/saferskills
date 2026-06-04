@@ -92,6 +92,32 @@ async def sweep_ingestion_runs(session: AsyncSession, *, days: int = 90) -> int:
         await session.commit()
 
 
+async def sweep_cli_pow(session: AsyncSession) -> int:
+    """Delete `cli_pow_spent` rows past their `expires_at` (the challenge is
+    invalid after expiry anyway, so the single-use ledger row is dead weight).
+    Returns rows swept. Guarded by the SAME advisory lock as the other sweeps so
+    only one Machine sweeps per tick; releases it before returning."""
+    got = (
+        await session.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _SWEEP_LOCK_KEY})
+    ).scalar_one()
+    if not got:
+        return 0
+    try:
+        deleted = (
+            await session.execute(
+                text(
+                    "WITH d AS (DELETE FROM cli_pow_spent WHERE expires_at < now() "
+                    "RETURNING 1) SELECT count(*) FROM d"
+                )
+            )
+        ).scalar_one()
+        await session.commit()
+        return deleted
+    finally:
+        await session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _SWEEP_LOCK_KEY})
+        await session.commit()
+
+
 async def run_sweep_loop() -> None:
     """Every `settings.sweep_interval_seconds`, try the lock + sweep (unlisted runs
     + ingestion_runs retention). On error, log + continue (one bad tick never kills
@@ -104,11 +130,14 @@ async def run_sweep_loop() -> None:
                 async with AsyncSessionLocal() as session:
                     swept = await sweep_unlisted(session)
                     swept_runs = await sweep_ingestion_runs(session)
-                if swept or swept_runs:
+                    swept_pow = await sweep_cli_pow(session)
+                if swept or swept_runs or swept_pow:
                     logger.info(
-                        "expiry sweep removed %d unlisted run(s), %d ingestion_run(s)",
+                        "expiry sweep removed %d unlisted run(s), %d ingestion_run(s), "
+                        "%d cli_pow_spent row(s)",
                         swept,
                         swept_runs,
+                        swept_pow,
                     )
             except asyncio.CancelledError:
                 raise

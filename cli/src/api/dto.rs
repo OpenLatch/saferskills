@@ -122,6 +122,38 @@ pub struct FindingResponse {
     pub rubric_version: String,
     #[serde(default)]
     pub evidence_excerpt: Option<EvidenceExcerpt>,
+    // Explainable-finding prose, inlined server-side onto the report (D-05-32
+    // reversed — the CLI renders straight from the finding, no rule corpus
+    // fetch). All `#[serde(default)]` for forward-compat: a degraded finding (no
+    // content entry) carries None and the CLI falls back to rule_id +
+    // remediation_link.
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub explanation: Option<String>,
+    #[serde(default)]
+    pub category_label: Option<String>,
+    #[serde(default)]
+    pub severity_rationale: Option<String>,
+    #[serde(default)]
+    pub remediation: Option<FindingRemediation>,
+}
+
+/// An Avoid → Safer before/after pair on an inlined finding remediation.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SaferPattern {
+    pub before: String,
+    pub after: String,
+}
+
+/// How to fix a finding — inlined onto the report finding (snake_case).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct FindingRemediation {
+    pub action: String,
+    #[serde(default)]
+    pub steps: Option<Vec<String>>,
+    #[serde(default)]
+    pub safer_pattern: Option<SaferPattern>,
 }
 
 /// A catalog item as it appears in list responses + `item` on the detail page.
@@ -244,6 +276,10 @@ pub struct ScanRunReportDetail {
     pub capability_count: i64,
     #[serde(default)]
     pub capabilities: Vec<CapabilityRow>,
+    /// `pending` | `running` | `completed` | `failed`. Free-form so an unknown
+    /// status never breaks polling; absent on older servers.
+    #[serde(default)]
+    pub status: Option<String>,
     #[serde(default)]
     pub visibility: Option<String>,
     #[serde(default)]
@@ -252,6 +288,48 @@ pub struct ScanRunReportDetail {
     pub share_url: Option<String>,
     #[serde(default)]
     pub expires_at: Option<String>,
+}
+
+/// `GET /api/v1/scans/cli-challenge` — a stateless Proof-of-Work challenge for
+/// the CLI scan-submit gate (D-05-30). `status` of a submit stays `String` so an
+/// unknown value never panics.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ChallengeResponse {
+    pub challenge: String,
+    pub difficulty: u32,
+    #[serde(default)]
+    pub expires_at: Option<String>,
+}
+
+/// 202 result of `POST /api/v1/scans` (a GitHub-URL submit).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ScanSubmitResponse {
+    pub id: String,
+    /// Free-form so an unknown status never breaks deserialization.
+    pub status: String,
+    #[serde(default)]
+    pub cached: bool,
+    #[serde(default)]
+    pub rubric_version: Option<String>,
+    /// Present (non-null) only for an `unlisted` submission.
+    #[serde(default)]
+    pub share_url: Option<String>,
+}
+
+/// 202 result of `POST /api/v1/scans/upload` (a local-content submit).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ScanUploadResponse {
+    pub id: String,
+    pub status: String,
+    #[serde(default)]
+    pub source_kind: Option<String>,
+    #[serde(default)]
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub slug: Option<String>,
+    /// Present (non-null) only for an `unlisted` upload.
+    #[serde(default)]
+    pub share_url: Option<String>,
 }
 
 /// `GET /health`.

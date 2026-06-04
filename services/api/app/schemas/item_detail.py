@@ -27,6 +27,7 @@ from app.schemas.catalog_summary import CatalogItemDetail
 from app.schemas.orm_base import OrmBaseModel
 from app.schemas.scan_report_summary import ScanTier
 from app.schemas.scan_submit import ScanReportDetail
+from app.services.agent_compat import AgentName
 
 
 class ScanHistoryPoint(OrmBaseModel):
@@ -125,9 +126,13 @@ class RepoMeta(OrmBaseModel):
 
 
 class AgentShare(OrmBaseModel):
-    """One slice of the install agent-distribution row."""
+    """One slice of the install agent-distribution row.
 
-    agent: str
+    `agent` is the canonical agent id (the 8-agent closed enum, D-05-14) — no
+    longer a free string now that real install telemetry (D-05-31) populates it.
+    """
+
+    agent: AgentName
     percentage: int = Field(..., ge=0, le=100)
 
 

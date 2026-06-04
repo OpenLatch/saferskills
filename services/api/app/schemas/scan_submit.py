@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from app.schemas.orm_base import OrmBaseModel
+from app.schemas.rule_prose import RuleRemediation
 from app.schemas.scan_report_summary import ScanTier
 
 
@@ -53,6 +54,16 @@ class ScanUploadResponse(OrmBaseModel):
     share_url: str | None = None
 
 
+class CliChallengeResponse(OrmBaseModel):
+    """`GET /api/v1/scans/cli-challenge` — a fresh stateless PoW challenge for the
+    install CLI (D-05-30). The CLI solves it offline and replays it in the
+    `X-SaferSkills-CLI-PoW` header on its next scan-submit."""
+
+    challenge: str
+    difficulty: int
+    expires_at: datetime
+
+
 class EvidenceLine(OrmBaseModel):
     """One line of a finding's matched-line window (mirrors the `.ex-line` markup)."""
 
@@ -93,6 +104,15 @@ class FindingResponse(OrmBaseModel):
     # Report-DTO-only: the matched-line window for the explainable FindingDetail
     # card. Null when snapshot bytes are absent (binary / oversize / expired).
     evidence_excerpt: EvidenceExcerpt | None = None
+    # Report-DTO-only explainable-finding prose, inlined server-side from the
+    # generated rule-content map (D-05-32 reversed — the CLI renders straight from
+    # the report, never fetches the rule corpus). All None when the rule_id has no
+    # content entry; the finding still renders with rule_id + remediation_link.
+    title: str | None = None
+    explanation: str | None = None
+    category_label: str | None = None
+    severity_rationale: str | None = None
+    remediation: RuleRemediation | None = None
 
 
 class ScanReportDetail(OrmBaseModel):

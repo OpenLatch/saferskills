@@ -150,6 +150,10 @@ pub struct InstallArgs {
 pub struct UninstallArgs {
     /// Catalog item name.
     pub name: String,
+
+    /// Only uninstall from this agent (canonical id); default removes from all.
+    #[arg(long = "from")]
+    pub from: Option<String>,
 }
 
 /// `update [name] [--all]` (Phase B).
@@ -188,7 +192,32 @@ pub struct ScanArgs {
 
 /// `doctor` (Phase B).
 #[derive(Debug, clap::Args)]
-pub struct DoctorArgs {}
+pub struct DoctorArgs {
+    /// Re-apply any registry-vs-filesystem drift found (repair).
+    #[arg(long)]
+    pub fix: bool,
+}
+
+/// The resolved global interaction flags threaded into the gating commands
+/// (`install` / `uninstall` / `update` / `doctor`), per D-05-21.
+#[derive(Debug, Clone, Copy)]
+pub struct Interaction {
+    /// Assume "yes" for confirmations up to `high` severity.
+    pub yes: bool,
+    /// Override every gate, including the critical type-name confirm.
+    pub force: bool,
+    /// Never prompt; fail fast naming the flag needed (also implied by --json).
+    pub non_interactive: bool,
+}
+
+/// Resolve the interaction flags from the parsed CLI (`--json` ⇒ non-interactive).
+pub fn interaction(cli: &Cli) -> Interaction {
+    Interaction {
+        yes: cli.yes,
+        force: cli.force,
+        non_interactive: cli.non_interactive || cli.json,
+    }
+}
 
 /// Resolve the output configuration from parsed flags (D-05-11). `--json`
 /// forces Json format AND disables color (machine output is never colorized).

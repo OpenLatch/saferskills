@@ -92,6 +92,16 @@ No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the
 
 Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycle_started`, `emit_ingestion_cycle_completed`, `emit_ingestion_cycle_failed`, `emit_ingestion_cycle_archived` → `catalog_item_archived`, `emit_popularity_recompute_completed`). Phase A logs cycle events via structlog; PostHog emission wires up as the helpers land. The frontend `sources_page_viewed` event uses the existing `webapp/src/lib/analytics.ts` pattern.
 
+## Install-telemetry event (I-05)
+
+1 backend event from D-05-31. Closed-enum, no PII.
+
+| # | Event | Properties |
+|---|---|---|
+| 23 | `install_reported` | `agent` (the 8-agent closed enum — `claude-code`…`openclaw`); `kind` ∈ {`skill`,`mcp_server`,`hook`,`plugin`,`rules`} |
+
+Fired by `app/observability/events.py::emit_install_reported` when the install CLI reports an **opt-in** install to `POST /api/v1/installs`. Never carries the slug, IP, or `cli_version` (those land only in the redacted `install_events` row). The CLI's own opt-out PostHog leg stays the single `command_invoked` event (`cli/src/core/telemetry.rs`) — `install_reported` is the **server-side** event.
+
 ## Sentry
 
 `SENTRY_DSN` env var (cf. `environment-config.md`); separate Sentry project from OpenLatch.
@@ -126,6 +136,7 @@ The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes 
 
 | Change | Updates here |
 |---|---|
+| New install-telemetry property | "Install-telemetry event" table + `app/observability/events.py::emit_install_reported` |
 | New event prefix added | "Closed-enum event names" table + `webapp/src/lib/analytics.ts` |
 | New scan-engine event | "Event allowlist — scan engine" table (bump the event count) + `services/api/app/observability/events.py` typed helper |
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |

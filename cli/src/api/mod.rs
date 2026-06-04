@@ -7,12 +7,33 @@
 pub mod dto;
 
 use dto::{
-    CatalogItemSummary, CatalogListEnvelope, HealthResponse, ItemDetailResponse,
-    ScanRunReportDetail,
+    CatalogItemSummary, CatalogListEnvelope, ChallengeResponse, HealthResponse, ItemDetailResponse,
+    ScanRunReportDetail, ScanSubmitResponse, ScanUploadResponse,
 };
+use serde::Serialize;
 
-use crate::core::error::{SsError, ERR_ITEM_NOT_FOUND};
+use crate::cli::output::OutputConfig;
+use crate::core::error::{SsError, ERR_ITEM_NOT_FOUND, ERR_SCAN_TIMEOUT};
 use crate::core::http::ApiClient;
+
+/// The custom header carrying a solved Proof-of-Work for CLI scan-submit.
+const POW_HEADER: &str = "X-SaferSkills-CLI-PoW";
+
+/// Request body for `POST /api/v1/scans` (a GitHub-URL submit).
+#[derive(Debug, Serialize)]
+struct ScanSubmitBody<'a> {
+    github_url: &'a str,
+    visibility: &'a str,
+}
+
+/// The opt-in install-report body (`POST /api/v1/installs`, D-05-31).
+#[derive(Debug, Serialize)]
+pub struct InstallReport<'a> {
+    pub slug: &'a str,
+    pub agent: &'a str,
+    pub kind: &'a str,
+    pub cli_version: &'a str,
+}
 
 /// jaro_winkler floor for a did-you-mean suggestion (D-05-12).
 const SUGGEST_THRESHOLD: f64 = 0.7;
@@ -68,6 +89,129 @@ impl Api {
         self.client.get("/api/v1/health", &[]).await
     }
 
+    /// `GET /api/v1/scans/cli-challenge` — a stateless Proof-of-Work challenge
+    /// for the CLI scan-submit gate (D-05-30). 503 when the server has no PoW
+    /// secret (dev/test) — the caller surfaces it.
+    pub async fn get_cli_challenge(&self) -> Result<ChallengeResponse, SsError> {
+        self.client.get("/api/v1/scans/cli-challenge", &[]).await
+    }
+
+    /// `POST /api/v1/scans` — submit a GitHub URL, carrying the solved PoW header.
+    pub async fn submit_scan_url(
+        &self,
+        github_url: &str,
+        visibility: &str,
+        pow: &str,
+    ) -> Result<ScanSubmitResponse, SsError> {
+        self.client
+            .post_json_for(
+                "/api/v1/scans",
+                &ScanSubmitBody {
+                    github_url,
+                    visibility,
+                },
+                &[(POW_HEADER, pow)],
+            )
+            .await
+    }
+
+    /// `POST /api/v1/scans/upload` — submit local content as a `.zip`, carrying
+    /// the solved PoW header. The multipart `file` part + `visibility`/`kind`
+    /// text fields match the backend `fields.get(...)` names exactly.
+    pub async fn submit_scan_upload(
+        &self,
+        zip_bytes: Vec<u8>,
+        filename: &str,
+        visibility: &str,
+        kind: Option<&str>,
+        pow: &str,
+    ) -> Result<ScanUploadResponse, SsError> {
+        let part = reqwest::multipart::Part::bytes(zip_bytes)
+            .file_name(filename.to_string())
+            .mime_str("application/zip")
+            .map_err(|e| {
+                SsError::new(
+                    ERR_SCAN_TIMEOUT,
+                    format!("Failed to build upload part: {e}"),
+                )
+            })?;
+        let mut form = reqwest::multipart::Form::new()
+            .part("file", part)
+            .text("visibility", visibility.to_string());
+        if let Some(k) = kind {
+            form = form.text("kind", k.to_string());
+        }
+        self.client
+            .post_multipart("/api/v1/scans/upload", form, &[(POW_HEADER, pow)])
+            .await
+    }
+
+    /// Poll `GET /api/v1/scans/runs/{run_id}` until the run reaches a terminal
+    /// status or `timeout` elapses. A 404 is treated as "still pending" (the run
+    /// row is visible only once persisted). `ERR_SCAN_TIMEOUT` on timeout.
+    pub async fn wait_for_run(
+        &self,
+        run_id: &str,
+        output: &OutputConfig,
+        timeout: std::time::Duration,
+    ) -> Result<ScanRunReportDetail, SsError> {
+        let spinner = output.create_spinner("Scanning…");
+        let deadline = std::time::Instant::now() + timeout;
+        let result = loop {
+            match self.get_run(run_id).await {
+                Ok(run) if is_terminal(&run) => break Ok(run),
+                // Still running, OR not-yet-persisted (404 → ERR_ITEM_NOT_FOUND).
+                Ok(_) => {}
+                Err(e) if e.code == ERR_ITEM_NOT_FOUND => {}
+                Err(e) => break Err(e),
+            }
+            if std::time::Instant::now() >= deadline {
+                break Err(SsError::new(
+                    ERR_SCAN_TIMEOUT,
+                    "The scan did not finish before the client timeout.",
+                )
+                .with_suggestion(
+                    "Re-run, or open the report URL in a browser to watch progress.",
+                ));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        };
+        if let Some(pb) = spinner {
+            pb.finish_and_clear();
+        }
+        result
+    }
+
+    /// `GET /api/v1/items/{slug}/download` — the stored snapshot `.zip` bytes,
+    /// the source for a skill folder copy (D-05-16).
+    pub async fn download_item_zip(&self, slug: &str) -> Result<Vec<u8>, SsError> {
+        self.client
+            .get_bytes(&format!("/api/v1/items/{slug}/download"))
+            .await
+    }
+
+    /// `POST /api/v1/installs` — report an opt-in install (D-05-31). Fail-open:
+    /// the caller swallows the error so a failed report never fails the install.
+    pub async fn report_install(
+        &self,
+        slug: &str,
+        agent: &str,
+        kind: &str,
+        cli_version: &str,
+    ) -> Result<(), SsError> {
+        self.client
+            .post_json(
+                "/api/v1/installs",
+                &InstallReport {
+                    slug,
+                    agent,
+                    kind,
+                    cli_version,
+                },
+            )
+            .await
+    }
+
     /// Resolve a typed name to a single catalog item.
     ///
     /// 1. `search_items(name)` → `data[]`.
@@ -97,6 +241,17 @@ impl Api {
             .collect();
 
         Err(not_found_error(name, &suggestions))
+    }
+}
+
+/// Whether a polled run has reached a terminal state. Prefers the explicit
+/// `status` (`completed`/`failed`); falls back to "has capabilities" for an
+/// older server that omits the field.
+fn is_terminal(run: &ScanRunReportDetail) -> bool {
+    match run.status.as_deref() {
+        Some("completed") | Some("failed") => true,
+        Some(_) => false,
+        None => run.capability_count > 0 && !run.capabilities.is_empty(),
     }
 }
 

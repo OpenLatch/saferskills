@@ -1,0 +1,256 @@
+//! Integration tests for the Phase-B install engine (D-05-15, D-05-16, D-05-24).
+//!
+//! Detection can't be faked cross-platform (`dirs::home_dir()` reads the OS API,
+//! not `$HOME`, on Windows), so these drive the public writer API directly with
+//! tempdir paths — deterministic, no network, no real agent. They prove the
+//! headline acceptance: **each of the 8 writers round-trips** (install → verify
+//! under the correct per-agent key → uninstall restores), comments preserved.
+//!
+//! NB: this file is NOT named `install_test.rs` — Windows' UAC installer-detection
+//! heuristic force-elevates any test binary whose name contains "install"/"setup"
+//! /"update", which makes `cargo test` fail to launch it (os error 740).
+
+use saferskills::agents::writer::{ResolvedItem, VerifyStatus};
+use saferskills::agents::{writers, AgentId, DetectedAgent, Scope, ALL_AGENTS};
+
+fn mcp_item() -> ResolvedItem {
+    ResolvedItem {
+        slug: "acme--repo--mcp-server-github".into(),
+        name: "github".into(),
+        kind: "mcp_server".into(),
+        mcp_entry: Some(serde_json::json!({"command":"npx","args":["-y","acme/repo"],"env":{}})),
+        skill_zip: None,
+    }
+}
+
+/// Build a DetectedAgent pointing at tempdir paths for `id`.
+fn agent_at(id: AgentId, root: &std::path::Path) -> DetectedAgent {
+    let config = if id == AgentId::Codex {
+        root.join("config.toml")
+    } else if id == AgentId::Copilot {
+        // CLI surface → mcpServers (the VS Code surface is exercised separately).
+        root.join("mcp-config.json")
+    } else {
+        root.join("mcp.json")
+    };
+    DetectedAgent {
+        id,
+        version: None,
+        mcp_config_path: config,
+        skill_dir: Some(root.join("skills")),
+        scope: Scope::Global,
+    }
+}
+
+/// The raw config key marker each agent must write under.
+fn expected_marker(id: AgentId) -> &'static str {
+    match id {
+        AgentId::Codex => "[mcp_servers.github]",
+        // CLI Copilot + everyone else use the `mcpServers` key.
+        _ => "\"github\"",
+    }
+}
+
+#[test]
+fn all_eight_writers_round_trip() {
+    for id in ALL_AGENTS {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_at(id, dir.path());
+        let writer = writers::writer_for(id);
+        let item = mcp_item();
+
+        // install → the entry lands under the correct per-agent key.
+        let changes = writer
+            .install(&item, &agent, false)
+            .unwrap_or_else(|e| panic!("{id} install failed: {}", e.message));
+        assert!(!changes.is_empty(), "{id}: no changes recorded");
+        assert_eq!(
+            writer.verify(&item, &agent),
+            VerifyStatus::Ok,
+            "{id}: verify after install"
+        );
+
+        let raw = std::fs::read_to_string(&agent.mcp_config_path).unwrap();
+        assert!(
+            raw.contains(expected_marker(id)),
+            "{id}: expected marker {} in:\n{raw}",
+            expected_marker(id)
+        );
+
+        // uninstall → entry gone again.
+        writer.uninstall(&changes).unwrap();
+        assert_eq!(
+            writer.verify(&item, &agent),
+            VerifyStatus::Missing,
+            "{id}: verify after uninstall"
+        );
+    }
+}
+
+#[test]
+fn copilot_vscode_surface_uses_servers_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let vscode = dir.path().join(".vscode");
+    std::fs::create_dir_all(&vscode).unwrap();
+    let agent = DetectedAgent {
+        id: AgentId::Copilot,
+        version: None,
+        mcp_config_path: vscode.join("mcp.json"),
+        skill_dir: None,
+        scope: Scope::Project,
+    };
+    let writer = writers::writer_for(AgentId::Copilot);
+    let item = mcp_item();
+    let changes = writer.install(&item, &agent, false).unwrap();
+
+    let raw = std::fs::read_to_string(&agent.mcp_config_path).unwrap();
+    assert!(
+        raw.contains("\"servers\""),
+        "VS Code Copilot must use `servers`:\n{raw}"
+    );
+    assert!(
+        !raw.contains("mcpServers"),
+        "VS Code Copilot must NOT use mcpServers"
+    );
+    writer.uninstall(&changes).unwrap();
+}
+
+#[test]
+fn windsurf_rejects_project_scope() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut agent = agent_at(AgentId::Windsurf, dir.path());
+    agent.scope = Scope::Project;
+    let err = writers::writer_for(AgentId::Windsurf)
+        .install(&mcp_item(), &agent, false)
+        .unwrap_err();
+    assert!(err.message.contains("global-only"), "got: {}", err.message);
+}
+
+#[test]
+fn skill_round_trip_for_claude() {
+    let dir = tempfile::tempdir().unwrap();
+    let agent = agent_at(AgentId::ClaudeCode, dir.path());
+    let writer = writers::writer_for(AgentId::ClaudeCode);
+
+    // Build a tiny SKILL.md zip.
+    let mut buf = Vec::new();
+    {
+        use std::io::Write as _;
+        let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+        let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
+        w.start_file("SKILL.md", opts).unwrap();
+        w.write_all(b"---\nname: github\n---\n").unwrap();
+        w.finish().unwrap();
+    }
+    let item = ResolvedItem {
+        slug: "acme--kit--skill-github".into(),
+        name: "github".into(),
+        kind: "skill".into(),
+        mcp_entry: None,
+        skill_zip: Some(buf),
+    };
+    let changes = writer.install(&item, &agent, false).unwrap();
+    assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
+    assert!(agent
+        .skill_dir
+        .as_ref()
+        .unwrap()
+        .join("github")
+        .join("SKILL.md")
+        .exists());
+    writer.uninstall(&changes).unwrap();
+    assert_eq!(writer.verify(&item, &agent), VerifyStatus::Missing);
+}
+
+#[test]
+fn claude_fixture_preserves_comment_and_restores_byte_for_byte() {
+    let before = include_str!("fixtures/claude_code/before.jsonc");
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("mcp.json");
+    std::fs::write(&path, before).unwrap();
+
+    let agent = DetectedAgent {
+        id: AgentId::ClaudeCode,
+        version: None,
+        mcp_config_path: path.clone(),
+        skill_dir: None,
+        scope: Scope::Global,
+    };
+    let writer = writers::writer_for(AgentId::ClaudeCode);
+    let item = mcp_item();
+    let changes = writer.install(&item, &agent, false).unwrap();
+
+    let after = std::fs::read_to_string(&path).unwrap();
+    assert!(after.contains("user's own comment"), "comment preserved");
+    assert!(
+        after.contains("existing-server"),
+        "sibling server preserved"
+    );
+    assert!(after.contains("\"github\""), "new server added");
+
+    writer.uninstall(&changes).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        before,
+        "byte-for-byte restore"
+    );
+}
+
+#[test]
+fn codex_fixture_preserves_comment_and_restores() {
+    let before = include_str!("fixtures/codex/before.toml");
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    std::fs::write(&path, before).unwrap();
+
+    let agent = DetectedAgent {
+        id: AgentId::Codex,
+        version: None,
+        mcp_config_path: path.clone(),
+        skill_dir: None,
+        scope: Scope::Global,
+    };
+    let writer = writers::writer_for(AgentId::Codex);
+    let item = mcp_item();
+    let changes = writer.install(&item, &agent, false).unwrap();
+
+    let after = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        after.contains("the user's own comment"),
+        "comment preserved"
+    );
+    assert!(after.contains("model = \"o3\""), "setting preserved");
+    assert!(
+        after.contains("[mcp_servers.github]"),
+        "new server table added"
+    );
+
+    writer.uninstall(&changes).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        before,
+        "byte-for-byte restore"
+    );
+}
+
+#[test]
+fn openclaw_probes_existing_nested_key_shape() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("openclaw.json");
+    std::fs::write(&path, "{\n  \"mcp\": { \"servers\": {} }\n}\n").unwrap();
+    let agent = DetectedAgent {
+        id: AgentId::Openclaw,
+        version: None,
+        mcp_config_path: path.clone(),
+        skill_dir: None,
+        scope: Scope::Global,
+    };
+    let writer = writers::writer_for(AgentId::Openclaw);
+    let item = mcp_item();
+    let changes = writer.install(&item, &agent, false).unwrap();
+    let raw = std::fs::read_to_string(&path).unwrap();
+    // Respected the existing nested shape rather than adding a top-level key.
+    assert!(raw.contains("\"servers\""));
+    assert!(writer.verify(&item, &agent) == VerifyStatus::Ok);
+    writer.uninstall(&changes).unwrap();
+}

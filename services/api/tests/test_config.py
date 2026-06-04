@@ -133,5 +133,23 @@ def test_turnstile_secret_required_in_prod(env: EnvTier) -> None:
 
 @pytest.mark.parametrize("env", ["staging", "production"])
 def test_turnstile_secret_present_passes_in_prod(env: EnvTier) -> None:
-    settings = Settings(env=env, turnstile_secret_key="1x000...AA")
+    # Both prod-required secrets must be present for boot to pass (Turnstile +
+    # the CLI Proof-of-Work secret — see config.py model_validator).
+    settings = Settings(
+        env=env, turnstile_secret_key="1x000...AA", saferskills_cli_pow_secret="prod-pow-secret"
+    )
     assert settings.turnstile_secret_key == "1x000...AA"
+    assert settings.saferskills_cli_pow_secret == "prod-pow-secret"
+
+
+def test_cli_pow_secret_optional_in_dev() -> None:
+    """Dev/test tolerate a missing CLI PoW secret — /cli-challenge 503s there."""
+    settings = Settings(env="development", saferskills_cli_pow_secret=None)
+    assert settings.saferskills_cli_pow_secret is None
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_cli_pow_secret_required_in_prod(env: EnvTier) -> None:
+    """Boot MUST hard-fail when the stateless PoW gate has no trust anchor in prod."""
+    with pytest.raises(ValueError, match="SAFERSKILLS_CLI_POW_SECRET"):
+        Settings(env=env, turnstile_secret_key="1x000...AA", saferskills_cli_pow_secret=None)

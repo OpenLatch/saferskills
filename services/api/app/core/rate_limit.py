@@ -22,7 +22,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 Bucket = Literal[
-    "scan_submit", "scan_read", "item_read", "item_list", "artifact_download", "private_lookup"
+    "scan_submit",
+    "cli_scan_submit",
+    "scan_read",
+    "item_read",
+    "item_list",
+    "artifact_download",
+    "private_lookup",
 ]
 
 

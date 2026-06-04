@@ -186,6 +186,11 @@ mod tests {
                 remediation_link: "https://x".into(),
                 rubric_version: "abc1234".into(),
                 evidence_excerpt: None,
+                title: None,
+                explanation: None,
+                category_label: None,
+                severity_rationale: None,
+                remediation: None,
             })
             .collect();
         ItemDetailResponse {

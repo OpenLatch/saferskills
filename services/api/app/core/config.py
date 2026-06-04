@@ -342,6 +342,44 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── CLI Proof-of-Work scan-submit gate (I-05, D-05-30) ─────────────────
+    # The install CLI can't solve a Turnstile CAPTCHA, so a stateless HMAC-signed
+    # PoW challenge replaces Turnstile for CLI scan-submit. This secret is the
+    # ONLY trust anchor of the stateless design — it MUST be a stable configured
+    # value (identical across canary machines), never per-process random. None →
+    # the `/cli-challenge` endpoint 503s and `verify_pow` rejects (the CLI then
+    # falls back to Turnstile); a `model_validator` below hard-fails boot in
+    # staging/production when it is unset, mirroring `turnstile_secret_key`.
+    saferskills_cli_pow_secret: str | None = Field(
+        default=None,
+        description=(
+            "HMAC-SHA256 secret signing the stateless CLI Proof-of-Work challenge "
+            "(env `SAFERSKILLS_CLI_POW_SECRET`). None → /cli-challenge 503 + "
+            "verify_pow rejects (dev/test/CI fall back to Turnstile). Required in "
+            "staging/production (boot hard-fails otherwise)."
+        ),
+    )
+    cli_pow_difficulty: int = Field(
+        default=20,
+        ge=1,
+        le=28,
+        description=(
+            "Required leading-zero BITS on sha256(challenge||solution) for a valid "
+            "CLI PoW. Capped at 28 so a hostile server can never make the CLI spin "
+            "forever (the CLI mirrors this cap)."
+        ),
+    )
+    cli_scan_submit_daily_limit: int = Field(
+        default=100,
+        ge=1,
+        description=(
+            "Max CLI scan submissions per IP per 24h on the PoW path (bucket "
+            "`cli_scan_submit`, distinct from the Turnstile `scan_submit` bucket). "
+            "Higher than the human limit because `scan --local` dedups by repo URL "
+            "and submits one per installed capability."
+        ),
+    )
+
     # ── Ingestion (I-04 Phase A) ───────────────────────────────────────────
     ingestion_worker_enabled: bool = Field(
         default=True,
@@ -475,6 +513,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "TURNSTILE_SECRET_KEY is required in staging/production "
                 "(set Cloudflare's test secret in non-prod CI)."
+            )
+        if self.env in ("staging", "production") and self.saferskills_cli_pow_secret is None:
+            raise ValueError(
+                "SAFERSKILLS_CLI_POW_SECRET is required in staging/production — it is "
+                "the only trust anchor of the stateless CLI Proof-of-Work gate (must "
+                "be a stable Fly secret, identical across canary machines)."
             )
         return self
 

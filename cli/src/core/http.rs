@@ -5,9 +5,11 @@
 //! tree to keep openssl-sys / native-tls out) with an explicit 10s timeout.
 
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::core::error::{
     SsError, ERR_API_DECODE, ERR_API_STATUS, ERR_ITEM_NOT_FOUND, ERR_NETWORK, ERR_RATE_LIMITED,
+    ERR_SCAN_SUBMIT,
 };
 
 /// A thin typed wrapper over `reqwest` for the SaferSkills API.
@@ -69,6 +71,141 @@ impl ApiClient {
                 "This usually means the CLI is out of date — try `npx saferskills@latest`.",
             )
         })
+    }
+
+    /// `GET {base}{path}` → raw response bytes (e.g. a stored-snapshot `.zip`).
+    /// Same error mapping as [`ApiClient::get`].
+    pub async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, SsError> {
+        let url = format!("{}{}", self.base, path);
+        let resp = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.status_error(status));
+        }
+        resp.bytes().await.map(|b| b.to_vec()).map_err(|e| {
+            SsError::new(
+                ERR_API_DECODE,
+                format!("Failed to read response bytes: {e}"),
+            )
+        })
+    }
+
+    /// `POST {base}{path}` with a JSON body; treats any 2xx (incl. 204) as ok.
+    /// Used by opt-in install telemetry (the caller swallows errors — fail-open).
+    pub async fn post_json<B: Serialize>(&self, path: &str, body: &B) -> Result<(), SsError> {
+        let url = format!("{}{}", self.base, path);
+        let resp = self
+            .http
+            .post(&url)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.status_error(status));
+        }
+        Ok(())
+    }
+
+    /// `GET {base}{path}?<query>` with extra request headers → deserialize `T`.
+    pub async fn get_with_headers<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        query: &[(&str, &str)],
+        headers: &[(&str, &str)],
+    ) -> Result<T, SsError> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self.http.get(&url).query(query);
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().await.map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.status_error(status));
+        }
+        resp.json::<T>().await.map_err(|e| self.decode_error(e))
+    }
+
+    /// `POST {base}{path}` with a JSON body + extra headers → deserialize the 2xx
+    /// JSON body into `T` (unlike the fire-and-forget [`ApiClient::post_json`],
+    /// scan-submit returns a body). A 403 maps to a distinct gate-failed error
+    /// that surfaces the `{"error": …}` reason (PoW / captcha / rate-limit).
+    pub async fn post_json_for<B: Serialize, T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &B,
+        headers: &[(&str, &str)],
+    ) -> Result<T, SsError> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self.http.post(&url).json(body);
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().await.map_err(|e| self.transport_error(e))?;
+        self.read_submit_body(resp).await
+    }
+
+    /// `POST {base}{path}` with a multipart form + extra headers → deserialize the
+    /// 2xx body into `T`. Same 403 gate-error mapping as [`post_json_for`].
+    pub async fn post_multipart<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        form: reqwest::multipart::Form,
+        headers: &[(&str, &str)],
+    ) -> Result<T, SsError> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self.http.post(&url).multipart(form);
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().await.map_err(|e| self.transport_error(e))?;
+        self.read_submit_body(resp).await
+    }
+
+    /// Shared submit-response reader: 2xx → deserialize `T`; 403 → gate-failed
+    /// error parsing the `{"error": …}` reason; other non-2xx → `status_error`.
+    async fn read_submit_body<T: DeserializeOwned>(
+        &self,
+        resp: reqwest::Response,
+    ) -> Result<T, SsError> {
+        let status = resp.status();
+        if status.as_u16() == 403 {
+            let reason = resp
+                .json::<serde_json::Value>()
+                .await
+                .ok()
+                .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(String::from))
+                .unwrap_or_else(|| "forbidden".to_string());
+            return Err(SsError::new(
+                ERR_SCAN_SUBMIT,
+                format!("The scan was rejected by the API gate ({reason})."),
+            )
+            .with_suggestion(
+                "If this persists, the human-verification gate may require the web UI at \
+                 https://saferskills.ai/scan.",
+            ));
+        }
+        if !status.is_success() {
+            return Err(self.status_error(status));
+        }
+        resp.json::<T>().await.map_err(|e| self.decode_error(e))
+    }
+
+    fn decode_error(&self, e: reqwest::Error) -> SsError {
+        SsError::new(
+            ERR_API_DECODE,
+            format!("Failed to decode API response: {e}"),
+        )
+        .with_suggestion(
+            "This usually means the CLI is out of date — try `npx saferskills@latest`.",
+        )
     }
 
     fn transport_error(&self, e: reqwest::Error) -> SsError {

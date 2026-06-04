@@ -29,6 +29,7 @@ from app.core.rate_limit import enforce_ip_rate_limit
 from app.db.session import get_session
 from app.models.artifact_blob import ArtifactBlob
 from app.models.catalog_item import CatalogItem
+from app.models.install_event import InstallEvent
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
 from app.models.vendor import VendorResponse
@@ -391,25 +392,48 @@ async def list_items(
     )
 
 
-def _mock_install_activity(popularity_score: int) -> InstallActivity:
-    """Deterministic placeholder install counts derived from popularity_score.
+async def _install_activity(session: AsyncSession, catalog_item_id: object) -> InstallActivity:
+    """Real opt-in install counts + agent distribution (D-05-31).
 
-    Anonymized counts ONLY — never company-level data (company intelligence is
+    GROUP-BY aggregate over `install_events` — replaces the deterministic mock.
+    Anonymized counts ONLY (never company-level data — company intelligence is
     OpenLatch's private B2B surface, never public per `.claude/rules/security.md`).
-    I-05 (Install CLI) replaces this with real install telemetry.
+    A capability with no reported installs returns zeros + an empty distribution.
     """
-    all_time = 120 + max(popularity_score, 0) * 7
-    this_month = all_time // 4
-    this_week = this_month // 4
+    now = datetime.now().astimezone()
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    counts = (
+        await session.execute(
+            select(
+                func.count().label("all_time"),
+                func.count().filter(InstallEvent.created_at >= week_ago).label("this_week"),
+                func.count().filter(InstallEvent.created_at >= month_ago).label("this_month"),
+            ).where(InstallEvent.catalog_item_id == catalog_item_id)
+        )
+    ).one()
+    all_time = int(counts.all_time)
+
+    distribution: list[AgentShare] = []
+    if all_time > 0:
+        rows = (
+            await session.execute(
+                select(InstallEvent.agent, func.count().label("n"))
+                .where(InstallEvent.catalog_item_id == catalog_item_id)
+                .group_by(InstallEvent.agent)
+                .order_by(func.count().desc())
+            )
+        ).all()
+        distribution = [
+            AgentShare(agent=agent, percentage=round(n / all_time * 100)) for agent, n in rows
+        ]
+
     return InstallActivity(
-        this_week=this_week,
-        this_month=this_month,
+        this_week=int(counts.this_week),
+        this_month=int(counts.this_month),
         all_time=all_time,
-        agent_distribution=[
-            AgentShare(agent="Claude Code", percentage=62),
-            AgentShare(agent="Cursor", percentage=28),
-            AgentShare(agent="Others", percentage=10),
-        ],
+        agent_distribution=distribution,
     )
 
 
@@ -719,7 +743,7 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         item=detail,
         latest_scan=latest_scan_detail,
         scan_history=await _scan_history(session, item.id),
-        install_activity=_mock_install_activity(item.popularity_score),
+        install_activity=await _install_activity(session, item.id),
         related_items=await _related_items(session, kind=item.kind, exclude_id=item.id),
         vendor_responses=await _vendor_responses(session, item),
         previous_sub_scores=previous_sub_scores,

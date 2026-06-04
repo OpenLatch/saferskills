@@ -57,6 +57,13 @@ type Ingestion304RatioBucket = Literal["0-25", "25-50", "50-75", "75-100"]
 type IngestionFailureReason = Literal["rate_limit", "cf_challenge", "http_5xx", "timeout", "other"]
 type CatalogItemArchivedReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
+# I-05 install telemetry (D-05-31). agent ∈ the 8 canonical ids; kind ∈ the
+# 5-kind taxonomy. Both closed-enum — no slug, no IP, no PII.
+type InstallAgent = Literal[
+    "claude-code", "cursor", "codex", "copilot", "windsurf", "cline", "gemini", "openclaw"
+]
+type InstallKind = Literal["skill", "mcp_server", "hook", "plugin", "rules"]
+
 
 # ─── Bucket helpers ───────────────────────────────────────────────────────────
 
@@ -373,6 +380,17 @@ def emit_popularity_recompute_completed(*, top500_changed_count: int) -> None:
         "popularity_recompute_completed",
         top500_changed_count_bucket=ingestion_items_bucket(top500_changed_count),
     )
+
+
+# ─── Install-telemetry emitter (#23, D-05-31) ────────────────────────────────
+
+
+def emit_install_reported(*, agent: InstallAgent, kind: InstallKind) -> None:
+    """`install_reported` — fired when an opt-in install is reported by the CLI.
+
+    Closed-enum `agent` + `kind` only — no slug, no IP, no version string, no PII.
+    """
+    _emit("install_reported", agent=agent, kind=kind)
 
 
 # ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────

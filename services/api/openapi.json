@@ -2,9 +2,19 @@
   "components": {
     "schemas": {
       "AgentShare": {
-        "description": "One slice of the install agent-distribution row.",
+        "description": "One slice of the install agent-distribution row.\n\n`agent` is the canonical agent id (the 8-agent closed enum, D-05-14) \u2014 no\nlonger a free string now that real install telemetry (D-05-31) populates it.",
         "properties": {
           "agent": {
+            "enum": [
+              "claude-code",
+              "cursor",
+              "codex",
+              "copilot",
+              "windsurf",
+              "cline",
+              "gemini",
+              "openclaw"
+            ],
             "title": "Agent",
             "type": "string"
           },
@@ -600,6 +610,31 @@
         "title": "CatalogListEnvelope",
         "type": "object"
       },
+      "CliChallengeResponse": {
+        "description": "`GET /api/v1/scans/cli-challenge` \u2014 a fresh stateless PoW challenge for the\ninstall CLI (D-05-30). The CLI solves it offline and replays it in the\n`X-SaferSkills-CLI-PoW` header on its next scan-submit.",
+        "properties": {
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "difficulty": {
+            "title": "Difficulty",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge",
+          "difficulty",
+          "expires_at"
+        ],
+        "title": "CliChallengeResponse",
+        "type": "object"
+      },
       "DiffFile": {
         "description": "Per-file diff entry. `note` is set (and `hunks` empty) for binary /\nnot-stored / collapsed-oversize files that carry no renderable line body.",
         "properties": {
@@ -811,6 +846,17 @@
       },
       "FindingResponse": {
         "properties": {
+          "category_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Label"
+          },
           "evidence_excerpt": {
             "anyOf": [
               {
@@ -820,6 +866,17 @@
                 "type": "null"
               }
             ]
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
           },
           "file_path": {
             "title": "File Path",
@@ -852,6 +909,16 @@
             "title": "Penalty",
             "type": "integer"
           },
+          "remediation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleRemediation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "remediation_link": {
             "title": "Remediation Link",
             "type": "string"
@@ -875,6 +942,17 @@
             "title": "Severity",
             "type": "string"
           },
+          "severity_rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity Rationale"
+          },
           "status_at_scan": {
             "enum": [
               "shadow",
@@ -893,6 +971,17 @@
             ],
             "title": "Sub Score",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -1032,6 +1121,61 @@
           "agent_distribution"
         ],
         "title": "InstallActivity",
+        "type": "object"
+      },
+      "InstallReportRequest": {
+        "description": "One reported install: which capability, which agent, which kind.",
+        "properties": {
+          "agent": {
+            "enum": [
+              "claude-code",
+              "cursor",
+              "codex",
+              "copilot",
+              "windsurf",
+              "cline",
+              "gemini",
+              "openclaw"
+            ],
+            "title": "Agent",
+            "type": "string"
+          },
+          "cli_version": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cli Version"
+          },
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "slug": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "agent",
+          "kind"
+        ],
+        "title": "InstallReportRequest",
         "type": "object"
       },
       "ItemDetailResponse": {
@@ -1460,6 +1604,63 @@
           }
         },
         "title": "RepoMeta",
+        "type": "object"
+      },
+      "RuleRemediation": {
+        "description": "How to fix a finding. `action` is always present; the rest are optional.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "safer_pattern": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleSaferPattern"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "RuleRemediation",
+        "type": "object"
+      },
+      "RuleSaferPattern": {
+        "description": "Optional Avoid \u2192 Safer before/after pair for a remediation.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "title": "RuleSaferPattern",
         "type": "object"
       },
       "ScanHistoryPoint": {
@@ -3260,6 +3461,40 @@
         ]
       }
     },
+    "/api/v1/installs": {
+      "post": {
+        "operationId": "report_install_api_v1_installs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report an opt-in install (CLI).",
+        "tags": [
+          "installs"
+        ]
+      }
+    },
     "/api/v1/items": {
       "get": {
         "description": "Catalog list with the per-row latest-scan join + filters.",
@@ -4072,6 +4307,28 @@
           }
         },
         "summary": "Submit a public GitHub URL for scanning.",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/api/v1/scans/cli-challenge": {
+      "get": {
+        "description": "Mint a fresh signed PoW challenge for the install CLI (D-05-30). Declared\nBEFORE the greedy `/{scan_id}` route so the literal path wins. 503 when the\nPoW secret is unconfigured (dev/test/CI \u2014 the CLI then falls back to Turnstile).",
+        "operationId": "cli_challenge_api_v1_scans_cli_challenge_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliChallengeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Issue a stateless Proof-of-Work challenge for the install CLI.",
         "tags": [
           "scans"
         ]

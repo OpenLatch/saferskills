@@ -16,7 +16,8 @@
       "!**/*.mdx",
       "!schemas",
       "!services/api/app/templates",
-      "!ui"
+      "!ui",
+      "!cli/tests/fixtures"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },

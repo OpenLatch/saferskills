@@ -45,10 +45,13 @@ async def test_item_detail_shape(db_client: AsyncClient, seed_item: SeededItem) 
     assert len(body["scan_history"]) == 1
     assert body["scan_history"][0]["aggregate_score"] == 87
 
-    # Anonymized install activity — deterministic + agent distribution sums to 100
+    # Anonymized install activity — real GROUP-BY over install_events (I-05).
+    # A freshly-seeded item has no reported installs, so the counts are zero and
+    # the distribution is empty; when populated it sums to 100 (see test_installs).
     activity = body["install_activity"]
     assert activity["all_time"] >= activity["this_month"] >= activity["this_week"]
-    assert sum(a["percentage"] for a in activity["agent_distribution"]) == 100
+    dist = activity["agent_distribution"]
+    assert dist == [] or sum(a["percentage"] for a in dist) == 100
     # No company-level keys leak into the public payload
     assert "company" not in str(activity).lower()
 

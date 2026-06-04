@@ -1,0 +1,178 @@
+//! Subprocess coverage for the `scan` command (D-05-26/27) through the real
+//! binary against a mock API. Cross-platform: `scan` needs no detected agent, so
+//! unlike the lifecycle test this runs everywhere (and exercises the PoW solve →
+//! submit → poll chain end-to-end via `run_scan`/`scan_url`/`scan_path`/
+//! `run_local`/`obtain_pow`/`print_run_report`).
+
+use assert_cmd::Command;
+use mockito::{Matcher, Server, ServerGuard};
+use predicates::prelude::*;
+
+const SLUG: &str = "acme--gh--github-mcp";
+
+fn run_report(run_id: &str) -> serde_json::Value {
+    serde_json::json!({
+        "id": run_id,
+        "github_url": "https://github.com/acme/widget",
+        "repo_aggregate_score": 88,
+        "repo_tier": "green",
+        "kind_tally": { "mcp_server": 1 },
+        "capability_count": 1,
+        "status": "completed",
+        "capabilities": [{
+            "kind": "mcp_server",
+            "name": "github-mcp",
+            "aggregate_score": 88,
+            "tier": "green",
+            "scan_id": "scan-1",
+            "catalog_slug": SLUG,
+            "findings": []
+        }]
+    })
+}
+
+/// Mock the full CLI scan-submit surface: PoW challenge, both submit endpoints,
+/// the run poll, and the catalog reads `scan --local` needs.
+fn mock_scan_api() -> ServerGuard {
+    let mut server = Server::new();
+    // Low difficulty so the CLI solves the PoW near-instantly.
+    server
+        .mock("GET", "/api/v1/scans/cli-challenge")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({ "challenge": "cGF5bG9hZA==.deadbeefmac", "difficulty": 4, "expires_at": "2030-01-01T00:00:00Z" })
+                .to_string(),
+        )
+        .expect_at_least(1)
+        .create();
+    server
+        .mock("POST", "/api/v1/scans")
+        .with_status(202)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({ "id": "run-1", "status": "pending" }).to_string())
+        .expect_at_least(1)
+        .create();
+    server
+        .mock("POST", "/api/v1/scans/upload")
+        .with_status(202)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({ "id": "run-2", "status": "pending", "source_kind": "upload" })
+                .to_string(),
+        )
+        .expect_at_least(1)
+        .create();
+    server
+        .mock(
+            "GET",
+            Matcher::Regex(r"^/api/v1/scans/runs/run-\d".to_string()),
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(run_report("run-1").to_string())
+        .expect_at_least(1)
+        .create();
+    // For `scan --local` slug → github_url resolution.
+    server
+        .mock("GET", format!("/api/v1/items/{SLUG}").as_str())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "item": {
+                    "id": "id-1", "slug": SLUG, "kind": "mcp_server", "display_name": "github-mcp",
+                    "github_url": "https://github.com/acme/widget", "popularity_tier": "emerging",
+                    "registries": [], "agent_compatibility": []
+                }
+            })
+            .to_string(),
+        )
+        .expect_at_least(0)
+        .create();
+    server
+}
+
+fn cli(ss_dir: &std::path::Path, api: &str) -> Command {
+    let mut cmd = Command::cargo_bin("saferskills").unwrap();
+    cmd.env("SAFERSKILLS_DIR", ss_dir)
+        .env("SAFERSKILLS_API_URL", api)
+        .env("CI", "1")
+        .env("NO_COLOR", "1");
+    cmd
+}
+
+#[test]
+fn scan_github_url_public_reports_run() {
+    let ss = tempfile::tempdir().unwrap();
+    let server = mock_scan_api();
+    let out = cli(ss.path(), &server.url())
+        .args(["--json", "scan", "https://github.com/acme/widget"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).expect("scan json");
+    assert_eq!(v["run_id"], "run-1");
+    assert_eq!(v["score"], 88);
+    assert!(v["report_url"].as_str().unwrap().contains("/scans/run-1"));
+}
+
+#[test]
+fn scan_local_path_uploads_and_reports() {
+    let ss = tempfile::tempdir().unwrap();
+    let target = tempfile::tempdir().unwrap();
+    std::fs::write(target.path().join("SKILL.md"), b"---\nname: t\n---\n# t\n").unwrap();
+    let server = mock_scan_api();
+    let out = cli(ss.path(), &server.url())
+        .args(["--json", "scan", target.path().to_str().unwrap()])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    // The upload (run-2) submit → poll → report chain completed (the shared mock
+    // run report echoes score 88; its id field is fixed, so assert on the score).
+    let v: serde_json::Value = serde_json::from_slice(&out).expect("scan json");
+    assert_eq!(v["score"], 88);
+}
+
+#[test]
+fn scan_missing_target_errors() {
+    let ss = tempfile::tempdir().unwrap();
+    let server = mock_scan_api();
+    cli(ss.path(), &server.url())
+        .args(["scan", "./definitely-not-here-xyz"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("SS-E-1603"));
+}
+
+#[test]
+fn scan_local_enumerates_installed() {
+    let ss = tempfile::tempdir().unwrap();
+    // Seed a registry row with github provenance so `scan --local` resolves it.
+    let record = serde_json::json!([{
+        "canonical_id": "id-1",
+        "slug": SLUG,
+        "name": "github-mcp",
+        "kind": "mcp_server",
+        "agents": ["claude-code"],
+        "changes": [],
+        "installed_at": "2026-06-01T00:00:00Z",
+        "seen_score": 88
+    }]);
+    std::fs::write(ss.path().join("installs.json"), record.to_string()).unwrap();
+    let server = mock_scan_api();
+    let out = cli(ss.path(), &server.url())
+        .args(["--json", "scan", "--local"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).expect("scan --local json");
+    assert_eq!(v["rate_limited"], false);
+    assert_eq!(v["data"][0]["github_url"], "https://github.com/acme/widget");
+}

@@ -3,11 +3,11 @@
 The eight **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
 VendorVerification, VendorResponse (the original six) plus IngestionEvent and
 MergeCandidate (I-04) — are GENERATED from `schemas/*.schema.json` via the codegen
-pipeline (`app/models/generated/`, native PG enum columns). The twelve **internal**
+pipeline (`app/models/generated/`, native PG enum columns). The fourteen **internal**
 models — ItemSource, RateLimit, UploadFile, ArtifactBlob, ScanEvent, Author,
 CrawlerCursor, PopularityFormula, AccessLog, AdminAuditLog, IngestionRun,
-RepoFetchState — have no JSON-Schema source and no wire DTO (never serialized over
-the API), so they stay hand-written
+RepoFetchState, InstallEvent, CliPowSpent — have no JSON-Schema source and no wire DTO (never
+serialized over the API), so they stay hand-written
 under `app/models/*.py`. (A table that IS serialized over the API must be
 schema-driven/generated — see `.claude/rules/database.md` + `schema-driven-development.md`.)
 Both sets share the one `Base` (`app/models/base.py`), re-exported by the generated
@@ -28,6 +28,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.artifact_blob import ArtifactBlob
 from app.models.author import Author
 from app.models.base import Base
+from app.models.cli_pow_spent import CliPowSpent
 from app.models.crawler_cursor import CrawlerCursor
 from app.models.generated import (
     CatalogItem,
@@ -40,6 +41,7 @@ from app.models.generated import (
     VendorVerification,
 )
 from app.models.ingestion_run import IngestionRun
+from app.models.install_event import InstallEvent
 from app.models.item_source import ItemSource
 from app.models.popularity_formula import PopularityFormula
 from app.models.rate_limit import RateLimit
@@ -54,10 +56,12 @@ __all__ = [
     "Author",
     "Base",
     "CatalogItem",
+    "CliPowSpent",
     "CrawlerCursor",
     "Finding",
     "IngestionEvent",
     "IngestionRun",
+    "InstallEvent",
     "ItemSource",
     "MergeCandidate",
     "PopularityFormula",
