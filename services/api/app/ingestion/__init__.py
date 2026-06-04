@@ -55,11 +55,25 @@ procrastinate_app = App(
         "app.ingestion.framework.alerts",
         "app.ingestion.sources.github_skills_webhook",
         "app.ingestion.sources.github_topics",
+        "app.ingestion.sources.glama",
         "app.ingestion.sources.mcp_registry",
         "app.ingestion.sources.npm",
         "app.ingestion.sources.pypi",
+        "app.ingestion.sources.smithery",
     ],
 )
+
+# Priority for the cron-scheduled periodic maintenance tasks (reconcile drainer,
+# stalled-retrier, alert evaluator, archive/popularity/author/retention sweeps).
+# They share `queue="periodic"` with the bulk `recompute_one_item` fan-out (one job
+# per ingested item — thousands during a cold-start crawl). Procrastinate's
+# `fetch_job` orders by `priority DESC, id ASC`, so without a bump these scheduled
+# tasks queue *behind* the fan-out backlog and their prior run is still `todo` when
+# the next cron slot fires — which makes the periodic deferrer hit the task's
+# `queueing_lock` and log a (caught, benign) unique-violation on every tick. Giving
+# scheduled maintenance a higher priority than bulk backfill drains it within its
+# cron window, so the conflict never arises. Preserves all dedup semantics.
+PERIODIC_MAINTENANCE_PRIORITY = 10
 
 # Queues the worker listens on. Per-source ingest queues + a periodic queue
 # (Phase C tasks) + the durable `scan` queue (auto-scan jobs) + default.

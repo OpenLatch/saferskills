@@ -1,16 +1,31 @@
-# smithery.ai aggregator scraper (Phase B — config stub, adapter not yet built).
+# smithery.ai MCP-server aggregator (I-04 Phase B). Feed-first via the public
+# registry API (registry.smithery.ai/servers, no auth); GitHub hosts for enrich().
 name: smithery
 kind: scrape
 hosts:
+  # The JSON feed (registry.smithery.ai/servers) + the HTML listing fallback host.
+  - registry.smithery.ai
   - smithery.ai
-cadence_cron: null
-rate_limit_per_second: 0.1
-enabled: false
+  # GitHub hosts for the enrich() pass — the feed carries no repo signals, so an
+  # OSS server would classify quality_tier='empty' and be hidden by the catalog gate.
+  - api.github.com
+  - raw.githubusercontent.com
+cadence_cron: "15 3 * * *"
+rate_limit_per_second: 1.0
+queue: ingest_aggregator
+enabled: true
 registry_id: smithery
-description: Placeholder for the smithery.ai MCP-server aggregator scraper (Phase B).
+discovery:
+  feed_url: https://registry.smithery.ai/servers
+  listing_url: https://smithery.ai/
+  item_url_pattern: https://smithery.ai/servers/{qualifiedName}
+  page_size: 100
+  max_pages: 100
+description: Indexes public MCP-server listings from the Smithery registry API, crediting each item with a backlink.
 policy:
   summary: >-
-    Planned: index public MCP-server listings from smithery.ai, crediting each
-    item with a backlink. Disabled until the scraping adapter ships (Phase B).
+    We poll the public Smithery registry API daily, paraphrase each listing's
+    description, credit every item with a backlink, and respect its rate limits
+    and robots.txt.
   contact: bot@saferskills.ai
-  robots_txt: respected (Phase B)
+  robots_txt: respected

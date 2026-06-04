@@ -25,7 +25,7 @@ Adapters subclass one of three base classes:
 |---|---|
 | `RegistryAdapter` | Official-API sources (GitHub, npm, PyPI, MCP Registry) |
 | `WebhookAdapter` | GitHub-push webhook dispatch |
-| `ScrapingAdapter` | Aggregator HTML/sitemap scraping (Phase B) |
+| `ScrapingAdapter` | Aggregator feed/sitemap/HTML scraping (Phase B — implemented; see § Scrape fetch policy) |
 
 Every adapter:
 - Registers via `@register_adapter("<name>")` decorator.
@@ -105,6 +105,70 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - **From**: `bot@saferskills.ai`.
 - Timeouts: 30s connect, 60s read.
 
+## Scrape fetch policy (Phase B, lean — no headless browser)
+
+`ScrapingAdapter` (`framework/scraping_adapter.py`) inherits the generic
+`RegistryAdapter.run_cycle`; scrape adapters override only `list_items` / `normalize`
+/ `enrich` — **never re-implement `run_cycle`**. It adds the scrape fetch primitives:
+
+- **Discovery precedence (D-04-36): feed → sitemap → HTML.** `_fetch_feed` (JSON) and
+  `_fetch_sitemap_urls` (XML `<loc>`, parsed XXE-safe via **`defusedxml`**) go through
+  the **inherited HTTPX client** (SSRF allowlist transport + Hishel RFC-9111 cache).
+  `_fetch_html` is the tier-1 fallback via **curl_cffi** (`AsyncSession(impersonate=
+  "chrome131")`). `RawItem.payload_hint` records `discovery_path` ∈ {feed,sitemap,html}
+  (+ optional `source_rank`); both flow to the outbox payload.
+- **SSRF for non-HTTPX clients (hard rule).** curl_cffi bypasses the HTTPX
+  `_SSRFTransport`, so `_fetch_html` calls `framework/allowlist.assert_host_allowed(url,
+  self.source_hosts)` **before every request** — the single source of truth extracted
+  from `_SSRFTransport` (`http_client.py` now delegates to it). **Any new non-HTTPX
+  outbound client MUST call `assert_host_allowed` itself; the transport guard does not
+  cover it.** Plus per-source `scraping_rate_limit.acquire_scrape_slot` (curl_cffi
+  bypasses the HTTPX rate-limit hook too) + `robots.is_allowed`.
+- **No Playwright tier.** A Cloudflare interstitial (`is_cloudflare_challenge`:
+  `cf-mitigated` header, or a 403/503 from Cloudflare with a challenge body marker, or
+  the `challenge-platform`+`cf-chl` script signature) raises `AdapterBlockedError`. The
+  cycle wrapper (`tasks.run_source_cycle`) catches it, flips the source to
+  `status='blocked'` (`_mark_source_blocked`), records the failed run, emits
+  `ingestion_cycle_failed` `reason=cf_challenge`, and **returns without re-raising** (no
+  retry storm — `is_source_paused` then no-ops future ticks). A blocked Cloudflare
+  source is documented in `docs/sources.md`, not force-cracked.
+- **Shared GitHub enrich.** Scrape adapters call `framework/github_enrich.enrich_repo_facts`
+  (+ `parse_github_coords`) from `enrich()` — the `api.github.com` repo-facts +
+  `raw.githubusercontent.com` manifest fetch factored out of `mcp_registry.enrich`. A
+  feed without GitHub coordinates is a no-op (the item stays low-tier in the D-04-09
+  fuzzy queue). **Each scrape YAML must declare `api.github.com` +
+  `raw.githubusercontent.com` in `hosts:`** so the SSRF allowlist + GitHub-App-token
+  hook cover the enrich fetch.
+- **`kind: scrape` schedules automatically.** `tasks.py` registers a periodic task for
+  every `enabled` source whose `kind ∈ {api, scrape}` has a `cadence_cron` (webhook
+  sources are dispatched, not cronned). No per-adapter task wiring.
+- **Reference adapters (PR1):** `smithery` (feed `registry.smithery.ai/servers`,
+  `page`/`pageSize`) + `glama` (feed `glama.ai/api/mcp/v1/servers`, Relay `first`/`after`
+  cursor). Glama records carry `repository.url` → real tiers; Smithery exposes GitHub
+  only via the OSS subset's `homepage`. The remaining 7 HTML scrapers land in PR2.
+
+> **Deps (Phase B):** `curl_cffi` (browser-impersonating tier-1 fetch), `trafilatura`
+> (`extract_main_content`), `beautifulsoup4` + `lxml` (PR2 DOM parsing), `defusedxml`
+> (XXE-safe sitemap parse). **No Playwright / Chromium.** lxml is pinned `>=6.0.1` (the
+> first release with cp314 wheels; the plan's `~=5.3` predates Python 3.14).
+
+> **No seed migration needed for the 9 Phase-B sources.** Migration `0011` already
+> seeded one `crawler_cursors` row per source for all 14 (including the aggregators) and
+> its CHECK constraints already include every aggregator value — so enabling a Phase-B
+> adapter is YAML + adapter only, no DB migration (the "add a brand-new value" migration
+> in § Adding a provider applies only to a source name not already in the enum).
+
+## Schema-drift recovery (Windows codegen)
+
+`pnpm run generate` on Windows writes **CRLF** to generated files; `git add` normalizes
+them to LF, so a `git diff` shows phantom whole-file changes that vanish on commit.
+Verify real drift with `git diff --ignore-all-space` (the CI `validate` lane runs on
+Linux where output is already LF). A scrape YAML change flows into
+`source_registry.py::ALL_HOSTS` (the self-derived outbound allowlist) — that **is** a
+real diff and must be committed. **Inline `# comment` on a YAML `hosts:` list entry
+breaks `validate-outbound-allowlist.cjs`** (its naive line parser captures the comment
+into the host string) — put host-list comments on their own lines.
+
 ## Enrichment + quality tiering (D-04-19)
 
 `run_cycle` calls `adapter.enrich(client, normalized)` between `normalize()` and the merge — the hook that populates `metadata_files` (manifest/README) + repo signals (stars, a `size`-based commit-count proxy, default branch, license) the quality classifier needs. **An adapter whose listing feed carries no repo signals MUST implement `enrich()`**, or every item classifies `quality_tier='empty'` (`classify_quality_tier`: no README + no manifest + commit_count 0 → `empty`) and the default catalog gate (`quality_tier IN ('high','medium')`, the `list_items` soft gate) hides the whole source while the facet/header counts still count it.
@@ -149,7 +213,7 @@ Content hash = JCS/RFC-8785 canonical SHA-256 of the artifact manifest + top-lev
 
 All adapters MUST follow these rules regardless of source kind:
 
-1. **robots.txt**: check via Protego (Phase B; cached 24h) before any fetch. If `Disallow`, skip + log.
+1. **robots.txt**: check via Protego (`framework/robots.is_allowed`; cached 24h) before any scrape fetch. If `Disallow`, the fetch raises `RobotsTxtDisallow` and the item is skipped + logged. Enforced by `ScrapingAdapter._fetch_html` (see § Scrape fetch policy).
 2. **User-Agent + From**: declare on every request (see HTTP client above). Non-negotiable.
 3. **Description length**: ≤ 280 characters, paraphrased. Never reproduce a full README or manifest body in the outbox payload or catalog row.
 4. **Credit + backlink**: every catalog item sourced from an aggregator carries a `sources[].registryUrl` pointing back to the source listing.
@@ -213,6 +277,8 @@ The operator CLI is the **separate** `tools/saferskills-admin/` uv package (a th
 | Change | Updates here |
 |---|---|
 | New adapter added | "Adding a provider" — confirm YAML + `pnpm run generate` (security.md/allowlist/loader are auto-derived); CHECK migration only for a brand-new value |
+| Scrape fetch policy / tier / Cloudflare handling change | "Scrape fetch policy" + `framework/scraping_adapter.py` + `tasks.run_source_cycle` blocked path + `docs/sources.md` |
+| New non-HTTPX outbound client | "Scrape fetch policy" § SSRF — it MUST call `allowlist.assert_host_allowed` itself |
 | Provider-registry generator change | "The YAML directory is the single source of truth" + `scripts/generate-ingestion-sources.cjs` + `schema-driven-development.md` pipeline table |
 | Outbox payload shape change | "Outbox invariant" — re-verify no raw bytes in payload |
 | Procrastinate version or retry schedule change | "Procrastinate worker" |

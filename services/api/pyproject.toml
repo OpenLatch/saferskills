@@ -34,6 +34,12 @@ dependencies = [
   "rfc8785>=0.1,<1",             # JCS-canonical JSON for content_hash_sha256 (RFC 8785, OpenLatch-compatible)
   "protego>=0.4,<1",             # robots.txt parser (framework hook now; consumed by Phase B scraping)
   "cryptography>=43",            # RS256 backend for PyJWT GitHub App installation-token signing
+  # I-04 Phase B — lean aggregator scrape stack (NO Playwright/Chromium per the re-based plan)
+  "curl_cffi~=0.13",             # browser-impersonating HTTP client (tier-1 HTML fetch; Cloudflare-aware)
+  "trafilatura~=2.0",            # main-content extraction from scraped HTML (descriptions)
+  "beautifulsoup4~=4.12",        # listing/item-page DOM parsing (bs4 selectors)
+  "lxml>=6.0.1,<7",              # fast parser backend for bs4 + trafilatura (6.0.1+ ships cp314 wheels)
+  "defusedxml~=0.7",             # XXE/billion-laughs-safe XML parse for untrusted aggregator sitemaps
 ]
 
 [dependency-groups]

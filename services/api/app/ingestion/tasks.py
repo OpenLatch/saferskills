@@ -28,6 +28,7 @@ from app.ingestion import sources as _sources  # noqa: F401  # pyright: ignore[r
 from app.ingestion.config.loader import load_source_configs
 from app.ingestion.framework.base_adapter import build_adapter
 from app.ingestion.framework.cursor import is_source_paused
+from app.ingestion.framework.exceptions import AdapterBlockedError
 from app.ingestion.framework.registry_adapter import RegistryAdapter
 from app.ingestion.framework.retry import IngestionRetry
 from app.observability.events import (
@@ -72,6 +73,22 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
         started = time.monotonic()
         try:
             counters: dict[str, Any] = await adapter.run_cycle(session, settings)
+        except AdapterBlockedError as exc:
+            # Lean stack: a Cloudflare interstitial is terminal (no Playwright tier).
+            # Flip the source to `blocked` so future ticks no-op, record the failure,
+            # and DO NOT re-raise — re-raising would trigger a pointless retry storm
+            # against the same challenge. The 15-min pager (framework/alerts.py) +
+            # the eagle-eye view surface the `blocked` state + Slack alert.
+            logger.warning("ingestion.cycle_blocked", source=source_name, reason="cf_challenge")
+            emit_ingestion_cycle_failed(source=source_name, reason="cf_challenge")
+            await _mark_source_blocked(source_name, reason="cf_challenge")
+            await record_run_finished(
+                run_id,
+                status="failed",
+                duration_ms=int((time.monotonic() - started) * 1000),
+                error=exc,
+            )
+            return {"skipped": "blocked"}
         except Exception as exc:
             logger.exception("ingestion.cycle_failed", source=source_name)
             emit_ingestion_cycle_failed(source=source_name, reason="other")
@@ -164,6 +181,22 @@ async def record_run_finished(
         logger.warning("ingestion.run_record_finish_failed", run_id=str(run_id))
 
 
+async def _mark_source_blocked(source: str, *, reason: str) -> None:
+    """Flip a source's crawler_cursors.status to `blocked` in its own session.
+
+    Best-effort — a status write must never mask the original block (the cycle has
+    already failed-record + returned by the time this runs)."""
+    from app.db.session import AsyncSessionLocal
+    from app.ingestion.framework.halt import set_source_status
+
+    try:
+        async with AsyncSessionLocal() as session:
+            await set_source_status(session, source, status="blocked", reason=reason)
+            await session.commit()
+    except Exception:
+        logger.warning("ingestion.mark_blocked_failed", source=source)
+
+
 def _register_periodic(source_name: str, cron: str, queue: str) -> None:
     """Register a periodic Procrastinate task for one cadenced source."""
 
@@ -181,7 +214,10 @@ def _register_periodic(source_name: str, cron: str, queue: str) -> None:
         return await run_source_cycle(_src, trigger=trigger)
 
 
-# Build the periodic tasks by looping the YAML configs (config-first).
+# Build the periodic tasks by looping the YAML configs (config-first). Both `api`
+# and `scrape` sources schedule a periodic cycle (ScrapingAdapter ⊂ RegistryAdapter,
+# so run_source_cycle's isinstance guard passes); `webhook` sources are dispatched
+# by POST /webhooks/github, not a cron.
 for _name, _cfg in load_source_configs().items():
-    if _cfg.kind == "api" and _cfg.cadence_cron and _cfg.enabled:
+    if _cfg.kind in ("api", "scrape") and _cfg.cadence_cron and _cfg.enabled:
         _register_periodic(_name, _cfg.cadence_cron, _cfg.queue)

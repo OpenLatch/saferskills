@@ -9,6 +9,8 @@ adapter module so the registry is fully populated whenever
 # Side-effect imports: register each adapter class in ADAPTER_REGISTRY.
 from . import github_skills_webhook as _ws  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from . import github_topics as _gt  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from . import glama as _glama  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from . import mcp_registry as _mr  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from . import npm as _npm  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from . import pypi as _pypi  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from . import smithery as _smithery  # noqa: F401  # pyright: ignore[reportUnusedImport]

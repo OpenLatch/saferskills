@@ -27,7 +27,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ingestion import procrastinate_app
+from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 from app.ingestion.popularity import compute_popularity_score, get_active_weights
 
 logger = structlog.get_logger(__name__)
@@ -207,7 +207,10 @@ async def _assign_rank_tiers(session: AsyncSession) -> None:
 
 @procrastinate_app.periodic(cron="0 2 * * *")
 @procrastinate_app.task(
-    name="popularity_recompute", queue="periodic", queueing_lock="popularity_recompute_lock"
+    name="popularity_recompute",
+    queue="periodic",
+    queueing_lock="popularity_recompute_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def popularity_recompute(timestamp: int) -> dict[str, Any]:
     from app.db.session import AsyncSessionLocal

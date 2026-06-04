@@ -76,7 +76,9 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "glama": frozenset(
         {
+            "api.github.com",
             "glama.ai",
+            "raw.githubusercontent.com",
         }
     ),
     "mcp_registry": frozenset(
@@ -125,6 +127,9 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "smithery": frozenset(
         {
+            "api.github.com",
+            "raw.githubusercontent.com",
+            "registry.smithery.ai",
             "smithery.ai",
         }
     ),
@@ -144,6 +149,7 @@ ALL_HOSTS: frozenset[str] = frozenset(
         "raw.githubusercontent.com",
         "registry.modelcontextprotocol.io",
         "registry.npmjs.com",
+        "registry.smithery.ai",
         "replicate.npmjs.com",
         "skillhub.club",
         "skills.sh",
