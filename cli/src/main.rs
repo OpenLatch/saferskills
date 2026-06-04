@@ -1,0 +1,109 @@
+// The SaferSkills CLI is interactive, so it keeps the default `console`
+// subsystem on Windows (unlike openlatch-client's daemon, which uses the
+// `windows` subsystem to avoid a console window on service launch). The
+// explicit attribute documents the intent; `AttachConsole(ATTACH_PARENT_
+// PROCESS)` below reattaches stdio if the process was spawned without one.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "console")]
+
+use clap::{CommandFactory, Parser};
+
+use saferskills::cli::output::OutputConfig;
+use saferskills::cli::{self, Cli, Commands};
+use saferskills::commands;
+use saferskills::core::config::Config;
+use saferskills::core::error::SsError;
+use saferskills::core::telemetry;
+
+#[cfg(windows)]
+fn attach_parent_console_if_any() {
+    use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+    // SAFETY: FFI call with a well-known constant; returns 0 (ignored) when
+    // there is no parent console to attach to.
+    unsafe {
+        let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+}
+
+#[cfg(not(windows))]
+fn attach_parent_console_if_any() {}
+
+fn main() {
+    attach_parent_console_if_any();
+
+    // SIGINT → exit 130 (D-05-11). No telemetry flush is needed: the CLI's
+    // single `command_invoked` event is sent at the end of a normal run, not
+    // buffered, so there is nothing to lose on interrupt.
+    let _ = ctrlc::set_handler(|| std::process::exit(130));
+
+    let exit_code = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt.block_on(run()),
+        Err(e) => {
+            eprintln!("Error: failed to start async runtime: {e} (SS-E-9999)");
+            1
+        }
+    };
+    std::process::exit(exit_code);
+}
+
+/// Parse, dispatch, emit telemetry, and map the result to an exit code.
+async fn run() -> i32 {
+    let cli = Cli::parse();
+    let output = cli::build_output_config(&cli);
+
+    // Telemetry enablement: config opt-out + env opt-out + a baked key. A
+    // failed config read defaults to "allowed" (the env/key guards still apply).
+    let config_allows = Config::load()
+        .map(|c| c.telemetry_enabled())
+        .unwrap_or(true);
+    let telemetry_on = telemetry::is_enabled(config_allows);
+    telemetry::maybe_first_run_notice(&output, telemetry_on);
+
+    // No subcommand → banner + help, exit 0.
+    let Some(command) = cli.command.as_ref() else {
+        cli::header::print_full_banner(&output);
+        let _ = Cli::command().print_help();
+        return 0;
+    };
+
+    let (cmd_label, sub_label) = cli::command_label(command);
+    let started = std::time::Instant::now();
+
+    let result = dispatch(command, &output).await;
+    let exit_code = match &result {
+        Ok(()) => 0,
+        Err(e) => e.exit_code(),
+    };
+
+    let duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    telemetry::capture_command_invoked(cmd_label, sub_label, exit_code, duration_ms, telemetry_on)
+        .await;
+
+    if let Err(e) = result {
+        // `--verbose` (human) renders the fancy miette diagnostic boundary;
+        // otherwise the OutputConfig printer (human multi-line or JSON).
+        if output.verbose && !output.is_json() {
+            eprintln!("{:?}", miette::Report::new(e));
+        } else {
+            output.print_error(&e);
+        }
+    }
+    exit_code
+}
+
+/// Single `match` over the clap enum → one free `run_*` fn per command.
+async fn dispatch(command: &Commands, output: &OutputConfig) -> Result<(), SsError> {
+    match command {
+        Commands::Info(args) => commands::info::run_info(args, output).await,
+        Commands::Install(args) => commands::install::run_install(args, output).await,
+        Commands::Uninstall(args) => commands::uninstall::run_uninstall(args, output).await,
+        Commands::Update(args) => commands::update::run_update(args, output).await,
+        Commands::List(args) => commands::list::run_list(args, output).await,
+        Commands::Scan(args) => commands::scan::run_scan(args, output).await,
+        Commands::Doctor(args) => commands::doctor::run_doctor(args, output).await,
+        Commands::Completion { shell } => commands::completion::run_completion(*shell, output),
+        Commands::Man => commands::completion::run_man(output),
+    }
+}

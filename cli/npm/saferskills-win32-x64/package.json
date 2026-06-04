@@ -1,0 +1,21 @@
+{
+  "name": "@openlatch/saferskills-win32-x64",
+  "version": "0.0.0",
+  "description": "SaferSkills CLI native binary for Windows x64.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenLatch/saferskills.git"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "saferskills.exe",
+    "LICENSE"
+  ],
+  "preferUnplugged": true
+}

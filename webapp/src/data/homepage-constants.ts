@@ -22,7 +22,7 @@ export const SUPPORTED_AGENTS: SupportedAgent[] = [
     configPath: '~/.cursor/mcp.json',
   },
   {
-    id: 'codex-cli',
+    id: 'codex',
     name: 'Codex CLI',
     glyph: 'Cx',
     installPath: '~/.codex/skills/',
@@ -50,7 +50,7 @@ export const SUPPORTED_AGENTS: SupportedAgent[] = [
     configPath: '(VS Code extension)',
   },
   {
-    id: 'gemini-cli',
+    id: 'gemini',
     name: 'Gemini CLI',
     glyph: 'Gm',
     installPath: '~/.gemini/config/',

@@ -104,10 +104,10 @@ export const OpenClawLogo = (props: LogoProps) => (
 export const AGENT_LOGOS: Record<string, ComponentType<LogoProps>> = {
   'claude-code': ClaudeLogo,
   cursor: CursorLogo,
-  'codex-cli': OpenAILogo,
+  codex: OpenAILogo,
   copilot: GithubCopilotLogo,
   windsurf: WindsurfLogo,
   cline: ClineLogo,
-  'gemini-cli': GeminiLogo,
+  gemini: GeminiLogo,
   openclaw: OpenClawLogo,
 }

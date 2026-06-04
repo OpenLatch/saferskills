@@ -1,0 +1,50 @@
+{
+  "name": "saferskills",
+  "version": "0.0.0",
+  "description": "Every AI capability, independently scanned — install Skills & MCP servers with a verified SaferSkills trust score.",
+  "license": "Apache-2.0",
+  "homepage": "https://saferskills.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenLatch/saferskills.git",
+    "directory": "cli/npm/saferskills"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenLatch/saferskills/issues"
+  },
+  "keywords": [
+    "ai-agents",
+    "mcp",
+    "mcp-server",
+    "skill",
+    "skills",
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "copilot",
+    "security-scanner",
+    "trust-score",
+    "supply-chain-security",
+    "saferskills"
+  ],
+  "bin": {
+    "saferskills": "lib/index.js"
+  },
+  "files": [
+    "lib/"
+  ],
+  "scripts": {
+    "postinstall": "node lib/postinstall.js"
+  },
+  "optionalDependencies": {
+    "@openlatch/saferskills-darwin-arm64": "0.0.0",
+    "@openlatch/saferskills-darwin-x64": "0.0.0",
+    "@openlatch/saferskills-linux-x64": "0.0.0",
+    "@openlatch/saferskills-linux-arm64": "0.0.0",
+    "@openlatch/saferskills-win32-x64": "0.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
