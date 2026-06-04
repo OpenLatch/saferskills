@@ -6,6 +6,10 @@
 //! - A single `command_invoked` event carries a CLOSED-ENUM `(command,
 //!   subcommand)` label derived from the grammar — NEVER a flag value — plus
 //!   the exit code and a coarse duration bucket. No PII, ever.
+//! - Every event is tagged `product = "saferskills"` so the shared
+//!   OpenLatch-portfolio PostHog project (one project for cost — D-19's
+//!   separate-project rule superseded 2026-06-04) can filter SaferSkills data
+//!   apart. PostHog is internal analytics; public brand independence is intact.
 //! - Universal opt-out: `SAFERSKILLS_NO_TELEMETRY` / `DO_NOT_TRACK` / `CI`
 //!   (any non-empty value), or the `telemetry = false` config key.
 //! - The network POST is gated behind the `telemetry-network` feature (a blip
@@ -92,6 +96,34 @@ pub fn maybe_first_run_notice(output: &OutputConfig, enabled: bool) {
     );
 }
 
+/// Build the `command_invoked` event payload. Extracted from the send path so
+/// the shape — especially the `product` discriminator and the no-PII property
+/// set — is unit-testable without touching the network.
+fn command_invoked_payload(
+    command: &str,
+    subcommand: Option<&str>,
+    exit_code: i32,
+    duration_ms: u64,
+) -> serde_json::Value {
+    serde_json::json!({
+        "api_key": baked_key(),
+        "event": "command_invoked",
+        "properties": {
+            "distinct_id": "saferskills-cli",
+            "$process_person_profile": false,
+            // Discriminator for the shared OpenLatch-portfolio PostHog project
+            // (one project for cost — D-19's separate-project rule superseded
+            // 2026-06-04). Lets SaferSkills events be filtered apart from other
+            // products' in the same project.
+            "product": "saferskills",
+            "command": event_label(command, subcommand),
+            "exit_code": exit_code,
+            "duration_bucket": duration_bucket(duration_ms),
+            "cli_version": env!("CARGO_PKG_VERSION"),
+        }
+    })
+}
+
 /// Emit the `command_invoked` event. A no-op unless analytics are enabled; the
 /// network POST only happens under the `telemetry-network` feature and is
 /// best-effort (a failure is swallowed — telemetry must never affect the user
@@ -106,20 +138,13 @@ pub async fn capture_command_invoked(
     if !enabled {
         return;
     }
-    let payload = serde_json::json!({
-        "api_key": baked_key(),
-        "event": "command_invoked",
-        "properties": {
-            "distinct_id": "saferskills-cli",
-            "$process_person_profile": false,
-            "command": event_label(command, subcommand),
-            "exit_code": exit_code,
-            "duration_bucket": duration_bucket(duration_ms),
-            "cli_version": env!("CARGO_PKG_VERSION"),
-        }
-    });
-
-    send(payload).await;
+    send(command_invoked_payload(
+        command,
+        subcommand,
+        exit_code,
+        duration_ms,
+    ))
+    .await;
 }
 
 #[cfg(feature = "telemetry-network")]
@@ -176,5 +201,19 @@ mod tests {
     fn label_uses_grammar_not_values() {
         assert_eq!(event_label("info", None), "info");
         assert_eq!(event_label("update", Some("all")), "update:all");
+    }
+
+    #[test]
+    fn payload_tags_product_and_carries_no_pii() {
+        let p = command_invoked_payload("update", Some("all"), 0, 50);
+        assert_eq!(p["event"], "command_invoked");
+        // Discriminator for the shared PostHog project.
+        assert_eq!(p["properties"]["product"], "saferskills");
+        // Closed-enum grammar label, never a flag value.
+        assert_eq!(p["properties"]["command"], "update:all");
+        assert_eq!(p["properties"]["exit_code"], 0);
+        assert_eq!(p["properties"]["duration_bucket"], "<100ms");
+        // Person profiles stay off — no identity stitching.
+        assert_eq!(p["properties"]["$process_person_profile"], false);
     }
 }

@@ -17,11 +17,15 @@ Telemetry has three independent legs at W1:
 2. **Sentry** — errors only (no breadcrumbs containing scanned-artifact content).
 3. **OpenTelemetry** — server-side traces + metrics (OTLP exporter to a SaferSkills-owned collector).
 
-All three projects are **SaferSkills-specific and separate from any OpenLatch projects** (per the brand-independence locked-decision D-19). This protects independent voice: a SaferSkills outage never bleeds into OpenLatch dashboards, and SaferSkills product usage never feeds OpenLatch analytics.
+**Sentry + OpenTelemetry** are **SaferSkills-specific and separate from any OpenLatch projects** (per the brand-independence locked-decision D-19): a SaferSkills outage never bleeds into OpenLatch error dashboards or traces.
+
+**PostHog is the exception — D-19 is superseded for PostHog only** (founder cost decision **2026-06-04**: the PostHog plan caps the number of projects). SaferSkills shares **one** PostHog project with the rest of the OpenLatch portfolio. Separation is **by property, not by project**: every SaferSkills PostHog event carries a `product = "saferskills"` discriminator, so SaferSkills data stays filterable apart in the shared project. PostHog is **internal** analytics, never user-facing — so public brand independence (anti-recommendation, footer-only attribution) is unaffected.
 
 ## PostHog (client-side)
 
 Initialized in the webapp via `PUBLIC_POSTHOG_KEY` (cf. `environment-config.md`). At W1 the page is anonymous; PostHog identification arrives with auth in W5.
+
+**Shared-project discriminator (mandatory).** Because PostHog is one project shared across the OpenLatch portfolio (see Purpose above), **every** SaferSkills PostHog event — webapp, backend, and the install CLI (`cli/src/core/telemetry.rs`) — MUST carry the property `product: "saferskills"`. It is the filter that keeps SaferSkills insights/dashboards isolated inside the shared project. The install CLI emits it today; the webapp/backend emitters add it when their PostHog wiring lands.
 
 ### Closed-enum event names
 
@@ -115,7 +119,7 @@ The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes 
 1. **No PII anywhere.** PostHog property values, Sentry breadcrumbs, OTel span attributes — all three legs treat user input as untrusted and scrub it.
 2. **Closed-enum event names + property values.** Adding an event = a `webapp/src/lib/analytics.ts` entry change reviewed in the PR.
 3. **Bucketed numerics, never raw counts** in PostHog property values.
-4. **Separate vendor projects** for PostHog + Sentry + OTel — never share a project / DSN / endpoint with another product.
+4. **Separate vendor projects** for Sentry + OTel — never share a DSN / endpoint with another product. **PostHog is the exception** (one shared OpenLatch-portfolio project for cost — D-19 superseded 2026-06-04): SaferSkills events are separated by the `product: "saferskills"` property, not by project.
 5. **Brand-independence**: when documentation or dashboards reference "the SaferSkills team", they reference SaferSkills maintainers only — never label cross-product dashboards.
 
 ## When to update this rule
@@ -125,6 +129,7 @@ The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes 
 | New event prefix added | "Closed-enum event names" table + `webapp/src/lib/analytics.ts` |
 | New scan-engine event | "Event allowlist — scan engine" table (bump the event count) + `services/api/app/observability/events.py` typed helper |
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |
+| PostHog project-sharing / `product` discriminator change | "Purpose" + Hard rules #4 + the shared-project discriminator note + `cli/src/core/telemetry.rs` |
 | Sentry sample rate / scope change | "Sentry" |
 | New OTel exporter / endpoint | "OpenTelemetry" + `environment-config.md` |
 | New vendor (e.g. a separate logs sink) | New section here + `environment-config.md` |
