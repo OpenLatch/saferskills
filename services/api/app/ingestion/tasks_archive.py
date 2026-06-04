@@ -21,7 +21,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ingestion import procrastinate_app
+from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 
 logger = structlog.get_logger(__name__)
 
@@ -91,7 +91,12 @@ async def run_archive_check(session: AsyncSession) -> dict[str, int]:
 
 
 @procrastinate_app.periodic(cron="0 3 * * *")
-@procrastinate_app.task(name="archive_check", queue="periodic", queueing_lock="archive_check_lock")
+@procrastinate_app.task(
+    name="archive_check",
+    queue="periodic",
+    queueing_lock="archive_check_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
+)
 async def archive_check(timestamp: int) -> dict[str, int]:
     from app.db.session import AsyncSessionLocal
 

@@ -53,6 +53,10 @@ class OutboxWriter:
                 "fetch_tier": raw.fetch_tier,
                 "duration_ms": raw.duration_ms,
                 "from_cache": raw.from_cache,
+                # How the item was discovered (scrape adapters: feed|sitemap|html)
+                # + an optional source-provided rank. Read from raw.payload_hint.
+                "discovery_path": raw.payload_hint.get("discovery_path"),
+                "source_rank": raw.payload_hint.get("source_rank"),
                 # NEVER persist metadata-file bytes — only their hashes.
                 "metadata_file_hashes": {
                     fn: _sha256(b) for fn, b in (normalized.metadata_files or {}).items()

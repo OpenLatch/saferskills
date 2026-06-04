@@ -12,14 +12,17 @@ from __future__ import annotations
 import structlog
 from sqlalchemy import text
 
-from app.ingestion import procrastinate_app
+from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 
 logger = structlog.get_logger(__name__)
 
 
 @procrastinate_app.periodic(cron="30 4 * * *")
 @procrastinate_app.task(
-    name="author_summary_refresh", queue="periodic", queueing_lock="author_summary_refresh_lock"
+    name="author_summary_refresh",
+    queue="periodic",
+    queueing_lock="author_summary_refresh_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def author_summary_refresh(timestamp: int) -> dict[str, int]:
     from app.db.session import async_engine

@@ -16,7 +16,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ingestion import procrastinate_app
+from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 
 logger = structlog.get_logger(__name__)
 
@@ -43,7 +43,10 @@ async def sweep_access_log(session: AsyncSession, *, days: int = _RETENTION_DAYS
 
 @procrastinate_app.periodic(cron="0 4 * * *")
 @procrastinate_app.task(
-    name="access_log_retention", queue="periodic", queueing_lock="access_log_retention_lock"
+    name="access_log_retention",
+    queue="periodic",
+    queueing_lock="access_log_retention_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def access_log_retention(timestamp: int) -> dict[str, int]:
     from app.db.session import AsyncSessionLocal

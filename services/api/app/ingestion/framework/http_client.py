@@ -14,7 +14,6 @@ Every adapter calls `HttpClientFactory.build(adapter, settings)` to get a client
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import time
 from typing import Any
 
@@ -24,18 +23,11 @@ from hishel.httpx import AsyncCacheTransport
 
 from app.core.config import Settings
 from app.core.github_app_token import get_github_app_installation_token
+from app.ingestion.framework.allowlist import assert_host_allowed
 from app.ingestion.framework.base_adapter import BaseAdapter
-from app.ingestion.framework.exceptions import BodyTooLargeError, OutboundDenyError
+from app.ingestion.framework.exceptions import BodyTooLargeError
 
 _MAX_BODY_BYTES = 26_214_400  # 25 MiB
-_PRIVATE_NETS = (
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("::1/128"),
-)
 
 # Per-source coordination (keyed by source name) — survives across cycles.
 _SEMAPHORES: dict[str, asyncio.Semaphore] = {}
@@ -43,24 +35,17 @@ _LAST_REQUEST_TS: dict[str, float] = {}
 
 
 class _SSRFTransport(httpx.AsyncHTTPTransport):
-    """Enforce the per-adapter host allowlist + a private-IP denylist before each request."""
+    """Enforce the per-adapter host allowlist + a private-IP denylist before each request.
+
+    Delegates to the shared `allowlist.assert_host_allowed` (single source of truth,
+    also called directly by the curl_cffi scrape fetches that bypass this transport)."""
 
     def __init__(self, allowlist: set[str]) -> None:
         super().__init__()
         self._allowlist = {h.lower() for h in allowlist}
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        host = (request.url.host or "").lower()
-        if host not in self._allowlist:
-            raise OutboundDenyError(
-                f"OUTBOUND DENY: {host} not in allowlist {sorted(self._allowlist)}"
-            )
-        try:
-            ip = ipaddress.ip_address(host)
-            if any(ip in net for net in _PRIVATE_NETS):
-                raise OutboundDenyError(f"SSRF DENY: private IP {host}")
-        except ValueError:
-            pass  # hostname (not a literal IP) — allowlist already gated it
+        assert_host_allowed(str(request.url), self._allowlist)
         return await super().handle_async_request(request)
 
 

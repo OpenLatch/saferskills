@@ -29,7 +29,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.ingestion import procrastinate_app
+from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 from app.ingestion.config.loader import load_source_configs
 
 logger = structlog.get_logger(__name__)
@@ -133,7 +133,10 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
 
 @procrastinate_app.periodic(cron="*/15 * * * *")
 @procrastinate_app.task(
-    name="alert_evaluator", queue="periodic", queueing_lock="alert_evaluator_lock"
+    name="alert_evaluator",
+    queue="periodic",
+    queueing_lock="alert_evaluator_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def alert_evaluator(timestamp: int) -> dict[str, int]:
     from app.db.session import AsyncSessionLocal

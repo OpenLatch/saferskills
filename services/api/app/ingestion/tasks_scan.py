@@ -45,7 +45,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.ingestion import procrastinate_app
+from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 from app.models.repo_fetch_state import RepoFetchState
 from app.models.scan import Scan
 from app.models.scan_run import ScanRun
@@ -405,16 +405,33 @@ async def defer_scan_job(github_url: str, reason: str = "reconcile") -> bool:
     (the drainer + the merger on-ingest hook can't double-enqueue); `lock`
     prevents two scans of the same repo running concurrently. Returns False when
     a job is already enqueued (or on any defer error — never breaks the caller).
+
+    The `queueing_lock` pre-check is load-bearing for log hygiene, not just speed:
+    Procrastinate's batch defer (`procrastinate_defer_jobs_v1`) does a plain INSERT
+    and lets the partial-unique-index violation raise `AlreadyEnqueued`. Postgres
+    logs every such failed INSERT as an ERROR even though we catch it — so during a
+    full-feed crawl the merger on-ingest hook re-deferring thousands of
+    already-queued repos floods the DB log. Checking the lock first (the index only
+    covers `status='todo'`, so this matches exactly what the INSERT would conflict
+    on) keeps the steady-state path INSERT-free. The `AlreadyEnqueued` catch stays
+    as the race backstop.
     """
     if not github_url:
         return False
+    lock = f"scan:{github_url}"
     try:
         from procrastinate.exceptions import AlreadyEnqueued
 
+        existing = await procrastinate_app.job_manager.list_jobs_async(
+            queueing_lock=lock, status="todo"
+        )
+        if next(iter(existing), None) is not None:
+            return False
+
         try:
             await scan_capability_repo.configure(
-                queueing_lock=f"scan:{github_url}",
-                lock=f"scan:{github_url}",
+                queueing_lock=lock,
+                lock=lock,
             ).defer_async(github_url=github_url, reason=reason)
             return True
         except AlreadyEnqueued:
@@ -469,7 +486,10 @@ async def run_reconcile(session: AsyncSession, *, defer: DeferFn) -> int:
 
 @procrastinate_app.periodic(cron="*/10 * * * *")
 @procrastinate_app.task(
-    name="auto_scan_reconcile", queue="periodic", queueing_lock="auto_scan_reconcile_lock"
+    name="auto_scan_reconcile",
+    queue="periodic",
+    queueing_lock="auto_scan_reconcile_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def auto_scan_reconcile(timestamp: int) -> dict[str, Any]:
     settings = get_settings()
@@ -485,7 +505,10 @@ async def auto_scan_reconcile(timestamp: int) -> dict[str, Any]:
 
 @procrastinate_app.periodic(cron="*/15 * * * *")
 @procrastinate_app.task(
-    name="scan_stalled_retrier", queue="periodic", queueing_lock="scan_stalled_retrier_lock"
+    name="scan_stalled_retrier",
+    queue="periodic",
+    queueing_lock="scan_stalled_retrier_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def scan_stalled_retrier(timestamp: int) -> dict[str, int]:
     """Re-queue `scan`-queue jobs the worker abandoned on a restart (durability)."""
