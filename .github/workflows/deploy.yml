@@ -173,7 +173,7 @@ jobs:
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
-          CLI_POW_SECRET: ${{ secrets.CLI_POW_SECRET }}
+          SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -200,11 +200,11 @@ jobs:
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
           fi
-          # CLI_POW_SECRET is the trust anchor of the stateless CLI Proof-of-Work
+          # SAFERSKILLS_CLI_POW_SECRET is the trust anchor of the stateless CLI Proof-of-Work
           # scan-submit gate (security.md #12). Without it the API startup guard
           # hard-fails boot since ENV=staging — set the GH secret before first deploy.
-          if [ -n "$CLI_POW_SECRET" ]; then
-            flyctl secrets set --stage --app saferskills-api-staging CLI_POW_SECRET="$CLI_POW_SECRET"
+          if [ -n "$SAFERSKILLS_CLI_POW_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
@@ -300,7 +300,7 @@ jobs:
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
-          CLI_POW_SECRET: ${{ secrets.CLI_POW_SECRET }}
+          SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -327,11 +327,11 @@ jobs:
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-api SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
           fi
-          # CLI_POW_SECRET anchors the stateless CLI Proof-of-Work scan-submit gate
+          # SAFERSKILLS_CLI_POW_SECRET anchors the stateless CLI Proof-of-Work scan-submit gate
           # (security.md #12). With ENV=production the API startup guard REQUIRES it —
           # set the GH secret before the first prod deploy.
-          if [ -n "$CLI_POW_SECRET" ]; then
-            flyctl secrets set --stage --app saferskills-api CLI_POW_SECRET="$CLI_POW_SECRET"
+          if [ -n "$SAFERSKILLS_CLI_POW_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-api SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do

@@ -30,7 +30,7 @@ def _configure(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[repo
     # Both gates configured: Turnstile active (so the non-PoW path would 403) AND
     # the PoW secret set — proving the PoW path is what lets the request through.
     monkeypatch.setattr(get_settings(), "turnstile_secret_key", "1x000...AA")
-    monkeypatch.setattr(get_settings(), "cli_pow_secret", "test-pow-secret")
+    monkeypatch.setattr(get_settings(), "saferskills_cli_pow_secret", "test-pow-secret")
     monkeypatch.setattr(get_settings(), "cli_pow_difficulty", _DIFFICULTY)
 
     async def _noop(*_a: object, **_k: object) -> None:
@@ -63,7 +63,7 @@ async def test_cli_challenge_200(db_client: AsyncClient) -> None:
 async def test_cli_challenge_503_when_unset(
     db_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(get_settings(), "cli_pow_secret", None)
+    monkeypatch.setattr(get_settings(), "saferskills_cli_pow_secret", None)
     r = await db_client.get("/api/v1/scans/cli-challenge")
     assert r.status_code == 503
     assert r.json()["detail"]["error"] == "pow_unavailable"

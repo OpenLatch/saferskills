@@ -30,7 +30,7 @@ _DIFFICULTY = 8  # low so the test solver is fast
 
 @pytest.fixture(autouse=True)
 def _configure(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
-    monkeypatch.setattr(get_settings(), "cli_pow_secret", _SECRET)
+    monkeypatch.setattr(get_settings(), "saferskills_cli_pow_secret", _SECRET)
     monkeypatch.setattr(get_settings(), "cli_pow_difficulty", _DIFFICULTY)
 
 
@@ -103,7 +103,7 @@ async def test_malformed_header_is_rejected(db_session: AsyncSession) -> None:
 async def test_secret_unset_disables(
     db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(get_settings(), "cli_pow_secret", None)
+    monkeypatch.setattr(get_settings(), "saferskills_cli_pow_secret", None)
     with pytest.raises(PowDisabled):
         issue_challenge()
     with pytest.raises(PowDisabled):

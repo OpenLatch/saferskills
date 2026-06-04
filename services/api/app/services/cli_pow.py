@@ -15,7 +15,7 @@ EXACT WIRE BYTE-LAYOUT — the CLI (`cli/src/core/pow.rs`) MUST match bit-for-bi
               separators=(",", ":"), sort_keys=True)` — a compact, key-sorted
               JSON object. `exp` is a Unix timestamp (seconds); `nonce` is 32 hex
               chars (16 random bytes).
-2. mac      = hex(HMAC_SHA256(key=cli_pow_secret_utf8, msg=payload))  (64 chars)
+2. mac      = hex(HMAC_SHA256(key=saferskills_cli_pow_secret_utf8, msg=payload))  (64 chars)
 3. payload_b64 = base64.urlsafe_b64encode(payload).decode("ascii")  (incl. '=' pad)
 4. challenge = f"{payload_b64}.{mac}"            ← the opaque string handed to the CLI
 5. The CLI finds a `solution` (an ASCII string with NO '.') such that
@@ -55,7 +55,7 @@ CHALLENGE_TTL_SECONDS = 300
 
 
 class PowDisabled(Exception):
-    """No `cli_pow_secret` configured — the gate cannot operate (→ 503)."""
+    """No `saferskills_cli_pow_secret` configured — the gate cannot operate (→ 503)."""
 
 
 class PowRejected(Exception):
@@ -100,13 +100,13 @@ def issue_challenge() -> tuple[str, int, datetime]:
     Raises `PowDisabled` when no secret is configured (the route maps it to 503).
     """
     settings = get_settings()
-    if not settings.cli_pow_secret:
+    if not settings.saferskills_cli_pow_secret:
         raise PowDisabled("CLI Proof-of-Work secret is not configured")
     expires_at = datetime.now(UTC) + timedelta(seconds=CHALLENGE_TTL_SECONDS)
     exp = int(expires_at.timestamp())
     nonce = secrets.token_hex(16)
     payload = _payload_bytes(exp, nonce)
-    mac = _mac(settings.cli_pow_secret, payload)
+    mac = _mac(settings.saferskills_cli_pow_secret, payload)
     challenge = f"{_b64url(payload)}.{mac}"
     return challenge, settings.cli_pow_difficulty, expires_at
 
@@ -121,7 +121,7 @@ async def verify_pow(header: str | None, session: AsyncSession) -> None:
     the Postgres log) and without dirtying the transaction.
     """
     settings = get_settings()
-    if not settings.cli_pow_secret:
+    if not settings.saferskills_cli_pow_secret:
         raise PowDisabled("CLI Proof-of-Work secret is not configured")
     if not header:
         raise PowRejected("missing PoW header")
@@ -139,7 +139,7 @@ async def verify_pow(header: str | None, session: AsyncSession) -> None:
         payload = _b64url_decode(payload_b64)
     except (ValueError, TypeError) as exc:
         raise PowRejected("undecodable PoW payload") from exc
-    expected_mac = _mac(settings.cli_pow_secret, payload)
+    expected_mac = _mac(settings.saferskills_cli_pow_secret, payload)
     if not hmac.compare_digest(expected_mac, mac):
         raise PowRejected("bad PoW signature")
 
