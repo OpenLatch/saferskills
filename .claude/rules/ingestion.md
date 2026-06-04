@@ -103,6 +103,13 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - **From**: `bot@saferskills.ai`.
 - Timeouts: 30s connect, 60s read.
 
+## Enrichment + quality tiering (D-04-19)
+
+`run_cycle` calls `adapter.enrich(client, normalized)` between `normalize()` and the merge — the hook that populates `metadata_files` (manifest/README) + repo signals (stars, a `size`-based commit-count proxy, default branch, license) the quality classifier needs. **An adapter whose listing feed carries no repo signals MUST implement `enrich()`**, or every item classifies `quality_tier='empty'` (`classify_quality_tier`: no README + no manifest + commit_count 0 → `empty`) and the default catalog gate (`quality_tier IN ('high','medium')`, the `list_items` soft gate) hides the whole source while the facet/header counts still count it.
+
+- `github_topics` enriches from `raw.githubusercontent.com`; `mcp_registry` enriches from **both** `api.github.com` (repo facts) **and** `raw.githubusercontent.com` (mcp.json/server.json/README) — its YAML `hosts:` declares all three so the per-adapter SSRF allowlist + the GitHub-App-token hook (`http_client.py`, keyed on `api.github.com` in the host set) cover the fetch. Adding the hosts to the YAML + `pnpm run generate` is the only wiring needed (self-derived allowlist).
+- **Re-tier on update**: `merger._apply_update` recomputes `quality_tier` from a re-crawled item **only** when it carries enrichment signals (`_has_enrichment_signals`: any `metadata_files`, `stars is not None`, or a `commit_count` proxy). This heals rows ingested before the source learned to enrich — but a cursor-based feed (mcp_registry) only re-yields a server on a **cursor reset**, so backfilling already-ingested rows requires resetting `crawler_cursors.updated_since` (e.g. to epoch) to force a full re-crawl. A signal-less aggregator update never downgrades a tiered row.
+
 ## Conflict resolution (D-04-11)
 
 **GitHub always wins.** When sources disagree on author / description / license / etc., GitHub repo data (`SKILL.md`, `mcp.json`, `package.json`, `pyproject.toml`) is the source of truth. Other sources fill blanks but never override an existing GitHub-sourced value. Every disagreement is logged in `ingestion_events.payload.conflicts` with both values, the chosen value, and the reason.

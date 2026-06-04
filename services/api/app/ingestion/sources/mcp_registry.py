@@ -228,6 +228,62 @@ class McpRegistryAdapter(RegistryAdapter):
             github_url=github_url,
             source_url=source_url,
             kind="mcp_server",
-            metadata_files={},
+            metadata_files={},  # populated by enrich()
             aggregator_listings=[self.config.name],
         )
+
+    async def enrich(self, client: Any, normalized: NormalizedItem) -> None:
+        """Fetch GitHub repo facts + manifest/README so the quality classifier can
+        tier registry servers instead of defaulting every one to `empty`.
+
+        The /v0/servers feed carries no repo signals, so `classify_quality_tier`
+        sees `is_empty=True` for every item and the default catalog gate
+        (`quality_tier IN ('high','medium')`, D-04-19) hides the whole catalog.
+        This pass populates `stars` + a `commit_count` proxy (repo `size`) +
+        manifest/README bytes so a real listing tiers to `medium`/`high`.
+
+        Best-effort: any fetch failure leaves the item as the feed presented it
+        (still indexable, just lower-tier). Mirrors `github_topics.enrich`.
+        """
+        org, repo = normalized.github_org, normalized.github_repo
+        if not org or not repo:
+            return
+
+        try:
+            r = await client.get(f"https://api.github.com/repos/{org}/{repo}")
+            if r.status_code == 200:
+                body: dict[str, Any] = r.json()
+                stars = body.get("stargazers_count")
+                if isinstance(stars, int):
+                    normalized.stars = stars
+                # GitHub repo `size` (KB) is the same commit-count proxy
+                # github_topics uses — a non-zero size lifts an item out of `empty`.
+                size = body.get("size")
+                if isinstance(size, int):
+                    normalized.payload_hint = {**normalized.payload_hint, "commit_count": size}
+                branch = body.get("default_branch")
+                if isinstance(branch, str) and branch:
+                    normalized.default_branch = branch
+                pushed = body.get("pushed_at")
+                if isinstance(pushed, str) and pushed:
+                    normalized.pushed_at = pushed
+                if body.get("archived"):
+                    normalized.repo_archived = True
+                lic = body.get("license")
+                if isinstance(lic, dict):
+                    spdx = cast("dict[str, Any]", lic).get("spdx_id")
+                    # GitHub returns "NOASSERTION" for unrecognized licenses.
+                    if isinstance(spdx, str) and spdx and spdx != "NOASSERTION":
+                        normalized.license_spdx = spdx
+        except Exception:
+            logger.debug("mcp_registry.enrich_repo_meta_failed", org=org, repo=repo)
+
+        branch = normalized.default_branch or "main"
+        for filename in ("mcp.json", "server.json", "README.md"):
+            url = f"https://raw.githubusercontent.com/{org}/{repo}/{branch}/{filename}"
+            try:
+                r = await client.get(url)
+                if r.status_code == 200:
+                    normalized.metadata_files[filename] = r.content
+            except Exception:
+                logger.debug("mcp_registry.enrich_file_failed", org=org, repo=repo, file=filename)

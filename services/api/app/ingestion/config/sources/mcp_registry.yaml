@@ -3,6 +3,12 @@ name: mcp_registry
 kind: api
 hosts:
   - registry.modelcontextprotocol.io
+  # GitHub hosts for the enrich() pass: the /v0/servers feed carries no repo
+  # signals (stars, commit count, manifest), so every server would classify as
+  # quality_tier='empty' and be hidden by the default catalog gate. enrich()
+  # fetches repo facts + manifest/README so registry servers tier properly.
+  - api.github.com
+  - raw.githubusercontent.com
 cadence_cron: "0 * * * *"
 rate_limit_per_second: 2.0
 queue: ingest_mcp_registry

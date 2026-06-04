@@ -11,7 +11,10 @@ Contracts:
   - D-04-09 dedup: per-capability slug auto-merge ONLY; no GitHub URL → fuzzy queue.
   - D-04-11 conflict: GitHub always wins (other sources fill blanks, never override).
   - D-04-31 agent_compatibility: classifier writes the EXISTING column (0003).
-  - D-04-19 quality_tier: soft gate.
+  - D-04-19 quality_tier: soft gate. Set on insert; RE-tiered on update only when
+    the incoming item carries enrichment signals (`_has_enrichment_signals`) so a
+    re-crawl that enriches (e.g. mcp_registry) heals rows first ingested without
+    repo signals. A signal-less update never downgrades a tiered row.
 
 Returns: 'added' | 'updated' | 'added_with_merge_candidate'.
 """
@@ -62,6 +65,16 @@ def _clamp_license(value: str | None) -> str | None:
         return None
     first = value.strip().splitlines()[0].strip() if value.strip() else ""
     return first[:_LICENSE_SPDX_MAX] or None
+
+
+def _has_enrichment_signals(n: NormalizedItem) -> bool:
+    """True when the incoming item carries repo signals an `enrich()` pass fetched
+    (manifest/README bytes, stars, or a commit-count proxy).
+
+    Gates re-tiering on update: only a source that actually fetched repo facts may
+    recompute `quality_tier`. A bare/aggregator update with no signals must never
+    downgrade a well-tiered row back to `empty` (D-04-19 soft gate)."""
+    return bool(n.metadata_files) or n.stars is not None or bool(n.payload_hint.get("commit_count"))
 
 
 def _capability_slug(n: NormalizedItem, kind: str) -> str | None:
@@ -222,6 +235,22 @@ class MergeEngine:
             meta["last_hash_change_at"] = _now().isoformat()
             # The top-500 rug-pull alert (D-04-16) was descoped from Phase C; the
             # hash-change timestamp is still recorded here for a future re-scan trigger.
+
+        # Re-tier from fresh enrichment so a re-crawl heals rows ingested before the
+        # source learned to enrich (e.g. the mcp_registry backfill — its cursor-based
+        # feed only re-yields a server on a reset). Gated to items that actually
+        # carry repo signals so a bare update never downgrades a tiered row (D-04-19).
+        if _has_enrichment_signals(n):
+            _ckind, kind_signals, quality_tier, quality_signals, _agents = classify_all(n)
+            existing.quality_tier = quality_tier
+            existing.quality_signals = quality_signals
+            existing.kind_signals = kind_signals
+            if n.stars is not None:
+                existing.github_stars = n.stars
+                meta["stars"] = n.stars
+            if n.pushed_at is not None:
+                existing.pushed_at = _parse_dt(n.pushed_at)
+                meta["pushed_at"] = n.pushed_at
 
         meta["conflicts"] = conflicts
         existing.item_metadata = meta
