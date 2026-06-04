@@ -172,6 +172,7 @@ jobs:
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
+          SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -191,6 +192,12 @@ jobs:
           # ENV=staging — the keyless exemption is local-dev only.
           if [ -n "$SAFERSKILLS_ADMIN_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_ADMIN_KEY="$SAFERSKILLS_ADMIN_KEY"
+          fi
+          # SLACK_ALERTS_WEBHOOK_URL is the page-tier sink for ingestion alerts
+          # (framework/alerts.py). Repo-level GH secret — same value both envs.
+          # Optional: unset → alerts degrade to Sentry/PostHog only, no Slack page.
+          if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
@@ -285,6 +292,7 @@ jobs:
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
+          SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -304,6 +312,12 @@ jobs:
           # ENV=production — the keyless exemption is local-dev only.
           if [ -n "$SAFERSKILLS_ADMIN_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api SAFERSKILLS_ADMIN_KEY="$SAFERSKILLS_ADMIN_KEY"
+          fi
+          # SLACK_ALERTS_WEBHOOK_URL is the page-tier sink for ingestion alerts
+          # (framework/alerts.py). Repo-level GH secret — same value both envs.
+          # Optional: unset → alerts degrade to Sentry/PostHog only, no Slack page.
+          if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
+            flyctl secrets set --stage --app saferskills-api SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do
