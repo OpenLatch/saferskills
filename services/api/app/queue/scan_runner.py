@@ -17,18 +17,16 @@ half; the AsyncSession is per-emit so each event is a separate small commit
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import secrets
 import traceback
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.db_pool import get_pool
 from app.db.session import AsyncSessionLocal
 from app.models.scan import Scan, ScanEvent
@@ -40,17 +38,9 @@ logger = logging.getLogger(__name__)
 
 STAGES_SCORING = ("security", "supply_chain", "maintenance", "transparency", "community")
 
-# Closed map: scan depth → the catalog_items recency column it stamps on
-# completion (migration 0012). Used by enqueue_scan's completion wrapper; the
-# keys are the only legal `depth` values so the column name is never user-derived.
-_RECENCY_COLUMN: dict[str, str] = {
-    "deep": "last_deep_scan_at",
-    "lite": "last_lite_scan_at",
-}
-
-# Strong refs to auto-scan background tasks so the event loop can't GC them
-# mid-run (mirrors `_background_tasks` in routers/scans.py for the submit path).
-_enqueue_tasks: set[asyncio.Task[None]] = set()
+# A run still pending/running past this is an orphan of an interactive
+# (asyncio.create_task) submission dropped by a restart — recover marks it failed.
+_STALE_RUN_GRACE_MINUTES = 15
 
 
 async def _next_event_seq(
@@ -408,89 +398,35 @@ async def scan_run_upload(
             logger.exception("scan_run_upload %s final emit also failed", run_id)
 
 
-async def _run_scan_and_stamp(
-    run_id: UUID, github_url: str, rubric_version: str, depth: str
-) -> None:
-    """Run a repo scan to completion, then stamp the scan-depth recency column on
-    every PUBLIC GITHUB capability sharing this repo URL (migration 0012).
-
-    A repo fans out to N capability rows (migration 0007); a Deep/Lite re-scan
-    refreshes all of them, so the recency stamp lands on all public github rows of
-    the repo. `scans.tier` stays the trust badge — this only records *when* a scan
-    of this depth last completed, which the auto-scan triggers read for recency.
-    """
-    await scan_run_repo(run_id, github_url, rubric_version)
-    column = _RECENCY_COLUMN[depth]  # KeyError on an illegal depth — never user input
-    try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(
-                text(
-                    f"UPDATE catalog_items SET {column} = now(), updated_at = now() "
-                    "WHERE github_url = :url "
-                    "AND source_kind = 'github' AND visibility = 'public'"
-                ),
-                {"url": github_url},
-            )
-            await session.commit()
-    except Exception:
-        logger.exception("enqueue_scan: stamping %s for %s failed", column, github_url)
-
-
-async def enqueue_scan(*, catalog_item_id: str, github_url: str, depth: str) -> UUID:
-    """Auto-scan entry point for the ingestion periodic tasks (D-04-14/15).
-
-    Reuses the EXACT on-demand path POST /scans uses — insert a pending
-    `scan_runs` row, then `asyncio.create_task` the repo scan — so auto-triggered
-    scans flow through the one deterministic engine. A per-call nonce in the
-    idempotency key forces a fresh run every time (we want a new scan to refresh
-    the recency stamp, never a cached-run no-op). On completion the wrapper stamps
-    `last_<depth>_scan_at`. `depth` ∈ {"deep","lite"}.
-
-    `catalog_item_id` identifies the triggering capability for the caller's
-    bookkeeping; the scan itself is repo-level (fans out to all capabilities).
-    """
-    if depth not in _RECENCY_COLUMN:
-        raise ValueError(f"depth must be 'deep' or 'lite', got {depth!r}")
-    settings = get_settings()
-    rubric_version = settings.rubric_version or settings.git_sha or "unknown"
-    engine_version = settings.engine_version or settings.git_sha or "unknown"
-    idempotency_key = persistence.compute_idempotency_key(
-        github_url,
-        ref_sha="0" * 40,
-        rubric_version=rubric_version,
-        nonce=secrets.token_hex(16),
-    )
-    async with AsyncSessionLocal() as session:
-        run = await persistence.persist_pending_scan_run(
-            session,
-            idempotency_key=idempotency_key,
-            github_url=github_url,
-            rubric_version=rubric_version,
-            engine_version=engine_version,
-            source="ingestion",
-            visibility="public",
-            source_kind="github",
-        )
-        await session.commit()
-        run_id = run.id
-
-    task = asyncio.create_task(_run_scan_and_stamp(run_id, github_url, rubric_version, depth))
-    _enqueue_tasks.add(task)
-    task.add_done_callback(_enqueue_tasks.discard)
-    return run_id
-
-
 async def recover_stale_scans() -> None:
-    """Startup hook: re-enqueue any scan whose status is `pending` or whose last
-    progress event is older than 5 min and not in a terminal state.
+    """Startup hook: mark orphaned INTERACTIVE runs failed (honest terminal state).
 
-    Stub implementation in Phase B — the engine is in-process so a server restart
-    drops the scan; we do NOT auto-restart it because that risks duplicate
-    findings on the same idempotency key. We instead mark stale scans as failed
-    in a follow-up PR. For Phase B we only log the count.
+    The interactive `POST /scans` path is `asyncio.create_task` — a Machine
+    restart drops the in-flight coroutine, leaving its `scan_runs` row stuck
+    `pending`/`running` forever. Any run still non-terminal past a grace window is
+    such an orphan; flip it to `failed` so the report surface shows an honest
+    state (re-submitting re-scans).
+
+    The DURABLE bulk path (`scan_capability_repo`) self-heals and is left alone:
+    Procrastinate retries the job (idempotent on its run key) + the reconciliation
+    `last_scanned_at IS NULL` predicate re-selects anything that never finished.
     """
+    cutoff = datetime.now(UTC) - timedelta(minutes=_STALE_RUN_GRACE_MINUTES)
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(func.count(Scan.id)).where(Scan.aggregate_score == 0))
-        stale_count = int(result.scalar_one())
-        if stale_count > 0:
-            logger.info("startup: %d scan(s) appear to be incomplete", stale_count)
+        recovered = await mark_stale_runs_failed(session, cutoff=cutoff)
+        await session.commit()
+        if recovered:
+            logger.info("startup: marked %d stale scan run(s) failed", recovered)
+
+
+async def mark_stale_runs_failed(session: AsyncSession, *, cutoff: datetime) -> int:
+    """Flip every run still `pending`/`running` and created before `cutoff` to
+    `failed`. Returns the count. The session-taking inner of `recover_stale_scans`
+    (the caller owns the commit)."""
+    result = await session.execute(
+        update(ScanRun)
+        .where(ScanRun.status.in_(["pending", "running"]))
+        .where(ScanRun.created_at < cutoff)
+        .values(status="failed", updated_at=datetime.now(UTC))
+    )
+    return int(cast("Any", result).rowcount or 0)

@@ -187,10 +187,10 @@
     },
     "source": {
       "type": "string",
-      "enum": ["submission", "ingestion", "rescan_drift", "rescan_appeal"],
+      "enum": ["submission", "ingestion", "rescan_drift", "rescan_appeal", "rescan_rules"],
       "x-postgresql-enum-type": "scan_source",
       "x-postgresql-nullable": false,
-      "description": "What triggered this scan."
+      "description": "What triggered this scan. `rescan_rules` = an automatic re-evaluation of an already-scanned capability after a rubric/engine version bump (re-scored from stored bytes, no GitHub re-fetch)."
     }
   },
   "$defs": {

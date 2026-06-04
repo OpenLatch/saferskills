@@ -148,7 +148,7 @@ KNOWN_ENUMS: dict[str, dict[str, Any]] = {
         "description": "Aggregate scan-result tier.",
     },
     "scan_source": {
-        "values": ("submission", "ingestion", "rescan_drift", "rescan_appeal"),
+        "values": ("submission", "ingestion", "rescan_drift", "rescan_appeal", "rescan_rules"),
         "description": "How the scan was triggered.",
     },
     "scan_run_status": {

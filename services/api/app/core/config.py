@@ -199,6 +199,44 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Auto-scan pipeline (durable bulk scan) ─────────────────────────────
+    scan_autoscan_enabled: bool = Field(
+        default=True,
+        description=(
+            "Enable the durable auto-scan pipeline (the reconciliation drainer + "
+            "the merger on-ingest scan hook). Set false to pause all bulk scanning "
+            "locally without touching the interactive POST /scans path."
+        ),
+    )
+    scan_max_concurrency: int = Field(
+        default=4,
+        ge=1,
+        description=(
+            "Max concurrent durable `scan_capability_repo` jobs (in-body semaphore). "
+            "INVARIANT: INGESTION_WORKER_CONCURRENCY + SCAN_MAX_CONCURRENCY must stay "
+            "below DB_POOL_SIZE + DB_MAX_OVERFLOW (5 + 10 = 15) so the API keeps pool "
+            "headroom. Asserted at startup (app/ingestion/worker.py)."
+        ),
+    )
+    scan_reconcile_batch: int = Field(
+        default=200,
+        ge=1,
+        description=(
+            "Max repos the reconciliation drainer enqueues per tick (popularity-"
+            "ordered). Bounds a 10k-burst so the box can't melt; the queueing_lock "
+            "dedups against in-flight jobs."
+        ),
+    )
+    scan_freshness_days: int = Field(
+        default=30,
+        ge=1,
+        description=(
+            "Periodic cheap re-check cadence — a repo whose last_checked_at is older "
+            "than this is re-resolved (a 304 / unchanged ref just bumps last_checked_at, "
+            "no scan)."
+        ),
+    )
+
     # ── Rate limits ────────────────────────────────────────────────────────
     scan_submit_daily_limit: int = Field(
         default=10,

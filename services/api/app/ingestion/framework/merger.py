@@ -111,10 +111,29 @@ class MergeEngine:
         if existing is None:
             new_id = await self._insert_new(n, slug=slug, raw_hash=raw_hash, source=source)
             await self._defer_on_add_recompute(new_id)
+            # Index → scan: a brand-new public-github capability is enqueued for an
+            # immediate durable scan (the reconciliation drainer is the steady-state
+            # guarantee; this just makes a fresh arrival scan promptly).
+            await self._defer_on_add_scan(n.github_url)
             return "added"
 
         await self._apply_update(existing, n, raw_hash=raw_hash, source=source)
         return "updated"
+
+    async def _defer_on_add_scan(self, github_url: str | None) -> None:
+        """Best-effort defer of a durable `scan_capability_repo` job on a new item
+        or a content-hash change. The `queueing_lock` dedups against in-flight jobs
+        (the reconciliation drainer + this hook can't double-enqueue). A defer
+        failure (e.g. the Procrastinate app isn't open in a unit test) must never
+        break the upsert — the reconciliation drainer is the steady-state net."""
+        if not github_url:
+            return
+        try:
+            from app.ingestion.tasks_scan import defer_scan_job
+
+            await defer_scan_job(github_url, reason="ingest")
+        except Exception:
+            logger.debug("merger.on_add_scan_defer_skipped", github_url=github_url)
 
     async def _defer_on_add_recompute(self, catalog_item_id: uuid.UUID) -> None:
         """On-add lightweight popularity recompute for the new public-github row
@@ -233,8 +252,10 @@ class MergeEngine:
 
         if existing.content_hash_sha256 != raw_hash:
             meta["last_hash_change_at"] = _now().isoformat()
-            # The top-500 rug-pull alert (D-04-16) was descoped from Phase C; the
-            # hash-change timestamp is still recorded here for a future re-scan trigger.
+            # Content drift → enqueue a durable re-scan (the scan job's own
+            # conditional-fetch gate confirms the change before doing real work;
+            # queueing_lock dedups against the reconciliation drainer).
+            await self._defer_on_add_scan(existing.github_url)
 
         # Re-tier from fresh enrichment so a re-crawl heals rows ingested before the
         # source learned to enrich (e.g. the mcp_registry backfill — its cursor-based

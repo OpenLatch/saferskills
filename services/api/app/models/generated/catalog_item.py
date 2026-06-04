@@ -43,6 +43,8 @@ class CatalogItem(Base):
             "owner_run_id",
             postgresql_where=sa.text("owner_run_id IS NOT NULL"),
         ),
+        sa.Index("idx_catalog_items_last_scanned_at", "last_scanned_at"),
+        sa.Index("idx_catalog_items_last_checked_at", "last_checked_at"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -230,19 +232,29 @@ class CatalogItem(Base):
         server_default=sa.text("'long_tail'"),
     )
 
-    last_deep_scan_at: Mapped[datetime | None] = mapped_column(
-        sa.DateTime(timezone=True),
-        nullable=True,
-    )
-
-    last_lite_scan_at: Mapped[datetime | None] = mapped_column(
-        sa.DateTime(timezone=True),
-        nullable=True,
-    )
-
     owner_run_id: Mapped[UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
         sa.ForeignKey("scan_runs.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
+    last_scanned_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
+    scanned_rubric_version: Mapped[str | None] = mapped_column(
+        sa.String(40),
+        nullable=True,
+    )
+
+    scanned_engine_version: Mapped[str | None] = mapped_column(
+        sa.String(40),
+        nullable=True,
+    )
+
+    last_checked_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
         nullable=True,
     )
 

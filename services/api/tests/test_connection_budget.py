@@ -39,10 +39,27 @@ def test_worker_budget_rejects_concurrency_that_could_drain_the_pool(
 def test_worker_budget_accepts_the_default_headroom(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Default 4 vs 5+10 leaves ≥11 slots for the API → boots fine."""
-    ok = Settings(ingestion_worker_concurrency=4, db_pool_size=5, db_max_overflow=10)
+    """Default 4 + 4 vs 5+10 leaves ≥7 slots for the API → boots fine."""
+    ok = Settings(
+        ingestion_worker_concurrency=4, scan_max_concurrency=4, db_pool_size=5, db_max_overflow=10
+    )
     monkeypatch.setattr(worker, "get_settings", lambda: ok)
     worker.assert_worker_concurrency_budget()  # must not raise
+
+
+def test_worker_budget_counts_scan_concurrency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The durable scan budget is part of the sum: 4 + 11 == 15 leaves no headroom."""
+    bad = Settings(
+        ingestion_worker_concurrency=4,
+        scan_max_concurrency=11,
+        db_pool_size=5,
+        db_max_overflow=10,
+    )
+    monkeypatch.setattr(worker, "get_settings", lambda: bad)
+    with pytest.raises(RuntimeError, match="leave"):
+        worker.assert_worker_concurrency_budget()
 
 
 # ── §1.3 — pool-timeout back-pressure → 503, never a hang ───────────────────

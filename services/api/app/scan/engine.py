@@ -33,6 +33,7 @@ import fnmatch
 import hashlib
 import json
 import re
+import shutil
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -420,6 +421,19 @@ def aggregate_score(
     return sub_scores, breakdowns, aggregate, tier
 
 
+def _walk_and_cleanup(result: fetch.FetchResult) -> list[tuple[str, bytes]]:
+    """Read every file into memory, then drop the temp tree.
+
+    Must-fix at scale: an unbounded scan firehose (the durable bulk drain) would
+    otherwise leak `/tmp`. The walk loads bytes into memory, so cleanup is safe
+    immediately after — in a `finally` so it runs even if the walk raises.
+    """
+    try:
+        return list(fetch.walk_files(result.directory))
+    finally:
+        shutil.rmtree(result.directory, ignore_errors=True)
+
+
 async def run_scan(
     github_url: str,
     rubric_version: str,
@@ -430,7 +444,7 @@ async def run_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index: list[tuple[str, bytes]] = list(fetch.walk_files(result.directory))
+    file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
 
     rules = list(RULES.values())
     if kind is not None:
@@ -541,7 +555,7 @@ async def run_repo_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index: list[tuple[str, bytes]] = list(fetch.walk_files(result.directory))
+    file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
 
     scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
         file_index, rubric_version, result.ref_sha

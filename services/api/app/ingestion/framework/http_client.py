@@ -23,6 +23,7 @@ from hishel import AsyncSqliteStorage, CacheOptions, SpecificationPolicy
 from hishel.httpx import AsyncCacheTransport
 
 from app.core.config import Settings
+from app.core.github_app_token import get_github_app_installation_token
 from app.ingestion.framework.base_adapter import BaseAdapter
 from app.ingestion.framework.exceptions import BodyTooLargeError, OutboundDenyError
 
@@ -39,8 +40,6 @@ _PRIVATE_NETS = (
 # Per-source coordination (keyed by source name) — survives across cycles.
 _SEMAPHORES: dict[str, asyncio.Semaphore] = {}
 _LAST_REQUEST_TS: dict[str, float] = {}
-# In-process GitHub App installation-token cache (token, monotonic-expiry).
-_GITHUB_APP_TOKEN: dict[str, tuple[str, float]] = {}
 
 
 class _SSRFTransport(httpx.AsyncHTTPTransport):
@@ -130,41 +129,10 @@ async def _body_size_cap_hook(response: httpx.Response) -> None:
 
 def _github_app_token_hook(settings: Settings) -> Any:
     async def hook(request: httpx.Request) -> None:
-        token = await _get_github_app_installation_token(settings)
+        token = await get_github_app_installation_token(settings)
         if token:
             request.headers["Authorization"] = f"Bearer {token}"
             request.headers["Accept"] = "application/vnd.github+json"
             request.headers["X-GitHub-Api-Version"] = "2022-11-28"
 
     return hook
-
-
-async def _get_github_app_installation_token(settings: Settings) -> str | None:
-    """Mint (and cache 50 min) a GitHub App installation token. None if creds absent."""
-    app_id: str | None = getattr(settings, "github_app_id", None)
-    private_key: str | None = getattr(settings, "github_app_private_key", None)
-    installation_id: str | None = getattr(settings, "github_app_installation_id", None)
-    if not (app_id and private_key and installation_id):
-        return None
-    cached = _GITHUB_APP_TOKEN.get("token")
-    if cached is not None and cached[1] > time.monotonic() + 60.0:
-        return cached[0]
-
-    import jwt
-
-    now = int(time.time())
-    payload: dict[str, int | str] = {"iat": now - 30, "exp": now + 60 * 9, "iss": app_id}
-    jwt_token: str = jwt.encode(payload, private_key, algorithm="RS256")
-    async with httpx.AsyncClient(timeout=20.0) as raw:
-        r = await raw.post(
-            f"https://api.github.com/app/installations/{installation_id}/access_tokens",
-            headers={
-                "Authorization": f"Bearer {jwt_token}",
-                "Accept": "application/vnd.github+json",
-            },
-        )
-        r.raise_for_status()
-        data: dict[str, Any] = r.json()
-        token: str = data["token"]
-    _GITHUB_APP_TOKEN["token"] = (token, time.monotonic() + 60 * 50)
-    return token
