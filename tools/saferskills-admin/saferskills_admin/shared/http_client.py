@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
 import typer
 
 from .context import AdminContext
+
+
+def _prefer_ipv4_localhost(api_url: str) -> str:
+    """Rewrite a `localhost` host to 127.0.0.1.
+
+    On Windows `localhost` resolves to IPv6 `::1` first; uvicorn binds IPv4 only
+    by default, so httpx stalls ~2s on the dead IPv6 attempt before falling back
+    on every request — the dashboard then feels frozen / never-refreshing. The
+    rewrite is host-exact (`localhost` token only), so any real remote URL is
+    untouched.
+    """
+    return re.sub(r"^(https?://)localhost(?=[:/]|$)", r"\g<1>127.0.0.1", api_url, count=1)
 
 
 def create_client(api_url: str, admin_key: str | None) -> httpx.Client:
@@ -17,7 +30,7 @@ def create_client(api_url: str, admin_key: str | None) -> httpx.Client:
     if admin_key:
         headers["X-Admin-Key"] = admin_key
     return httpx.Client(
-        base_url=api_url.rstrip("/"),
+        base_url=_prefer_ipv4_localhost(api_url).rstrip("/"),
         headers=headers,
         timeout=httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0),
         follow_redirects=False,

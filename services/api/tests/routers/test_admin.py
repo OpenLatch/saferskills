@@ -113,6 +113,41 @@ async def test_pause_unknown_source_404(db_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_force_cycle_api_source_queues(db_client: AsyncClient) -> None:
+    # An `api` source (npm) has a registered `ingest_cycle_npm` task → force-cycle
+    # must enqueue exactly one job on the (in-memory) queue and 200.
+    from procrastinate.testing import InMemoryConnector
+
+    from app.ingestion import procrastinate_app
+
+    conn = InMemoryConnector()
+    with procrastinate_app.replace_connector(conn):
+        await conn.open_async()
+        resp = await db_client.post("/api/v1/admin/sources/npm/force-cycle", headers=_HDR)
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True, "queued": True}
+        assert [j["task_name"] for j in conn.jobs.values()] == ["ingest_cycle_npm"]
+
+
+@pytest.mark.asyncio
+async def test_force_cycle_webhook_source_400_no_orphan_job(db_client: AsyncClient) -> None:
+    # github_skills is a webhook source (no cadence → no `ingest_cycle_*` task).
+    # Regression: even with a live queue it must 400 and enqueue NOTHING — never
+    # silently 200-queue an orphan job no worker ever runs (allow_unknown=False).
+    from procrastinate.testing import InMemoryConnector
+
+    from app.ingestion import procrastinate_app
+
+    conn = InMemoryConnector()
+    with procrastinate_app.replace_connector(conn):
+        await conn.open_async()
+        resp = await db_client.post("/api/v1/admin/sources/github_skills/force-cycle", headers=_HDR)
+        assert resp.status_code == 400
+        assert "not schedulable" in resp.json()["detail"]
+        assert conn.jobs == {}  # no orphan job leaked onto the queue
+
+
+@pytest.mark.asyncio
 async def test_re_classify(db_client: AsyncClient, db_session: AsyncSession) -> None:
     item = _item()
     db_session.add(item)

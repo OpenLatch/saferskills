@@ -14,6 +14,7 @@ from saferskills_admin.domains.sources.tui.app import (
     SourceDetailScreen,
     SourcesDashboardApp,
 )
+from saferskills_admin.domains.sources.tui.client import HealthClientError
 
 runner = CliRunner()
 
@@ -238,6 +239,281 @@ def test_force_cycle_confirm_calls_client() -> None:
             await pilot.press("c")  # force-cycle → ConfirmModal
             await _settle(pilot)
             await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=10)
+            assert client.force_cycle_calls == ["npm"]
+
+    asyncio.run(scenario())
+
+
+def _notifs(app: SourcesDashboardApp) -> list[Any]:
+    return list(app._notifications._notifications.values())  # noqa: SLF001
+
+
+def test_force_cycle_success_notifies() -> None:
+    # A successful action must give visible feedback (a toast) — previously a
+    # success was silent, reading as "nothing happened".
+    async def scenario() -> None:
+        client = FakeClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test(notifications=True) as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "npm"))
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=10)
+            notes = _notifs(app)
+            assert any(n.severity == "information" and "force-cycle" in n.message for n in notes)
+
+    asyncio.run(scenario())
+
+
+def test_force_cycle_shows_persistent_inline_status() -> None:
+    # The unmissable confirmation: a persistent inline line (#action-status)
+    # that updates on confirm and is NOT wiped by the 5s auto-refresh.
+    async def scenario() -> None:
+        client = FakeClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "npm"))
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=10)
+            status = app.screen.query_one("#action-status", Static)
+            rendered = str(status.render())
+            assert "force-cycle" in rendered and "accepted" in rendered
+            # survives an extra refresh cycle (not wiped like #detail-error)
+            app.screen.load()
+            await _settle(pilot, ticks=10)
+            assert "accepted" in str(status.render())
+
+    asyncio.run(scenario())
+
+
+def test_action_status_shows_failure_inline() -> None:
+    class RaisingClient(FakeClient):
+        def force_cycle(self, source: str) -> dict[str, Any]:
+            raise HealthClientError("HTTP 400 not schedulable")
+
+    async def scenario() -> None:
+        client = RaisingClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "github_skills"))
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=10)
+            rendered = str(app.screen.query_one("#action-status", Static).render())
+            assert "failed" in rendered and "not schedulable" in rendered
+
+    asyncio.run(scenario())
+
+
+def test_force_cycle_failure_notifies() -> None:
+    # Regression: a failing action (e.g. force-cycle on a webhook source → HTTP
+    # 400) must surface a persistent error toast. Writing to #detail-error alone
+    # was wiped within 5s by the auto-refresh load(), so the user saw nothing.
+    class RaisingClient(FakeClient):
+        def force_cycle(self, source: str) -> dict[str, Any]:
+            raise HealthClientError(f"HTTP 400 source {source!r} is not schedulable")
+
+    async def scenario() -> None:
+        client = RaisingClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test(notifications=True) as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "github_skills"))
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=10)
+            notes = _notifs(app)
+            assert any(n.severity == "error" and "not schedulable" in n.message for n in notes)
+
+    asyncio.run(scenario())
+
+
+def test_dashboard_shows_loading_until_first_snapshot() -> None:
+    # Regression: the sources table must show a loading spinner while the first
+    # fetch is in flight, then clear it — otherwise the dashboard renders a bare
+    # empty grid with no indication anything is happening.
+    import threading
+
+    class GatedClient(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.gate = threading.Event()
+
+        def snapshot(self) -> dict[str, Any]:
+            self.gate.wait(timeout=5)
+            return _snapshot()
+
+    async def scenario() -> None:
+        client = GatedClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)  # load() worker started, blocked on the gate
+            table = app.query_one("#sources-table", DataTable)
+            assert table.loading is True
+            client.gate.set()  # release the snapshot fetch
+            await _settle(pilot, ticks=12)
+            assert table.loading is False
+            assert table.row_count == 2
+
+    asyncio.run(scenario())
+
+
+def test_q_quits_the_app() -> None:
+    # Regression: `q` was a no-op — a screen-defined `quit` binding does not
+    # resolve up to App.action_quit, so the screen needs its own action_quit.
+    async def scenario() -> None:
+        app = SourcesDashboardApp(FakeClient())
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            await pilot.press("q")
+            await _settle(pilot)
+            assert app.is_running is False
+
+    asyncio.run(scenario())
+
+
+def test_r_refresh_blinks_and_reloads() -> None:
+    # `r` must give visible feedback (a brief blink) AND re-fetch.
+    class CountingClient(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.snapshot_calls = 0
+
+        def snapshot(self) -> dict[str, Any]:
+            self.snapshot_calls += 1
+            return _snapshot()
+
+    async def scenario() -> None:
+        client = CountingClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            before = client.snapshot_calls
+            table = app.query_one("#sources-table", DataTable)
+            app.screen.action_refresh()  # synchronously adds the blink class
+            assert table.has_class("refreshing") is True
+            await _settle(pilot, ticks=10)  # blink timer fires + reload completes
+            assert table.has_class("refreshing") is False
+            assert client.snapshot_calls > before
+
+    asyncio.run(scenario())
+
+
+def test_detail_errors_panel_shows_full_message() -> None:
+    # The run-history table only shows error_class; the Errors panel must surface
+    # the full error_message so failures are diagnosable from the dashboard.
+    class ErroringClient(FakeClient):
+        def runs(
+            self, source: str, *, before: str | None = None, limit: int = 50
+        ) -> dict[str, Any]:
+            return {
+                "data": [
+                    {
+                        "id": "e1",
+                        "source": source,
+                        "trigger": "scheduled",
+                        "status": "failed",
+                        "started_at": "2026-06-04T11:50:00+00:00",
+                        "duration_ms": 1200,
+                        "items_seen": 0,
+                        "items_added": 0,
+                        "items_updated": 0,
+                        "attempt": 1,
+                        "error_class": "IngestionRetry",
+                        "error_message": "rate limit exceeded fetching api.github.com",
+                    }
+                ],
+                "next_before": None,
+            }
+
+    async def scenario() -> None:
+        client = ErroringClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "npm"))
+            await _settle(pilot, ticks=10)
+            panel = app.screen.query_one("#errors-list", Static)
+            rendered = str(panel.render())
+            assert "IngestionRetry" in rendered
+            assert "rate limit exceeded fetching api.github.com" in rendered
+            # heading turns red only because there are errors
+            assert app.screen.query_one("#errors-title").has_class("has-errors")
+
+    asyncio.run(scenario())
+
+
+def test_detail_errors_panel_empty_when_no_errors() -> None:
+    async def scenario() -> None:
+        client = FakeClient()  # npm run succeeded, no errors
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "npm"))
+            await _settle(pilot, ticks=10)
+            panel = app.screen.query_one("#errors-list", Static)
+            assert "no errors" in str(panel.render())
+            # heading is NOT red when there are no errors
+            assert not app.screen.query_one("#errors-title").has_class("has-errors")
+
+    asyncio.run(scenario())
+
+
+def test_confirm_modal_arrow_navigation_and_keys() -> None:
+    # Regression: the confirm dialog must be keyboard-navigable — arrows move
+    # focus between the two buttons, and y/n resolve it without the mouse.
+    from saferskills_admin.domains.sources.tui.app import ConfirmModal
+
+    async def scenario() -> None:
+        app = SourcesDashboardApp(FakeClient())
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(FakeClient(), "npm"))
+            await _settle(pilot)
+
+            # arrows move focus left/right between Confirm and Cancel
+            await pilot.press("c")
+            await _settle(pilot)
+            assert isinstance(app.screen, ConfirmModal)
+            await pilot.press("right")
+            await _settle(pilot)
+            assert app.focused.id == "confirm-no"
+            await pilot.press("left")
+            await _settle(pilot)
+            assert app.focused.id == "confirm-yes"
+
+            # n cancels (dismisses the modal without acting)
+            await pilot.press("n")
+            await _settle(pilot)
+            assert isinstance(app.screen, SourceDetailScreen)
+
+    asyncio.run(scenario())
+
+
+def test_confirm_modal_y_confirms() -> None:
+    async def scenario() -> None:
+        client = FakeClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            app.push_screen(SourceDetailScreen(client, "npm"))
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.press("y")  # y confirms
             await _settle(pilot, ticks=10)
             assert client.force_cycle_calls == ["npm"]
 
