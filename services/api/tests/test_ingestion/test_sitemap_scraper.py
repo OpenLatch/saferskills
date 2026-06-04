@@ -272,8 +272,11 @@ def test_pr2_adapter_registered_and_configured(name: str) -> None:
     cfg = load_source_configs()[name]
     assert cfg.enabled and cfg.kind == "scrape" and cfg.cadence_cron
     assert cfg.queue == "ingest_aggregator"
-    # github hosts present for the enrich() pass
-    assert "api.github.com" in cfg.hosts and "raw.githubusercontent.com" in cfg.hosts
+    # github hosts present for the enrich() pass. Use set.issubset over exact host
+    # strings — NOT `"host" in cfg.hosts`, which trips CodeQL
+    # py/incomplete-url-substring-sanitization (it can't tell cfg.hosts is a
+    # list[str] of exact hosts, not a URL); cf. http_client.py's `any(host == …)`.
+    assert {"api.github.com", "raw.githubusercontent.com"}.issubset(cfg.hosts)
     # discovery is well-formed: sitemap_url + a compilable item_url_regex
     assert cfg.discovery.get("sitemap_url", "").startswith("https://")
     re.compile(cfg.discovery["item_url_regex"])
