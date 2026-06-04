@@ -66,7 +66,7 @@ fn ranked_findings(detail: &ItemDetailResponse) -> Vec<&FindingResponse> {
         .as_ref()
         .map(|s| s.findings.iter().collect())
         .unwrap_or_default();
-    findings.sort_by(|a, b| b.severity.rank().cmp(&a.severity.rank()));
+    findings.sort_by_key(|f| std::cmp::Reverse(f.severity.rank()));
     findings
 }
 
