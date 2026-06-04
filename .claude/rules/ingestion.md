@@ -80,6 +80,7 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - 304 responses produce an outbox row with `http_status=304`, `from_cache=true`, `body_sha256` = the cached body's hash.
 - Setting `applied_at = now()` at commit marks the event as applied. `applied_at IS NULL` rows are retry candidates.
 - Re-deriving the catalog from `ingestion_events` alone must produce the same state (replayable invariant). Vendor appeals reference `body_sha256` to prove the source content at fetch time.
+- **`run_cycle` commits in batches** (`registry_adapter._COMMIT_BATCH`, 25 items) rather than once at the end — a full-feed crawl (mcp_registry ~10k items, each doing per-item enrich fetches) is durable + visible incrementally, and a mid-crawl failure keeps the committed prefix. The invariant holds **per item within a batch** (each catalog row + its `ingestion_events` row commit together); batching never splits a pair across commits.
 
 ## Procrastinate worker (D-04-03)
 

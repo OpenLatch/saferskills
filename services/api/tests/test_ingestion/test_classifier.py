@@ -227,6 +227,32 @@ class TestClassifyAgentCompatibility:
         agents = classify_agent_compatibility(n)
         assert agents == sorted(agents)
 
+    def test_object_form_transport_top_level(self) -> None:
+        """MCP 2025-09-29 server.json uses transport as an object {"type": "stdio"},
+        not a bare string. Regression: a dict transport must not crash the set
+        membership check (unhashable-dict TypeError)."""
+        doc = {"name": "x", "transport": {"type": "stdio"}}
+        n = make_normalized(metadata_files={"server.json": json.dumps(doc).encode()})
+        agents = classify_agent_compatibility(n)
+        assert set(agents) == set(ALL_AGENTS)  # stdio → universal
+
+    def test_object_form_transport_in_packages(self) -> None:
+        """The real registry shape: transport object nested under packages[0]."""
+        doc = {
+            "name": "ai.acme/spotdb",
+            "packages": [{"registryType": "oci", "transport": {"type": "stdio"}}],
+        }
+        n = make_normalized(metadata_files={"server.json": json.dumps(doc).encode()})
+        agents = classify_agent_compatibility(n)
+        assert set(agents) == set(ALL_AGENTS)
+
+    def test_object_form_sse_transport(self) -> None:
+        doc = {"name": "x", "transport": {"type": "sse"}}
+        n = make_normalized(metadata_files={"mcp.json": json.dumps(doc).encode()})
+        agents = classify_agent_compatibility(n)
+        assert "claude-code" in agents
+        assert set(agents).issubset(set(ALL_AGENTS))
+
 
 # ---------------------------------------------------------------------------
 # classify_all convenience wrapper

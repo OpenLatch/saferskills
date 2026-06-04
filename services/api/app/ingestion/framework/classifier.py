@@ -9,7 +9,7 @@ whose closed enum is the hyphenated 8-agent set below — NOT the plan's draft
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from app.ingestion.framework.base_adapter import NormalizedItem
 
@@ -119,9 +119,16 @@ def classify_agent_compatibility(n: NormalizedItem) -> list[str]:
         transport: str | None = None
         try:
             doc = json.loads(mcp_manifest.decode("utf-8"))
-            transport = doc.get("transport")
-            if transport is None and isinstance(doc.get("packages"), list) and doc["packages"]:
-                transport = doc["packages"][0].get("transport")
+            raw_transport: Any = doc.get("transport")
+            if raw_transport is None and isinstance(doc.get("packages"), list) and doc["packages"]:
+                raw_transport = doc["packages"][0].get("transport")
+            # Older manifests use a bare string ("stdio"); the MCP 2025-09-29
+            # server.json schema uses an object {"type": "stdio"}. Normalize to the
+            # transport-type string so the membership checks below never see a dict
+            # (a dict is unhashable → `in {...}` would raise TypeError).
+            if isinstance(raw_transport, dict):
+                raw_transport = cast("dict[str, Any]", raw_transport).get("type")
+            transport = raw_transport if isinstance(raw_transport, str) else None
         except ValueError, AttributeError, KeyError, TypeError:
             transport = None
         if transport == "stdio":
