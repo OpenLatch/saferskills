@@ -1,0 +1,11 @@
+# Rust build output (Cargo.lock IS committed — this is a binary crate)
+/target/
+
+# npm publish staging: binaries + copied LICENSE/README are produced at publish
+# time and never committed.
+/npm/saferskills/bin/
+/npm/saferskills/LICENSE
+/npm/saferskills/README.md
+/npm/saferskills-*/saferskills
+/npm/saferskills-*/saferskills.exe
+/npm/saferskills-*/LICENSE

@@ -2,9 +2,9 @@
 
 All checks must pass before merge. Every third-party action is **SHA-pinned** (never floating tags); the first step of every workflow is `step-security/harden-runner`; every workflow declares `permissions: contents: read` at the top and elevates per-job only when needed.
 
-## Pipeline lanes (14 + `all-checks` aggregation)
+## Pipeline lanes (14 + 5 Rust CLI + `all-checks` aggregation)
 
-`pr-checks.yml` runs 14 lanes plus the aggregator (the 13 W1 lanes + `lighthouse-a11y`, added in I-03 Phase C). Tools are SHA-pinned in `.github/actions/` reusable composites.
+`pr-checks.yml` runs 14 web/backend lanes + 5 Rust CLI lanes plus the aggregator (the 13 W1 lanes + `lighthouse-a11y` from I-03 Phase C + the 5 `cli-*` lanes from I-05). Tools are SHA-pinned in `.github/actions/` reusable composites.
 
 | # | Lane | What it does |
 |---|---|---|
@@ -22,9 +22,14 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 | 12 | `dep-scan` | `pip-audit` (`uv pip compile`) + `pnpm audit --audit-level=high` |
 | 13 | `pr-title-lint` | Conventional Commits format check |
 | 14 | `lighthouse-a11y` | `@lhci/cli` (Lighthouse, **observe-mode `warn`** on the no-seed public pages — reports uploaded, not yet hard-gating; promote categories to `error` once perf is baselined in this CI env) + `@axe-core/playwright` WCAG 2 A/AA smoke as the **hard** a11y gate. Runs on PRs touching `webapp/**` or `ui/**` (gated on `detect-changes.outputs.frontend`). Brings up postgres+api from the smoke compose, builds + serves the webapp Node SSR on :5173 (`--no-sandbox` Chrome). Seeded pages (item-detail / scan-report) are Lighthoused in the staging e2e. (I-03 Phase C) |
-| – | `all-checks` | Aggregation job — gates merge; depends on all 14 |
+| 15 | `cli-fmt` | `cargo fmt --manifest-path cli/Cargo.toml --all --check` (I-05) |
+| 16 | `cli-clippy` | `cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings` (I-05) |
+| 17 | `cli-test` | `cargo llvm-cov` test + **≥70% line coverage** (`--fail-under-lines 70`) (I-05) |
+| 18 | `cli-build` | `cargo build --release` + **<15 MB** size gate on the `saferskills` binary (I-05) |
+| 19 | `cli-rustls` | `cargo tree -e normal` must contain no `openssl-sys` / `native-tls` — the rustls-only invariant (I-05) |
+| – | `all-checks` | Aggregation job — gates merge; depends on all 19 |
 
-Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
+The 5 `cli-*` lanes gate on a `dorny/paths-filter` `cli` matcher (`cli/**` + `.github/actions/setup-rust/**`) and use the `.github/actions/setup-rust` composite (toolchain + `cli/`-scoped cargo cache). Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
 
 ## Always-on workflows (W1)
 
@@ -33,6 +38,14 @@ Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` mat
 | `scorecard.yml` | Weekly + on push to `main` | OpenSSF Scorecard — publishes to `securityscorecards.dev` and SARIF |
 | `release-please.yml` | On push to `main` | **Dormant at W1** (no `v1.0.0` release yet); flips on first tagged release |
 | CodeQL (UI default-setup) | On PR + nightly | Static analysis for Python + TypeScript |
+
+## CLI release + publish (I-05)
+
+The `saferskills` install CLI (a Rust crate in `cli/`) is the **only** `release-please`-managed package, so its tag is the bare `vX.Y.Z` (no component prefix; `include-component-in-tag: false`).
+
+- **release-please**: `release-please-config.json` sets the `cli` package `release-type: "rust"` — it bumps `cli/Cargo.toml` + `cli/Cargo.lock` + `cli/CHANGELOG.md`. Merging the Release PR (via the `version-bump.yml` GitHub-App token) tags `vX.Y.Z`.
+- **`publish-npm.yml`** (filename is load-bearing — the npm + crates.io Trusted-Publisher bindings verify it): on the tag it builds the **5-target matrix** (`aarch64`/`x86_64` Apple, `x86_64`/`aarch64` Linux via `cross`, `x86_64` Windows) with `--features telemetry-network`, size-gates each (<15 MB), cosign-keyless-signs + Syft-SBOMs them, uploads them to the GitHub Release, then: stamps + publishes the 5 scoped `@openlatch/saferskills-<platform>` packages **before** the unscoped `saferskills` main package (OIDC, no `NPM_TOKEN`), `cargo publish --manifest-path cli/Cargo.toml` (crates.io OIDC), and a 3-OS `verify-publish` smoke (`--version` / `--help` / `completion`). `workflow_dispatch` is build-only (never publishes).
+- **Founder action (one-time, outbox/01)**: the 6 npm TP bindings + the crates.io TP binding → `publish-npm.yml`; `npm deprecate @openlatch/saferskills`. Provenance needs a public repo.
 
 ## Post-Implementation Verification
 

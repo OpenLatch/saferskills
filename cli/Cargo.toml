@@ -1,0 +1,85 @@
+[package]
+name = "saferskills"
+version = "0.0.2-placeholder"     # release-please (rust) bumps this on each release
+edition = "2021"
+rust-version = "1.88"
+license = "Apache-2.0"
+description = "Every AI capability, independently scanned — install Skills & MCP servers with a verified SaferSkills trust score."
+repository = "https://github.com/OpenLatch/saferskills"
+homepage = "https://saferskills.ai"
+keywords = ["ai-agents", "mcp", "skill", "security", "scanner"]   # <=5 (crates.io cap); npm keywords are richer (SEO-C1)
+categories = ["command-line-utilities", "development-tools"]
+default-run = "saferskills"
+exclude = ["npm/", "tests/", ".github/"]
+
+[[bin]]
+name = "saferskills"
+path = "src/main.rs"
+
+[lib]
+name = "saferskills"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+clap_complete = "4"                  # tracks clap 4.x (completion scripts)
+clap_mangen = "0.2"                  # man-page generation from the same Command (D-05-18, design §7)
+inquire = "0.7"                      # interactive prompts (Phase B); declared here
+indicatif = "0.18"                   # spinners → stderr
+anstream = "0.6"
+anstyle = "1"
+colorchoice-clap = "1"
+# rustls-tls enabled directly at the binary level (single crate ⇒ no feature
+# unification trick needed). The `cli-rustls` CI lane greps the dep tree to
+# keep openssl-sys / native-tls out.
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+reqwest-eventsource = "0.6"          # SSE — used in Phase C; declared here
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1.1"                         # config.toml parse
+toml_edit = "0.22"                   # format-preserving MCP-config writes — Phase B; declared here
+jsonc-parser = { version = "0.32", features = ["cst", "serde", "serde_json"] }   # Phase B
+zip = { version = "8", default-features = false, features = ["deflate"] }        # Phase C
+strsim = "0.11"                      # jaro_winkler did-you-mean
+anyhow = "1"
+thiserror = "2"
+miette = { version = "7", features = ["fancy"] }
+dirs = "6"
+chrono = { version = "0.4", features = ["serde"] }
+ctrlc = "3"
+tempfile = "3"                       # atomic temp-then-rename writes
+
+[features]
+default = []
+# Additive PostHog HTTP path (mirror openlatch-client gating). When OFF the
+# `command_invoked` event is computed but never sent; when ON it is POSTed only
+# if a key was baked AND consent + opt-out env allow it (D-05-13).
+telemetry-network = []
+# Test-only override of the baked PostHog host/key. NEVER enabled in releases.
+insecure-test-keys = []
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["processthreadsapi", "winnt", "handleapi", "minwinbase", "wincon"] }
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+mockito = "1"
+insta = "1"
+tempfile = "3"
+
+# NO [build-dependencies] — build.rs only reads an env var to bake
+# SAFERSKILLS_POSTHOG_KEY (no typify/schemars/syn/prettyplease; wire DTOs are
+# hand-written in src/api/dto.rs, D-05-08).
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+split-debuginfo = "packed"

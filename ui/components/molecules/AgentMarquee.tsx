@@ -13,11 +13,11 @@ interface Props {
 const DEFAULT_AGENTS: Agent[] = [
   { id: 'claude-code', name: 'Claude Code' },
   { id: 'cursor', name: 'Cursor' },
-  { id: 'codex-cli', name: 'Codex CLI' },
+  { id: 'codex', name: 'Codex CLI' },
   { id: 'copilot', name: 'GitHub Copilot' },
   { id: 'windsurf', name: 'Windsurf' },
   { id: 'cline', name: 'Cline' },
-  { id: 'gemini-cli', name: 'Gemini CLI' },
+  { id: 'gemini', name: 'Gemini CLI' },
   { id: 'openclaw', name: 'OpenClaw' },
 ]
 

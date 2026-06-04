@@ -1,105 +1,343 @@
 name: Publish to npm
 
-# Publish `@openlatch/saferskills` to npm via npm Trusted Publishers (OIDC).
-# NO long-lived NPM_TOKEN secret. The `id-token: write` permission below mints
-# a short-lived OIDC token at publish time; Node 24's bundled npm 11+ detects
-# OIDC automatically. The matching Trusted Publisher binding lives on
-# https://www.npmjs.com/package/@openlatch/saferskills/access and MUST point
-# at THIS workflow filename (`publish-npm.yml`) — that's part of the verified
-# OIDC subject. Renaming the file without updating the binding silently
-# breaks the publish (the run looks fine; npm rejects the token).
+# Publish the SaferSkills CLI to npm + crates.io via Trusted Publishers (OIDC).
+# NO long-lived NPM_TOKEN / CRATES_IO_TOKEN. The `id-token: write` permission
+# mints a short-lived OIDC token at publish time.
 #
-# Hard rules (mirroring openlatch-client's `publish.yml`):
-#   1. `id-token: write` permission on the publishing job — required by OIDC.
-#   2. NO `registry-url:` in setup-node — it writes an `.npmrc` that expects
-#      `NODE_AUTH_TOKEN` and conflicts with OIDC auto-detection (causes
-#      404 / ENEEDAUTH errors).
-#   3. Node 24 (ships npm 11+ which supports OIDC Trusted Publishing).
-#   4. NO `--provenance` CLI flag here — `publishConfig.provenance: true` in
-#      `cli/package.json` is the single switch; setting both is redundant.
+# The Trusted-Publisher bindings (npmjs.com + crates.io) are bound to THIS
+# workflow filename (`publish-npm.yml`) — it is part of the verified OIDC
+# subject. Renaming the file without updating every binding silently breaks the
+# publish (the run looks fine; the registry rejects the token). Bindings needed
+# (founder action, outbox/01): the unscoped `saferskills` main package + the 5
+# `@openlatch/saferskills-<platform>` packages on npm, and the `saferskills`
+# crate on crates.io. See outbox/01-npm-crates-trusted-publishers.md.
 #
-# At W1 the package is metadata-only. The workflow_dispatch path is the way
-# to manually republish after bumping the version. The release-tag path
-# wakes up automatically once Release Please starts cutting real CLI
-# releases W4+.
+# Hard rules (mirroring openlatch-client's publish.yml):
+#   1. `id-token: write` on every publishing job — required by OIDC.
+#   2. NO `registry-url:` in setup-node — it writes an `.npmrc` expecting
+#      NODE_AUTH_TOKEN and conflicts with OIDC auto-detection.
+#   3. Node 24 (ships npm 11+ with OIDC Trusted Publishing).
+#   4. NO `--provenance` CLI flag — `publishConfig.provenance: true` in
+#      cli/npm/saferskills/package.json is the single switch. (Provenance needs
+#      a PUBLIC repo; expect rejection while the repo is private — see outbox/01.)
+#   5. Publish the 5 platform packages BEFORE the main package (explicit dir
+#      list, never a glob — a glob would also match unrelated npm/ dirs).
 
 on:
-  # Mirrors openlatch-client/publish.yml — tag push is the trigger of record.
-  # release-please's Version Bump workflow lands the tag when its release PR
-  # is merged. Tag push wakes this workflow immediately; the `release:
-  # published` event can lag a few seconds and isn't needed.
   push:
     tags: ['v*.*.*']
+  # Manual build-only smoke (never publishes — the publish jobs gate on a tag
+  # push). Use a real tag merge from release-please to publish.
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Dry-run only (print tarball contents, do not publish)"
-        type: boolean
-        default: true
 
-# Restrictive default; the publishing job opts in to what it needs
 permissions: {}
 
 concurrency:
   group: publish-npm-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  publish:
-    name: Publish @openlatch/saferskills
-    runs-on: ubuntu-latest
+  # ---------------------------------------------------------------------------
+  # Build the 5 platform binaries, sign + SBOM them, attach to the GitHub
+  # Release, and stash them for the npm-publish job.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
     permissions:
-      contents: read
-      id-token: write   # REQUIRED for npm OIDC Trusted Publishing
+      contents: write   # gh release upload
+      id-token: write   # cosign keyless signing
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: ""
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: ""
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            cross: true
+            ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
       - uses: actions/checkout@v6
 
-      # Node 24 ships npm 11+ with OIDC Trusted Publishing support.
-      # Do NOT set `registry-url:` — it writes an `.npmrc` expecting
-      # `NODE_AUTH_TOKEN` and conflicts with OIDC auto-detection.
-      - uses: actions/setup-node@v6
+      # Telemetry key bake. The value comes from the shared OpenLatch-portfolio
+      # PostHog project secret POSTHOG_KEY (one project for cost — D-19's
+      # separate-project rule superseded 2026-06-04; SaferSkills events carry a
+      # `product: saferskills` discriminator, see cli/src/core/telemetry.rs).
+      # The compile-time env var name stays SAFERSKILLS_POSTHOG_KEY (build.rs
+      # reads it); only the value source changes. If unset the binary still
+      # ships, with analytics inert (build.rs bakes an empty key → hard no-op).
+      # Warn rather than fail so the first release isn't blocked before the key
+      # is wired.
+      - name: Note PostHog key availability
+        shell: bash
+        env:
+          KEY: ${{ secrets.POSTHOG_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::POSTHOG_KEY is unset — binaries ship with analytics disabled."
+          else
+            echo "POSTHOG_KEY is set (length: ${#KEY})"
+          fi
+
+      - uses: ./.github/actions/setup-rust
         with:
-          node-version: "24"
+          targets: ${{ matrix.target }}
+          cache-key-suffix: ${{ matrix.target }}
+
+      - name: Install cross (aarch64-linux only)
+        if: matrix.cross == true
+        uses: taiki-e/install-action@v2
+        with: { tool: cross }
+
+      - name: Build (native)
+        if: matrix.cross != true
+        shell: bash
+        env:
+          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+        run: cargo build --release --features telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
+
+      - name: Build (cross via Docker)
+        if: matrix.cross == true
+        shell: bash
+        env:
+          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+        # Cross.toml forwards SAFERSKILLS_POSTHOG_KEY into the container.
+        run: cross build --release --features telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
+
+      - name: Size gate (<15 MB, Unix)
+        if: runner.os != 'Windows'
+        run: |
+          SIZE=$(stat -f%z "cli/target/${{ matrix.target }}/release/saferskills" 2>/dev/null \
+            || stat -c%s "cli/target/${{ matrix.target }}/release/saferskills")
+          echo "saferskills size: ${SIZE} bytes"
+          if [ "$SIZE" -gt 15728640 ]; then
+            echo "::error::saferskills is ${SIZE}B, must be < 15MB"; exit 1
+          fi
+
+      - name: Size gate (<15 MB, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $size = (Get-Item "cli\target\${{ matrix.target }}\release\saferskills.exe").Length
+          Write-Host "saferskills.exe size: $size bytes"
+          if ($size -gt 15728640) { Write-Error "saferskills.exe is ${size}B, must be < 15MB"; exit 1 }
+
+      - name: Package binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "cli/target/${{ matrix.target }}/release/saferskills${{ matrix.ext }}" \
+            "dist/saferskills-${{ matrix.target }}${{ matrix.ext }}"
+          ls -lh dist/
+
+      - name: Install Cosign
+        if: runner.os != 'Windows'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign artifacts (cosign keyless)
+        if: runner.os != 'Windows'
+        run: |
+          for file in dist/*; do
+            cosign sign-blob --yes "$file" \
+              --output-signature "${file}.sig" \
+              --output-certificate "${file}.pem"
+          done
+
+      - name: Install syft
+        if: runner.os != 'Windows'
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        if: runner.os != 'Windows'
+        run: syft scan "dir:cli" --output "spdx-json=dist/sbom-${{ matrix.target }}.spdx.json"
+
+      - name: Upload build artifacts (for npm-publish)
+        uses: actions/upload-artifact@v7
+        with:
+          name: binaries-${{ matrix.target }}
+          path: dist/
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for file in dist/*; do
+            for attempt in 1 2 3; do
+              if gh release upload "$TAG" "$file" --clobber --repo "$GITHUB_REPOSITORY"; then
+                echo "uploaded $(basename "$file")"; break
+              fi
+              [ "$attempt" -eq 3 ] && { echo "::error::failed to upload $file"; exit 1; }
+              sleep $((attempt * 5))
+            done
+          done
+
+  # ---------------------------------------------------------------------------
+  # Stamp + publish the npm packages (platform packages first, then main).
+  # ---------------------------------------------------------------------------
+  npm-publish:
+    name: Publish to npm
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # npm OIDC Trusted Publishing
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: "24" }
 
       - name: Verify Node + npm versions
         run: |
           echo "node: $(node --version)"
           echo "npm: $(npm --version)"
 
-      - name: Sanity-check package metadata
-        working-directory: cli
+      - name: Sanity-check main package name (TP-locked)
         run: |
           set -euo pipefail
-          test -f package.json
-          test -f README.md
-          test -f LICENSE
-          # Trusted Publisher only authorises this exact name. Catch a
-          # rename here rather than blowing up the publish call.
-          name=$(node -p "require('./package.json').name")
-          if [ "$name" != "@openlatch/saferskills" ]; then
-            echo "::error::package.json name '$name' != '@openlatch/saferskills' (TP-locked)"
-            exit 1
+          name=$(node -p "require('./cli/npm/saferskills/package.json').name")
+          if [ "$name" != "saferskills" ]; then
+            echo "::error::main package name '$name' != 'saferskills' (TP-locked)"; exit 1
           fi
 
-      - name: Dry-run publish (workflow_dispatch with dry_run=true)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-        working-directory: cli
-        run: npm publish --dry-run --access public --tag latest
+      - name: Download all platform binaries
+        uses: actions/download-artifact@v8
+        with: { path: artifacts/, pattern: binaries-* }
 
-      - name: Publish (workflow_dispatch with dry_run=false OR tag push)
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
-        working-directory: cli
-        # `--tag latest` is REQUIRED for pre-release versions on npm 11+
-        # (Node 24 bundle). The implicit `latest` dist-tag was removed for
-        # pre-releases because a `1.0.0-rc.1` accidentally becoming the
-        # default install target is a footgun. SaferSkills' W1 placeholder
-        # versions all carry the `-placeholder` pre-release identifier, so
-        # without an explicit `--tag` npm errors out with
-        # "You must specify a tag using --tag when publishing a prerelease".
-        # When the CLI graduates to clean semver (≥ 0.1.0 with no
-        # pre-release suffix) the `--tag latest` flag becomes a no-op (npm
-        # would default to it anyway) — leaving it explicit keeps the
-        # workflow forward-compatible.
-        run: npm publish --access public --tag latest
+      - name: Prepare npm packages
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Publishing version: ${VERSION}"
+
+          # target → platform dir : binary extension
+          declare -A TARGET_MAP=(
+            ["aarch64-apple-darwin"]="saferskills-darwin-arm64:"
+            ["x86_64-apple-darwin"]="saferskills-darwin-x64:"
+            ["x86_64-unknown-linux-gnu"]="saferskills-linux-x64:"
+            ["aarch64-unknown-linux-gnu"]="saferskills-linux-arm64:"
+            ["x86_64-pc-windows-msvc"]="saferskills-win32-x64:.exe"
+          )
+
+          for target in "${!TARGET_MAP[@]}"; do
+            IFS=':' read -r npm_dir ext <<< "${TARGET_MAP[$target]}"
+            pkg_dir="cli/npm/${npm_dir}"
+            jq --arg v "$VERSION" '.version = $v' "${pkg_dir}/package.json" > tmp.json
+            mv tmp.json "${pkg_dir}/package.json"
+            cp "artifacts/binaries-${target}/saferskills-${target}${ext}" "${pkg_dir}/saferskills${ext}"
+            chmod +x "${pkg_dir}/saferskills${ext}" 2>/dev/null || true
+            cp cli/LICENSE "${pkg_dir}/"
+          done
+
+          # Main package: stamp version + optionalDependencies versions.
+          jq --arg v "$VERSION" '
+            .version = $v |
+            .optionalDependencies = (.optionalDependencies | to_entries | map(.value = $v) | from_entries)
+          ' cli/npm/saferskills/package.json > tmp.json
+          mv tmp.json cli/npm/saferskills/package.json
+          cp cli/LICENSE cli/README.md cli/npm/saferskills/
+
+      - name: Publish platform packages
+        run: |
+          for dir in cli/npm/saferskills-darwin-arm64/ cli/npm/saferskills-darwin-x64/ \
+                     cli/npm/saferskills-linux-arm64/ cli/npm/saferskills-linux-x64/ \
+                     cli/npm/saferskills-win32-x64/; do
+            echo "Publishing $(jq -r .name "${dir}/package.json")..."
+            npm publish "${dir}" --access public --tag latest
+          done
+
+      - name: Publish main package
+        run: npm publish cli/npm/saferskills/ --access public --tag latest
+
+  # ---------------------------------------------------------------------------
+  # Publish the crate so `cargo install saferskills` works.
+  # ---------------------------------------------------------------------------
+  crates-publish:
+    name: Publish to crates.io
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # crates.io OIDC Trusted Publishing
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-rust
+      - name: Authenticate to crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        # NOT `-p saferskills` — there is no workspace; the manifest IS the crate.
+        run: cargo publish --manifest-path cli/Cargo.toml
+
+  # ---------------------------------------------------------------------------
+  # Post-publish smoke on all 3 OSes. Phase A surface only (read/install land in
+  # later phases + need prod live): version + help + completion.
+  # ---------------------------------------------------------------------------
+  verify-publish:
+    name: Verify Published (${{ matrix.os }})
+    needs: npm-publish
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/setup-node@v6
+        with: { node-version: "24" }
+      - name: Wait for npm propagation
+        shell: bash
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 30); do
+            if npm view "saferskills@${VERSION}" version >/dev/null 2>&1; then
+              TARBALL=$(npm view "saferskills@${VERSION}" dist.tarball 2>/dev/null || true)
+              if [ -n "$TARBALL" ] && curl -sfI "$TARBALL" >/dev/null 2>&1; then
+                echo "saferskills@${VERSION} fully propagated after ${i} attempt(s)"; exit 0
+              fi
+            fi
+            echo "attempt ${i}: not propagated yet, retrying in 10s"; sleep 10
+          done
+          echo "::error::saferskills@${VERSION} did not propagate within 5 minutes"; exit 1
+      - name: Install from npm
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm install -g --fetch-retries=5 --fetch-retry-mintimeout=10000 "saferskills@${VERSION}"
+      - name: Verify version
+        run: saferskills --version
+      - name: Verify help
+        run: saferskills --help
+      - name: Verify completion
+        shell: bash
+        run: saferskills completion bash | head -1
