@@ -47,6 +47,23 @@ def _now() -> dt.datetime:
     return dt.datetime.now(tz=dt.UTC)
 
 
+_LICENSE_SPDX_MAX = 100  # catalog_items.license_spdx is VARCHAR(100)
+
+
+def _clamp_license(value: str | None) -> str | None:
+    """Defensive backstop for the VARCHAR(100) license column.
+
+    Adapters are responsible for extracting a short SPDX id, but `license` is
+    free-form upstream data we don't fully control (PyPI's field can hold the whole
+    license body). Reduce to the first line + cap so a pathological value can never
+    abort an ingestion cycle. Belt-and-suspenders to the per-adapter extraction.
+    """
+    if not value:
+        return None
+    first = value.strip().splitlines()[0].strip() if value.strip() else ""
+    return first[:_LICENSE_SPDX_MAX] or None
+
+
 def _capability_slug(n: NormalizedItem, kind: str) -> str | None:
     """Per-capability slug, or None when the GitHub coordinate is missing."""
     if not n.github_org or not n.github_repo:
@@ -103,7 +120,11 @@ class MergeEngine:
     async def _insert_new(
         self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
     ) -> uuid.UUID:
-        kind, kind_signals, quality_tier, quality_signals, agents = classify_all(n)
+        ckind, kind_signals, quality_tier, quality_signals, agents = classify_all(n)
+        # Honor the adapter's declared kind (contract: "classifier finalises when
+        # None") so the stored column matches the slug, which upsert() built from
+        # the same hint. classify_all already resolved agents against n.kind.
+        kind = n.kind or ckind
         now = _now()
         item = CatalogItem(
             kind=kind,
@@ -129,12 +150,12 @@ class MergeEngine:
             last_seen200_at=now,
             pushed_at=_parse_dt(n.pushed_at),
             github_stars=n.stars,
-            license_spdx=n.license_spdx,
+            license_spdx=_clamp_license(n.license_spdx),
             popularity_breakdown={},
             sources=[_source_entry(source, n.source_url)],
             item_metadata={
                 "description": n.description,
-                "license_spdx": n.license_spdx,
+                "license_spdx": _clamp_license(n.license_spdx),
                 "stars": n.stars,
                 "weekly_downloads": n.weekly_downloads,
                 "pushed_at": n.pushed_at,
@@ -195,7 +216,7 @@ class MergeEngine:
             if n.weekly_downloads is not None:
                 meta["weekly_downloads"] = n.weekly_downloads
             if n.license_spdx is not None and existing.license_spdx is None:
-                existing.license_spdx = n.license_spdx
+                existing.license_spdx = _clamp_license(n.license_spdx)
 
         if existing.content_hash_sha256 != raw_hash:
             meta["last_hash_change_at"] = _now().isoformat()
@@ -259,7 +280,8 @@ class MergeEngine:
         return "added_with_merge_candidate"
 
     async def _insert_staging_row(self, n: NormalizedItem, source: str) -> uuid.UUID:
-        kind, kind_signals, _qt, quality_signals, agents = classify_all(n)
+        ckind, kind_signals, _qt, quality_signals, agents = classify_all(n)
+        kind = n.kind or ckind  # honor the adapter hint (see _insert_new)
         now = _now()
         item = CatalogItem(
             kind=kind,

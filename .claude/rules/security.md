@@ -45,7 +45,7 @@ Public-tier data (including stored snapshots) is **never** retroactively scrubbe
 
 ## Audit Trail
 
-Every maintainer-facing mutation MUST emit an audit record. At W1 the surface is mostly read-only, so this covers: scan-pipeline invocations, rubric edits via PR, and vendor-appeal lifecycle transitions. **I-04 Phase C adds the operator-admin surface:** every `POST /api/v1/admin/*` mutation (source pause/unpause/force-cycle, merge-candidate decide, catalog re-classify/archive/un-archive, popularity recompute) writes one `admin_audit_log` row (`action`, `actor_admin_key_fp`, `target`, `before`, `after`, `note`) inside the request — gated by the `X-Admin-Key` header (`SAFERSKILLS_ADMIN_KEY`; fails closed when unset). See `.claude/rules/ingestion.md` § Admin endpoints. Expand when auth lands (the X-Admin-Key gate becomes SSO).
+Every maintainer-facing mutation MUST emit an audit record. At W1 the surface is mostly read-only, so this covers: scan-pipeline invocations, rubric edits via PR, and vendor-appeal lifecycle transitions. **I-04 Phase C adds the operator-admin surface:** every `POST /api/v1/admin/*` mutation (source pause/unpause/force-cycle, merge-candidate decide, catalog re-classify/archive/un-archive, popularity recompute) writes one `admin_audit_log` row (`action`, `actor_admin_key_fp`, `target`, `before`, `after`, `note`) inside the request — gated by the `X-Admin-Key` header (`SAFERSKILLS_ADMIN_KEY`; fails closed when unset, **except** local development — `ENV=development` with no key configured is exempt and audits as the fingerprint `local-dev`; real deploys always set `ENV=staging`/`production`, so the exemption can never apply off a developer's machine). See `.claude/rules/ingestion.md` § Admin endpoints. Expand when auth lands (the X-Admin-Key gate becomes SSO).
 
 ## Scan-trace transparency
 
@@ -87,6 +87,7 @@ Every user-submitted GitHub URL is treated as untrusted:
 | New outbound host allowed | Add it to a `config/sources/*.yaml` `hosts:` list, then `pnpm run generate` — the allowlist is self-derived (#2). No hand edit to this rule or `validate-outbound-allowlist.cjs`. |
 | CAPTCHA / human-gate change | "Public-input handling" #10 + `app/services/turnstile.py` + `config.py` startup guard + `environment-config.md` |
 | Rate-limit scope / exemption change | "Public-input handling" #5/#6/#7 + `scans.py::_is_loopback` / `_rate_limit_ip` + `environment-config.md` |
+| Admin-gate exemption / `local-dev` audit change | "Audit Trail" + `app/routers/admin.py::require_admin_key` + `app/core/config.py` (`saferskills_admin_key` description) + `environment-config.md` + `ingestion.md` § Admin endpoints |
 | Same-origin proxy / trusted-proxy-secret change | "Public-input handling" #11 + `webapp/src/pages/api/[...path].ts` + `scans.py::_rate_limit_ip` + `SAFERSKILLS_PROXY_SHARED_SECRET` in `environment-config.md` + `deploy.yml` (staged on both apps) |
 | Upload validation / zip-safety / token-redaction change | "Public-input handling" #8/#9 + `app/scan/upload.py` + `app/core/log_redaction.py` |
 | Access-log writer / IP-redaction change | `privacy.md` + `app/core/access_log_middleware.py` (redact at write time; never store raw IP) |

@@ -239,3 +239,63 @@ async def test_fuzzy_path_creates_merge_candidate_for_similar_name(
     mc_rows = (await db_session.execute(select(MergeCandidate))).scalars().all()
     assert len(mc_rows) >= 1
     assert all(mc.status == "pending" for mc in mc_rows)
+
+
+# ---------------------------------------------------------------------------
+# Tests: adapter kind hint is honored on the stored column (contract:
+# "classifier finalises when None") — regression for the slug/column divergence
+# where mcp_registry/npm/pypi items were stored as 'skill' despite an
+# 'mcp_server' hint and an mcp-server slug.
+# ---------------------------------------------------------------------------
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_adapter_kind_hint_is_stored_on_column(db_session: AsyncSession) -> None:
+    """An mcp_server hint with no enriched manifest must store kind='mcp_server'
+    (not the file-classifier default 'skill') and universal agent_compatibility."""
+    from app.services.agent_compat import ALL_AGENTS
+
+    engine = MergeEngine(db_session)
+    n = make_normalized(
+        github_org="acme",
+        github_repo="hinted",
+        display_name="hinted",
+        kind="mcp_server",  # adapter hint; no metadata_files → classifier alone says 'skill'
+    )
+    await engine.upsert(n, raw_hash=_HASH_A, source="mcp_registry")
+    await db_session.flush()
+
+    item = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "hinted"))
+    ).scalar_one()
+    # Slug already encoded mcp-server from the hint; the column must agree.
+    assert item.kind == "mcp_server"
+    assert "mcp-server-hinted" in item.slug
+    # mcp_server with no transport signal → universal agent compatibility.
+    assert set(item.agent_compatibility) == set(ALL_AGENTS)
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
+async def test_overlong_license_is_clamped_not_crashed(db_session: AsyncSession) -> None:
+    """Regression: a license_spdx longer than the VARCHAR(100) column must be clamped
+    (first line, ≤100 chars) rather than aborting the insert with
+    StringDataRightTruncationError (the pypi free-form-license crash)."""
+    engine = MergeEngine(db_session)
+    long_license = "MIT License\n\nCopyright (c) 2026 Acme Corp\n" + ("blah " * 500)
+    n = make_normalized(
+        github_org="acme",
+        github_repo="licensed",
+        display_name="licensed",
+        license_spdx=long_license,
+    )
+    outcome = await engine.upsert(n, raw_hash=_HASH_A, source="pypi")
+    await db_session.flush()  # would raise StringDataRightTruncationError before the fix
+    assert outcome == "added"
+
+    item = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_repo == "licensed"))
+    ).scalar_one()
+    assert item.license_spdx == "MIT License"
+    assert len(item.license_spdx) <= 100

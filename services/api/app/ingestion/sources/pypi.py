@@ -15,7 +15,7 @@ import hashlib
 import html.parser
 import re
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import structlog
@@ -32,12 +32,59 @@ logger = structlog.get_logger(__name__)
 
 _GITHUB_URL_RE = re.compile(r"https?://github\.com/([^/\s]+)/([^/\s\?#]+?)(?:\.git)?/?$")
 
+# `license_spdx` is VARCHAR(100). PyPI's free-form `info.license` frequently holds
+# the ENTIRE license body (≈1.2 KB), so it must NEVER be stored verbatim. Prefer the
+# PEP 639 SPDX expression, then map the trove classifier, then a short raw value.
+_LICENSE_MAX_LEN = 100
+_CLASSIFIER_SPDX = {
+    "MIT License": "MIT",
+    "MIT No Attribution License (MIT-0)": "MIT-0",
+    "Apache Software License": "Apache-2.0",
+    "BSD License": "BSD-3-Clause",
+    "ISC License (ISCL)": "ISC",
+    "Mozilla Public License 2.0 (MPL 2.0)": "MPL-2.0",
+    "GNU General Public License v2 (GPLv2)": "GPL-2.0-only",
+    "GNU General Public License v3 (GPLv3)": "GPL-3.0-only",
+    "GNU Lesser General Public License v2 (LGPLv2)": "LGPL-2.1-only",
+    "GNU Lesser General Public License v3 (LGPLv3)": "LGPL-3.0-only",
+    "GNU Affero General Public License v3": "AGPL-3.0-only",
+    "GNU Affero General Public License v3 or later (AGPLv3+)": "AGPL-3.0-or-later",
+    "The Unlicense (Unlicense)": "Unlicense",
+    "Boost Software License 1.0 (BSL-1.0)": "BSL-1.0",
+    "zlib/libpng License": "Zlib",
+}
+
 
 def _parse_github_coords(url: str) -> tuple[str | None, str | None]:
     m = _GITHUB_URL_RE.match((url or "").strip())
     if m:
         return m.group(1), m.group(2)
     return None, None
+
+
+def _extract_license_spdx(info: dict[str, Any]) -> str | None:
+    """Resolve a SHORT SPDX-ish license id from PyPI metadata (never the full body)."""
+    # 1. PEP 639 SPDX expression — already an identifier.
+    expr = str(info.get("license_expression") or "").strip()
+    if expr and "\n" not in expr and len(expr) <= _LICENSE_MAX_LEN:
+        return expr
+    # 2. Trove classifier → SPDX id (and a short fallback for unmapped leaves).
+    fallback: str | None = None
+    classifiers = cast("list[Any]", info.get("classifiers") or [])
+    for c_raw in classifiers:
+        c = str(c_raw)
+        if not c.startswith("License :: ") or c.endswith(":: OSI Approved"):
+            continue
+        leaf = c.rsplit(" :: ", 1)[-1].strip()
+        if leaf in _CLASSIFIER_SPDX:
+            return _CLASSIFIER_SPDX[leaf]
+        if fallback is None and 0 < len(leaf) <= _LICENSE_MAX_LEN:
+            fallback = leaf
+    # 3. Free-form `license` ONLY when it already looks like a short identifier.
+    raw = str(info.get("license") or "").strip()
+    if raw and "\n" not in raw and len(raw) <= _LICENSE_MAX_LEN:
+        return raw
+    return fallback
 
 
 class _SimpleIndexParser(html.parser.HTMLParser):
@@ -190,7 +237,7 @@ class PypiAdapter(RegistryAdapter):
             return None
 
         description: str = (info.get("summary") or "")[:280]
-        license_spdx: str | None = info.get("license") or None
+        license_spdx: str | None = _extract_license_spdx(info)
         repo_yanked: bool = bool(info.get("yanked", False))
 
         # Try to extract GitHub coords from project_urls.

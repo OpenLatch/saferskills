@@ -21,7 +21,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, desc, func, or_, select, text
+from sqlalchemy import and_, desc, func, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -153,13 +153,22 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
     ).all()
 
     # Agent facet: unnest the JSONB agent_compatibility array → per-agent counts.
-    # Postgres treats the set-returning function in FROM as a lateral over the
-    # preceding catalog_items row, so each item contributes one row per agent.
-    agent_fn = func.jsonb_array_elements_text(CatalogItem.agent_compatibility).table_valued("value")
+    # The set-returning function references catalog_items.agent_compatibility, so
+    # it must be joined as an explicit LATERAL. (`select_from(CatalogItem, fn)` —
+    # a comma cross-join — relies on Postgres' implicit lateral and trips
+    # SQLAlchemy's cartesian-product warning; `JOIN LATERAL ... ON true` is the
+    # same INNER lateral semantics — empty/NULL arrays yield no rows — made
+    # visible to the compiler.)
+    agent_fn = (
+        func.jsonb_array_elements_text(CatalogItem.agent_compatibility)
+        .table_valued("value")
+        .lateral()
+    )
     agent_rows = (
         await session.execute(
             select(agent_fn.c.value, func.count(CatalogItem.id))
-            .select_from(CatalogItem, agent_fn)
+            .select_from(CatalogItem)
+            .join(agent_fn, true())
             .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
             .group_by(agent_fn.c.value)
         )

@@ -22,8 +22,11 @@ uv project with a different audience + safety surface:
 - **No DB access.** This CLI only calls the API; the backend owns all mutation +
   `admin_audit_log` writes. Never add `psycopg`/SQLAlchemy here.
 - **X-Admin-Key only.** The gate header is set in `shared/http_client.create_client`.
-  The key comes from `--admin-key` / `SAFERSKILLS_ADMIN_KEY`. Replaced by SSO when
-  auth lands (Track E); the CLI keeps working as the transition fallback.
+  The key comes from `--admin-key` / `SAFERSKILLS_ADMIN_KEY`. **A local API
+  (`ENV=development`, no key configured) exempts the gate** — the CLI's default
+  `--api-url http://localhost:8000` works with no key (those mutations audit as
+  `local-dev`); a key is required only for staging/production targets. Replaced by
+  SSO when auth lands (Track E); the CLI keeps working as the transition fallback.
 - **Dangerous verbs gate via `shared/safety.require_confirmation`** — `--yes` or
   `SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it`. Add a new dangerous verb = add its
   `<domain> <verb>` string to `DANGEROUS_OPS`.

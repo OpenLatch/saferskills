@@ -379,9 +379,14 @@ export async function promoteUnlisted(token: string): Promise<PromoteRunResponse
   return (await res.json()) as PromoteRunResponse
 }
 
-/** Token-gated `.zip` of an unlisted run's scanned bytes (mockup 4 keeps it). */
+/** Token-gated `.zip` of an unlisted run's scanned bytes (mockup 4 keeps it).
+ * Origin-RELATIVE: this is rendered into an `<a href>` that is SSR'd then hydrated,
+ * so it must be identical on server and client. `env.PUBLIC_API_URL` resolves
+ * per-context (API_ORIGIN vs window.location.origin) → baking it would cause a React
+ * hydration mismatch. The browser resolves the relative path against the page origin
+ * → the same-origin `/api/*` proxy. (See itemDownloadUrl for the same rationale.) */
 export function unlistedDownloadUrl(token: string): string {
-  return `${env.PUBLIC_API_URL}/api/v1/scans/r/${encodeURIComponent(token)}/download`
+  return `/api/v1/scans/r/${encodeURIComponent(token)}/download`
 }
 
 /** DELETE /api/v1/scans/r/{token} — eager self-delete (token → generic 404 after). */

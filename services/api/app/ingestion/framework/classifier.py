@@ -132,7 +132,9 @@ def classify_agent_compatibility(n: NormalizedItem) -> list[str]:
             agents.update(ALL_AGENTS)  # unknown transport on a manifest → assume broad
 
     if not agents:
-        kind, _ = classify_kind(n)
+        # Honor the adapter's kind hint (e.g. mcp_registry/npm declare mcp_server)
+        # when no file signals are present; fall back to the file-based classifier.
+        kind = n.kind or classify_kind(n)[0]
         if kind == "mcp_server":
             agents.update(ALL_AGENTS)
         else:

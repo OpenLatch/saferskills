@@ -167,18 +167,26 @@ async def test_mcp_registry_list_items_200_yields_items() -> None:
 
     adapter = McpRegistryAdapter(_mcp_config())
 
+    # The live /v0/servers feed wraps each entry under `server` with `_meta`
+    # bookkeeping siblings; pagination lives under `metadata.nextCursor`.
     server_data = {
         "servers": [
             {
-                "id": "server-1",
-                "name": "io.github.acme/mcp-tool",
-                "displayName": "MCP Tool",
-                "description": "An MCP server",
-                "repository": {"url": "https://github.com/acme/mcp-tool"},
-                "updatedAt": "2025-01-01T00:00:00Z",
+                "server": {
+                    "name": "io.github.acme/mcp-tool",
+                    "title": "MCP Tool",
+                    "description": "An MCP server",
+                    "repository": {"url": "https://github.com/acme/mcp-tool"},
+                },
+                "_meta": {
+                    "io.modelcontextprotocol.registry/official": {
+                        "updatedAt": "2025-01-01T00:00:00Z",
+                        "isLatest": True,
+                    }
+                },
             }
         ],
-        "nextCursor": None,
+        "metadata": {"nextCursor": None},
     }
 
     resp = _make_response(server_data)
@@ -201,7 +209,8 @@ async def test_mcp_registry_list_items_200_yields_items() -> None:
         items = [item async for item in adapter.list_items(client)]
 
     assert len(items) == 1
-    assert items[0].source_id == "mcp_registry/server-1"
+    # source_id keys on the stable server name (no per-server id is exposed).
+    assert items[0].source_id == "mcp_registry/io.github.acme/mcp-tool"
 
 
 @pytest.mark.asyncio

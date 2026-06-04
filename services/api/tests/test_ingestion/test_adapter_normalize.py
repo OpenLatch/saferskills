@@ -325,3 +325,26 @@ class TestPypiNormalize:
         result = adapter.normalize(raw)
         assert result is not None
         assert result.repo_yanked is True
+
+    def test_normalize_full_text_license_resolved_to_short_spdx(self) -> None:
+        """Regression: PyPI's free-form `license` often holds the ENTIRE license body
+        (~1.2 KB). It must resolve to a short SPDX id from the trove classifier, never
+        the verbatim text (which overflows license_spdx VARCHAR(100) and crashes the
+        cycle)."""
+        adapter = build_adapter("pypi")
+        payload = self._pypi_payload()
+        payload["info"]["license"] = "MIT License\n\nCopyright (c) 2026 Acme\n" + ("x " * 600)
+        payload["info"]["classifiers"] = ["License :: OSI Approved :: MIT License"]
+        result = adapter.normalize(raw=_raw(payload))
+        assert result is not None
+        assert result.license_spdx == "MIT"
+        assert len(result.license_spdx) <= 100
+
+    def test_normalize_prefers_license_expression(self) -> None:
+        adapter = build_adapter("pypi")
+        payload = self._pypi_payload()
+        payload["info"]["license_expression"] = "Apache-2.0"
+        payload["info"]["license"] = "full apache text " * 100
+        result = adapter.normalize(raw=_raw(payload))
+        assert result is not None
+        assert result.license_spdx == "Apache-2.0"

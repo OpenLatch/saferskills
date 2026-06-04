@@ -255,14 +255,16 @@ class TestMcpRegistryHelpers:
         assert org == "acme"
         assert repo == "mcp-tool"
 
-    def test_parse_name_coords_slash_format(self) -> None:
+    def test_parse_name_coords_non_github_namespace_returns_none(self) -> None:
         from app.ingestion.sources.mcp_registry import (
             _parse_name_coords,  # pyright: ignore[reportPrivateUsage]
         )
 
-        org, repo = _parse_name_coords("acme/mcp-tool")
-        assert org == "acme"
-        assert repo == "mcp-tool"
+        # Registry names are reverse-DNS namespaced. Only `io.github.*` maps to a
+        # real GitHub repo; any other `<namespace>/<name>` must NOT mint fake coords.
+        org, repo = _parse_name_coords("ac.tandem/docs-mcp")
+        assert org is None
+        assert repo is None
 
     def test_parse_name_coords_no_slash_returns_none(self) -> None:
         from app.ingestion.sources.mcp_registry import (

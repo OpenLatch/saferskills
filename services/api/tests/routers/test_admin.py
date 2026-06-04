@@ -158,3 +158,61 @@ async def test_merge_candidates_list_empty(db_client: AsyncClient) -> None:
     resp = await db_client.get("/api/v1/admin/merge-candidates", headers=_HDR)
     assert resp.status_code == 200
     assert isinstance(resp.json()["data"], list)
+
+
+# ─── Keyless local-dev exemption ───────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_local_dev_no_key_allowed(
+    db_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ENV=development + no configured key → keyless read access (no header)."""
+    monkeypatch.setattr(get_settings(), "saferskills_admin_key", None)
+    monkeypatch.setattr(get_settings(), "env", "development")
+    resp = await db_client.get("/api/v1/admin/sources")
+    assert resp.status_code == 200
+    assert len(resp.json()["data"]) >= 14
+
+
+@pytest.mark.asyncio
+async def test_local_dev_no_key_mutation_audits_local_dev(
+    db_client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A keyless local-dev mutation succeeds and audits as `local-dev`."""
+    monkeypatch.setattr(get_settings(), "saferskills_admin_key", None)
+    monkeypatch.setattr(get_settings(), "env", "development")
+    item = _item()
+    db_session.add(item)
+    await db_session.commit()
+
+    resp = await db_client.post(
+        f"/api/v1/admin/catalog/{item.slug}/archive", json={"reason": "spam"}
+    )
+    assert resp.status_code == 200
+
+    row = (
+        (
+            await db_session.execute(
+                select(AdminAuditLog)
+                .where(AdminAuditLog.target == item.slug)
+                .order_by(AdminAuditLog.ts.desc())
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert row is not None
+    assert row.actor_admin_key_fp == "local-dev"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("env", ["staging", "production"])
+async def test_no_key_off_development_403(
+    db_client: AsyncClient, monkeypatch: pytest.MonkeyPatch, env: str
+) -> None:
+    """Exemption must not apply off ENV=development — still 403 with no key."""
+    monkeypatch.setattr(get_settings(), "saferskills_admin_key", None)
+    monkeypatch.setattr(get_settings(), "env", env)
+    resp = await db_client.get("/api/v1/admin/sources")
+    assert resp.status_code == 403

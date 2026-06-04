@@ -241,8 +241,18 @@ export async function fetchItemDiff(
 }
 
 export function itemDownloadUrl(slug: string, scanId?: string): string {
-  const url = buildUrl(`/api/v1/items/${encodeURIComponent(slug)}/download`, { scan: scanId })
-  return url.toString()
+  // Origin-RELATIVE on purpose: this value is rendered into an `<a href>` that is
+  // SSR'd and then hydrated. `env.PUBLIC_API_URL` resolves per-context (API_ORIGIN
+  // on the server, window.location.origin in the browser), so baking it here would
+  // make the server- and client-rendered href disagree → React hydration mismatch.
+  // A relative path is identical in both contexts and the browser resolves it
+  // against the page origin → the same-origin `/api/*` proxy (the canonical path;
+  // the browser must never hit the backend origin directly).
+  const path = `/api/v1/items/${encodeURIComponent(slug)}/download`
+  const qs = new URLSearchParams()
+  if (scanId) qs.set('scan', scanId)
+  const query = qs.toString()
+  return query ? `${path}?${query}` : path
 }
 
 export async function fetchCatalogFacets(): Promise<CatalogFacets> {
