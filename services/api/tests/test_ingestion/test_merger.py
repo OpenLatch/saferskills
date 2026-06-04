@@ -395,13 +395,14 @@ async def test_bare_update_never_downgrades_tiered_row(db_session: AsyncSession)
 async def test_upsert_slug_race_falls_through_to_update(db_session: AsyncSession) -> None:
     """Regression: aggregators crawl overlapping repos, so two concurrent cycles
     raced to INSERT the same capability slug — the loser hit `duplicate key …
-    uq_catalog_items_slug` and aborted its batch. The insert now runs in a
-    SAVEPOINT; a unique-violation re-reads the peer's row and takes the UPDATE
-    path instead of raising.
+    uq_catalog_items_slug`, which Postgres logs as an ERROR and which aborted its
+    batch. `_insert_new` now uses INSERT … ON CONFLICT (slug) DO NOTHING (a clean
+    no-op, never logged); a NULL returned id signals the conflict so the merger
+    re-reads the peer's row and takes the UPDATE path.
 
     Simulated deterministically: the row already exists, but the pre-INSERT
-    SELECT is forced to miss it once (the race window), so the merger attempts an
-    INSERT that violates the unique constraint and must recover.
+    SELECT is forced to miss it once (the race window), so the INSERT hits the
+    ON CONFLICT no-op and the merger recovers via re-read + update.
     """
     engine = MergeEngine(db_session)
     n = make_normalized(github_org="acme", github_repo="raced", display_name="cap")
