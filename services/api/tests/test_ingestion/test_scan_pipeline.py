@@ -12,6 +12,7 @@ from app.ingestion.framework.merger import MergeEngine
 from app.ingestion.tasks_scan import decide_scan_action
 from app.models.scan_run import ScanRun
 from app.queue.scan_runner import mark_stale_runs_failed
+from app.scan.fetch import ResolvedRef
 
 from .conftest import make_normalized
 
@@ -99,6 +100,135 @@ async def test_full_scan_records_failed_on_permanent_fetch_error(
 
     run = (await db_session.execute(select(ScanRun).where(ScanRun.github_url == url))).scalar_one()
     assert run.status == "failed"
+
+
+# ── size-gated hybrid fetch routing ────────────────────────────────────────
+
+
+def _resolved(size_kb: int | None) -> ResolvedRef:
+    return ResolvedRef(
+        org="acme",
+        repo="repo",
+        default_branch="main",
+        ref_sha="a" * 40,
+        etag=None,
+        last_modified=None,
+        not_modified=False,
+        size_kb=size_kb,
+    )
+
+
+def _patch_full_scan_io(
+    monkeypatch: pytest.MonkeyPatch, db_session: AsyncSession
+) -> dict[str, str]:
+    """Stub the DB + persistence I/O of `_full_scan` so a routing test exercises
+    only the fetch-path branch. Returns a dict that records which engine fn ran."""
+    import types
+
+    from app.db import session as session_module
+    from app.ingestion import tasks_scan
+    from app.scan import engine as engine_module
+    from app.scan import persistence
+
+    called: dict[str, str] = {}
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", lambda: _Ctx(db_session))
+
+    async def _pending(*_a: object, **_k: object) -> object:
+        return types.SimpleNamespace(id="run-id")
+
+    monkeypatch.setattr(persistence, "persist_pending_scan_run", _pending)
+    monkeypatch.setattr(persistence, "persist_completed_scan_run", _noop)
+    monkeypatch.setattr(tasks_scan, "_stamp_scanned", _noop)
+    monkeypatch.setattr(tasks_scan, "_upsert_fetch_state", _noop)
+    # session.get(ScanRun, run_id) must return a truthy run for the success branch.
+    monkeypatch.setattr(db_session, "get", _fake_get, raising=False)
+
+    _repo = types.SimpleNamespace(ref_sha="a" * 40)
+
+    async def _tarball(github_url: str, rubric_version: str) -> object:
+        called["fn"] = "tarball"
+        return _repo
+
+    async def _trees(github_url: str, rubric_version: str, **_k: object) -> object:
+        called["fn"] = "trees"
+        return _repo
+
+    monkeypatch.setattr(engine_module, "run_repo_scan", _tarball)
+    monkeypatch.setattr(engine_module, "run_repo_scan_via_trees", _trees)
+    return called
+
+
+async def _noop(*_a: object, **_k: object) -> None:
+    return None
+
+
+async def _fake_get(*_a: object, **_k: object) -> object:
+    import types
+
+    return types.SimpleNamespace(status="pending")
+
+
+@pytest.mark.asyncio
+async def test_full_scan_routes_large_repo_to_trees(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.ingestion import tasks_scan
+
+    called = _patch_full_scan_io(monkeypatch, db_session)
+    # size_kb above SCAN_LARGE_REPO_SIZE_KB (default 20480) → trees path.
+    action = await tasks_scan._full_scan(  # pyright: ignore[reportPrivateUsage]
+        "https://github.com/acme/repo", "rub1", "eng1", _resolved(999_999), reason="reconcile"
+    )
+    assert action == "scan"
+    assert called["fn"] == "trees"
+
+
+@pytest.mark.asyncio
+async def test_full_scan_routes_small_repo_to_tarball(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.ingestion import tasks_scan
+
+    called = _patch_full_scan_io(monkeypatch, db_session)
+    action = await tasks_scan._full_scan(  # pyright: ignore[reportPrivateUsage]
+        "https://github.com/acme/repo", "rub1", "eng1", _resolved(100), reason="reconcile"
+    )
+    assert action == "scan"
+    assert called["fn"] == "tarball"
+
+
+@pytest.mark.asyncio
+async def test_full_scan_falls_back_to_trees_on_tarball_oversize(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A small-looking repo that blows the 25 MiB cap (TarballTooLargeError) retries
+    once via the trees path before any permanent-failure handling."""
+    import types
+
+    from app.ingestion import tasks_scan
+    from app.scan import engine as engine_module
+    from app.scan.fetch import TarballTooLargeError
+
+    called = _patch_full_scan_io(monkeypatch, db_session)
+
+    async def _oversize(github_url: str, rubric_version: str) -> object:
+        called["fn"] = "tarball"
+        raise TarballTooLargeError("tarball exceeded 26214400 bytes; aborting (anti-DOS cap)")
+
+    monkeypatch.setattr(engine_module, "run_repo_scan", _oversize)
+
+    async def _trees(github_url: str, rubric_version: str, **_k: object) -> object:
+        called["fn"] = "trees"
+        return types.SimpleNamespace(ref_sha="a" * 40)
+
+    monkeypatch.setattr(engine_module, "run_repo_scan_via_trees", _trees)
+
+    action = await tasks_scan._full_scan(  # pyright: ignore[reportPrivateUsage]
+        "https://github.com/acme/repo", "rub1", "eng1", _resolved(100), reason="reconcile"
+    )
+    assert action == "scan"
+    assert called["fn"] == "trees"  # fell back after the tarball raised
 
 
 # ── merger on-ingest scan hook ─────────────────────────────────────────────

@@ -543,11 +543,43 @@ def _score_file_index(
     return scored, repo_aggregate, repo_tier, kind_tally
 
 
+def _assemble_repo_scan_result(
+    file_index: list[tuple[str, bytes]],
+    rubric_version: str,
+    ref_sha: str,
+    *,
+    skipped_files: list[str],
+    started: float,
+    source_kind: str | None = None,
+) -> RepoScanResult:
+    """Discover + score a file index into a `RepoScanResult` (the shared tail).
+
+    The single source-agnostic core the three `run_repo_scan*` entry points
+    converge on once their bytes are in hand — so scoring, aggregation, latency,
+    and result shape can't drift between the tarball / trees / upload paths.
+    Caller owns `started` (what's inside the latency window differs per path).
+    """
+    scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
+        file_index, rubric_version, ref_sha, source_kind=source_kind
+    )
+    return RepoScanResult(
+        capabilities=scored,
+        repo_aggregate_score=repo_aggregate,
+        repo_tier=repo_tier,
+        kind_tally=kind_tally,
+        capability_count=len(scored),
+        ref_sha=ref_sha,
+        file_count=len(file_index),
+        latency_ms=int((time.monotonic() - started) * 1000),
+        skipped_files=skipped_files,
+    )
+
+
 async def run_repo_scan(
     github_url: str,
     rubric_version: str,
 ) -> RepoScanResult:
-    """Scan a repo: fetch once, discover capabilities, score each independently.
+    """Scan a repo: fetch once (tarball), discover capabilities, score each.
 
     The repo aggregate is the mean of the per-capability aggregate scores. Every
     repo yields ≥1 capability (the discovery layer's whole-repo fallback), so a
@@ -556,23 +588,38 @@ async def run_repo_scan(
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
     file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
-
-    scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
-        file_index, rubric_version, result.ref_sha
+    return _assemble_repo_scan_result(
+        file_index,
+        rubric_version,
+        result.ref_sha,
+        skipped_files=result.skipped_oversized_files,
+        started=started,
     )
 
-    latency_ms = int((time.monotonic() - started) * 1000)
 
-    return RepoScanResult(
-        capabilities=scored,
-        repo_aggregate_score=repo_aggregate,
-        repo_tier=repo_tier,
-        kind_tally=kind_tally,
-        capability_count=len(scored),
-        ref_sha=result.ref_sha,
-        file_count=result.file_count,
-        latency_ms=latency_ms,
-        skipped_files=result.skipped_oversized_files,
+async def run_repo_scan_via_trees(
+    github_url: str,
+    rubric_version: str,
+    *,
+    ref_sha: str,
+    default_branch: str,
+) -> RepoScanResult:
+    """Large-repo scan path: list the tree (1 REST call) + fetch only the
+    ≤ 5 MiB blobs from `raw.githubusercontent.com`, bypassing the 25 MiB
+    single-stream tarball cap that fails monorepos / `awesome-*` collections.
+
+    Converges on the same `_assemble_repo_scan_result` core as `run_repo_scan`,
+    fed the identical file set the tarball path would keep after its > 5 MiB
+    skip — so scores, snapshot, `.zip`, and `content_hash_sha256` stay
+    byte-identical; only how the bytes arrive changes. `skipped_files` carries
+    the trees-path skip list (oversized + any blob past the per-repo bounds).
+    """
+    started = time.monotonic()
+    file_index, skipped = await fetch.fetch_file_index_via_trees(
+        github_url, ref_sha=ref_sha, default_branch=default_branch
+    )
+    return _assemble_repo_scan_result(
+        file_index, rubric_version, ref_sha, skipped_files=skipped, started=started
     )
 
 
@@ -593,19 +640,11 @@ def run_repo_scan_from_index(
     no fetch, no I/O.
     """
     started = time.monotonic()
-    scored, repo_aggregate, repo_tier, kind_tally = _score_file_index(
-        file_index, rubric_version, ref_sha, source_kind=source_kind
-    )
-    latency_ms = int((time.monotonic() - started) * 1000)
-
-    return RepoScanResult(
-        capabilities=scored,
-        repo_aggregate_score=repo_aggregate,
-        repo_tier=repo_tier,
-        kind_tally=kind_tally,
-        capability_count=len(scored),
-        ref_sha=ref_sha,
-        file_count=len(file_index),
-        latency_ms=latency_ms,
+    return _assemble_repo_scan_result(
+        file_index,
+        rubric_version,
+        ref_sha,
         skipped_files=[],
+        started=started,
+        source_kind=source_kind,
     )
