@@ -51,7 +51,7 @@ from app.models.repo_fetch_state import RepoFetchState
 from app.models.scan import Scan
 from app.models.scan_run import ScanRun
 from app.scan import engine, fetch, persistence
-from app.scan.fetch import FetchError, ResolvedRef
+from app.scan.fetch import FetchError, ResolvedRef, TarballTooLargeError
 from app.services.artifact_bytes import resolve_snapshot
 
 logger = structlog.get_logger(__name__)
@@ -201,9 +201,19 @@ async def _full_scan(
     in case it later shrinks) rather than re-selecting it every tick. Transient
     failures (5xx / timeout) surface as httpx errors, not `FetchError`, so they
     still propagate and retry.
+
+    **Size-gated hybrid fetch.** A repo whose reported size exceeds
+    `scan_large_repo_size_kb` skips the tarball and uses the Git Trees + raw path
+    (`run_repo_scan_via_trees`) — same engine, same fileset (every blob ≤ 5 MiB),
+    no 25 MiB single-stream cap. Because `size` is approximate, a repo that
+    *looks* small but blows the cap raises `TarballTooLargeError` (a `FetchError`
+    subclass) — caught here for a one-shot fallback to the trees path before the
+    permanent-failure handling. A truncated tree / deleted repo / invalid ref
+    stays a plain `FetchError` → marked failed (today's behaviour, unchanged).
     """
     from app.db.session import AsyncSessionLocal
 
+    settings = get_settings()
     ref_sha = resolved.ref_sha or "0" * 40
     idempotency_key = persistence.compute_idempotency_key(
         github_url, ref_sha=ref_sha, rubric_version=rubric
@@ -223,8 +233,27 @@ async def _full_scan(
         run_id = run.id
 
     # Network + CPU OUTSIDE any DB session (don't hold a pooled connection).
+    default_branch = resolved.default_branch or "main"
+    is_large = resolved.size_kb is not None and resolved.size_kb > settings.scan_large_repo_size_kb
     try:
-        repo = await engine.run_repo_scan(github_url, rubric)
+        if is_large:
+            repo = await engine.run_repo_scan_via_trees(
+                github_url, rubric, ref_sha=ref_sha, default_branch=default_branch
+            )
+        else:
+            try:
+                repo = await engine.run_repo_scan(github_url, rubric)
+            except TarballTooLargeError:
+                # `size` is approximate — a repo that looked small blew the 25 MiB
+                # cap. Retry once via the trees path before giving up.
+                logger.info(
+                    "scan_capability_repo.tarball_oversize_fallback",
+                    github_url=github_url,
+                    reason=reason,
+                )
+                repo = await engine.run_repo_scan_via_trees(
+                    github_url, rubric, ref_sha=ref_sha, default_branch=default_branch
+                )
     except FetchError as exc:
         async with AsyncSessionLocal() as session:
             run = await session.get(ScanRun, run_id)

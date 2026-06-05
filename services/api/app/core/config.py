@@ -237,6 +237,48 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Large-repo hybrid fetch (Git Trees + raw) ──────────────────────────
+    # A monorepo / awesome-* collection blows the 25 MiB single-stream tarball
+    # cap, failing the whole repo. Above this reported size the auto-scan path
+    # skips the tarball and lists the tree (1 REST call, pinned to HEAD SHA) +
+    # fetches only the ≤ 5 MiB blobs from raw.githubusercontent.com — the same
+    # fileset the tarball keeps, so scores/snapshot/zip stay byte-identical.
+    scan_large_repo_size_kb: int = Field(
+        default=20480,  # ~20 MiB — margin under the 25 MiB compressed cap.
+        ge=1,
+        description=(
+            "Reported repo size (KiB) above which the auto-scan pipeline routes to "
+            "the Git Trees + raw fetch instead of the tarball. The tarball-cap "
+            "fallback (TarballTooLargeError → trees) covers misclassification."
+        ),
+    )
+    scan_trees_max_files: int = Field(
+        default=4000,
+        ge=1,
+        description=(
+            "Per-repo ceiling on raw blobs fetched via the Git Trees path. Beyond "
+            "this, remaining blobs are skipped (graceful, not a failure) — bounds a "
+            "many-small-file monorepo's raw-fetch fan-out."
+        ),
+    )
+    scan_trees_max_total_bytes: int = Field(
+        default=26_214_400,  # 25 MiB — parity with the tarball cap.
+        ge=1,
+        description=(
+            "Per-repo total-bytes ceiling on the Git Trees raw-fetch path. Once hit, "
+            "remaining blobs are skipped (graceful) — keeps the trees path's total "
+            "footprint at tarball-cap parity."
+        ),
+    )
+    scan_trees_fetch_concurrency: int = Field(
+        default=8,
+        ge=1,
+        description=(
+            "Max concurrent raw.githubusercontent.com blob fetches per repo on the "
+            "Git Trees path (in-body semaphore)."
+        ),
+    )
+
     # ── Rate limits ────────────────────────────────────────────────────────
     scan_submit_daily_limit: int = Field(
         default=10,
