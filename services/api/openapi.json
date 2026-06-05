@@ -1055,6 +1055,10 @@
             "title": "Git Sha",
             "type": "string"
           },
+          "ingestion": {
+            "title": "Ingestion",
+            "type": "string"
+          },
           "migrations_error": {
             "anyOf": [
               {
@@ -1083,7 +1087,8 @@
           "status",
           "version",
           "git_sha",
-          "migrations_ok"
+          "migrations_ok",
+          "ingestion"
         ],
         "title": "HealthResponse",
         "type": "object"

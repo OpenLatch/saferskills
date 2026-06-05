@@ -108,7 +108,15 @@ def _rate_limit_hook(adapter: BaseAdapter) -> Any:
 
 async def _body_size_cap_hook(response: httpx.Response) -> None:
     cl = response.headers.get("content-length")
-    if cl is not None and int(cl) > _MAX_BODY_BYTES:
+    if cl is None:
+        return
+    # A malformed Content-Length (non-numeric) must not raise inside the response
+    # hook (WS-8a) — treat it as unknown size and let the stream/read path handle it.
+    try:
+        size = int(cl.strip())
+    except ValueError:
+        return
+    if size > _MAX_BODY_BYTES:
         raise BodyTooLargeError(f"BODY TOO LARGE: {cl} bytes from {response.url}")
 
 

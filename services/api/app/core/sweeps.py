@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,31 +119,43 @@ async def sweep_cli_pow(session: AsyncSession) -> int:
         await session.commit()
 
 
+async def _run_one_sweep(name: str, fn: Callable[[AsyncSession], Awaitable[int]]) -> int:
+    """Run one sweep in its OWN session (WS-8c).
+
+    Each sweep gets a fresh connection so a mid-transaction error in one cannot
+    poison the connection the next sweep would reuse (which previously cascaded
+    every sibling into the catch-all `logger.exception` traceback). A failed
+    sweep logs ONE clean WARN and returns 0 — the next tick retries it."""
+    try:
+        async with AsyncSessionLocal() as session:
+            return await fn(session)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.warning("expiry sweep %s failed; continuing (%s)", name, type(exc).__name__)
+        return 0
+
+
 async def run_sweep_loop() -> None:
     """Every `settings.sweep_interval_seconds`, try the lock + sweep (unlisted runs
-    + ingestion_runs retention). On error, log + continue (one bad tick never kills
-    the task). Cancellation-safe."""
+    + ingestion_runs retention + cli_pow). Each sweep runs in its OWN session so one
+    bad sweep can't cascade the others; one bad tick never kills the task.
+    Cancellation-safe."""
     interval = get_settings().sweep_interval_seconds
     logger.info("expiry sweep loop started (interval=%ss)", interval)
     try:
         while True:
-            try:
-                async with AsyncSessionLocal() as session:
-                    swept = await sweep_unlisted(session)
-                    swept_runs = await sweep_ingestion_runs(session)
-                    swept_pow = await sweep_cli_pow(session)
-                if swept or swept_runs or swept_pow:
-                    logger.info(
-                        "expiry sweep removed %d unlisted run(s), %d ingestion_run(s), "
-                        "%d cli_pow_spent row(s)",
-                        swept,
-                        swept_runs,
-                        swept_pow,
-                    )
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception("expiry sweep tick failed; continuing")
+            swept = await _run_one_sweep("unlisted", sweep_unlisted)
+            swept_runs = await _run_one_sweep("ingestion_runs", sweep_ingestion_runs)
+            swept_pow = await _run_one_sweep("cli_pow", sweep_cli_pow)
+            if swept or swept_runs or swept_pow:
+                logger.info(
+                    "expiry sweep removed %d unlisted run(s), %d ingestion_run(s), "
+                    "%d cli_pow_spent row(s)",
+                    swept,
+                    swept_runs,
+                    swept_pow,
+                )
             await asyncio.sleep(interval)
     except asyncio.CancelledError:
         logger.info("expiry sweep loop cancelled")

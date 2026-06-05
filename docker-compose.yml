@@ -22,6 +22,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # GitHub App credentials (GITHUB_APP_ID / _INSTALLATION_ID / _PRIVATE_KEY) live
+    # in services/api/.env — load them so ingestion + auto-scan authenticate at
+    # 5,000 req/h instead of the 60 req/h anonymous limit. The file has no
+    # DATABASE_URL, and the explicit `environment:` block below overrides any
+    # overlap, so this can't clobber the in-container DB/HISHEL/autoscan settings.
+    env_file:
+      - ./services/api/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:dev@postgres:5432/saferskills_dev
       SENTRY_DSN: ""
@@ -36,6 +43,27 @@ services:
       # root; in Docker the rubric tree is mounted read-only since it lives
       # outside the api build context (./services/api).
       RUBRIC_DIR: /app/rubric
+      # The hishel RFC-9111 ingestion cache defaults to /data/.hishel.db (a Fly
+      # volume mount); there is no /data volume locally and the non-root `app`
+      # user can't create it, so point it at the writable home dir for compose.
+      HISHEL_DB_PATH: /home/app/.hishel.db
+      # The durable bulk auto-scan pipeline is ON by default everywhere (matches
+      # the config.py + .env.example default). It fetches every ingested repo from
+      # api.github.com — that is 60 req/h UNAUTHENTICATED, so set GITHUB_TOKEN
+      # below to scan effectively (60→5,000 req/h); without it the drainer is
+      # GitHub-rate-limited (it back-pressures, it does not crash). To silence bulk
+      # scanning on a tokenless local box, export SCAN_AUTOSCAN_ENABLED=false in
+      # your .env — the interactive POST /scans path is unaffected either way.
+      SCAN_AUTOSCAN_ENABLED: ${SCAN_AUTOSCAN_ENABLED:-true}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # NOTE: mcp_registry is paused at runtime via the admin halt-source endpoint
+      # (crawler_cursors.status='paused', survives restarts in pgdata) — it is a
+      # ~10k-item cursor crawl that enriches every item via api.github.com
+      # (60 req/h UNAUTHENTICATED), so locally it never completes and each worker
+      # restart abandons it in `doing`, leaking ~1 orphaned cycle/hour. Unpause via
+      # POST /api/v1/admin/sources/mcp_registry/unpause once GITHUB_TOKEN is set.
+      # (INGESTION_SOURCE_BLOCKLIST is NOT used: pydantic-settings JSON-parses the
+      # list[str] env before the comma-splitter, so a bare name crashes boot.)
     volumes:
       - ./rubric:/app/rubric:ro
     ports: ["8000:8000"]
@@ -63,7 +91,10 @@ services:
       PUBLIC_TURNSTILE_SITE_KEY: ${PUBLIC_TURNSTILE_SITE_KEY:-}
     ports: ["5173:5173"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:5173/ >/dev/null || exit 1"]
+      # 127.0.0.1 (not localhost): inside the container `localhost` resolves to
+      # IPv6 ::1, but the Node SSR server listens only on IPv4 0.0.0.0:5173, so
+      # `wget localhost` gets connection-refused. Force IPv4.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:5173/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 3s
       retries: 5

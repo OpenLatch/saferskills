@@ -729,7 +729,11 @@ def main() -> int:
         stale.unlink()
 
     base_path = OUTPUT_DIR / "_base.py"
-    base_path.write_text(render_base(env, enums), encoding="utf-8")
+    # newline="\n" forces LF on every platform. Without it, Python's text-mode
+    # write translates \n → \r\n on Windows, so a local `pnpm run generate`
+    # rewrites every generated file with CRLF — a phantom whole-file diff vs the
+    # LF-normalised index (CI runs on Linux and emits LF, so it never sees this).
+    base_path.write_text(render_base(env, enums), encoding="utf-8", newline="\n")
     print(f"  Generated: {base_path.relative_to(SERVICE_ROOT)}")
 
     models: list[ModelInfo] = []
@@ -747,13 +751,13 @@ def main() -> int:
 
         module_name = camel_to_snake(model.class_name)
         model_path = OUTPUT_DIR / f"{module_name}.py"
-        model_path.write_text(render_model(env, model), encoding="utf-8")
+        model_path.write_text(render_model(env, model), encoding="utf-8", newline="\n")
         print(f"  Generated: {model_path.relative_to(SERVICE_ROOT)}")
 
     models.sort(key=lambda m: m.class_name)
 
     init_path = OUTPUT_DIR / "__init__.py"
-    init_path.write_text(render_init(models, enums), encoding="utf-8")
+    init_path.write_text(render_init(models, enums), encoding="utf-8", newline="\n")
     print(f"  Generated: {init_path.relative_to(SERVICE_ROOT)}")
 
     print("Running ruff format + check on generated files...")

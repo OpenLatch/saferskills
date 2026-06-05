@@ -17,10 +17,19 @@ class _StartupState:
     def __init__(self) -> None:
         self.migrations_ok: bool = False
         self.migrations_error: str | None = None
+        # The in-process ingestion worker failed to start (open_async / schema /
+        # task creation). The API still serves — only background ingestion is
+        # dead — so this never flips `is_healthy`; it surfaces on /health so a
+        # silently-dead worker is visible instead of looking ready (WS-2).
+        self.ingestion_degraded: bool = False
 
     @property
     def is_healthy(self) -> bool:
         return self.migrations_ok
+
+    def mark_ingestion_degraded(self, error: str) -> None:
+        self.ingestion_degraded = True
+        logger.error("ingestion_worker_degraded", error=error)
 
     def mark_migrations_ok(self) -> None:
         self.migrations_ok = True

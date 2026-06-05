@@ -88,7 +88,10 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 - Gated by `INGESTION_WORKER_ENABLED` (default `true`). Set `false` in test contexts that should not fan out external fetches.
 - Advisory lock `0x5AFE5C13` (distinct from migration lock `0x5AFE5C11` and sweep lock `0x5AFE5C12`).
 - Procrastinate schema applied via `procrastinate_app.schema_manager.apply_schema_async()` at startup — **never a migration**.
-- Retry schedule: escalating 1 min → 5 min → 30 min → 6 h, then dead-letter (`IngestionRetry` exception). Per-adapter independent.
+- Retry schedule: escalating 1 min → 5 min → 30 min → 6 h, then dead-letter (`IngestionRetry` strategy). Per-adapter independent. **Applies only to UNEXPECTED errors** (real bugs) that reach the generic `except Exception` in `run_source_cycle` (which keeps `logger.exception` + `raise`). **Expected provider/transport/operational failures** (`httpx.HTTPError`, `OSError`, non-blocked `IngestionError` — rate limit, 5xx, timeout, DNS, robots-disallow, oversize) are handled like the Cloudflare `AdapterBlockedError` branch: ONE clean `logger.warning("ingestion.cycle_failed", reason=…)` (**no stack trace**), a recorded `failed` run + bucketed `emit_ingestion_cycle_failed`, then **return without re-raising** — so neither our logger nor Procrastinate dumps a traceback and no pointless fast-retry storm fires (the periodic cron is the retry cadence). The shared `framework/failure.py::classify_failure` maps the exception to the `reason_enum` (it replaced the private `_classify_cycle_failure` and is reused by the scan path).
+- **Retry taxonomy — permanent errors dead-letter immediately (WS-3).** `IngestionRetry.get_retry_decision` inspects the exception: a deterministic shape-drift / programming error (`KeyError`/`ValueError`/`TypeError`/`AttributeError`/`IndexError`/`pydantic.ValidationError`, via `retry.is_permanent_failure`) returns `None` (dead-letter NOW) — retrying just re-fails 4× with a full-feed refetch + traceback each. The 1m/5m/30m/6h escalation applies only to transient/unknown classes (`httpx.HTTPError`, `OSError`). `classify_failure` reports a permanent class as `reason_enum=permanent`.
+- **Per-item isolation in `run_cycle` (WS-5).** A single poisoned item in a 10k-item crawl (a `ValueError`/`KeyError`/`TypeError`/`AttributeError` from provider shape-drift in normalize/enrich/upsert) becomes ONE clean `ingestion.item_skipped` WARN + a skipped outbox row + `continue` — never a whole-cycle traceback + retry storm. The cycle completes; `counters["items_skipped"]` records the count. (A collect-phase skip is pre-DB; a write-phase skip rolls back just that item's SAVEPOINT.)
+- **Two-phase batching — no DB connection pinned across GitHub I/O (WS-6).** Each `_COMMIT_BATCH` is first PREPARED entirely outside any transaction (`normalize()` + `enrich()`'s multi-fetch network step hold NO pooled connection), then WRITTEN (upsert + outbox per item) in one short transaction and committed. Previously a connection was pinned through every item's enrich I/O for a whole batch, starving the shared API pool. The per-item outbox invariant (catalog row + its `ingestion_events` row in one commit) still holds per batch (D-04-08).
 - Worker concurrency: `INGESTION_WORKER_CONCURRENCY` (default 4). INVARIANT: must be below `db_pool_size + db_max_overflow` (5 + 10 = 15) so the API keeps headroom — ingestion tasks draw their sessions from the **same** SQLAlchemy pool the public API serves from. **Asserted at startup** (`app/ingestion/worker.py::assert_worker_concurrency_budget`; the API refuses to boot on a bad budget). The shared pool's `DB_POOL_TIMEOUT_S` is the back-pressure lever (saturation → bounded 503, not a hang). See `crash-resilience-hardening` plan §1 + `environment-config.md`.
 - **Worker concurrency = `INGESTION_WORKER_CONCURRENCY + SCAN_MAX_CONCURRENCY`** (the single worker drains the ingest queues + the `scan` queue; `worker.py::worker_concurrency`). Scan jobs are separately capped at `SCAN_MAX_CONCURRENCY` by an in-body semaphore.
 - The **interactive** SCAN path (`app/queue/scan_runner.py::scan_run_repo`, called from `POST /scans`) is **NOT Procrastinate** — it keeps its on-demand `asyncio.create_task` pattern per I-03 D-FE-34. Only the **bulk** auto-scan (`tasks_scan.py`) is a Procrastinate job (scoped ratified deviation — see § Durable auto-scan pipeline + `tech-stack.md`). Do not migrate the interactive path.
@@ -174,14 +177,21 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 
 ## Schema-drift recovery (Windows codegen)
 
-`pnpm run generate` on Windows writes **CRLF** to generated files; `git add` normalizes
-them to LF, so a `git diff` shows phantom whole-file changes that vanish on commit.
-Verify real drift with `git diff --ignore-all-space` (the CI `validate` lane runs on
-Linux where output is already LF). A scrape YAML change flows into
-`source_registry.py::ALL_HOSTS` (the self-derived outbound allowlist) — that **is** a
-real diff and must be committed. **Inline `# comment` on a YAML `hosts:` list entry
-breaks `validate-outbound-allowlist.cjs`** (its naive line parser captures the comment
-into the host string) — put host-list comments on their own lines.
+`pnpm run generate` now emits **LF on every platform** — the three Python-backed
+generators force it at the source: `generate_sqlalchemy_models.py` writes with
+`newline="\n"`, `generate_pydantic_models.py` LF-normalizes each
+`datamodel-code-generator` output file (the external tool writes CRLF on Windows),
+and `generate-openapi.cjs` strips CRLF from the captured Python stdout. So a local
+Windows regen is byte-identical to CI and no longer produces phantom whole-file
+diffs. (Root cause: Python's text-mode write translates `\n`→`\r\n` on Windows; the
+Node-only generators were always LF. `.gitattributes` `* text=auto eol=lf` is the
+belt — generators forcing LF is the braces.) If a stray CRLF ever reappears,
+`git diff --ignore-all-space` still distinguishes EOL noise from real drift. A scrape
+YAML change flows into `source_registry.py::ALL_HOSTS` (the self-derived outbound
+allowlist) — that **is** a real diff and must be committed. **Inline `# comment` on a
+YAML `hosts:` list entry breaks `validate-outbound-allowlist.cjs`** (its naive line
+parser captures the comment into the host string) — put host-list comments on their
+own lines.
 
 ## Enrichment + quality tiering (D-04-19)
 
@@ -269,6 +279,7 @@ All run in the in-process Procrastinate worker under advisory lock `0x5AFE5C13`,
 | `scan_capability_repo` (queue `scan`, `retry=3`, per-defer `queueing_lock`/`lock` = `scan:<github_url>`) | The durable per-repo scan **job**. Conditionally resolves the repo ref (`app/scan/fetch.py::resolve_ref` sends `If-None-Match`/`If-Modified-Since` from `repo_fetch_state` — a 304 is free), then: **unchanged ref + current rubric+engine** → skip (bump `last_checked_at`); **rubric/engine bump only (content same)** → re-evaluate from STORED `artifact_blobs` (no GitHub re-crawl, `source='rescan_rules'`); **content changed / never scanned** → full fetch + `engine.run_repo_scan` (`source='ingestion'`). Persists via `persist_completed_scan_run` + stamps `last_scanned_at`/`scanned_*_version` on every public-github cap of the repo. Idempotent on `(github_url, ref_sha, rubric_version)`. Bounded by `SCAN_MAX_CONCURRENCY` (in-body semaphore). Pure decision helper: `decide_scan_action`. |
 | `auto_scan_reconcile` (periodic, every 10 min, `queueing_lock`) | The coverage + versioned-re-eval + freshness **drainer**. Selects public-github `quality_tier IN ('high','medium')` not-archived repos that are `last_scanned_at IS NULL` (coverage) OR `scanned_rubric_version`/`scanned_engine_version` ≠ current (rule/engine bump) OR `last_checked_at < now() - SCAN_FRESHNESS_DAYS` (freshness), **popularity-first**, deduped per repo URL, bounded by `SCAN_RECONCILE_BATCH`, and `defer_scan_job`s each (the `queueing_lock` dedups against in-flight jobs). Testable inner: `run_reconcile`. Gated off by `SCAN_AUTOSCAN_ENABLED=false`. |
 | `scan_stalled_retrier` (periodic, every 15 min) | Re-queues `scan`-queue jobs the worker abandoned on a restart (Procrastinate `get_stalled_jobs` + `retry_job`). |
+| `ingestion_stalled_retrier` (periodic, every 15 min) | Sibling to `scan_stalled_retrier` for the **ingest** queues (`ingest_github`/`ingest_aggregator`/`ingest_mcp_registry`/`ingest_npm`/`ingest_pypi`/`periodic`) — `scan_stalled_retrier` is `queue="scan"` only, so without this a worker restart orphaned a `doing` ingest cycle forever (the ~1 orphaned cycle/hour leak, WS-7). Uses a generous `INGESTION_STALLED_SECONDS` (default 4h, comfortably above mcp_registry's worst-case cycle) so a long in-flight crawl is never re-queued out from under itself. |
 
 - **Merger on-ingest hook** (`framework/merger.py::_defer_on_add_scan`) — best-effort `defer_scan_job` on a **new** item (after `_insert_new`) and on a **content-hash change** (the `content_hash_sha256 != raw_hash` branch in `_apply_update`), so a fresh arrival / drift scans promptly without waiting for the next drainer tick. The `queueing_lock` means the hook + the drainer can't double-enqueue. Fuzzy / no-coordinate rows never reach this branch. A defer failure never breaks the upsert (the drainer is the steady-state net).
 - **Unified GitHub auth** — scan fetch (`app/scan/fetch.py`) shares the ingestion identity: `_auth_headers` prefers `GITHUB_TOKEN`, else the GitHub App installation token (`app/core/github_app_token.py`, the same provider the adapters use), else anonymous. One identity, one 5,000 req/h budget.

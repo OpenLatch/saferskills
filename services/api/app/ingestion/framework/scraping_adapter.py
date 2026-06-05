@@ -31,7 +31,11 @@ from defusedxml.ElementTree import ParseError
 
 from app.ingestion.framework.allowlist import assert_host_allowed
 from app.ingestion.framework.base_adapter import RawItem
-from app.ingestion.framework.exceptions import AdapterBlockedError, RobotsTxtDisallow
+from app.ingestion.framework.exceptions import (
+    AdapterBlockedError,
+    BodyTooLargeError,
+    RobotsTxtDisallow,
+)
 from app.ingestion.framework.registry_adapter import RegistryAdapter
 from app.ingestion.framework.robots import is_allowed as robots_is_allowed
 from app.ingestion.framework.scraping_rate_limit import acquire_scrape_slot
@@ -41,6 +45,10 @@ logger = structlog.get_logger(__name__)
 _UA = "SaferSkillsBot/1.0 (+https://saferskills.ai/bot)"
 _FROM = "bot@saferskills.ai"
 _DEFAULT_IMPERSONATE = "chrome131"
+
+# 25 MiB — parity with the HTTPX `_body_size_cap_hook` (security.md #3). curl_cffi
+# bypasses that response hook, so the scrape tier enforces the cap itself (WS-8e).
+_MAX_BODY_BYTES = 26_214_400
 
 # Body markers that indicate a Cloudflare challenge interstitial (vs the real page).
 _CF_BODY_MARKERS = (
@@ -174,6 +182,12 @@ class ScrapingAdapter(RegistryAdapter):
             raise AdapterBlockedError(f"cloudflare challenge at {url}")
 
         body = r.content or b""
+        # curl_cffi bypasses the HTTPX `_body_size_cap_hook`, so enforce the 25 MiB
+        # cap here too (WS-8e). The body is already fully buffered by curl_cffi, so
+        # this is a post-hoc guard; it raises the same IngestionError the HTTPX tier
+        # raises (caught by the cycle wrapper → clean WARN + failed run).
+        if len(body) > _MAX_BODY_BYTES:
+            raise BodyTooLargeError(f"BODY TOO LARGE: {len(body)} bytes from {url}")
         payload_hint: dict[str, Any] = {
             "url": url,
             "html": text,

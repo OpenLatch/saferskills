@@ -76,7 +76,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         # §1.5). This is a deploy error, not the transient DB-unreachable class
         # the degraded-mode path handles.
         assert_worker_concurrency_budget()
-        with contextlib.suppress(Exception):
+        # Explicit try/except — NOT contextlib.suppress (WS-2): a swallowed
+        # failure here used to leave `ingestion_task = None`, the worker silently
+        # dead, and /health still green. Log the full traceback + flag degraded
+        # (surfaced on /api/v1/health) so a dead worker is visible. Do NOT
+        # re-raise — a transient DB-at-boot must not crash the API (the
+        # budget-assert above stays outside, correctly fail-fast for misconfig).
+        try:
             from app.ingestion import procrastinate_app
             from app.ingestion.worker import (
                 apply_procrastinate_schema_locked,
@@ -88,6 +94,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             ingestion_task = asyncio.create_task(
                 ingestion_worker_supervisor(), name="ingestion_worker_supervisor"
             )
+        except Exception as exc:
+            logger.error("ingestion worker failed to start", exc_info=True)
+            startup_state.mark_ingestion_degraded(str(exc))
 
     try:
         yield

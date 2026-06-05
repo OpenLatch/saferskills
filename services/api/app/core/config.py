@@ -399,6 +399,17 @@ class Settings(BaseSettings):
             "traffic). Asserted at startup (crash-resilience addendum §1.5)."
         ),
     )
+    ingestion_stalled_seconds: int = Field(
+        default=14_400,  # 4h
+        ge=60,
+        description=(
+            "Re-queue `doing` ingest-queue jobs (ingest_*/periodic) a worker "
+            "abandoned on restart older than this (WS-7 `ingestion_stalled_retrier`). "
+            "Generous default (4h) — comfortably above mcp_registry's worst-case "
+            "full-feed cycle, so an in-flight long crawl is never mistaken for a "
+            "stalled orphan. Sibling to the scan-queue's `scan_stalled_retrier`."
+        ),
+    )
     github_app_id: str | None = Field(
         default=None, description="GitHub App `saferskills-ingest` numeric App ID (outbox 01)."
     )

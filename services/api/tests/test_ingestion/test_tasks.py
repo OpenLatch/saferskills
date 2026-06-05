@@ -105,3 +105,59 @@ async def test_run_source_cycle_blocked_on_cloudflare(
         )
     ).scalar_one()
     assert status == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_run_source_cycle_provider_failure_warns_no_raise(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A provider/transport failure (e.g. a GitHub 403 rate limit) is an OPERATIONAL
+    event, not a bug: the cycle must emit a clean WARN (no stack trace), record the
+    failed run, and return WITHOUT re-raising — so neither our logger nor Procrastinate
+    dumps a traceback, and no pointless fast-retry storm is triggered. The source must
+    NOT be flipped to `blocked` (that is the Cloudflare-only terminal path)."""
+    import httpx
+
+    from app.core import config as config_module
+    from app.db import session as session_module
+    from app.ingestion import tasks as tasks_module
+    from app.ingestion.config.loader import get_source_config
+    from app.ingestion.sources.smithery import SmitheryAdapter
+    from app.ingestion.tasks import run_source_cycle
+
+    monkeypatch.setattr(config_module.get_settings(), "ingestion_source_blocklist", [])
+
+    request = httpx.Request("GET", "https://api.github.com/search/repositories")
+    response = httpx.Response(403, request=request)
+    adapter = SmitheryAdapter(get_source_config("smithery"))
+    adapter.run_cycle = AsyncMock(  # type: ignore[method-assign]
+        side_effect=httpx.HTTPStatusError("rate limited", request=request, response=response)
+    )
+
+    def _build(_name: str) -> SmitheryAdapter:
+        return adapter
+
+    monkeypatch.setattr(tasks_module, "build_adapter", _build)
+
+    class _FakeCtx:
+        async def __aenter__(self) -> AsyncSession:
+            return db_session
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", lambda: _FakeCtx())
+
+    # Must NOT raise (regression: previously `logger.exception` + `raise` dumped a
+    # traceback and triggered a retry storm).
+    result = await run_source_cycle("smithery")
+    assert result == {"skipped": "failed", "reason": "rate_limit"}
+
+    # Not flipped to `blocked` — that is the Cloudflare-only terminal path.
+    status = (
+        await db_session.execute(
+            select(CrawlerCursor.status).where(CrawlerCursor.source == "smithery")
+        )
+    ).scalar_one()
+    assert status != "blocked"

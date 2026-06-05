@@ -47,5 +47,9 @@ try {
   process.exit(0)
 }
 
-fs.writeFileSync(OUT, stdout)
+// Normalize CRLF → LF: Python's text-mode stdout translates \n → \r\n on Windows,
+// so the captured bytes carry CRLF there. Writing them verbatim produces a phantom
+// whole-file diff vs the LF-normalised index (CI runs on Linux and emits LF). LF-only
+// keeps a local Windows `pnpm run generate` byte-identical to CI.
+fs.writeFileSync(OUT, stdout.replace(/\r\n/g, '\n'))
 console.log(`[openapi] Wrote ${path.relative(ROOT, OUT)}.`)

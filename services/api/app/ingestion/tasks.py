@@ -15,6 +15,7 @@ import time
 from typing import Any, cast
 from uuid import UUID
 
+import httpx
 import structlog
 from procrastinate.retry import RetryStrategy
 from sqlalchemy import func, update
@@ -28,7 +29,8 @@ from app.ingestion import sources as _sources  # noqa: F401  # pyright: ignore[r
 from app.ingestion.config.loader import load_source_configs
 from app.ingestion.framework.base_adapter import build_adapter
 from app.ingestion.framework.cursor import is_source_paused
-from app.ingestion.framework.exceptions import AdapterBlockedError
+from app.ingestion.framework.exceptions import AdapterBlockedError, IngestionError
+from app.ingestion.framework.failure import classify_failure
 from app.ingestion.framework.registry_adapter import RegistryAdapter
 from app.ingestion.framework.retry import IngestionRetry
 from app.observability.events import (
@@ -89,7 +91,36 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
                 error=exc,
             )
             return {"skipped": "blocked"}
+        except (httpx.HTTPError, OSError, IngestionError) as exc:
+            # EXPECTED provider/transport/operational failure (rate limit, 5xx,
+            # timeout, DNS/connection error, robots disallow, oversize body, …).
+            # This is an operational event, NOT a code bug — so emit ONE clean WARN
+            # (source + error class + short message), never a stack trace. Record
+            # the failed run, emit the bucketed telemetry, and return WITHOUT
+            # re-raising: re-raising would (a) make Procrastinate log its own
+            # traceback and (b) trigger a pointless fast retry against a provider
+            # that won't recover in 1 min — the periodic cron is the real retry
+            # cadence. Same rationale as the AdapterBlockedError branch above.
+            reason = classify_failure(exc)
+            logger.warning(
+                "ingestion.cycle_failed",
+                source=source_name,
+                reason=reason,
+                error_class=type(exc).__name__,
+                error=str(exc)[:300],
+            )
+            emit_ingestion_cycle_failed(source=source_name, reason=reason)
+            await record_run_finished(
+                run_id,
+                status="failed",
+                duration_ms=int((time.monotonic() - started) * 1000),
+                error=exc,
+            )
+            return {"skipped": "failed", "reason": reason}
         except Exception as exc:
+            # UNEXPECTED (a real bug, e.g. a KeyError in normalize) — keep the full
+            # traceback so it's debuggable, and re-raise so it surfaces loudly and
+            # the IngestionRetry schedule applies.
             logger.exception("ingestion.cycle_failed", source=source_name)
             emit_ingestion_cycle_failed(source=source_name, reason="other")
             # Run-record write #2 (own session) BEFORE re-raise — a rolled-back
