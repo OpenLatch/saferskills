@@ -1,10 +1,9 @@
 //! The install registry — `~/.saferskills/installs.json` (D-05-10).
 //!
-//! Phase A lands the **schema + atomic read/write helpers** only; the registry
-//! is *used* by `install` / `list` / `uninstall` / `update` in Phase B. Every
-//! mutating op records its intended changes BEFORE writing so a partial failure
-//! can be reverted (D-05-24), and the registry is updated only after all writes
-//! succeed.
+//! It holds the **schema + atomic read/write helpers** and is used by
+//! `install` / `list` / `uninstall` / `update`. Every mutating op records its
+//! intended changes BEFORE writing so a partial failure can be reverted, and the
+//! registry is updated only after all writes succeed.
 
 use serde::{Deserialize, Serialize};
 

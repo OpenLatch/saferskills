@@ -6,7 +6,7 @@ use crate::api::dto::{FindingResponse, ItemDetailResponse, Tier};
 use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::OutputConfig;
-use crate::cli::{header, InfoArgs};
+use crate::cli::InfoArgs;
 use crate::core::config::Config;
 use crate::core::error::SsError;
 
@@ -71,8 +71,6 @@ fn ranked_findings(detail: &ItemDetailResponse) -> Vec<&FindingResponse> {
 }
 
 fn render_human(output: &OutputConfig, detail: &ItemDetailResponse, report_url: &str) {
-    header::print_full_banner(output);
-
     let (score, tier) = score_and_tier(detail);
     let name = color::bold(&detail.item.display_name, output.color);
     output.print_info(&format!(

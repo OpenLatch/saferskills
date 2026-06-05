@@ -101,19 +101,33 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     try:
         yield
     finally:
-        if ingestion_task is not None:
-            ingestion_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await ingestion_task
-            with contextlib.suppress(Exception):
-                from app.ingestion import procrastinate_app
+        # Every teardown step is BOUNDED — the lifespan `finally` must return in a
+        # few seconds no matter what a background task or close coroutine does, or
+        # uvicorn's "Waiting for application shutdown." hangs forever (the symptom
+        # that motivated this: a `--reload` mid-ingestion never reloaded). Order:
+        # connection-holders first (so they release sessions), pools last.
+        from app.core.shutdown import bounded, cancel_and_settle
 
-                await procrastinate_app.close_async()
-        if sweep_task is not None:
-            sweep_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await sweep_task
-        await close_pool()
+        # 1. Interactive fire-and-forget scan tasks (routers/scans.py) — orphaned
+        #    otherwise, running on into a dying loop.
+        with contextlib.suppress(Exception):
+            await scans.cancel_background_scans(timeout=5.0)
+        # 2. Ingestion worker — the primary hang source. Its own
+        #    `shutdown_graceful_timeout` aborts in-flight jobs; allow a little
+        #    slack over that before we abandon the supervisor task itself.
+        await cancel_and_settle(
+            ingestion_task,
+            timeout=settings.ingestion_worker_shutdown_timeout_s + 2.0,
+            label="ingestion worker",
+        )
+        with contextlib.suppress(Exception):
+            from app.ingestion import procrastinate_app
+
+            await bounded(procrastinate_app.close_async(), timeout=5.0, label="procrastinate close")
+        # 3. Expiry sweep loop.
+        await cancel_and_settle(sweep_task, timeout=5.0, label="expiry sweep")
+        # 4. SQLAlchemy pool — last, after every session-holder is gone.
+        await bounded(close_pool(), timeout=5.0, label="db pool close")
 
 
 app = FastAPI(

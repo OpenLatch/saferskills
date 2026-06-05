@@ -1,5 +1,5 @@
-import BandPill from '@ui/components/atoms/BandPill'
 import DotStrip from '@ui/components/atoms/DotStrip'
+import type { CSSProperties } from 'react'
 
 import type { CatalogItemSummary, CatalogSort } from '@/lib/api/items'
 import CatalogPagination from './CatalogPagination'
@@ -19,6 +19,73 @@ interface Props {
   onItemClick: (item: CatalogItemSummary) => void
 }
 
+/**
+ * A sortable column header. Owns a primary (desc) sort key and, optionally, a
+ * secondary (asc) key it toggles to. The caret is hidden until hover unless the
+ * column is the active sort, where it shows the live direction (▼ desc / ▲ asc).
+ */
+interface SortColumn {
+  label: string
+  descKey: CatalogSort
+  ascKey?: CatalogSort
+  /** Human phrase for the desc direction, e.g. "highest first". */
+  descHint: string
+  /** Human phrase for the asc direction (only when `ascKey` is set). */
+  ascHint?: string
+}
+
+function SortHeader({
+  column,
+  sort,
+  onSortChange,
+}: {
+  column: SortColumn
+  sort: CatalogSort
+  onSortChange: (sort: CatalogSort) => void
+}) {
+  const { label, descKey, ascKey, descHint, ascHint } = column
+  const isAsc = ascKey != null && sort === ascKey
+  const isDesc = sort === descKey
+  const active = isAsc || isDesc
+  // Clicking a two-way column toggles desc⇄asc; a one-way column always sorts desc.
+  const next: CatalogSort = ascKey != null && isDesc ? ascKey : descKey
+  const ariaLabel = active
+    ? `Sorted by ${label.toLowerCase()}, ${isAsc ? ascHint : descHint}`
+    : `Sort by ${label.toLowerCase()}`
+  return (
+    <button
+      type="button"
+      className={`sort-h${active ? ' active' : ''}`}
+      aria-pressed={active}
+      aria-label={ariaLabel}
+      onClick={() => onSortChange(next)}
+    >
+      <span>{label}</span>
+      <span className="sort-caret" aria-hidden="true">
+        {isAsc ? '▲' : '▼'}
+      </span>
+    </button>
+  )
+}
+
+const TREND_COL: SortColumn = {
+  label: 'Trend',
+  descKey: 'most_installed',
+  descHint: 'trending first',
+}
+const SCORE_COL: SortColumn = {
+  label: 'Score',
+  descKey: 'highest_score',
+  ascKey: 'lowest_score',
+  descHint: 'highest first',
+  ascHint: 'lowest first',
+}
+const UPDATED_COL: SortColumn = {
+  label: 'Updated',
+  descKey: 'recent',
+  descHint: 'most recent first',
+}
+
 export default function CatalogResultsList({
   items,
   page,
@@ -35,12 +102,11 @@ export default function CatalogResultsList({
   return (
     <div className="cat-results" aria-busy={loading}>
       <div className="col-head">
-        <div>#</div>
-        <div>Name · author · description</div>
-        <div>Score</div>
-        <div>Dots</div>
-        <div>Band</div>
-        <div>Stars · age · registries</div>
+        <SortHeader column={TREND_COL} sort={sort} onSortChange={onSortChange} />
+        <div>Capability</div>
+        <SortHeader column={SCORE_COL} sort={sort} onSortChange={onSortChange} />
+        <SortHeader column={UPDATED_COL} sort={sort} onSortChange={onSortChange} />
+        <div>Description</div>
         <div />
       </div>
 
@@ -68,42 +134,36 @@ export default function CatalogResultsList({
           const rank = ((page - 1) * pageSize + idx + 1).toString().padStart(2, '0')
           const featured = sort === 'most_installed' && page === 1 && idx === 0
           const registries = item.registries.length ? item.registries.join(' · ') : '—'
+          const description = item.description?.trim() ? item.description : '—'
           return (
             <a
               key={item.id}
               href={`/items/${item.slug}`}
               className={`cat-row stripe-l ${stripeBand}${featured ? ' featured' : ''}`}
+              style={{ '--cat-row-i': idx } as CSSProperties}
               onClick={() => onItemClick(item)}
             >
               <div className="rank">{rank}</div>
               <div className="nm">
                 <div className="name">{item.display_name}</div>
-                <div className="desc">
+                <div className="nm-sub">
                   <span className="tag-mini">{kindTag(item.kind)}</span>
                   {item.source_kind === 'upload' && (
                     <span className="tag-mini up" title="Scanned from a directly-uploaded artifact">
                       UPLOAD
                     </span>
                   )}
-                  <span>
+                  <span className="author">
                     {item.source_kind === 'upload' ? 'uploaded artifact' : item.github_org}
-                    {item.description ? ` · ${item.description}` : ''}
                   </span>
                 </div>
               </div>
               <div className="scr">
-                <span className="n">{item.latest_scan_score ?? '—'}</span>
-                <span className="denom">/100</span>
-              </div>
-              <div className="dots">
+                <span className="scr-num">
+                  <span className="n">{item.latest_scan_score ?? '—'}</span>
+                  <span className="denom">/100</span>
+                </span>
                 <DotStrip value={score} tier={tierName(stripeBand)} />
-              </div>
-              <div>
-                {band ? (
-                  <BandPill tier={tierName(band)} />
-                ) : (
-                  <span className="band-pill">Unscoped</span>
-                )}
               </div>
               <div className="meta">
                 <span>
@@ -112,6 +172,7 @@ export default function CatalogResultsList({
                 </span>
                 <span>{registries}</span>
               </div>
+              <div className="desc">{description}</div>
               <span className="install-hex">Install</span>
             </a>
           )
@@ -123,9 +184,7 @@ export default function CatalogResultsList({
         totalPages={totalPages}
         totalCount={totalCount}
         itemCount={items.length}
-        sort={sort}
         onPageChange={onPageChange}
-        onSortChange={onSortChange}
       />
     </div>
   )

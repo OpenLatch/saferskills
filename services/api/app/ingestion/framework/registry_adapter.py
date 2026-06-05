@@ -23,10 +23,12 @@ Robustness overhaul (WS-5 + WS-6):
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
 import structlog
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ingestion.framework.base_adapter import BaseAdapter, NormalizedItem, RawItem
@@ -49,6 +51,35 @@ _COMMIT_BATCH = 25
 # DBAPIError / httpx errors here — those are transient/infra and belong to the
 # cycle-level handling in `tasks.run_source_cycle`.
 _ITEM_SKIP_EXCEPTIONS = (ValueError, KeyError, TypeError, AttributeError)
+
+# Concurrent ingest cycles (worker concurrency 4) write the SAME popular
+# catalog_items rows — a hot skill/repo indexed by several aggregators — so a
+# batch can lose a deadlock or hit a momentarily-dropped pooled connection.
+# Postgres documents the remedy as "retry the rolled-back transaction", so a
+# whole batch is replayed a few times before the failure escalates to the cycle.
+_BATCH_DB_RETRY_ATTEMPTS = 3
+_BATCH_DB_RETRY_BACKOFF_S = 0.1
+# Counters mutated during the write phase — snapshotted + restored between batch
+# retries so a replayed batch never double-counts.
+_RETRYABLE_BATCH_COUNTERS = ("items_added", "items_updated", "items_skipped")
+
+
+def _is_retryable_db_error(exc: DBAPIError) -> bool:
+    """True for a deadlock / serialization failure / lost connection — transient
+    contention between concurrent writers that a batch replay clears.
+
+    Inspects the SQLSTATE (robust across whichever SQLAlchemy wrapper class the
+    asyncpg dialect raises) rather than the Python exception class: `40P01`
+    deadlock_detected, `40001` serialization_failure, `08xxx` connection
+    exceptions. `connection_invalidated` covers a dropped pooled connection
+    (asyncpg "the underlying connection is closed")."""
+    if getattr(exc, "connection_invalidated", False):
+        return True
+    orig = getattr(exc, "orig", None)
+    sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
+    if not isinstance(sqlstate, str):
+        return False
+    return sqlstate in ("40P01", "40001") or sqlstate.startswith("08")
 
 
 @dataclass
@@ -130,22 +161,48 @@ class RegistryAdapter(BaseAdapter):
         """Write one prepared batch (upsert + outbox per item) then commit. Each item
         is written inside a SAVEPOINT so a write-phase shape-drift error rolls back
         just that item (keeping its catalog+outbox pair atomic) and the batch survives.
+
+        The whole batch is retried on a deadlock / serialization failure / dropped
+        connection (`_is_retryable_db_error`) — those abort the entire transaction
+        (every SAVEPOINT with it), so the rollback victim must replay every item, not
+        just one. The replay is cheap (the network/transform phase already ran); the
+        other transaction has committed by then, so contention clears. Item-level
+        counters are snapshotted + restored each attempt so a replay never
+        double-counts. A non-retryable DB error (or exhausted retries) propagates to
+        the cycle-level handling in `tasks.run_source_cycle`.
         """
-        for item in batch:
+        baseline = {k: counters[k] for k in _RETRYABLE_BATCH_COUNTERS}
+        for attempt in range(1, _BATCH_DB_RETRY_ATTEMPTS + 1):
             try:
-                async with session.begin_nested():
-                    await self._write_one(merger, outbox, item, counters)
-            except _ITEM_SKIP_EXCEPTIONS as exc:
-                counters["items_skipped"] += 1
+                for item in batch:
+                    try:
+                        async with session.begin_nested():
+                            await self._write_one(merger, outbox, item, counters)
+                    except _ITEM_SKIP_EXCEPTIONS as exc:
+                        counters["items_skipped"] += 1
+                        logger.warning(
+                            "ingestion.item_skipped",
+                            source=self.source_name,
+                            phase="write",
+                            reason=type(exc).__name__,
+                            error=str(exc)[:200],
+                            source_id=item.raw.source_id,
+                        )
+                await session.commit()
+                return
+            except DBAPIError as exc:
+                await session.rollback()
+                if not _is_retryable_db_error(exc) or attempt >= _BATCH_DB_RETRY_ATTEMPTS:
+                    raise
+                for key, value in baseline.items():
+                    counters[key] = value
                 logger.warning(
-                    "ingestion.item_skipped",
+                    "ingestion.batch_retry",
                     source=self.source_name,
-                    phase="write",
-                    reason=type(exc).__name__,
-                    error=str(exc)[:200],
-                    source_id=item.raw.source_id,
+                    attempt=attempt,
+                    reason=type(getattr(exc, "orig", exc)).__name__,
                 )
-        await session.commit()
+                await asyncio.sleep(_BATCH_DB_RETRY_BACKOFF_S * attempt)
 
     async def _write_one(
         self,

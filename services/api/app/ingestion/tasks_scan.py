@@ -369,10 +369,16 @@ async def execute_scan(github_url: str, *, reason: str = "reconcile") -> dict[st
     try:
         resolved = await fetch.resolve_ref(github_url, etag=prior_etag, last_modified=prior_lm)
     except FetchError:
-        # Deleted / invalid repo — bump last_checked_at so reconcile doesn't tight-loop
-        # on it (archive_check owns the 404-timeline → archived flip).
+        # Deleted / invalid repo — a PERMANENT 404 / bad ref (a transient blip raises
+        # an httpx error that propagates to the retrier, not FetchError). Stamp the
+        # recency columns (not just last_checked_at): a never-scanned repo whose URL
+        # 404s stays `last_scanned_at IS NULL`, so a bare last_checked_at bump leaves
+        # it in the coverage selection and reconcile re-selects + re-resolves it EVERY
+        # tick — endless `unresolvable` log spam + wasted GitHub budget. Stamping
+        # recency drops it from coverage; archive_check owns the eventual 404-timeline
+        # → archived flip. Mirrors `_full_scan`'s FetchError handling.
         async with AsyncSessionLocal() as session:
-            await session.execute(_BUMP_CHECKED, {"url": github_url})
+            await _stamp_scanned(session, github_url, rubric, engine_v)
             await session.commit()
         logger.info("scan_capability_repo.unresolvable", github_url=github_url, reason=reason)
         return {"action": "error", "reason": reason}

@@ -24,8 +24,9 @@ path = "src/lib.rs"
 clap = { version = "4.6", features = ["derive"] }
 clap_complete = "4"                  # tracks clap 4.x (completion scripts)
 clap_mangen = "0.2"                  # man-page generation from the same Command (D-05-18, design §7)
-inquire = "0.7"                      # interactive prompts (Phase B); declared here
+inquire = "0.7"                      # interactive prompts
 indicatif = "0.18"                   # spinners → stderr
+terminal_size = "0.4"                # exact terminal width for the banner rule (already in-tree via console)
 anstream = "0.6"
 anstyle = "1"
 colorchoice-clap = "1"
@@ -33,15 +34,15 @@ colorchoice-clap = "1"
 # unification trick needed). The `cli-rustls` CI lane greps the dep tree to
 # keep openssl-sys / native-tls out.
 reqwest = { version = "0.12", features = ["json", "stream", "multipart", "rustls-tls"], default-features = false }
-reqwest-eventsource = "0.6"          # SSE — used in Phase C; declared here
+reqwest-eventsource = "0.6"          # SSE (scan progress stream)
 sha2 = "0.10"                        # pure-Rust SHA-256 for the PoW solver (rustls-safe; no openssl)
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.1"                         # config.toml parse
-toml_edit = "0.22"                   # format-preserving MCP-config writes — Phase B; declared here
-jsonc-parser = { version = "0.32", features = ["cst", "serde", "serde_json"] }   # Phase B
-zip = { version = "8", default-features = false, features = ["deflate"] }        # Phase C
+toml_edit = "0.22"                   # format-preserving MCP-config writes
+jsonc-parser = { version = "0.32", features = ["cst", "serde", "serde_json"] }   # JSONC agent configs
+zip = { version = "8", default-features = false, features = ["deflate"] }        # upload packaging for scan
 strsim = "0.11"                      # jaro_winkler did-you-mean
 anyhow = "1"
 thiserror = "2"

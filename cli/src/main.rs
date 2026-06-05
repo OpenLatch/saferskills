@@ -52,24 +52,38 @@ fn main() {
 async fn run() -> i32 {
     let cli = Cli::parse();
     let output = cli::build_output_config(&cli);
+    let inter = cli::interaction(&cli);
 
-    // Telemetry enablement: config opt-out + env opt-out + a baked key. A
-    // failed config read defaults to "allowed" (the env/key guards still apply).
-    let config_allows = Config::load()
-        .map(|c| c.telemetry_enabled())
-        .unwrap_or(true);
-    let telemetry_on = telemetry::is_enabled(config_allows);
-    telemetry::maybe_first_run_notice(&output, telemetry_on);
+    // Banner first, on every invocation — except the machine-output commands
+    // (`completion`/`man`) whose stdout is captured into shell rc files or
+    // packaging, where a per-shell-startup banner would be noise. The colour is
+    // picked fresh each run; `header::print` self-suppresses in Json / quiet.
+    let machine_output = matches!(
+        cli.command,
+        Some(Commands::Completion { .. }) | Some(Commands::Man)
+    );
+    if !machine_output {
+        cli::header::print(&output);
+    }
 
-    // No subcommand → banner + help, exit 0.
+    // Usage analytics (PostHog): asked once on the first interactive launch and
+    // stored in config; env opt-outs (CI / DO_NOT_TRACK / SAFERSKILLS_NO_TELEMETRY)
+    // and a build with no baked key keep it silently off. Machine-output commands
+    // and every non-interactive context never prompt.
+    let config = Config::load().unwrap_or_default();
+    let telemetry_on = telemetry::is_enabled(telemetry::resolve_telemetry_consent(
+        &output,
+        &config,
+        inter.non_interactive || machine_output,
+    ));
+
+    // No subcommand → banner (already printed above) + help, exit 0.
     let Some(command) = cli.command.as_ref() else {
-        cli::header::print_full_banner(&output);
         let _ = Cli::command().print_help();
         return 0;
     };
 
     let (cmd_label, sub_label) = cli::command_label(command);
-    let inter = cli::interaction(&cli);
     let started = std::time::Instant::now();
 
     // First-launch security audit (D-05-26): a one-time opt-in offer to scan

@@ -102,6 +102,45 @@ async def test_full_scan_records_failed_on_permanent_fetch_error(
     assert run.status == "failed"
 
 
+@pytest.mark.asyncio
+async def test_execute_scan_stamps_recency_on_unresolvable_repo(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A permanently-unresolvable repo (resolve_ref → FetchError = a 404 / bad ref)
+    stamps last_scanned_at so the reconcile drainer drops it from the
+    `last_scanned_at IS NULL` coverage selection. Regression: a bare last_checked_at
+    bump left it NULL, so reconcile re-resolved it EVERY tick (endless
+    `scan_capability_repo.unresolvable` spam + wasted GitHub budget)."""
+    from app.db import session as session_module
+    from app.ingestion import tasks_scan
+    from app.models.catalog_item import CatalogItem
+    from app.scan import fetch as fetch_module
+    from app.scan.fetch import FetchError
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", lambda: _Ctx(db_session))
+
+    # A never-scanned public-github capability for the now-deleted repo.
+    n = make_normalized(github_org="acme", github_repo="deleted-repo", kind="skill")
+    await MergeEngine(db_session).upsert(n, raw_hash="a" * 64, source="github_topics")
+    await db_session.commit()
+
+    async def _raise(
+        github_url: str, *, etag: str | None = None, last_modified: str | None = None
+    ) -> object:
+        raise FetchError("repo not found: acme/deleted-repo")
+
+    monkeypatch.setattr(fetch_module, "resolve_ref", _raise)
+
+    assert n.github_url is not None
+    result = await tasks_scan.execute_scan(n.github_url, reason="reconcile")
+    assert result["action"] == "error"
+
+    row = (
+        await db_session.execute(select(CatalogItem).where(CatalogItem.github_url == n.github_url))
+    ).scalar_one()
+    assert row.last_scanned_at is not None  # stamped → leaves the coverage selection
+
+
 # ── size-gated hybrid fetch routing ────────────────────────────────────────
 
 

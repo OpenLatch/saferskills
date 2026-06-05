@@ -10,7 +10,7 @@
 //!   [`cli::header`].
 //! - [`core`] — [`core::config`], [`core::error`], [`core::http`],
 //!   [`core::registry`], [`core::telemetry`], [`core::pow`].
-//! - [`agents`] — agent id model, detection, and the 8 config writers (Phase B).
+//! - [`agents`] — agent id model, detection, and the 8 config writers.
 //! - [`api`] — typed endpoint wrappers + [`api::dto`] wire types.
 //! - [`commands`] — one handler per command.
 

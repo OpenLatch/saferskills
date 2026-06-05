@@ -1,8 +1,8 @@
 //! End-to-end smoke tests for the `saferskills` binary (assert_cmd + mockito).
 //!
-//! Covers the Phase A acceptance surface: `--version` / `--help`, the `info`
+//! Covers the CLI acceptance surface: `--version` / `--help`, the `info`
 //! read path (human + `--json`), did-you-mean on a typo, color stripping,
-//! `completion` / `man`, and the stub-command error.
+//! `completion` / `man`, and the `scan` target-error fast path.
 
 use assert_cmd::Command;
 use mockito::{Matcher, Server, ServerGuard};
@@ -90,7 +90,7 @@ fn mock_api() -> ServerGuard {
 /// A `saferskills` command isolated from the host (`SAFERSKILLS_DIR` → temp).
 fn cli(dir: &std::path::Path) -> Command {
     let mut cmd = Command::cargo_bin("saferskills").unwrap();
-    cmd.env("SAFERSKILLS_DIR", dir).env("CI", "1"); // CI=1 keeps telemetry + first-run notice off
+    cmd.env("SAFERSKILLS_DIR", dir).env("CI", "1"); // CI=1 keeps telemetry + first-run prompts off
     cmd
 }
 
@@ -214,14 +214,27 @@ fn man_emits_troff() {
 
 #[test]
 fn scan_missing_path_is_a_target_error() {
-    // `scan` ships in Phase C; a non-existent local target fails fast with a
-    // target error (SS-E-1603) BEFORE any network — never the old stub code.
+    // A non-existent local target fails fast with a target error (SS-E-1603)
+    // BEFORE any network.
     let tmp = tempfile::tempdir().unwrap();
     cli(tmp.path())
         .args(["scan", "./definitely-not-a-real-path-xyz"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("SS-E-1603"));
+}
+
+#[test]
+fn scan_with_no_target_audits_local() {
+    // `scan` with no target defaults to a local audit (not an error). With an
+    // empty sandboxed registry it reports nothing to audit and exits 0.
+    let tmp = tempfile::tempdir().unwrap();
+    cli(tmp.path())
+        .arg("scan")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("auditing installed capabilities"))
+        .stderr(predicate::str::contains("nothing to audit"));
 }
 
 #[test]

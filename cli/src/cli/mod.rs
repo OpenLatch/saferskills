@@ -48,43 +48,42 @@ pub struct Cli {
     #[arg(long, short, global = true)]
     pub quiet: bool,
 
-    /// Assume "yes" for confirmations up to `high` severity (D-05-21; Phase B).
+    /// Assume "yes" for confirmations up to `high` severity.
     #[arg(long, global = true)]
     pub yes: bool,
 
-    /// Override safety gates, including the critical type-name confirm (D-05-21).
+    /// Override safety gates, including the critical type-name confirm.
     #[arg(long, global = true)]
     pub force: bool,
 
-    /// Never prompt; fail fast naming the flag needed (D-05-21).
+    /// Never prompt; fail fast naming the flag needed.
     #[arg(long = "non-interactive", visible_alias = "no-input", global = true)]
     pub non_interactive: bool,
 }
 
-/// The command grammar. `info` + `completion` + `man` are wired in Phase A; the
-/// rest are stubs returning `SS-E-1090` until Phase B/C.
+/// The top-level command grammar.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Show an item's SaferSkills score + findings without installing.
     #[command(visible_alias = "check")]
     Info(InfoArgs),
 
-    /// Install a Skill or MCP server to your detected agents (Phase B).
+    /// Install a Skill or MCP server to your detected agents.
     Install(InstallArgs),
 
-    /// Remove a previously installed capability (Phase B).
+    /// Remove a previously installed capability.
     Uninstall(UninstallArgs),
 
-    /// Update installed capabilities (Phase B).
+    /// Update installed capabilities.
     Update(UpdateArgs),
 
-    /// List installed capabilities with current scores (Phase B).
+    /// List installed capabilities with current scores.
     List(ListArgs),
 
-    /// Scan a local path or GitHub URL (Phase C).
+    /// Scan a local path or GitHub URL — with no target, audit everything installed.
     Scan(ScanArgs),
 
-    /// Diagnose the local install state (Phase B).
+    /// Diagnose the local install state.
     Doctor(DoctorArgs),
 
     /// Generate a shell completion script.
@@ -98,7 +97,7 @@ pub enum Commands {
     Man,
 }
 
-/// `info <name>` — the unblocked read headline.
+/// `info <name>` — show a capability's score + findings.
 #[derive(Debug, clap::Args)]
 pub struct InfoArgs {
     /// Catalog item name (resolved via `?q=` + did-you-mean).
@@ -109,14 +108,13 @@ pub struct InfoArgs {
     pub kind: Option<String>,
 }
 
-/// `install <name>` (Phase B). Full flag surface declared now so the binary is
-/// whole and `--help` shows the real shape from day one.
+/// `install <name>` — install a capability to your detected agents.
 #[derive(Debug, clap::Args)]
 pub struct InstallArgs {
     /// Catalog item name.
     pub name: String,
 
-    /// Install only to these agents (repeatable). Canonical ids (D-05-14).
+    /// Install only to these agents (repeatable). Canonical ids.
     #[arg(long = "to")]
     pub to: Vec<String>,
 
@@ -136,7 +134,7 @@ pub struct InstallArgs {
     #[arg(long)]
     pub reinstall: bool,
 
-    /// The score the user saw, for install-time drift re-prompt (D-05-25).
+    /// The score the user saw, for install-time drift re-prompt.
     #[arg(long = "seen-score")]
     pub seen_score: Option<u8>,
 
@@ -145,7 +143,7 @@ pub struct InstallArgs {
     pub dry_run: bool,
 }
 
-/// `uninstall <name>` (Phase B).
+/// `uninstall <name>`.
 #[derive(Debug, clap::Args)]
 pub struct UninstallArgs {
     /// Catalog item name.
@@ -156,7 +154,7 @@ pub struct UninstallArgs {
     pub from: Option<String>,
 }
 
-/// `update [name] [--all]` (Phase B).
+/// `update [name] [--all]`.
 #[derive(Debug, clap::Args)]
 pub struct UpdateArgs {
     /// A specific item to update (omit with `--all`).
@@ -166,22 +164,23 @@ pub struct UpdateArgs {
     #[arg(long)]
     pub all: bool,
 
-    /// Non-interactively uninstall items that dropped to Red (D-05-23).
+    /// Non-interactively uninstall items that dropped to Red.
     #[arg(long = "prune-red")]
     pub prune_red: bool,
 }
 
-/// `list` (Phase B).
+/// `list`.
 #[derive(Debug, clap::Args)]
 pub struct ListArgs {}
 
-/// `scan <target>` (Phase C).
+/// `scan [target]`.
 #[derive(Debug, clap::Args)]
 pub struct ScanArgs {
-    /// A local path or a GitHub URL.
+    /// A local path or a GitHub URL. Omit to audit every installed capability.
     pub target: Option<String>,
 
-    /// Scan every installed capability across detected agents.
+    /// Scan every installed capability across detected agents (the default when
+    /// no target is given).
     #[arg(long)]
     pub local: bool,
 
@@ -190,7 +189,7 @@ pub struct ScanArgs {
     pub private: bool,
 }
 
-/// `doctor` (Phase B).
+/// `doctor`.
 #[derive(Debug, clap::Args)]
 pub struct DoctorArgs {
     /// Re-apply any registry-vs-filesystem drift found (repair).

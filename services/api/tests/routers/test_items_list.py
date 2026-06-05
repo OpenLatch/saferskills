@@ -8,12 +8,14 @@ facet distribution. DB-backed — runs in the `test-be` CI lane against Postgres
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog_item import CatalogItem
+from app.models.scan import Scan
 
 
 async def _seed(session: AsyncSession, n: int = 5) -> str:
@@ -189,3 +191,102 @@ async def test_facets_include_agent_distribution(
     assert isinstance(facets["agent"], dict)
     # claude-code appears in skill/plugin/hook/mcp_server → must be present + > 0.
     assert facets["agent"].get("claude-code", 0) >= 1
+
+
+async def _seed_scored(session: AsyncSession, scores: list[int]) -> str:
+    """Seed items whose display_name shares a unique search token, each with one
+    Scan carrying a distinct aggregate_score. Returns the shared search token."""
+    token = f"qsort{uuid.uuid4().hex[:8]}"
+    now = datetime.now(tz=UTC)
+    for i, score in enumerate(scores):
+        item = CatalogItem(
+            kind="mcp_server",
+            slug=f"{token}-org--repo-{i:02d}",
+            # token lives in display_name so the FTS `q` search isolates these rows.
+            display_name=f"{token} item {i}",
+            github_url=f"https://github.com/{token}/repo-{i:02d}",
+            github_org=token,
+            github_repo=f"repo-{i:02d}",
+            default_branch="main",
+            popularity_tier="deep",
+            # Distinct, descending popularity so the relevance/default order is
+            # provably different from the score order (proves the sort override).
+            popularity_score=100 - i,
+            agent_compatibility=["claude-code"],
+            sources=[],
+        )
+        session.add(item)
+        await session.flush()
+        session.add(
+            Scan(
+                catalog_item_id=item.id,
+                idempotency_key=uuid.uuid4().hex,
+                github_url=item.github_url,
+                ref_sha=f"{i:040d}",
+                aggregate_score=score,
+                tier="green" if score >= 80 else "yellow" if score >= 60 else "orange",
+                sub_scores={
+                    "security": score,
+                    "supply_chain": score,
+                    "maintenance": score,
+                    "transparency": score,
+                    "community": score,
+                },
+                score_breakdown={},
+                rubric_version="abc1234",
+                engine_version="def5678",
+                latency_ms=100,
+                source="submission",
+                scanned_at=now,
+            )
+        )
+    await session.flush()
+    return token
+
+
+@pytest.mark.asyncio
+async def test_explicit_sort_overrides_relevance_when_searching(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Regression (catalog redesign): an explicit Score sort must be honored even
+    while a search query `q` is active. Previously any `q` forced relevance
+    ordering and silently ignored `sort`, so clicking the Score header changed the
+    URL but never reordered the search results."""
+    token = await _seed_scored(db_session, [30, 90, 60])
+
+    asc = (
+        await db_client.get(
+            "/api/v1/items", params={"q": token, "sort": "lowest_score", "limit": 50}
+        )
+    ).json()
+    asc_scores = [r["latest_scan_score"] for r in asc["data"] if r["slug"].startswith(token)]
+    assert asc_scores == [30, 60, 90], asc_scores
+
+    desc = (
+        await db_client.get(
+            "/api/v1/items", params={"q": token, "sort": "highest_score", "limit": 50}
+        )
+    ).json()
+    desc_scores = [r["latest_scan_score"] for r in desc["data"] if r["slug"].startswith(token)]
+    assert desc_scores == [90, 60, 30], desc_scores
+
+
+@pytest.mark.asyncio
+async def test_search_default_sort_stays_relevance(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The default (Trend / most_installed) order while searching stays the
+    relevance blend (ts_rank + popularity), NOT score — so the D-04-32 search
+    default is preserved, only explicit sorts override it."""
+    # Scores ascend with index (30,60,90) but popularity descends (100,99,98),
+    # so a relevance/popularity order is the reverse of a score order.
+    token = await _seed_scored(db_session, [30, 60, 90])
+    body = (
+        await db_client.get(
+            "/api/v1/items", params={"q": token, "sort": "most_installed", "limit": 50}
+        )
+    ).json()
+    scores = [r["latest_scan_score"] for r in body["data"] if r["slug"].startswith(token)]
+    # Popularity-weighted relevance → first row is the high-popularity (low-score)
+    # item, i.e. NOT ascending-by-score and NOT descending-by-score.
+    assert scores[0] == 30, scores

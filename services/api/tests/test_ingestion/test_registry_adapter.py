@@ -8,11 +8,15 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ingestion.config.loader import SourceConfig
 from app.ingestion.framework.base_adapter import NormalizedItem, RawItem
-from app.ingestion.framework.registry_adapter import RegistryAdapter
+from app.ingestion.framework.registry_adapter import (
+    RegistryAdapter,
+    _PreparedItem,  # pyright: ignore[reportPrivateUsage]
+)
 
 # ---------------------------------------------------------------------------
 # Minimal concrete subclass for testing
@@ -297,3 +301,117 @@ async def test_run_cycle_normalize_returns_none_skips_merge(
     assert counters["items_added"] == 0
     mock_merger.upsert.assert_not_called()
     mock_outbox.append.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _write_batch — deadlock / dropped-connection retry (errors 4 & 5)
+# ---------------------------------------------------------------------------
+
+
+def _db_error(sqlstate: str) -> DBAPIError:
+    """A DBAPIError whose wrapped `orig` carries the given Postgres SQLSTATE —
+    `40P01` deadlock_detected, `40001` serialization_failure, `23505` unique etc."""
+
+    class _Orig(Exception):
+        pass
+
+    orig = _Orig("simulated db error")
+    orig.sqlstate = sqlstate  # type: ignore[attr-defined]
+    return DBAPIError("UPDATE catalog_items ...", None, orig)
+
+
+def _mock_write_session() -> MagicMock:
+    """A session whose begin_nested()/commit()/rollback() are inert — isolates the
+    `_write_batch` control flow from a real transaction (the retry path calls
+    rollback, which would unwind the shared db_session fixture's SAVEPOINT)."""
+    session = MagicMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    nested_cm = AsyncMock()
+    nested_cm.__aenter__ = AsyncMock(return_value=nested_cm)
+    nested_cm.__aexit__ = AsyncMock(return_value=None)
+    session.begin_nested = MagicMock(return_value=nested_cm)
+    return session
+
+
+def _zero_counters() -> dict[str, int]:
+    return {
+        "items_seen": 0,
+        "items_added": 0,
+        "items_updated": 0,
+        "items_skipped": 0,
+        "http_304_count": 0,
+        "http_5xx_count": 0,
+    }
+
+
+def _prepared(repo: str) -> _PreparedItem:
+    normalized = NormalizedItem(
+        github_org="acme",
+        github_repo=repo,
+        display_name=repo,
+        description="",
+        metadata_files={},
+        aggregator_listings=["test_source"],
+    )
+    return _PreparedItem(raw=_make_raw(repo=repo), normalized=normalized, raw_hash="h")
+
+
+@pytest.mark.asyncio
+async def test_write_batch_retries_deadlock_without_double_count() -> None:
+    """A deadlock on a later item replays the WHOLE batch (the rollback aborts every
+    SAVEPOINT) — and the per-item counters reset so the replay never double-counts."""
+    adapter = _MinimalAdapter(_make_config(), [])
+    session = _mock_write_session()
+    outbox = AsyncMock()
+    merger = AsyncMock()
+    # item-a ok, item-b deadlocks → replay: item-a ok, item-b ok. Total added == 2.
+    merger.upsert = AsyncMock(side_effect=["added", _db_error("40P01"), "added", "added"])
+
+    counters = _zero_counters()
+    batch = [_prepared("a"), _prepared("b")]
+    with patch("asyncio.sleep", AsyncMock()):
+        await adapter._write_batch(session, merger, outbox, batch, counters)  # pyright: ignore[reportPrivateUsage]
+
+    assert counters["items_added"] == 2  # NOT 3 — the failed attempt's count is reset
+    assert merger.upsert.await_count == 4
+    assert session.rollback.await_count == 1
+    assert session.commit.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_write_batch_non_retryable_db_error_propagates() -> None:
+    """A non-deadlock DB error (e.g. unique violation) is NOT retried — it bubbles to
+    the cycle-level handler immediately, with no commit."""
+    adapter = _MinimalAdapter(_make_config(), [])
+    session = _mock_write_session()
+    outbox = AsyncMock()
+    merger = AsyncMock()
+    merger.upsert = AsyncMock(side_effect=_db_error("23505"))
+
+    counters = _zero_counters()
+    with patch("asyncio.sleep", AsyncMock()), pytest.raises(DBAPIError):
+        await adapter._write_batch(session, merger, outbox, [_prepared("a")], counters)  # pyright: ignore[reportPrivateUsage]
+
+    assert merger.upsert.await_count == 1
+    assert session.rollback.await_count == 1
+    assert session.commit.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_write_batch_exhausts_deadlock_retries_then_raises() -> None:
+    """A persistent deadlock exhausts the bounded retries and re-raises (so the cycle
+    handler + Procrastinate take over) rather than looping forever."""
+    adapter = _MinimalAdapter(_make_config(), [])
+    session = _mock_write_session()
+    outbox = AsyncMock()
+    merger = AsyncMock()
+    merger.upsert = AsyncMock(side_effect=_db_error("40P01"))
+
+    counters = _zero_counters()
+    with patch("asyncio.sleep", AsyncMock()), pytest.raises(DBAPIError):
+        await adapter._write_batch(session, merger, outbox, [_prepared("a")], counters)  # pyright: ignore[reportPrivateUsage]
+
+    assert merger.upsert.await_count == 3  # _BATCH_DB_RETRY_ATTEMPTS
+    assert session.rollback.await_count == 3
+    assert session.commit.await_count == 0

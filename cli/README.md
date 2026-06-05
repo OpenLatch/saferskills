@@ -3,9 +3,10 @@
 **Every AI capability, independently scanned.** Install Skills and MCP servers to any AI agent with a verified SaferSkills trust score checked at install time.
 
 ```bash
-npx saferskills info github-mcp        # see an item's score + findings
-npx saferskills install github-mcp     # install to your detected agents (Phase B)
-npx saferskills scan ./my-skill        # scan a local capability (Phase C)
+npx saferskills info mcp-server-github        # see an item's score + findings
+npx saferskills install mcp-server-github     # install to your detected agents
+npx saferskills scan ./my-skill        # scan a local capability
+npx saferskills scan                   # no target → audit everything installed
 ```
 
 No install required — `npx saferskills <command>` runs the prebuilt native binary. Or install it permanently:
@@ -24,19 +25,19 @@ SaferSkills scans Skills, MCP servers, hooks, and plugins for security, supply-c
 | Command | Status | What it does |
 |---|---|---|
 | `info <name>` (alias `check`) | ✅ | Resolve a name → catalog item; print score, tier, findings, and the report URL. |
-| `install <name>` | Phase B | Install a Skill / MCP server to your detected agents, gated by finding severity. |
-| `uninstall <name>` | Phase B | Reverse exactly what an install wrote. |
-| `update [--all]` | Phase B | Refresh installed capabilities; re-verify scores. |
-| `list` | Phase B | Show installed capabilities with current scores. |
-| `doctor` | Phase B | Diagnose registry-vs-filesystem drift. |
-| `scan <path\|url>` | Phase C | Scan a local path or GitHub URL; print the report URL. |
+| `install <name>` | ✅ | Install a Skill / MCP server to your detected agents, gated by finding severity. |
+| `uninstall <name>` | ✅ | Reverse exactly what an install wrote. |
+| `update [--all]` | ✅ | Refresh installed capabilities; re-verify scores. |
+| `list` | ✅ | Show installed capabilities with current scores. |
+| `doctor` | ✅ | Diagnose registry-vs-filesystem drift. |
+| `scan [path\|url]` | ✅ | Scan a local path or GitHub URL; with no target, audit everything installed. Prints the report URL. |
 | `completion <shell>` | ✅ | Print a shell completion script. |
 
 ## Global flags
 
 `--json` (machine-readable output on stdout), `--no-color` / `--color <auto\|always\|never>`, `-v/--verbose`, `-q/--quiet`, `--yes`, `--force`, `--non-interactive` (alias `--no-input`).
 
-Output discipline: **stdout is machine data** (JSON), **stderr is everything human** (steps, warnings, errors, the banner). Honors `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`.
+Output discipline: **stdout is machine data** (JSON), **stderr is everything human** (steps, warnings, errors, the banner). Honors `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`. The two-line `SaferSkills` banner prints on every command: a full-width brand rule — sized to the exact terminal width and tinted a fresh, calm tone from a curated palette on each run — above a dimmed `v<version> · An OpenLatch project` line (suppressed under `--json`/`--quiet`, and for `completion`/`man`).
 
 ## Show your score — README badge
 
@@ -59,7 +60,7 @@ The API origin resolves as `SAFERSKILLS_API_URL` env → `config.toml` `api_url`
 
 ## Telemetry
 
-Anonymous, opt-out usage analytics (which command ran, its exit code, a coarse duration — never arguments, names, paths, or any personal data). Disable with `SAFERSKILLS_NO_TELEMETRY=1`; `DO_NOT_TRACK` and `CI` are also honored. See <https://saferskills.ai/privacy>.
+Anonymous usage analytics (which command ran, its exit code, a coarse duration — never arguments, names, paths, or any personal data). **Off by default and asked once**: the first interactive run prompts you to enable it and saves your answer to `~/.saferskills/config.toml`. Change it anytime there, force it on with `SAFERSKILLS_TELEMETRY=1`, or off with `SAFERSKILLS_NO_TELEMETRY=1` (`DO_NOT_TRACK` and `CI` are also honored, and non-interactive runs never prompt). See <https://saferskills.ai/privacy>.
 
 Source and fork builds send **nothing**: analytics require a key baked in at release time, so any binary you build yourself is always inert.
 
@@ -80,8 +81,8 @@ Run any command straight from the workspace with `cargo run` — everything afte
 
 ```bash
 cd cli
-cargo run -- info github-mcp          # → saferskills info github-mcp
-cargo run -- --json info github-mcp   # global flags go after `--` too
+cargo run -- info mcp-server-github          # → saferskills info mcp-server-github
+cargo run -- --json info mcp-server-github   # global flags go after `--` too
 cargo run -- scan ./my-skill
 cargo run -- completion bash
 ```
@@ -95,18 +96,18 @@ Source builds send no telemetry (the analytics key is baked in only at release t
 **bash / zsh** — prefix the command (scopes the var to that one invocation):
 
 ```bash
-SAFERSKILLS_API_URL=http://localhost:8000 cargo run -- info github-mcp
+SAFERSKILLS_API_URL=http://localhost:8000 cargo run -- info mcp-server-github
 
 # or export it for the whole shell session:
 export SAFERSKILLS_API_URL=http://localhost:8000
-cargo run -- info github-mcp
+cargo run -- info mcp-server-github
 ```
 
 **PowerShell** — set `$env:` first (PowerShell has no inline `VAR=val cmd` form):
 
 ```powershell
 $env:SAFERSKILLS_API_URL = "http://localhost:8000"
-cargo run -- info github-mcp
+cargo run -- info mcp-server-github
 
 # clear it again when done:
 Remove-Item Env:\SAFERSKILLS_API_URL

@@ -326,10 +326,14 @@ async def list_items(
         decoded = _decode_cursor(cursor)
         stmt = stmt.where(CatalogItem.slug > decoded)
 
-    if q:
+    if q and sort == "most_installed":
         # Relevance-first when searching: blend ts_rank (0.7) + normalized
         # popularity (0.3) so a strong name match isn't drowned by a popular
         # near-miss (D-04-32). Ties broken by slug for a stable keyset.
+        # This is the *default* (Trend) ordering for a search; an explicit
+        # column-header sort (highest/lowest_score, recent, most_starred) below
+        # overrides it so sorting works while a query is active — the `q` WHERE
+        # filter above is untouched, so the result set stays search-scoped.
         stmt = stmt.order_by(
             text(
                 "ts_rank(catalog_items.search_vector, websearch_to_tsquery('english', :q)) * 0.7 "
