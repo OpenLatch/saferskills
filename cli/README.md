@@ -74,6 +74,55 @@ cargo clippy --all-targets -- -D warnings
 
 TLS is rustls-only (no OpenSSL). The binary is a single ~5 MB executable with sub-second start.
 
+## Local development
+
+Run any command straight from the workspace with `cargo run` — everything after `--` is passed to the CLI, exactly as if you'd typed `saferskills …`:
+
+```bash
+cd cli
+cargo run -- info github-mcp          # → saferskills info github-mcp
+cargo run -- --json info github-mcp   # global flags go after `--` too
+cargo run -- scan ./my-skill
+cargo run -- completion bash
+```
+
+A debug build is slower to start; for a release-speed binary use `cargo run --release -- <args>`.
+
+### Pointing at a local API
+
+Source builds send no telemetry (the analytics key is baked in only at release time), but they still hit the public API at `https://saferskills.ai` by default. To develop against a backend running locally, override the origin with `SAFERSKILLS_API_URL`:
+
+**bash / zsh** — prefix the command (scopes the var to that one invocation):
+
+```bash
+SAFERSKILLS_API_URL=http://localhost:8000 cargo run -- info github-mcp
+
+# or export it for the whole shell session:
+export SAFERSKILLS_API_URL=http://localhost:8000
+cargo run -- info github-mcp
+```
+
+**PowerShell** — set `$env:` first (PowerShell has no inline `VAR=val cmd` form):
+
+```powershell
+$env:SAFERSKILLS_API_URL = "http://localhost:8000"
+cargo run -- info github-mcp
+
+# clear it again when done:
+Remove-Item Env:\SAFERSKILLS_API_URL
+```
+
+### Environment variables
+
+| Variable | Effect |
+|---|---|
+| `SAFERSKILLS_API_URL` | API origin to call. Precedence: this env → `config.toml` `api_url` → `https://saferskills.ai`. |
+| `SAFERSKILLS_DIR` | Override the state dir (default `~/.saferskills/` — holds `config.toml` + `installs.json`). Handy for an isolated dev sandbox. |
+| `SAFERSKILLS_NO_TELEMETRY` | Set to disable usage telemetry. `DO_NOT_TRACK` and `CI` are honored the same way. (Source builds are inert regardless.) |
+| `NO_COLOR` / `CLICOLOR_FORCE` / `TERM=dumb` | Standard color controls; `--color <auto\|always\|never>` overrides them. |
+
+Precedence across all config is **CLI flags → `SAFERSKILLS_*` env → `config.toml` → defaults**.
+
 ## Publishing
 
 Published via [npm Trusted Publishers (OIDC)](https://docs.npmjs.com/trusted-publishers) and [crates.io Trusted Publishing](https://crates.io) — no long-lived registry tokens in CI. The release path is `.github/workflows/publish-npm.yml`: it builds 5 platform binaries, signs them (cosign keyless) with SBOMs, publishes the scoped `@openlatch/saferskills-<platform>` packages + the unscoped `saferskills` main package, and the `saferskills` crate.
