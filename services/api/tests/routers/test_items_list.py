@@ -15,6 +15,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog_item import CatalogItem
+from app.models.install_event import InstallEvent
 from app.models.scan import Scan
 
 
@@ -290,3 +291,100 @@ async def test_search_default_sort_stays_relevance(
     # Popularity-weighted relevance → first row is the high-popularity (low-score)
     # item, i.e. NOT ascending-by-score and NOT descending-by-score.
     assert scores[0] == 30, scores
+
+
+@pytest.mark.asyncio
+async def test_name_sort_orders_alphabetically(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Capability column: name_asc / name_desc order by display_name."""
+    token = uuid.uuid4().hex[:8]
+    for label in ("Charlie", "alpha", "Bravo"):
+        db_session.add(
+            CatalogItem(
+                kind="skill",
+                slug=f"{token}-{label.lower()}--repo",
+                display_name=f"{label} {token}",
+                github_url=f"https://github.com/{token}/{label.lower()}",
+                github_org=token,
+                github_repo=label.lower(),
+                default_branch="main",
+                popularity_tier="lite",
+                popularity_score=10,
+                agent_compatibility=["claude-code"],
+                sources=[],
+            )
+        )
+    await db_session.flush()
+
+    asc = (
+        await db_client.get("/api/v1/items", params={"q": token, "sort": "name_asc", "limit": 50})
+    ).json()
+    asc_names = [r["display_name"].split()[0] for r in asc["data"] if r["github_org"] == token]
+    # case-insensitive ascending: alpha, Bravo, Charlie
+    assert asc_names == ["alpha", "Bravo", "Charlie"], asc_names
+
+    desc = (
+        await db_client.get("/api/v1/items", params={"q": token, "sort": "name_desc", "limit": 50})
+    ).json()
+    desc_names = [r["display_name"].split()[0] for r in desc["data"] if r["github_org"] == token]
+    assert desc_names == ["Charlie", "Bravo", "alpha"], desc_names
+
+
+@pytest.mark.asyncio
+async def test_least_installed_orders_by_popularity_asc(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Trend column reversed: least_installed orders by popularity ascending."""
+    token = await _seed_scored(db_session, [50, 50, 50])  # popularity = 100, 99, 98
+    body = (
+        await db_client.get(
+            "/api/v1/items", params={"q": token, "sort": "least_installed", "limit": 50}
+        )
+    ).json()
+    pops = [r["popularity_score"] for r in body["data"] if r["slug"].startswith(token)]
+    assert pops == [98, 99, 100], pops
+
+
+@pytest.mark.asyncio
+async def test_activity_sort_and_sparkline(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Activity column: most_active orders by trailing-quarter install count, and
+    each row carries a 13-bucket install_sparkline reflecting real installs."""
+    token = await _seed_scored(db_session, [50, 50, 50])
+    # Fetch the seeded items to attach install events.
+    listing = (
+        await db_client.get("/api/v1/items", params={"q": token, "sort": "name_asc", "limit": 50})
+    ).json()
+    seeded = [r for r in listing["data"] if r["slug"].startswith(token)]
+    assert len(seeded) == 3
+    # Give the middle item (index 1) 3 recent installs, the last item 1.
+    now = datetime.now(tz=UTC)
+    for item, count in ((seeded[1], 3), (seeded[2], 1)):
+        for _ in range(count):
+            db_session.add(
+                InstallEvent(
+                    catalog_item_id=item["id"],
+                    agent="claude-code",
+                    kind="mcp_server",
+                    created_at=now,
+                )
+            )
+    await db_session.flush()
+
+    body = (
+        await db_client.get(
+            "/api/v1/items", params={"q": token, "sort": "most_active", "limit": 50}
+        )
+    ).json()
+    active = [r for r in body["data"] if r["slug"].startswith(token)]
+    # Most installs first: item[1] (3) → item[2] (1) → item[0] (0).
+    assert active[0]["id"] == seeded[1]["id"], [r["slug"] for r in active]
+    assert active[1]["id"] == seeded[2]["id"]
+    # Sparkline is present, length 13, and the busiest item's most-recent bucket
+    # carries its install count.
+    busiest = active[0]["install_sparkline"]
+    assert len(busiest) == 13
+    assert sum(busiest) == 3
+    assert busiest[-1] == 3  # `now` lands in the newest weekly bucket

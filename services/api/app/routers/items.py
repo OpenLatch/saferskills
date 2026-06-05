@@ -14,14 +14,14 @@ import io
 import logging
 import zipfile
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, desc, func, or_, select, text, true
+from sqlalchemy import and_, asc, desc, func, nulls_last, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -74,7 +74,25 @@ router = APIRouter(prefix="/items", tags=["items"])
 _MAX_ZIP_BYTES = 25 * 1024 * 1024
 
 
-SortKey = Literal["most_installed", "recent", "highest_score", "lowest_score", "most_starred"]
+SortKey = Literal[
+    "most_installed",
+    "least_installed",
+    "recent",
+    "oldest",
+    "highest_score",
+    "lowest_score",
+    "most_starred",
+    "name_asc",
+    "name_desc",
+    "description_asc",
+    "description_desc",
+    "most_active",
+    "least_active",
+]
+
+# Quarter window for the per-item install-activity sparkline (13 weekly buckets).
+_ACTIVITY_WEEKS = 13
+_ACTIVITY_DAYS = _ACTIVITY_WEEKS * 7
 
 
 def _encode_cursor(value: str) -> str:
@@ -97,6 +115,7 @@ def _to_summary(
     latest_scan_at: datetime | None,
     findings_count: int,
     registries: Sequence[str],
+    install_sparkline: Sequence[int] | None = None,
 ) -> CatalogItemSummary:
     return CatalogItemSummary(
         id=str(item.id),
@@ -119,6 +138,7 @@ def _to_summary(
         registries=list(registries),
         agent_compatibility=list(item.agent_compatibility or []),
         updated_at=item.updated_at,
+        install_sparkline=list(install_sparkline) if install_sparkline is not None else [],
     )
 
 
@@ -252,6 +272,22 @@ async def list_items(
         .subquery()
     )
 
+    # Per-item install count over the trailing quarter — drives the `most_active`
+    # / `least_active` sort. 1 row per item (grouped), so the LEFT JOIN below stays
+    # 1:1 and the filtered row-count == item-count. install_events is opt-in CLI
+    # telemetry (`.claude/rules/privacy.md`); when empty every count is 0.
+    quarter_ago = datetime.now(tz=UTC) - timedelta(days=_ACTIVITY_DAYS)
+    install_quarter = (
+        select(
+            InstallEvent.catalog_item_id.label("ci_id"),
+            func.count().label("install_count"),
+        )
+        .where(InstallEvent.created_at >= quarter_ago)
+        .group_by(InstallEvent.catalog_item_id)
+        .subquery()
+    )
+    activity_count = func.coalesce(install_quarter.c.install_count, 0)
+
     stmt = (
         select(
             CatalogItem,
@@ -270,6 +306,7 @@ async def list_items(
             isouter=True,
         )
         .join(findings_sub, findings_sub.c.scan_id == Scan.id, isouter=True)
+        .join(install_quarter, install_quarter.c.ci_id == CatalogItem.id, isouter=True)
         # Public-only catalog: unlisted shadow rows are never listed (D-UP-19).
         .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
     )
@@ -347,6 +384,25 @@ async def list_items(
         stmt = stmt.order_by(func.coalesce(latest_scan.c.latest_score, 100), CatalogItem.slug)
     elif sort == "recent":
         stmt = stmt.order_by(desc(CatalogItem.updated_at), CatalogItem.slug)
+    elif sort == "oldest":
+        stmt = stmt.order_by(asc(CatalogItem.updated_at), CatalogItem.slug)
+    elif sort == "name_asc":
+        stmt = stmt.order_by(asc(func.lower(CatalogItem.display_name)), CatalogItem.slug)
+    elif sort == "name_desc":
+        stmt = stmt.order_by(desc(func.lower(CatalogItem.display_name)), CatalogItem.slug)
+    elif sort in ("description_asc", "description_desc"):
+        # Sort by description text; empty/NULL descriptions always sort last
+        # regardless of direction (a blank cell at the top reads as broken).
+        # Description lives in the item_metadata JSONB, not a column.
+        body = func.nullif(CatalogItem.item_metadata["description"].astext, "")
+        ordered = asc(func.lower(body)) if sort == "description_asc" else desc(func.lower(body))
+        stmt = stmt.order_by(nulls_last(ordered), CatalogItem.slug)
+    elif sort == "most_active":
+        stmt = stmt.order_by(desc(activity_count), CatalogItem.slug)
+    elif sort == "least_active":
+        stmt = stmt.order_by(asc(activity_count), CatalogItem.slug)
+    elif sort == "least_installed":
+        stmt = stmt.order_by(asc(CatalogItem.popularity_score), CatalogItem.slug)
     elif sort == "most_starred":
         stmt = stmt.order_by(desc(CatalogItem.popularity_score), CatalogItem.slug)
     else:  # most_installed (default)
@@ -376,6 +432,25 @@ async def list_items(
         for ci_id, reg_id in reg_rows:
             registries_by_item.setdefault(str(ci_id), []).append(reg_id)
 
+    # Per-item install-activity sparkline: 13 weekly buckets over the trailing
+    # quarter, oldest→newest. Scoped to the current page's items (cheap), so the
+    # query is bounded regardless of catalog size. Empty install_events → all-zero
+    # rows; the frontend then renders its popularity-seeded launch placeholder.
+    sparkline_by_item: dict[str, list[int]] = {}
+    if item_ids:
+        act_rows = (
+            await session.execute(
+                select(InstallEvent.catalog_item_id, InstallEvent.created_at).where(
+                    InstallEvent.catalog_item_id.in_(item_ids),
+                    InstallEvent.created_at >= quarter_ago,
+                )
+            )
+        ).all()
+        for ci_id, created in act_rows:
+            buckets = sparkline_by_item.setdefault(str(ci_id), [0] * _ACTIVITY_WEEKS)
+            idx = min(_ACTIVITY_WEEKS - 1, max(0, (created - quarter_ago).days // 7))
+            buckets[idx] += 1
+
     return CatalogListEnvelope(
         data=[
             _to_summary(
@@ -385,6 +460,7 @@ async def list_items(
                 latest_scan_at=latest_scan_at,
                 findings_count=int(findings_count),
                 registries=registries_by_item.get(str(item.id), []),
+                install_sparkline=sparkline_by_item.get(str(item.id), [0] * _ACTIVITY_WEEKS),
             )
             for item, latest_score, latest_tier, latest_scan_at, findings_count in rows
         ],

@@ -53,16 +53,21 @@ The badge links to the full [public report at `saferskills.ai/items/<slug>`](htt
 
 State lives under `~/.saferskills/` (override with `SAFERSKILLS_DIR`):
 
-- `config.toml` — `api_url`, `gate_threshold`, `telemetry`, `install_telemetry`.
+- `config.toml` — `api_url`, `gate_threshold`, `telemetry`.
 - `installs.json` — the install registry.
 
 The API origin resolves as `SAFERSKILLS_API_URL` env → `config.toml` `api_url` → `https://saferskills.ai`.
 
 ## Telemetry
 
-Anonymous usage analytics (which command ran, its exit code, a coarse duration — never arguments, names, paths, or any personal data). **Off by default and asked once**: the first interactive run prompts you to enable it and saves your answer to `~/.saferskills/config.toml`. Change it anytime there, force it on with `SAFERSKILLS_TELEMETRY=1`, or off with `SAFERSKILLS_NO_TELEMETRY=1` (`DO_NOT_TRACK` and `CI` are also honored, and non-interactive runs never prompt). See <https://saferskills.ai/privacy>.
+Two anonymous, privacy-preserving channels — never arguments, names, paths, or any personal data:
 
-Source and fork builds send **nothing**: analytics require a key baked in at release time, so any binary you build yourself is always inert.
+- **Usage analytics** — which command ran, its exit code, a coarse duration. **Off by default and asked once**: the first interactive run prompts you and saves your answer to `~/.saferskills/config.toml`. Force on with `SAFERSKILLS_TELEMETRY=1`.
+- **Install reporting** — an anonymous agent + capability-kind count when you install something, powering catalog popularity. Sent automatically; **no prompt**.
+
+Both are silenced together by `SAFERSKILLS_NO_TELEMETRY=1` (`DO_NOT_TRACK` and `CI` are honored the same way), and non-interactive runs never prompt. See <https://saferskills.ai/privacy>.
+
+Source and fork builds send **nothing** on either channel: telemetry requires a key baked in at release time, so any binary you build yourself is always inert.
 
 ## Building from source
 
@@ -119,7 +124,8 @@ Remove-Item Env:\SAFERSKILLS_API_URL
 |---|---|
 | `SAFERSKILLS_API_URL` | API origin to call. Precedence: this env → `config.toml` `api_url` → `https://saferskills.ai`. |
 | `SAFERSKILLS_DIR` | Override the state dir (default `~/.saferskills/` — holds `config.toml` + `installs.json`). Handy for an isolated dev sandbox. |
-| `SAFERSKILLS_NO_TELEMETRY` | Set to disable usage telemetry. `DO_NOT_TRACK` and `CI` are honored the same way. (Source builds are inert regardless.) |
+| `SAFERSKILLS_NO_TELEMETRY` | Set to disable **all** telemetry (usage analytics + install reporting). `DO_NOT_TRACK` and `CI` are honored the same way. (Source builds are inert regardless.) |
+| `SAFERSKILLS_TELEMETRY` | Force usage analytics on (`1`/`true`) or off (`0`), skipping the first-run prompt. Does not affect install reporting. |
 | `NO_COLOR` / `CLICOLOR_FORCE` / `TERM=dumb` | Standard color controls; `--color <auto\|always\|never>` overrides them. |
 
 Precedence across all config is **CLI flags → `SAFERSKILLS_*` env → `config.toml` → defaults**.

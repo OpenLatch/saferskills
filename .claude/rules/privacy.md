@@ -42,7 +42,7 @@ Redacted `/24` or `/48` prefixes are never exported raw to third parties. Aggreg
 
 ## `install_events` table (I-05)
 
-The `install_events` table records **opt-in** install reports from the `saferskills`
+The `install_events` table records **anonymous** install reports from the `saferskills`
 CLI (D-05-31), powering the real `install_activity` counts on item pages (replacing
 the deterministic mock). It is a **new store distinct from `access_log`** — required
 because `access_log` is write-only-until-I-06, closed-action, and 30-day-swept, so it
@@ -60,10 +60,16 @@ Same contract as `access_log`: the submitter IP is redacted to `/24` (IPv4) or `
 (IPv6) **at write time** in `app/routers/installs.py` (via
 `access_log_middleware.redact_ip`) — a raw IP is never stored.
 
-### Opt-in only
+### Automatic (no consent), legitimate interest
 
-Reporting is **opt-in** (first-run CLI consent; off by default, skipped + off in
-non-TTY/CI/`--json`/`--no-input`). A row exists only because a user chose to report.
+Reporting is **automatic** — the CLI sends an anonymous install count on every install
+(no consent prompt). It rests on the legitimate-interest basis (Art. 6(1)(f) — service
+improvement / popularity signals), justified by the anonymity (closed-enum agent + kind,
+redacted IP, no slug-in-clear, no PII). It is **suppressed only** by a universal opt-out
+(`CI` / `DO_NOT_TRACK` / `SAFERSKILLS_NO_TELEMETRY`) or a source/fork build (no baked key
+⇒ inert). It is **independent of** the usage-analytics consent (the `telemetry` config
+key / first-run prompt), which gates only the PostHog `command_invoked` event. See
+`security.md` § Vendor-data isolation + the CLI `core::telemetry::install_reporting_allowed`.
 
 ### Retention
 

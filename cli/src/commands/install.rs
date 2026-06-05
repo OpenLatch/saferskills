@@ -3,7 +3,7 @@
 //! Flow: detect agents → select (multi-select pre-checked / `--to` / `--all`) →
 //! resolve + re-verify the score (+ `--seen-score` drift) → conflict check →
 //! the §5.5 severity gate → per-agent writer install with record-then-write +
-//! LIFO rollback (D-05-24) → registry row → opt-in install report (D-05-31).
+//! LIFO rollback (D-05-24) → registry row → anonymous install report (D-05-31).
 
 use std::io::IsTerminal;
 

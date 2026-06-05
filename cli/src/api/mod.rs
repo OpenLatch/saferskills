@@ -26,7 +26,7 @@ struct ScanSubmitBody<'a> {
     visibility: &'a str,
 }
 
-/// The opt-in install-report body (`POST /api/v1/installs`, D-05-31).
+/// The anonymous install-report body (`POST /api/v1/installs`, D-05-31).
 #[derive(Debug, Serialize)]
 pub struct InstallReport<'a> {
     pub slug: &'a str,
@@ -190,7 +190,7 @@ impl Api {
             .await
     }
 
-    /// `POST /api/v1/installs` — report an opt-in install (D-05-31). Fail-open:
+    /// `POST /api/v1/installs` — report an anonymous install (D-05-31). Fail-open:
     /// the caller swallows the error so a failed report never fails the install.
     pub async fn report_install(
         &self,
