@@ -177,14 +177,21 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
 
 ## Schema-drift recovery (Windows codegen)
 
-`pnpm run generate` on Windows writes **CRLF** to generated files; `git add` normalizes
-them to LF, so a `git diff` shows phantom whole-file changes that vanish on commit.
-Verify real drift with `git diff --ignore-all-space` (the CI `validate` lane runs on
-Linux where output is already LF). A scrape YAML change flows into
-`source_registry.py::ALL_HOSTS` (the self-derived outbound allowlist) — that **is** a
-real diff and must be committed. **Inline `# comment` on a YAML `hosts:` list entry
-breaks `validate-outbound-allowlist.cjs`** (its naive line parser captures the comment
-into the host string) — put host-list comments on their own lines.
+`pnpm run generate` now emits **LF on every platform** — the three Python-backed
+generators force it at the source: `generate_sqlalchemy_models.py` writes with
+`newline="\n"`, `generate_pydantic_models.py` LF-normalizes each
+`datamodel-code-generator` output file (the external tool writes CRLF on Windows),
+and `generate-openapi.cjs` strips CRLF from the captured Python stdout. So a local
+Windows regen is byte-identical to CI and no longer produces phantom whole-file
+diffs. (Root cause: Python's text-mode write translates `\n`→`\r\n` on Windows; the
+Node-only generators were always LF. `.gitattributes` `* text=auto eol=lf` is the
+belt — generators forcing LF is the braces.) If a stray CRLF ever reappears,
+`git diff --ignore-all-space` still distinguishes EOL noise from real drift. A scrape
+YAML change flows into `source_registry.py::ALL_HOSTS` (the self-derived outbound
+allowlist) — that **is** a real diff and must be committed. **Inline `# comment` on a
+YAML `hosts:` list entry breaks `validate-outbound-allowlist.cjs`** (its naive line
+parser captures the comment into the host string) — put host-list comments on their
+own lines.
 
 ## Enrichment + quality tiering (D-04-19)
 
