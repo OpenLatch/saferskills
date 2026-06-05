@@ -54,7 +54,9 @@ type UploadRejectReason = Literal[
 # I-04 ingestion events (D-04-22)
 type IngestionItemsBucket = Literal["0", "1-10", "11-100", "101-1k", "1k+"]
 type Ingestion304RatioBucket = Literal["0-25", "25-50", "50-75", "75-100"]
-type IngestionFailureReason = Literal["rate_limit", "cf_challenge", "http_5xx", "timeout", "other"]
+type IngestionFailureReason = Literal[
+    "rate_limit", "cf_challenge", "http_5xx", "timeout", "permanent", "other"
+]
 type CatalogItemArchivedReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
 # I-05 install telemetry (D-05-31). agent ∈ the 8 canonical ids; kind ∈ the

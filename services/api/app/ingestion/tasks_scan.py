@@ -40,12 +40,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 import structlog
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
+from app.ingestion.framework.failure import classify_failure, is_transient_failure
 from app.models.repo_fetch_state import RepoFetchState
 from app.models.scan import Scan
 from app.models.scan_run import ScanRun
@@ -391,11 +392,66 @@ async def execute_scan(github_url: str, *, reason: str = "reconcile") -> dict[st
 # ── Procrastinate tasks ────────────────────────────────────────────────────
 
 
+async def _mark_repo_pending_runs_failed(github_url: str) -> None:
+    """Best-effort: flip this repo's non-terminal (`pending`/`running`) scan_runs to
+    `failed` so a permanent error doesn't leave an orphan lingering until the 15-min
+    stale-run recovery. Scoped to the repo whose scan just failed; the per-repo
+    `lock=scan:<url>` guarantees no OTHER scan of this URL is concurrently in-flight,
+    so this never races a legitimate run. Swallows its own errors (it is cleanup)."""
+    from app.db.session import AsyncSessionLocal
+
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                update(ScanRun)
+                .where(
+                    ScanRun.github_url == github_url,
+                    ScanRun.status.in_(("pending", "running")),
+                )
+                .values(status="failed")
+            )
+            await session.commit()
+    except Exception:
+        logger.debug("scan_capability_repo.mark_failed_skipped", github_url=github_url)
+
+
 @procrastinate_app.task(name="scan_capability_repo", queue="scan", retry=3)
 async def scan_capability_repo(github_url: str, reason: str = "reconcile") -> dict[str, str]:
-    """Durable per-repo scan job (bounded by SCAN_MAX_CONCURRENCY)."""
+    """Durable per-repo scan job (bounded by SCAN_MAX_CONCURRENCY).
+
+    Robustness (WS-4): `execute_scan` cleanly handles `FetchError` (the
+    deterministic fetch-failure class). But `resolve_ref` raises a raw
+    `httpx.HTTPStatusError` on a 403/429/5xx — NOT a `FetchError` — and a
+    shape-drift bug in persistence raises `KeyError`/`ValueError`. Without this
+    wrapper either bubbles out as an unhandled traceback and burns the 3 retries
+    (transient) or 3 retries + 3 tracebacks (permanent). So: classify, emit ONE
+    clean WARN, mark the pending run failed, and re-raise ONLY when transient (a
+    genuine blip Procrastinate should retry). Permanent errors are swallowed —
+    retrying a deterministic bug just re-fails.
+    """
     async with _semaphore():
-        return await execute_scan(github_url, reason=reason)
+        try:
+            return await execute_scan(github_url, reason=reason)
+        except Exception as exc:
+            reason_enum = classify_failure(exc)
+            await _mark_repo_pending_runs_failed(github_url)
+            if is_transient_failure(exc):
+                logger.warning(
+                    "scan_capability_repo.transient_failure",
+                    github_url=github_url,
+                    reason=reason_enum,
+                    error_class=type(exc).__name__,
+                    error=str(exc)[:300],
+                )
+                raise  # genuine blip — let Procrastinate's retry=3 take it
+            logger.warning(
+                "scan_capability_repo.permanent_failure",
+                github_url=github_url,
+                reason=reason_enum,
+                error_class=type(exc).__name__,
+                error=str(exc)[:300],
+            )
+            return {"action": "error", "reason": reason}
 
 
 async def defer_scan_job(github_url: str, reason: str = "reconcile") -> bool:
@@ -503,8 +559,19 @@ async def auto_scan_reconcile(timestamp: int) -> dict[str, Any]:
         return {"enqueued": 0, "skipped": "disabled"}
     from app.db.session import AsyncSessionLocal
 
-    async with AsyncSessionLocal() as session:
-        enqueued = await run_reconcile(session, defer=defer_scan_job)
+    # A failing reconcile tick must emit a clean error log, NOT a raw traceback
+    # (WS-8d) — the drainer is periodic, so the next 10-min tick recovers. Without
+    # this the periodic task re-raises and Procrastinate dumps a full stack trace.
+    try:
+        async with AsyncSessionLocal() as session:
+            enqueued = await run_reconcile(session, defer=defer_scan_job)
+    except Exception as exc:
+        logger.error(
+            "auto_scan_reconcile.failed",
+            error_class=type(exc).__name__,
+            error=str(exc)[:300],
+        )
+        return {"enqueued": 0, "error": type(exc).__name__}
     logger.info("auto_scan_reconcile.done", enqueued=enqueued)
     return {"enqueued": enqueued}
 
@@ -529,4 +596,49 @@ async def scan_stalled_retrier(timestamp: int) -> dict[str, int]:
         logger.exception("scan_stalled_retrier.failed")
     if retried:
         logger.info("scan_stalled_retrier.requeued", retried=retried)
+    return {"retried": retried}
+
+
+# The ingest + periodic-maintenance queues `scan_stalled_retrier` does NOT cover.
+# A worker restart orphaned a `doing` cycle on one of these forever (the known
+# ~1-orphaned-cycle/hour leak), since the scan retrier is `queue="scan"` only (WS-7).
+_INGEST_QUEUES = (
+    "ingest_github",
+    "ingest_aggregator",
+    "ingest_mcp_registry",
+    "ingest_npm",
+    "ingest_pypi",
+    "periodic",
+)
+
+
+@procrastinate_app.periodic(cron="*/15 * * * *")
+@procrastinate_app.task(
+    name="ingestion_stalled_retrier",
+    queue="periodic",
+    queueing_lock="ingestion_stalled_retrier_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
+)
+async def ingestion_stalled_retrier(timestamp: int) -> dict[str, int]:
+    """Re-queue ingest-queue (+ `periodic`) jobs a worker abandoned on a restart.
+
+    Sibling to `scan_stalled_retrier`, which only covers `queue="scan"` — so an
+    ingest cycle (`ingest_github`/`ingest_aggregator`/…) left `doing` by a restart
+    would otherwise stay orphaned forever. Uses a generous `ingestion_stalled_seconds`
+    (default 4h) — comfortably above mcp_registry's worst-case full-feed cycle, so a
+    legitimately-long in-flight crawl is never re-queued out from under itself.
+    """
+    nb_seconds = get_settings().ingestion_stalled_seconds
+    jm = procrastinate_app.job_manager
+    retried = 0
+    try:
+        for queue in _INGEST_QUEUES:
+            stalled = await jm.get_stalled_jobs(nb_seconds=nb_seconds, queue=queue)
+            for job in stalled:
+                await jm.retry_job(job)
+                retried += 1
+    except Exception:
+        logger.exception("ingestion_stalled_retrier.failed")
+    if retried:
+        logger.info("ingestion_stalled_retrier.requeued", retried=retried)
     return {"retried": retried}

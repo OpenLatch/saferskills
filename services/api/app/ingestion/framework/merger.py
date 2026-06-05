@@ -183,6 +183,15 @@ class MergeEngine:
         break the upsert — the reconciliation drainer is the steady-state net."""
         if not github_url:
             return
+        # Honor the auto-scan kill-switch: SCAN_AUTOSCAN_ENABLED=false pauses ALL
+        # bulk scanning, including this on-ingest hook (documented in
+        # environment-config.md + ingestion.md § Durable auto-scan pipeline). The
+        # reconciliation drainer already gates on this; without the same gate here
+        # every freshly-ingested item still enqueues a scan job behind the flag.
+        from app.core.config import get_settings
+
+        if not get_settings().scan_autoscan_enabled:
+            return
         try:
             from app.ingestion.tasks_scan import defer_scan_job
 
