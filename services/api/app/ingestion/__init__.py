@@ -22,16 +22,27 @@ from __future__ import annotations
 
 from procrastinate import App, PsycopgConnector
 
-from app.core.config import get_settings
+from app.core.config import _coerce_ssl_to_sslmode, get_settings
 
 _settings = get_settings()
 
 
 def _libpq_conninfo(database_url: str) -> str:
-    """Strip the SQLAlchemy async driver suffix so psycopg3 accepts the DSN."""
-    return database_url.replace("postgresql+asyncpg://", "postgresql://", 1).replace(
+    """Render `settings.database_url` as a libpq DSN psycopg3 accepts.
+
+    Two transforms: (1) strip the SQLAlchemy async driver suffix, and (2) rename
+    the asyncpg `?ssl=…` query param back to libpq's `?sslmode=…`. Skipping (2)
+    is silently fatal: `_normalize_db_dsn` coerces the env DSN's `sslmode` to
+    asyncpg's `ssl` for the SQLAlchemy engine, but libpq rejects `ssl`
+    (`invalid URI query parameter: "ssl"`) — so every psycopg pool connection
+    fails and Procrastinate's `open_async()` dies with `PoolTimeout: pool
+    initialization incomplete after 30.0 sec`, degrading the ingestion worker on
+    every boot.
+    """
+    stripped = database_url.replace("postgresql+asyncpg://", "postgresql://", 1).replace(
         "postgresql+psycopg://", "postgresql://", 1
     )
+    return _coerce_ssl_to_sslmode(stripped)
 
 
 procrastinate_app = App(
