@@ -87,11 +87,13 @@ pub async fn run_list(
 /// How a capability's score was resolved (or that it has none).
 enum Resolved {
     /// Installed via the CLI — live current score + the install-time `seen_score`
-    /// for the drift line.
+    /// for the drift line. `slug` is the catalog permalink key (from the install
+    /// record), so an installed row reports its slug like a scanned one.
     Installed {
         score: Option<u8>,
         tier: Tier,
         seen_score: Option<u8>,
+        slug: String,
     },
     /// Found in the local scan cache (previously scanned).
     Scanned {
@@ -142,6 +144,7 @@ async fn build_inventory(api: &Api) -> Result<Vec<InventoryEntry>, SsError> {
                 score,
                 tier,
                 seen_score: rec.seen_score,
+                slug: rec.slug.clone(),
             }
         } else if let Some(c) = cache.iter().find(|c| c.content_hash == content_hash) {
             Resolved::Scanned {
@@ -240,6 +243,7 @@ fn render_human(output: &OutputConfig, entries: &[InventoryEntry]) {
                 score,
                 tier,
                 seen_score,
+                ..
             } => {
                 let drift = match (*seen_score, *score) {
                     (Some(seen), Some(now)) if now < seen => Some(format!(
@@ -371,7 +375,10 @@ fn inventory_json(entries: &[InventoryEntry]) -> serde_json::Value {
                 "scanned": scanned,
             });
             match &e.resolved {
-                Resolved::Installed { score, tier, .. } => {
+                Resolved::Installed {
+                    score, tier, slug, ..
+                } => {
+                    o["slug"] = serde_json::json!(slug);
                     o["score"] = serde_json::json!(score);
                     o["tier"] = serde_json::json!(tier);
                 }
@@ -505,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn installed_json_carries_score_without_scanned_at() {
+    fn installed_json_carries_score_and_slug_without_scanned_at() {
         let entries = vec![entry(
             "skill",
             "inst",
@@ -513,6 +520,7 @@ mod tests {
                 score: Some(72),
                 tier: Tier::Yellow,
                 seen_score: Some(80),
+                slug: "acme--kit--skill-inst".into(),
             },
         )];
         let v = inventory_json(&entries);
@@ -520,6 +528,8 @@ mod tests {
         assert_eq!(d["scanned"], true);
         assert_eq!(d["score"], 72);
         assert_eq!(d["tier"], "yellow");
+        // An installed row reports its catalog slug, like a scanned one.
+        assert_eq!(d["slug"], "acme--kit--skill-inst");
         assert!(d["scanned_at"].is_null());
     }
 }
