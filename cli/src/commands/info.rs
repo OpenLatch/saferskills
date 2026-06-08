@@ -79,13 +79,25 @@ fn render_human(output: &OutputConfig, detail: &ItemDetailResponse, report_url: 
         .unwrap_or_else(|| "—".to_string());
     output.print_info(&format!("{}  {score_str}", color::tier_dot(tier, c)));
 
-    // ── category breakdown (single capability — no "mean across" suffix) ──
-    if let Some(scan) = detail.latest_scan.as_ref() {
-        if !scan.sub_scores.is_empty() {
-            output.print_info("");
-            output.print_info(&color::bold("Category breakdown", c));
-            report::print_axes(output, &scan.sub_scores, 4);
+    // ── never-scanned items: don't imply "clean" with a green "No findings" ──
+    // A catalog item with no `latest_scan` was never scored; mirror `list`'s
+    // explicit "○ not scanned" state and point at a scan instead.
+    let Some(scan) = detail.latest_scan.as_ref() else {
+        output.print_info("");
+        output.print_info(&color::dim("\u{25cb} Not scanned yet.", c));
+        if let Some(url) = detail.item.github_url.as_deref() {
+            output.print_substep(&format!("Scan it now: saferskills scan {url}"));
         }
+        output.print_info("");
+        output.print_info(&format!("Report: {report_url}"));
+        return;
+    };
+
+    // ── category breakdown (single capability — no "mean across" suffix) ──
+    if !scan.sub_scores.is_empty() {
+        output.print_info("");
+        output.print_info(&color::bold("Category breakdown", c));
+        report::print_axes(output, &scan.sub_scores, 4);
     }
 
     // ── all findings, every severity, uncapped ──
@@ -314,6 +326,17 @@ mod tests {
         );
         assert_eq!(ranked_findings(&d).len(), 7);
         render_human(&out(false, false), &d, "https://x/items/y");
+    }
+
+    #[test]
+    fn render_human_handles_never_scanned_item() {
+        // A catalog item with no `latest_scan` (never scored) must render the
+        // "○ Not scanned yet" state + a scan hint, NOT a green "No findings".
+        let mut d = detail_with(None, None, &[]);
+        d.latest_scan = None;
+        d.item.github_url = Some("https://github.com/acme/thing".into());
+        render_human(&out(false, false), &d, "https://x/items/y");
+        render_human(&out(false, true), &d, "https://x/items/y");
     }
 
     #[test]
