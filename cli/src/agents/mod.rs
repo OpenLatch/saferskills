@@ -12,6 +12,7 @@
 //! capability for a detected agent, recording every change for a clean reversal.
 
 pub mod detect;
+pub mod enumerate;
 pub mod writer;
 pub mod writers;
 

@@ -4,7 +4,7 @@
  *
  * Replaces the old floating prose: one hairline panel holding the shared
  * WeightBars visual (DS-first, same component as the /scan preview), the
- * aggregate equation, the critical-floor note, and the 4-tier band ladder.
+ * aggregate equation, the severity-ceiling note, and the 4-tier band ladder.
  *
  * `data-reveal` opts the panel into the page's IntersectionObserver reveal
  * (see methodology.astro): the weight bars fill left→right on first view.
@@ -52,10 +52,12 @@ const TIERS = [
       </div>
 
       <p class="fp-note">
-        Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. Any
-        finding of severity <strong>critical</strong> caps its sub-score at 40 — the
-        <strong>critical-floor</strong> rule that stops one catastrophic finding from
-        being averaged away by minor passes.
+        Each sub-score = <code>max(0, 100 − Σ per-finding penalty)</code>. Because
+        security is only 35% of the weight, a serious flaw would otherwise be averaged
+        away — so a single active <strong>critical</strong> finding caps the
+        <strong>whole aggregate</strong> at 15, and an active <strong>high</strong> at
+        45. This <strong>severity ceiling</strong> keeps a security failure in the red
+        band no matter how clean the other axes are.
       </p>
     </div>
   </div>

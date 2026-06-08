@@ -116,10 +116,12 @@ class Settings(BaseSettings):
         description="Comma-separated origin list. Source-of-truth for CORS middleware.",
     )
     public_base_url: str = Field(
-        default="http://localhost:4321",
+        default="http://localhost:5173",
         description=(
             "Public origin of the webapp. Used to build capability `share_url`s "
-            "(`/scans/r/<token>`) and upload `sources[].registryUrl`."
+            "(`/scans/r/<token>`), the public report `report_url` (`/scans/<run_id>`), "
+            "and upload `sources[].registryUrl`. The dev default matches the webapp "
+            "dev/preview server (`astro dev --port 5173`); set per-env in production."
         ),
     )
     saferskills_proxy_shared_secret: str | None = Field(
@@ -145,7 +147,23 @@ class Settings(BaseSettings):
 
     # ── Brand-independent project keys ────────────────────────────────────
     posthog_project_key: str | None = Field(
-        default=None, description="Backend PostHog key (optional)."
+        default=None,
+        description=(
+            "Backend PostHog project (write) key. None disables server-side "
+            "PostHog dispatch — every emit_* helper degrades to structlog-only."
+        ),
+    )
+    posthog_host: str = Field(
+        default="https://eu.i.posthog.com",
+        description="PostHog ingestion host (EU region). Shared OpenLatch-portfolio project.",
+    )
+    posthog_server_key: str | None = Field(
+        default=None,
+        description=(
+            "PostHog personal API key (`phx_…`) enabling LOCAL feature-flag "
+            "evaluation in `app.core.feature_flags`. None → flags fall back to "
+            "remote `/decide` via the project key, or to the supplied default."
+        ),
     )
 
     # ── Admin API (I-04 Phase C) ──────────────────────────────────────────
@@ -166,6 +184,14 @@ class Settings(BaseSettings):
         default="unknown", description="Source commit SHA, injected at build time."
     )
     version: str = Field(default="0.0.0-foundation")
+    fly_machine_id: str | None = Field(
+        default=None,
+        description=(
+            "Fly Machine id (platform-injected `FLY_MACHINE_ID`). Used as the OTel "
+            "`service.instance.id` so each Machine is distinguishable in Tempo; "
+            "falls back to the hostname when unset (local/dev)."
+        ),
+    )
 
     # ── Scan engine identity ───────────────────────────────────────────────
     # Both versions are 7-40 char hex strings (git SHA prefix). At runtime they

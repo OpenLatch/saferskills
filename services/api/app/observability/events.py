@@ -8,16 +8,18 @@ path for scan-engine and ingestion events. Raw `posthog.capture()` /
 All property values are bucketed or closed-enum. No raw IPs, no emails, no
 URLs, no `matched_content` strings. Bucket helpers are colocated below.
 
-Phase A lands the helpers as no-op stubs (structlog-only). The PostHog +
-OpenTelemetry adapters wire up in Phase B when the scan engine starts firing
-real events.
+Every helper logs via structlog AND mirrors the event to PostHog through the
+shared `_emit` dispatch (tagged `product = "saferskills"`), which no-ops to
+structlog-only when `POSTHOG_PROJECT_KEY` is unset. The PostHog client lives in
+this module (`init_posthog` / `get_posthog_client` / `shutdown_posthog`), wired
+from `app.core.observability.init_observability`.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import structlog
 
@@ -175,12 +177,97 @@ def ingestion_304_ratio_bucket(ratio: float) -> Ingestion304RatioBucket:
     return "75-100"
 
 
+# ─── PostHog server-side dispatch ─────────────────────────────────────────────
+#
+# Every emit_* helper keeps its structlog line (always) AND, when a PostHog
+# client is configured, mirrors the event to the shared OpenLatch-portfolio
+# PostHog project tagged `product = "saferskills"` (the discriminator that keeps
+# SaferSkills data filterable apart — `.claude/rules/telemetry.md` § Purpose).
+#
+# The client is held here (not in `app.core.observability`) so the capture call
+# lives next to `_emit`, and `app.core.observability` → `app.observability.events`
+# stays a one-way import (no cycle). `init_posthog` is called from
+# `init_observability`; `app.core.feature_flags` reuses `get_posthog_client()`.
+
+# Backend events are not user-tied — one stable distinct_id, person profiles off.
+_BACKEND_DISTINCT_ID = "saferskills-backend"
+
+# `posthog` ships no type stubs — hold the client as `Any` so the few member
+# calls (capture/shutdown/feature_enabled) don't trip strict unknown-type checks.
+_posthog_client: Any = None
+
+
+def init_posthog(
+    *,
+    project_key: str | None,
+    host: str,
+    server_key: str | None = None,
+    flush_at: int = 20,
+) -> None:
+    """Initialise the module-level PostHog client (idempotent, degrading).
+
+    No-op when `project_key` is unset (dev/test/CI) — every `emit_*` then stays
+    structlog-only. `server_key` (a PostHog personal API key) enables LOCAL
+    feature-flag evaluation in `app.core.feature_flags`; absent, flags fall back
+    to remote `/decide`. Observability must never break the app — any failure
+    here is swallowed and leaves the client unset.
+    """
+    global _posthog_client
+    if _posthog_client is not None or not project_key:
+        return
+    try:
+        from posthog import Posthog
+
+        _posthog_client = Posthog(
+            project_api_key=project_key,
+            host=host,
+            personal_api_key=server_key,
+            disable_geoip=True,
+            flush_at=flush_at,
+        )
+        logger.info("posthog.initialised", host=host, feature_flags=bool(server_key))
+    except Exception as exc:  # observability must never break the app
+        logger.warning("posthog.init_failed", error=str(exc))
+
+
+def get_posthog_client() -> Any:
+    """The configured PostHog client, or None when PostHog is disabled."""
+    return _posthog_client
+
+
+def shutdown_posthog() -> None:
+    """Flush + close the PostHog client on shutdown (best-effort, bounded)."""
+    global _posthog_client
+    client = _posthog_client
+    _posthog_client = None
+    if client is None:
+        return
+    try:
+        client.shutdown()
+    except Exception as exc:  # observability must never break the app
+        logger.warning("posthog.shutdown_failed", error=str(exc))
+
+
 # ─── Event emitters (1-14 per .claude/rules/telemetry.md) ─────────────────────
 
 
 def _emit(event: str, **props: object) -> None:
-    """Internal log shim. Phase B replaces this with PostHog + OTel dispatch."""
+    """Emit one closed-enum event: a structlog line ALWAYS, plus a PostHog
+    `capture` when a client is configured. Every PostHog event carries the
+    `product = "saferskills"` discriminator + `$process_person_profile = False`
+    (no identity stitching). PostHog dispatch never raises into the caller."""
     logger.info(event, **props)
+    client = _posthog_client
+    if client is None:
+        return
+    try:
+        client.capture(
+            _BACKEND_DISTINCT_ID,
+            event,
+            {**props, "product": "saferskills", "$process_person_profile": False},
+        )
+    except Exception:  # observability must never break the app
+        logger.warning("posthog.capture_failed", event=event)
 
 
 def emit_scan_submitted(

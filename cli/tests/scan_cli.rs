@@ -149,23 +149,24 @@ fn scan_missing_target_errors() {
         .stderr(predicate::str::contains("SS-E-1603"));
 }
 
+/// `scan --local` now enumerates capabilities installed across detected agents
+/// (D-05-27) instead of the CLI's own install ledger. With an empty HOME no
+/// agents are detected, so the audit short-circuits to the empty machine shape
+/// `{"run_id":null,"capabilities":[],"skipped":[]}` (exit 0).
+///
+/// The populated path (a real agent config on disk) is covered by the
+/// `agents::enumerate` unit tests — the same fake-HOME limitation as `detect.rs`
+/// prevents driving the real binary against synthetic agents.
 #[test]
-fn scan_local_enumerates_installed() {
+fn scan_local_empty_when_no_agents() {
     let ss = tempfile::tempdir().unwrap();
-    // Seed a registry row with github provenance so `scan --local` resolves it.
-    let record = serde_json::json!([{
-        "canonical_id": "id-1",
-        "slug": SLUG,
-        "name": "github-mcp",
-        "kind": "mcp_server",
-        "agents": ["claude-code"],
-        "changes": [],
-        "installed_at": "2026-06-01T00:00:00Z",
-        "seen_score": 88
-    }]);
-    std::fs::write(ss.path().join("installs.json"), record.to_string()).unwrap();
+    let fake_home = tempfile::tempdir().unwrap();
     let server = mock_scan_api();
     let out = cli(ss.path(), &server.url())
+        // Point HOME / config base at an empty dir so no agent is detected.
+        .env("HOME", fake_home.path())
+        .env("USERPROFILE", fake_home.path())
+        .env("XDG_CONFIG_HOME", fake_home.path().join(".config"))
         .args(["--json", "scan", "--local"])
         .assert()
         .success()
@@ -173,6 +174,11 @@ fn scan_local_enumerates_installed() {
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&out).expect("scan --local json");
-    assert_eq!(v["rate_limited"], false);
-    assert_eq!(v["data"][0]["github_url"], "https://github.com/acme/widget");
+    // The contract keys are always present; an empty HOME yields the empty shape.
+    assert!(v.get("run_id").is_some());
+    assert!(v["capabilities"].is_array());
+    assert!(v["skipped"].is_array());
+    if v["run_id"].is_null() {
+        assert_eq!(v["capabilities"].as_array().unwrap().len(), 0);
+    }
 }

@@ -14,12 +14,34 @@ import pytest
 from app.scan import engine, fetch, persistence
 from app.scan.discovery import KIND_SKILL, Capability
 from app.scan.engine import (
+    EngineFinding,
     RepoScanResult,
+    ScanResult,
     aggregate_score,
     run_repo_scan,
+    run_repo_scan_from_index,
     run_repo_scan_via_trees,
     tier_for,
 )
+
+
+def _finding(
+    severity: str, *, status: str = "active", sub_score: str = "security"
+) -> EngineFinding:
+    """A minimal EngineFinding for scoring tests (penalty from the severity map)."""
+    return EngineFinding(
+        rule_id=f"SS-SKILL-TEST-{severity.upper()}-01",
+        severity=severity,
+        sub_score=sub_score,
+        penalty=engine.SEVERITY_PENALTY[severity],
+        status_at_scan=status,
+        file_path="SKILL.md",
+        line_start=1,
+        line_end=None,
+        matched_content_sha256="0" * 64,
+        remediation_link="",
+        rubric_version="testver",
+    )
 
 
 def test_tier_bands() -> None:
@@ -37,6 +59,64 @@ def test_empty_findings_aggregate_is_perfect_green() -> None:
     assert aggregate == 100
     assert tier == "green"
     assert all(v == 100 for v in sub_scores.values())
+
+
+# ── severity ceiling (supersedes D-13 per-sub-score floor) ─────────────────
+
+
+def test_active_critical_caps_aggregate_at_15_red() -> None:
+    """One active critical finding caps the whole aggregate at ≤15 → red, even
+    though security is only 35% of the weight (would otherwise sit ~72)."""
+    _sub, breakdown, aggregate, tier = aggregate_score([_finding("critical")])
+    assert aggregate <= 15
+    assert tier == "red"
+    ceiling = breakdown["aggregate_math"]["severity_ceiling"]
+    assert ceiling["ceiling"] == 15
+    assert ceiling["applied"] is True
+    assert ceiling["weighted_aggregate"] > 15  # dilution proof: pre-ceiling was high
+
+
+def test_active_high_caps_aggregate_at_45() -> None:
+    """One active high finding (no critical) caps the aggregate at ≤45."""
+    _sub, breakdown, aggregate, _tier = aggregate_score([_finding("high")])
+    assert aggregate <= 45
+    assert breakdown["aggregate_math"]["severity_ceiling"]["ceiling"] == 45
+    assert breakdown["aggregate_math"]["severity_ceiling"]["applied"] is True
+
+
+def test_medium_only_no_ceiling() -> None:
+    """medium/low/info never imply a ceiling — score stays the weighted value."""
+    sub, breakdown, aggregate, _tier = aggregate_score([_finding("medium")])
+    assert breakdown["aggregate_math"]["severity_ceiling"]["ceiling"] is None
+    assert breakdown["aggregate_math"]["severity_ceiling"]["applied"] is False
+    # security: 100-12=88, others 100 → 0.35*88 + 0.65*100 = 95.8 → 96.
+    assert aggregate == round(0.35 * sub["security"] + 0.65 * 100)
+    assert aggregate > 45
+
+
+def test_info_only_no_ceiling_perfect_score() -> None:
+    sub, breakdown, aggregate, tier = aggregate_score([_finding("info")])
+    assert breakdown["aggregate_math"]["severity_ceiling"]["ceiling"] is None
+    assert aggregate == 100  # info carries penalty 0
+    assert tier == "green"
+    assert sub["security"] == 100
+
+
+def test_shadow_critical_does_not_trigger_ceiling() -> None:
+    """A shadow critical fires + records but must NOT cap the aggregate — only
+    ACTIVE high/critical findings do."""
+    _sub, breakdown, aggregate, _tier = aggregate_score([_finding("critical", status="shadow")])
+    assert breakdown["aggregate_math"]["severity_ceiling"]["ceiling"] is None
+    assert aggregate > 15  # not capped
+
+
+def test_lowest_ceiling_wins_critical_over_high() -> None:
+    """With both an active high and an active critical, the lower (critical=15)
+    ceiling applies."""
+    _sub, _breakdown, aggregate, _tier = aggregate_score(
+        [_finding("high"), _finding("critical", sub_score="supply_chain")]
+    )
+    assert aggregate <= 15
 
 
 def test_score_capability_clean_skill_scores_100() -> None:
@@ -91,6 +171,54 @@ async def test_run_repo_scan_rollup_is_mean_and_tally(monkeypatch: pytest.Monkey
     assert repo.repo_tier == tier_for(repo.repo_aggregate_score)
     # Every capability carries the shared repo ref + an independent score.
     assert all(c.result.ref_sha == "b" * 40 for c in repo.capabilities)
+
+
+def test_repo_rollup_ceiling_caps_one_bad_capability_among_clean(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A repo with one critical capability among many clean ones is capped at 15
+    — the rounded-mean rollup (~72 here) must not dilute the failure back up."""
+    from app.scan import discovery
+
+    caps = [
+        Capability(kind=KIND_SKILL, name=n, component_path=n, file_subset=[(f"{n}/SKILL.md", b"x")])
+        for n in ("bad", "clean1", "clean2")
+    ]
+
+    def fake_discover(
+        _index: list[tuple[str, bytes]], *, source_kind: str | None = None
+    ) -> list[Capability]:
+        return caps
+
+    def fake_score(cap: Capability, rubric_version: str, ref_sha: str) -> engine.CapabilityResult:
+        findings = [_finding("critical")] if cap.name == "bad" else []
+        aggregate = 15 if cap.name == "bad" else 100
+        result = ScanResult(
+            findings=findings,
+            sub_scores={},
+            score_breakdown={},
+            aggregate_score=aggregate,
+            tier=tier_for(aggregate),
+            file_count=1,
+            skipped_rules=[],
+            skipped_files=[],
+            ref_sha=ref_sha,
+            latency_ms=0,
+            files_index=list(cap.file_subset),
+        )
+        return engine.CapabilityResult(
+            kind=cap.kind, name=cap.name, component_path=cap.component_path, result=result
+        )
+
+    monkeypatch.setattr(discovery, "discover_capabilities", fake_discover)
+    monkeypatch.setattr(engine, "score_capability", fake_score)
+
+    repo = run_repo_scan_from_index([("bad/SKILL.md", b"x")], "testver")
+
+    # Plain mean would be round((15+100+100)/3) = 72 (yellow); the ceiling drags
+    # the whole repo down to ≤15 (red) because one capability has an active critical.
+    assert repo.repo_aggregate_score <= 15
+    assert repo.repo_tier == "red"
 
 
 def _snapshot_identity(repo: RepoScanResult) -> str:

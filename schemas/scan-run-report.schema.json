@@ -154,6 +154,12 @@
       "format": "uri",
       "x-postgresql-skip": true,
       "description": "The capability URL `/scans/r/<token>` — present only on the unlisted detail response served via the token route. NEVER present in any list payload."
+    },
+    "reportUrl": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "x-postgresql-skip": true,
+      "description": "The canonical public report URL on the webapp (`<public_base_url>/scans/<run_id>` for a public run, or the `/scans/r/<token>` capability URL for an unlisted run). Built from the server's `public_base_url`, so a client (e.g. the CLI) need not know the webapp origin — which differs from the API origin in local dev. Null on legacy responses."
     }
   },
   "$defs": {

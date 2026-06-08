@@ -74,6 +74,12 @@ class ScanRunReportDetail(OrmBaseModel):
     uploaded_filename: str | None = None
     expires_at: datetime | None = None
     share_url: str | None = None
+    # The canonical public report URL on the webapp, built from `public_base_url`
+    # (`/scans/<run_id>` for a public run, the `/scans/r/<token>` capability URL
+    # for an unlisted one). Lets a client — the CLI especially — link to the real
+    # report page without knowing the webapp origin, which differs from the API
+    # origin in local dev (API :8000 vs webapp :4321).
+    report_url: str | None = None
     # Single-capability runs (typically uploads) carry the primary manifest + a
     # `.zip` pointer so the rich upload report (mockups 3/4) renders the source
     # viewer + download. Null on multi-capability runs (the cap-list body has no

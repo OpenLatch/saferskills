@@ -1,9 +1,11 @@
 //! `saferskills install <name>` — the cross-ecosystem wedge (D-05-18..25).
 //!
-//! Flow: detect agents → select (multi-select pre-checked / `--to` / `--all`) →
-//! resolve + re-verify the score (+ `--seen-score` drift) → conflict check →
-//! the §5.5 severity gate → per-agent writer install with record-then-write +
-//! LIFO rollback (D-05-24) → registry row → anonymous install report (D-05-31).
+//! Flow: detect agents → resolve + re-verify the score (+ `--seen-score` drift)
+//! → **digest** (global score + 5-axis breakdown) → select agents → **announce**
+//! the targets → **score gate** (installing below `min_score` confirms; red tier
+//! types the name) → conflict check → per-agent writer install with
+//! record-then-write + LIFO rollback (D-05-24) → registry row → anonymous install
+//! report (D-05-31).
 
 use std::io::IsTerminal;
 
@@ -49,7 +51,10 @@ pub async fn run_install(
     let (score, tier) = score_and_tier(&detail);
     let findings = ranked_findings(&detail);
 
-    // 3. Targeting: detected ∩ item.agent_compatibility ∩ writer-supports(kind).
+    // 3. Digest: the global score + the 5-axis category breakdown (mirrors `scan`).
+    render_digest(output, &detail, score, tier);
+
+    // 4. Targeting: detected ∩ item.agent_compatibility ∩ writer-supports(kind).
     let kind = detail.item.kind.clone();
     let selectable = selectable_agents(&detected, &detail.item, &kind);
     if selectable.is_empty() {
@@ -62,34 +67,35 @@ pub async fn run_install(
         ));
     }
 
-    // 4. Agent selection (D-05-20).
+    // 5. Agent selection (D-05-20) + disclosure of the resolved targets.
     let chosen = select_agents(args, inter, output, &selectable)?;
+    let defaulted_all = args.to.is_empty() && chosen.len() == selectable.len();
+    announce_agents(output, &chosen, defaulted_all);
 
-    // 5. Drift re-prompt (D-05-25) + severity gate (D-05-19).
-    surface_score(output, &detail, score, tier);
+    // 6. Drift re-prompt (D-05-25) + the score gate (D-05-19, score-driven).
     drift_reprompt(output, inter, args.seen_score, score, &findings)?;
 
     // Finding prose is inlined on the report findings (D-05-32 reversed) — no
     // rule-corpus fetch; the gate renders straight from each finding.
-    apply_severity_gate(output, inter, &config, &detail.item, &findings)?;
+    apply_score_gate(output, inter, &config, &detail.item, &findings, score, tier)?;
 
-    // 6. Conflict (D-05-22).
+    // 7. Conflict (D-05-22).
     let mut records = registry::load()?;
     if let Some(idx) = records.iter().position(|r| r.slug == summary.slug) {
         resolve_conflict(args, inter, output, &mut records, idx)?;
     }
 
-    // 7. Build the resolved item (downloads the skill zip if needed).
+    // 8. Build the resolved item (downloads the skill zip if needed).
     let resolved = build_resolved_item(&api, &detail.item, &kind, output).await?;
 
     if args.dry_run {
         return print_plan(output, &chosen, &resolved);
     }
 
-    // 8. Record-then-write across agents, rolling back on any failure (D-05-24).
+    // 9. Record-then-write across agents, rolling back on any failure (D-05-24).
     let applied = install_to_agents(output, &chosen, &resolved)?;
 
-    // 9. Registry row (written only after all agents succeeded).
+    // 10. Registry row (written only after all agents succeeded).
     let record = InstallRecord {
         canonical_id: detail.item.id.clone(),
         slug: summary.slug.clone(),
@@ -108,17 +114,22 @@ pub async fn run_install(
     records.push(record);
     registry::save(&records)?;
 
-    // 10. Install report — unconditional + fail-open (no consent; kill-switch only).
+    // 11. Install report — unconditional + fail-open (no consent; kill-switch only).
     maybe_report(&api, &summary.slug, &chosen, &kind).await;
 
     success_screen(output, &summary);
 
     if output.is_json() {
+        let min_score = config.min_score();
         output.print_json(&json!({
             "installed": chosen.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
             "slug": summary.slug,
             "score": score,
             "tier": tier,
+            "sub_scores": detail.latest_scan.as_ref().map(|s| s.sub_scores.clone()),
+            "min_score": min_score,
+            "gate": gate_outcome_str(score_gate_level(score, tier, min_score)),
+            "agents": chosen.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
             "findings": findings.len(),
             "changes": applied.len(),
         }));
@@ -149,10 +160,6 @@ fn ranked_findings(detail: &ItemDetailResponse) -> Vec<FindingResponse> {
         .unwrap_or_default();
     f.sort_by_key(|f| std::cmp::Reverse(f.severity.rank()));
     f
-}
-
-fn highest_severity(findings: &[FindingResponse]) -> Option<Severity> {
-    findings.iter().map(|f| f.severity).max_by_key(|s| s.rank())
 }
 
 // ─── agent targeting + selection (D-05-20) ───────────────────────────────────
@@ -250,26 +257,80 @@ fn select_agents(
     Ok(chosen)
 }
 
-// ─── score surface + drift re-prompt (D-05-25) ───────────────────────────────
+// ─── digest: score + 5-axis breakdown (mirrors `scan`) ────────────────────────
 
-fn surface_score(
+/// Print the install digest: the item title + tier dot + `score/100`, then the
+/// 5-axis category breakdown as labelled bar gauges. No-op in JSON/quiet
+/// (machine output carries the same data as structured keys).
+fn render_digest(
     output: &OutputConfig,
     detail: &ItemDetailResponse,
     score: Option<u8>,
     tier: Tier,
 ) {
-    if output.is_json() {
+    if output.is_json() || output.is_quiet() {
         return;
     }
+    use crate::cli::color;
+    let c = output.color;
     let s = score
         .map(|v| format!("{v}/100"))
         .unwrap_or_else(|| "—".into());
     output.print_info(&format!(
         "{}  {}  {s}",
-        crate::cli::color::bold(&detail.item.display_name, output.color),
-        crate::cli::color::tier_dot(tier, output.color)
+        color::bold(&detail.item.display_name, c),
+        color::tier_dot(tier, c)
     ));
+    // 5-axis breakdown, read straight from the latest scan's sub_scores.
+    if let Some(scan) = detail.latest_scan.as_ref() {
+        for (key, label) in color::AXES {
+            if let Some(v) = scan.sub_scores.get(key) {
+                let axis = (*v).clamp(0, 100) as u8;
+                output.print_info(&format!(
+                    "  {}  {}  {}",
+                    pad_axis_label(label),
+                    color::bar_gauge(axis, 10, c),
+                    color::score_paint(axis, &v.to_string(), c)
+                ));
+            }
+        }
+    }
 }
+
+/// Right-pad an axis label to the widest of the 5 (`"Supply chain"` = 12) so the
+/// bar gauges align.
+fn pad_axis_label(label: &str) -> String {
+    const WIDTH: usize = 12;
+    let n = label.chars().count();
+    if n >= WIDTH {
+        label.to_string()
+    } else {
+        format!("{label}{}", " ".repeat(WIDTH - n))
+    }
+}
+
+// ─── agent disclosure (D-05-20) ───────────────────────────────────────────────
+
+/// Disclose the resolved install targets: `Will install to: <names>`, noting when
+/// the selection defaulted to all detected & compatible agents. No-op in JSON.
+fn announce_agents(output: &OutputConfig, chosen: &[DetectedAgent], defaulted_all: bool) {
+    if output.is_json() {
+        return;
+    }
+    let names = chosen
+        .iter()
+        .map(|a| a.id.display_name())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let note = if defaulted_all {
+        "  (all detected & compatible)"
+    } else {
+        ""
+    };
+    output.print_info(&format!("Will install to: {names}{note}"));
+}
+
+// ─── drift re-prompt (D-05-25) ────────────────────────────────────────────────
 
 fn drift_reprompt(
     output: &OutputConfig,
@@ -293,66 +354,74 @@ fn drift_reprompt(
     confirm(output, inter, "Proceed anyway?", false)
 }
 
-// ─── severity gate (D-05-19) ─────────────────────────────────────────────────
+// ─── score gate (D-05-19, score-driven) ──────────────────────────────────────
 
-fn parse_threshold(config: &Config) -> Severity {
-    match config.gate_threshold.as_deref() {
-        Some("low") => Severity::Low,
-        Some("medium") => Severity::Medium,
-        Some("high") => Severity::High,
-        Some("critical") => Severity::Critical,
-        // Default (`info` / unset): the full §5.5 ladder applies.
-        _ => Severity::Info,
+/// The gate strength for an install, derived purely from the aggregate score.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GateLevel {
+    /// At or above `min_score` — install silently.
+    Pass,
+    /// Below `min_score` (or unscoped) — warn + y/N confirm (default No).
+    Confirm,
+    /// Red tier (`< 40`) — the stronger "type the item name" gate.
+    TypeName,
+}
+
+/// Map `(score, tier, min_score)` to a gate level. Red tier always escalates to
+/// the type-name gate; a sub-min or unscoped/None score confirms; otherwise pass.
+fn score_gate_level(score: Option<u8>, tier: Tier, min_score: u8) -> GateLevel {
+    if tier == Tier::Red {
+        return GateLevel::TypeName;
+    }
+    match score {
+        Some(s) if s >= min_score => GateLevel::Pass,
+        // Sub-min, or unscoped / no score → confirm.
+        _ => GateLevel::Confirm,
     }
 }
 
-fn apply_severity_gate(
+/// The JSON `gate` outcome on the success path (`pass` | `confirmed`). A blocked
+/// gate returns an error before this is reached, so `"blocked"` never appears
+/// here — it exists in the vocabulary for symmetry only.
+fn gate_outcome_str(level: GateLevel) -> &'static str {
+    match level {
+        GateLevel::Pass => "pass",
+        GateLevel::Confirm | GateLevel::TypeName => "confirmed",
+    }
+}
+
+/// The install gate (score-driven). `--force` bypasses every level. Below
+/// `min_score` the low score is explained (findings) + a y/N confirm; red-tier
+/// items require typing the name (`--force` only — `--yes` does not satisfy it).
+fn apply_score_gate(
     output: &OutputConfig,
     inter: Interaction,
     config: &Config,
     item: &CatalogItemSummary,
     findings: &[FindingResponse],
+    score: Option<u8>,
+    tier: Tier,
 ) -> Result<(), SsError> {
     if inter.force {
         return Ok(()); // --force bypasses every gate
     }
-    let Some(highest) = highest_severity(findings) else {
-        return Ok(()); // no findings → silent install
-    };
-    let threshold = parse_threshold(config);
-    if highest.rank() < threshold.rank() {
-        return Ok(()); // below the configured silent floor
-    }
-
-    match highest {
-        Severity::Info => {
-            output.print_info("ⓘ This capability has informational findings only.");
-            Ok(())
-        }
-        Severity::Low => {
-            output.print_warn("Low-severity findings present — installing.");
-            Ok(())
-        }
-        Severity::Medium => confirm(
-            output,
-            inter,
-            "Medium-severity findings present. Install?",
-            false,
-        ),
-        Severity::High => {
+    let min_score = config.min_score();
+    match score_gate_level(score, tier, min_score) {
+        GateLevel::Pass => Ok(()),
+        GateLevel::Confirm => {
             render_findings(output, findings);
-            confirm(
-                output,
-                inter,
-                "High-severity findings present. Install?",
-                false,
-            )
+            let shown = score
+                .map(|s| format!("Score {s}/100 is below the {min_score} install threshold."))
+                .unwrap_or_else(|| {
+                    "This capability is unscored — its trust score is unknown.".to_string()
+                });
+            output.print_warn(&shown);
+            confirm(output, inter, "Install anyway?", false)
         }
-        Severity::Critical => {
+        GateLevel::TypeName => {
             render_findings(output, findings);
             type_name_gate(output, inter, item)
         }
-        Severity::Unknown => Ok(()),
     }
 }
 
@@ -804,11 +873,136 @@ mod tests {
     }
 
     #[test]
-    fn threshold_parsing_defaults_to_info() {
-        let mut c = Config::default();
-        assert_eq!(parse_threshold(&c), Severity::Info);
-        c.gate_threshold = Some("high".into());
-        assert_eq!(parse_threshold(&c), Severity::High);
+    fn score_gate_level_passes_at_or_above_min() {
+        // ≥ min_score → Pass (default min 90).
+        assert_eq!(score_gate_level(Some(90), Tier::Green, 90), GateLevel::Pass);
+        assert_eq!(
+            score_gate_level(Some(100), Tier::Green, 90),
+            GateLevel::Pass
+        );
+    }
+
+    #[test]
+    fn score_gate_level_confirms_below_min() {
+        // 40–89 (sub-min, not red) → Confirm.
+        assert_eq!(
+            score_gate_level(Some(89), Tier::Yellow, 90),
+            GateLevel::Confirm
+        );
+        assert_eq!(
+            score_gate_level(Some(40), Tier::Orange, 90),
+            GateLevel::Confirm
+        );
+    }
+
+    #[test]
+    fn score_gate_level_red_tier_types_name() {
+        // Red tier (< 40) → the stronger type-name gate, regardless of score.
+        assert_eq!(
+            score_gate_level(Some(20), Tier::Red, 90),
+            GateLevel::TypeName
+        );
+        // Red tier escalates even if the score were (oddly) at/above min.
+        assert_eq!(
+            score_gate_level(Some(95), Tier::Red, 90),
+            GateLevel::TypeName
+        );
+    }
+
+    #[test]
+    fn score_gate_level_unscoped_confirms() {
+        // No score / unscoped → Confirm (not silently passed).
+        assert_eq!(
+            score_gate_level(None, Tier::Unscoped, 90),
+            GateLevel::Confirm
+        );
+        assert_eq!(
+            score_gate_level(None, Tier::Unknown, 90),
+            GateLevel::Confirm
+        );
+    }
+
+    #[test]
+    fn gate_outcome_strings() {
+        assert_eq!(gate_outcome_str(GateLevel::Pass), "pass");
+        assert_eq!(gate_outcome_str(GateLevel::Confirm), "confirmed");
+        assert_eq!(gate_outcome_str(GateLevel::TypeName), "confirmed");
+    }
+
+    #[test]
+    fn axis_labels_pad_to_widest() {
+        // The 5 labels right-pad to "Supply chain" (12) so the bars align.
+        assert_eq!(pad_axis_label("Security"), "Security    ");
+        assert_eq!(pad_axis_label("Supply chain"), "Supply chain");
+        assert_eq!(pad_axis_label("Community").len(), 12);
+    }
+
+    fn out_plain() -> OutputConfig {
+        OutputConfig {
+            format: crate::cli::output::OutputFormat::Human,
+            verbose: false,
+            quiet: false,
+            color: false,
+        }
+    }
+
+    fn detail_with_sub_scores() -> ItemDetailResponse {
+        let mut sub = std::collections::BTreeMap::new();
+        sub.insert("security".to_string(), 40i64);
+        sub.insert("supply_chain".to_string(), 75i64);
+        sub.insert("maintenance".to_string(), 88i64);
+        let mut item = sample("acme--repo--skill-pdf", "skill", Some("acme"), Some("repo"));
+        item.display_name = "PDF Extract".into();
+        ItemDetailResponse {
+            item,
+            latest_scan: Some(crate::api::dto::ScanReportDetail {
+                id: "s1".into(),
+                github_url: None,
+                slug: "acme--repo--skill-pdf".into(),
+                display_name: "PDF Extract".into(),
+                aggregate_score: 62,
+                tier: Tier::Yellow,
+                sub_scores: sub,
+                findings: vec![],
+                scanned_at: None,
+                rubric_version: None,
+                engine_version: None,
+                component_path: None,
+                scan_run_id: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn render_digest_does_not_panic_and_is_json_quiet_safe() {
+        let detail = detail_with_sub_scores();
+        // Human path: renders the digest + axis bars (to stderr) without panic.
+        render_digest(&out_plain(), &detail, Some(62), Tier::Yellow);
+        // Quiet + JSON are silent no-ops.
+        let mut quiet = out_plain();
+        quiet.quiet = true;
+        render_digest(&quiet, &detail, Some(62), Tier::Yellow);
+        let mut json = out_plain();
+        json.format = crate::cli::output::OutputFormat::Json;
+        render_digest(&json, &detail, Some(62), Tier::Yellow);
+        // Unscored item (no latest_scan) renders just the title line.
+        let unscored = ItemDetailResponse {
+            item: sample("x--y--skill-z", "skill", None, None),
+            latest_scan: None,
+        };
+        render_digest(&out_plain(), &unscored, None, Tier::Unscoped);
+    }
+
+    #[test]
+    fn announce_agents_notes_default_all() {
+        let agents = crate::agents::detect_all(Scope::Global);
+        // Renders regardless of how many agents are detected (possibly zero in CI).
+        announce_agents(&out_plain(), &agents, true);
+        announce_agents(&out_plain(), &agents, false);
+        // JSON is a silent no-op.
+        let mut json = out_plain();
+        json.format = crate::cli::output::OutputFormat::Json;
+        announce_agents(&json, &agents, true);
     }
 
     fn sample(slug: &str, kind: &str, org: Option<&str>, repo: Option<&str>) -> CatalogItemSummary {

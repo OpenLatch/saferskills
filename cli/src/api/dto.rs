@@ -258,6 +258,8 @@ pub struct CapabilityRow {
     pub scan_id: String,
     pub catalog_slug: String,
     #[serde(default)]
+    pub sub_scores: BTreeMap<String, i64>,
+    #[serde(default)]
     pub findings: Vec<FindingResponse>,
 }
 
@@ -286,6 +288,11 @@ pub struct ScanRunReportDetail {
     pub source_kind: Option<String>,
     #[serde(default)]
     pub share_url: Option<String>,
+    /// Canonical public report URL on the webapp, built server-side from
+    /// `public_base_url` — the client need not know the webapp origin (which
+    /// differs from the API origin in local dev). Absent on older servers.
+    #[serde(default)]
+    pub report_url: Option<String>,
     #[serde(default)]
     pub expires_at: Option<String>,
 }

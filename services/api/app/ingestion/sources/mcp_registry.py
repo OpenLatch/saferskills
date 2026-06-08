@@ -69,9 +69,25 @@ class McpRegistryAdapter(RegistryAdapter):
         super().__init__(config)
 
     async def list_items(self, client: Any) -> AsyncIterator[RawItem]:
-        """Yield one RawItem per server record, advancing the opaque cursor."""
+        """Yield one RawItem per server record, advancing the opaque cursor.
+
+        The full-feed sweep (~12k servers, each enriched with several sequential
+        GitHub/raw fetches) takes far longer than a `--reload` / restart / the 4h
+        stalled-retry survive, so the resume marker is **checkpointed per page**
+        (`save_cursor_progress`, health-neutral) BEFORE the page is fetched: an
+        aborted cycle resumes from the last page instead of re-crawling from the
+        epoch (the never-completing zombie loop). The high-water `updated_since`
+        watermark is only advanced — and the cycle marked successful — by
+        `write_cursor` once the sweep completes naturally (or a 304 says nothing is
+        new). A transport error (5xx / rate-limit) leaves the checkpoint in place so
+        the next cycle resumes, and does NOT falsely mark the cycle successful.
+        """
         from app.db.session import AsyncSessionLocal
-        from app.ingestion.framework.cursor import read_cursor, write_cursor
+        from app.ingestion.framework.cursor import (
+            read_cursor,
+            save_cursor_progress,
+            write_cursor,
+        )
 
         api_base: str = self.config.discovery.get(
             "api_base", "https://registry.modelcontextprotocol.io"
@@ -87,7 +103,23 @@ class McpRegistryAdapter(RegistryAdapter):
         opaque_cursor: str | None = cursor.get("next_cursor")
         new_high_water: str = updated_since
 
+        async def _checkpoint(next_cursor: str | None) -> None:
+            """Persist the resume marker (lagging — written before the page it points
+            to is processed, so a mid-page abort re-fetches that page rather than
+            skipping it; the merger upsert is idempotent)."""
+            async with AsyncSessionLocal() as cp_session:
+                await save_cursor_progress(
+                    cp_session,
+                    self.config.name,
+                    {"updated_since": updated_since, "next_cursor": next_cursor},
+                )
+                await cp_session.commit()
+
+        sweep_complete = False
         while True:
+            # Checkpoint the page we are ABOUT to fetch (resume point on abort).
+            await _checkpoint(opaque_cursor)
+
             params: dict[str, str] = {
                 "updated_since": updated_since,
                 "limit": str(page_limit),
@@ -107,6 +139,7 @@ class McpRegistryAdapter(RegistryAdapter):
                     from_cache=True,
                     fetch_tier=1,
                 )
+                sweep_complete = True  # nothing new since the watermark
                 break
 
             if r.status_code != 200:
@@ -124,6 +157,7 @@ class McpRegistryAdapter(RegistryAdapter):
                     ),
                     fetch_tier=1,
                 )
+                # Transient fetch failure — keep the checkpoint, do NOT complete.
                 break
 
             data = r.json()
@@ -170,17 +204,22 @@ class McpRegistryAdapter(RegistryAdapter):
             page_meta: dict[str, Any] = data.get("metadata") or {}
             opaque_cursor = page_meta.get("nextCursor") or page_meta.get("next_cursor")
             if not opaque_cursor:
+                sweep_complete = True
                 break
 
-        # Persist the updated cursor after all items yielded (outer session).
-        async with AsyncSessionLocal() as session:
-            await write_cursor(
-                session,
-                self.config.name,
-                {"updated_since": new_high_water, "next_cursor": None},
-                success=True,
-            )
-            await session.commit()
+        # Only a fully-drained feed (or a 304) advances the watermark + marks the
+        # cycle successful + clears the resume cursor. A mid-sweep abort or transport
+        # error leaves the last per-page checkpoint untouched so the next cycle
+        # resumes from there instead of restarting at the epoch.
+        if sweep_complete:
+            async with AsyncSessionLocal() as session:
+                await write_cursor(
+                    session,
+                    self.config.name,
+                    {"updated_since": new_high_water, "next_cursor": None},
+                    success=True,
+                )
+                await session.commit()
 
     def normalize(self, raw: RawItem) -> NormalizedItem | None:
         """Map an MCP Registry server record to a NormalizedItem."""

@@ -129,12 +129,25 @@ jobs:
             ${{ env.REGISTRY_FLY }}/saferskills-${{ matrix.service }}:${{ steps.meta.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          # PUBLIC_* build-args are inlined into the webapp bundle at build time
+          # (Astro envPrefix). They're harmless no-ops for the api image (unknown
+          # ARGs are ignored). One image is shared by staging+prod, so every value
+          # here must be env-identical: the webapp Sentry DSN + the shared PostHog
+          # project key both are. See ci-cd.md § Build-time public config.
           build-args: |
             GIT_SHA=${{ steps.meta.outputs.sha }}
             # Build-arg name stays PUBLIC_*-prefixed (Astro/Vite requires it to
             # inline into the bundle); the value comes from the TURNSTILE_-grouped
             # GH Actions secret. Renaming the build-arg would disable the gate.
             PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_PUBLIC_SITE_KEY }}
+            PUBLIC_SENTRY_DSN=${{ secrets.SENTRY_DSN_WEBAPP }}
+            PUBLIC_POSTHOG_KEY=${{ secrets.POSTHOG_PROJECT_KEY }}
+            PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
+          # Sentry source-map upload runs inside the webapp image build (keyed to
+          # GIT_SHA). The auth token is a BuildKit secret so it never lands in an
+          # image layer; the upload step no-ops when the secret is empty.
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - uses: sigstore/cosign-installer@v3
       - name: Cosign keyless sign
@@ -174,6 +187,9 @@ jobs:
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -184,6 +200,19 @@ jobs:
           # app — it is how the API trusts the proxy's forwarded IP (security.md #11).
           if [ -n "$TURNSTILE_SECRET_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api-staging TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
+          # Observability (telemetry.md). SENTRY_DSN → errors-only Sentry; the two
+          # PostHog keys → server-side analytics + local feature-flag eval. All
+          # optional — unset → that leg degrades to structlog-only, never a boot
+          # failure. POSTHOG_HOST is non-secret ([env] in fly.staging.toml).
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SENTRY_DSN="$SENTRY_DSN"
+          fi
+          if [ -n "$POSTHOG_PROJECT_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
+          fi
+          if [ -n "$POSTHOG_SERVER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging POSTHOG_SERVER_KEY="$POSTHOG_SERVER_KEY"
           fi
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
@@ -228,6 +257,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEBAPP }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd webapp
@@ -237,6 +267,12 @@ jobs:
           # the value on the API app. Staged atomically before deploy.
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-webapp-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
+          fi
+          # Server-side (SSR/proxy) Sentry DSN — read at RUNTIME by src/middleware.ts.
+          # Same DSN baked into the browser bundle as PUBLIC_SENTRY_DSN; here it is a
+          # runtime secret so the Node error path reports too. No-op when unset.
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set --stage --app saferskills-webapp-staging SENTRY_DSN="$SENTRY_DSN"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
           flyctl machine list --app saferskills-webapp-staging --json | jq -r '.[].id' | while read mid; do
@@ -301,6 +337,9 @@ jobs:
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -311,6 +350,18 @@ jobs:
           # (security.md #11). See ci-cd.md.
           if [ -n "$TURNSTILE_SECRET_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
+          # Observability (telemetry.md) — same legs as staging. All optional;
+          # unset → that leg degrades to structlog-only, never a boot failure.
+          # POSTHOG_HOST is non-secret ([env] in fly.production.toml).
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set --stage --app saferskills-api SENTRY_DSN="$SENTRY_DSN"
+          fi
+          if [ -n "$POSTHOG_PROJECT_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
+          fi
+          if [ -n "$POSTHOG_SERVER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api POSTHOG_SERVER_KEY="$POSTHOG_SERVER_KEY"
           fi
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
@@ -355,6 +406,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEBAPP }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd webapp
@@ -363,6 +415,11 @@ jobs:
           # value. Staged atomically before deploy (security.md #11).
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-webapp SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
+          fi
+          # Server-side (SSR/proxy) Sentry DSN — read at RUNTIME by src/middleware.ts.
+          # No-op when unset. See security.md / telemetry.md.
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set --stage --app saferskills-webapp SENTRY_DSN="$SENTRY_DSN"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
           flyctl machine list --app saferskills-webapp --json | jq -r '.[].id' | while read mid; do

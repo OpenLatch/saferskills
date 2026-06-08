@@ -241,3 +241,129 @@ async def test_mcp_registry_list_items_304_breaks_loop() -> None:
         items = [item async for item in adapter.list_items(client)]
 
     assert any(item.http_status == 304 for item in items)
+
+
+@pytest.mark.asyncio
+async def test_mcp_registry_checkpoints_each_page_and_resumes_on_error() -> None:
+    """Regression: an interrupted full-feed sweep must checkpoint the resume cursor
+    per page and NOT advance the watermark / mark success on a transport error.
+
+    Before the fix the cursor was written only at the end of a complete sweep, so a
+    5xx (or --reload abort) mid-crawl lost all progress and the next cycle re-crawled
+    from the epoch forever (the never-completing zombie loop).
+    """
+    from app.ingestion.sources.mcp_registry import McpRegistryAdapter
+
+    adapter = McpRegistryAdapter(_mcp_config())
+
+    # Resume from a saved page cursor "cursorA"; page 1 returns nextCursor "cursorB";
+    # page 2 fails with a 500 — the sweep is interrupted, not completed.
+    page1 = _make_response(
+        {
+            "servers": [
+                {
+                    "server": {
+                        "name": "io.github.acme/one",
+                        "repository": {"url": "https://github.com/acme/one"},
+                    },
+                    "_meta": {
+                        "io.modelcontextprotocol.registry/official": {
+                            "updatedAt": "2025-02-02T00:00:00Z",
+                            "isLatest": True,
+                        }
+                    },
+                }
+            ],
+            "metadata": {"nextCursor": "cursorB"},
+        }
+    )
+    page2_err = _make_response({"message": "boom"}, status=500)
+
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=[page1, page2_err])
+
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.commit = AsyncMock()
+
+    save_progress = AsyncMock()
+    write_cursor = AsyncMock()
+    with (
+        patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
+        patch(
+            "app.ingestion.framework.cursor.read_cursor",
+            AsyncMock(
+                return_value={"updated_since": "2025-01-01T00:00:00Z", "next_cursor": "cursorA"}
+            ),
+        ),
+        patch("app.ingestion.framework.cursor.save_cursor_progress", save_progress),
+        patch("app.ingestion.framework.cursor.write_cursor", write_cursor),
+    ):
+        items = [item async for item in adapter.list_items(client)]
+
+    # One real server + one error item.
+    assert any(it.http_status == 500 for it in items)
+    # Checkpoint written BEFORE each page fetch — first the resume point, then the next page.
+    checkpoint_cursors = [call.args[2]["next_cursor"] for call in save_progress.await_args_list]
+    assert checkpoint_cursors == ["cursorA", "cursorB"]
+    # The watermark must NOT advance (updated_since preserved on every checkpoint)...
+    assert all(
+        call.args[2]["updated_since"] == "2025-01-01T00:00:00Z"
+        for call in save_progress.await_args_list
+    )
+    # ...and the completion write (success=True) must NOT fire on an interrupted sweep.
+    write_cursor.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mcp_registry_completed_sweep_advances_watermark() -> None:
+    """A fully-drained feed advances the watermark + marks the cycle successful."""
+    from app.ingestion.sources.mcp_registry import McpRegistryAdapter
+
+    adapter = McpRegistryAdapter(_mcp_config())
+    page = _make_response(
+        {
+            "servers": [
+                {
+                    "server": {
+                        "name": "io.github.acme/done",
+                        "repository": {"url": "https://github.com/acme/done"},
+                    },
+                    "_meta": {
+                        "io.modelcontextprotocol.registry/official": {
+                            "updatedAt": "2025-03-03T00:00:00Z",
+                            "isLatest": True,
+                        }
+                    },
+                }
+            ],
+            "metadata": {"nextCursor": None},
+        }
+    )
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=page)
+
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.commit = AsyncMock()
+
+    write_cursor = AsyncMock()
+    with (
+        patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
+        patch("app.ingestion.framework.cursor.read_cursor", AsyncMock(return_value={})),
+        patch("app.ingestion.framework.cursor.save_cursor_progress", AsyncMock()),
+        patch("app.ingestion.framework.cursor.write_cursor", write_cursor),
+    ):
+        _ = [item async for item in adapter.list_items(client)]
+
+    write_cursor.assert_awaited_once()
+    # `await_args` is mock introspection (`_Call | None`); type as Any so the
+    # positional-arg indexing isn't fought by the fixed-length tuple stub.
+    await_args: Any = write_cursor.await_args
+    assert await_args is not None
+    final_value = await_args.args[3] if len(await_args.args) > 3 else await_args.args[2]
+    assert final_value["next_cursor"] is None
+    assert final_value["updated_since"] == "2025-03-03T00:00:00Z"
+    assert await_args.kwargs.get("success") is True

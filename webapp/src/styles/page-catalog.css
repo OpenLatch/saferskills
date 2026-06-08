@@ -143,7 +143,7 @@ html.dark .cat-side {
 }
 .cat-results .col-head {
   display: grid;
-  grid-template-columns: 52px 1.4fr 116px 1.05fr 1.5fr 88px;
+  grid-template-columns: 46px 1.25fr 108px 0.95fr 100px 1.3fr 80px;
   gap: 16px;
   padding: 11px 32px;
   border-bottom: 1px solid var(--color-ink);
@@ -208,7 +208,7 @@ html.dark .sort-h.active {
 
 .cat-row {
   display: grid;
-  grid-template-columns: 52px 1.4fr 116px 1.05fr 1.5fr 88px;
+  grid-template-columns: 46px 1.25fr 108px 0.95fr 100px 1.3fr 80px;
   gap: 16px;
   padding: 16px 32px;
   border-bottom: 1px solid var(--color-line);
@@ -343,6 +343,18 @@ html.dark .cat-row .scr .n {
   font-size: 13px;
   letter-spacing: 1px;
   line-height: 1;
+}
+
+/* activity column — install-trend sparkline (DS Sparkline atom) */
+.cat-row .activity {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.cat-row .activity .sparkline {
+  width: 100%;
+  max-width: 88px;
+  height: 24px;
 }
 
 /* dedicated description column */

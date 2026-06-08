@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -161,3 +162,33 @@ async def test_run_source_cycle_provider_failure_warns_no_raise(
         )
     ).scalar_one()
     assert status != "blocked"
+
+
+def test_ingest_cycle_tasks_outrank_fanout_and_dedup_per_source() -> None:
+    """Every cadenced ingest_cycle_* task must register with a priority above the
+    bulk auto-scan/popularity fan-out (priority 0) AND a per-source queueing_lock.
+
+    Regression for the worker-starvation bug: without the priority bump the single
+    in-process worker fetches `priority DESC, id ASC`, so each scheduled cycle is
+    buried inside the thousands-deep scan/recompute fan-out id-band and effectively
+    never runs (sources stuck `never_run`); without the per-source queueing_lock an
+    hourly cadence stacks a second crawl behind an in-flight one (the npm-pileup /
+    mcp_registry-zombie-stacking bug).
+    """
+    import app.ingestion.tasks  # noqa: F401  # pyright: ignore[reportUnusedImport]  # side-effect: registers periodic tasks
+    from app.ingestion import INGEST_CYCLE_PRIORITY, procrastinate_app
+
+    # procrastinate's Task is generic with unresolved params here, so the task
+    # registry reads as partially-unknown — pin it to dict[str, Any] at the
+    # third-party boundary (a plain annotated assignment ruff won't restructure).
+    registered: dict[str, Any] = procrastinate_app.tasks  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    cycles = {name: t for name, t in registered.items() if name.startswith("ingest_cycle_")}
+    assert cycles, "no ingest_cycle_* tasks registered"
+    assert INGEST_CYCLE_PRIORITY > 0  # must beat the priority-0 fan-out
+
+    for name, task in cycles.items():
+        source = name.removeprefix("ingest_cycle_")
+        assert task.priority == INGEST_CYCLE_PRIORITY, f"{name} priority not bumped"
+        assert task.queueing_lock == f"ingest_cycle_{source}_lock", (
+            f"{name} missing per-source lock"
+        )

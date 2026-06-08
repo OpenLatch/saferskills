@@ -3,32 +3,49 @@
 //! With a target it scans a single artifact; with no target (or `--local`) it
 //! audits everything installed across detected agents.
 //!
-//! Sends local content (or a GitHub URL) to the API, which scans it server-side
+//! **`scan --local` (D-05-27)** enumerates every capability *already installed*
+//! across the user's detected agents — reading each agent's own config dirs/files
+//! ([`crate::agents::enumerate`]), not the CLI's install ledger — bundles them
+//! into one structured `.zip` (paths matching the backend `discovery.py` anchor
+//! layout, so the server runs the same directory-based discovery a GitHub repo
+//! gets), uploads it **once**, and renders a single per-capability audit report.
+//! Because `scan <url>` / `scan <path>` / `scan --local` all resolve to the same
+//! [`ScanRunReportDetail`], the rich [`print_run_report`] renderer upgrades every
+//! scan surface.
+//!
+//! Local content (or a GitHub URL) is sent to the API, which scans it server-side
 //! and returns a public-by-default run report (`--private` → unlisted + a share
 //! token + 90-day expiry). The headless human-gate is a stateless Proof-of-Work
 //! challenge (D-05-30) since the CLI can't solve a Turnstile CAPTCHA.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{Cursor, Write as _};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use serde_json::json;
+use serde_json::{json, Value};
 
-use crate::api::dto::ScanRunReportDetail;
+use super::report;
+use crate::agents::enumerate::{self, Enumeration, SkipNote};
+use crate::agents::{detect_all, AgentId, DetectedAgent, Scope};
+use crate::api::dto::{CapabilityRow, FindingResponse, ScanRunReportDetail, Severity};
 use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::OutputConfig;
 use crate::cli::ScanArgs;
-use crate::core::config::Config;
+use crate::core::config::{contract_home, Config};
 use crate::core::error::{SsError, ERR_POW_FAILED, ERR_RATE_LIMITED, ERR_SCAN_TARGET};
-use crate::core::{pow, registry};
+use crate::core::pow;
+use crate::core::scan_cache::{self, CachedScan};
 
 /// Client-side wait for a single interactive scan to finish.
 const SCAN_TIMEOUT: Duration = Duration::from_secs(180);
 /// Show the PoW spinner only when the difficulty is high enough to be felt.
 const SPINNER_DIFFICULTY: u32 = 16;
+/// The backend's hard multipart-body cap (10 MiB compressed) — the bundle must
+/// stay under it.
+const UPLOAD_MAX_BYTES: usize = 10 * 1024 * 1024;
 
 /// Entry point. A GitHub URL or a local path is scanned directly; with neither a
 /// target nor `--local`, defaults to a local audit of everything installed.
@@ -41,9 +58,9 @@ pub async fn run_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsEr
     if !args.local {
         if let Some(t) = args.target.as_deref() {
             return if is_github_url(t) {
-                scan_url(&api, output, t, visibility).await
+                scan_url(&api, output, t, visibility, args.detailed).await
             } else {
-                scan_path(&api, output, Path::new(t), visibility).await
+                scan_path(&api, output, Path::new(t), visibility, args.detailed).await
             };
         }
         // No target given → audit everything installed, like `scan --local`.
@@ -51,7 +68,7 @@ pub async fn run_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsEr
             "No target given — auditing installed capabilities (same as `scan --local`).",
         );
     }
-    run_local(&api, output, visibility).await
+    run_local_audit(&api, output, visibility, args.detailed).await
 }
 
 // ─── single-target paths ─────────────────────────────────────────────────────
@@ -61,13 +78,21 @@ async fn scan_url(
     output: &OutputConfig,
     url: &str,
     visibility: &str,
+    detailed: bool,
 ) -> Result<(), SsError> {
-    let pow = obtain_pow(api, output).await?;
+    let pow = obtain_pow_if_needed(api, output).await?;
     let submitted = api.submit_scan_url(url, visibility, &pow).await?;
     let run = api
         .wait_for_run(&submitted.id, output, SCAN_TIMEOUT)
         .await?;
-    print_run_report(output, api.base(), &run, submitted.share_url.as_deref());
+    print_run_report(
+        output,
+        api.base(),
+        &run,
+        submitted.share_url.as_deref(),
+        detailed,
+        None,
+    );
     Ok(())
 }
 
@@ -76,6 +101,7 @@ async fn scan_path(
     output: &OutputConfig,
     path: &Path,
     visibility: &str,
+    detailed: bool,
 ) -> Result<(), SsError> {
     if !path.exists() {
         return Err(SsError::new(
@@ -86,115 +112,367 @@ async fn scan_path(
     let (zip_bytes, count) = deterministic_zip(path)?;
     output.print_substep(&format!("Packed {count} file(s) for upload."));
     let filename = zip_filename(path);
-    let pow = obtain_pow(api, output).await?;
+    let pow = obtain_pow_if_needed(api, output).await?;
     let up = api
         .submit_scan_upload(zip_bytes, &filename, visibility, None, &pow)
         .await?;
     let run = api.wait_for_run(&up.id, output, SCAN_TIMEOUT).await?;
-    print_run_report(output, api.base(), &run, up.share_url.as_deref());
+    print_run_report(
+        output,
+        api.base(),
+        &run,
+        up.share_url.as_deref(),
+        detailed,
+        None,
+    );
     Ok(())
 }
 
-// ─── scan --local: enumerate installed (D-05-27) ─────────────────────────────
+// ─── scan --local: audit everything installed (D-05-27) ──────────────────────
 
-async fn run_local(api: &Api, output: &OutputConfig, visibility: &str) -> Result<(), SsError> {
-    let records = registry::load()?;
-    if records.is_empty() {
-        output.print_info("No installed capabilities found — nothing to audit.");
+/// Audit everything installed across detected agents. Shared by `scan --local`
+/// and `list`'s inline "scan the unscanned now" invitation — the latter calls it
+/// (`visibility="public"`) then re-renders from the freshly populated scan cache.
+pub(crate) async fn run_local_audit(
+    api: &Api,
+    output: &OutputConfig,
+    visibility: &str,
+    detailed: bool,
+) -> Result<(), SsError> {
+    // Resolve the detected agents once, then enumerate from them — keeping the
+    // agent list (with its on-disk locations) for the "Agents audited" section.
+    let agents = detect_all(Scope::Global);
+    let enm = enumerate::enumerate_from(&agents);
+    if enm.capabilities.is_empty() {
+        output.print_info("No installed capabilities found across your agents — nothing to audit.");
+        output.print_substep(
+            "Install one with `saferskills install <name>`, or scan a path: `saferskills scan <path>`.",
+        );
         if output.is_json() {
-            output.print_json(&json!({ "data": [], "rate_limited": false }));
+            output.print_json(&json!({
+                "run_id": Value::Null,
+                "capabilities": [],
+                "skipped": skips_json(&enm.skips),
+            }));
         }
         return Ok(());
     }
 
-    // Resolve each installed slug to its repo URL, deduping by URL (idempotency
-    // dedups to the canonical catalog item anyway; this keeps us well under the
-    // PoW-path `cli_scan_submit` daily budget). Slugs with no GitHub provenance
-    // (uploads) are warned + skipped for v1.
-    let mut seen_urls: HashSet<String> = HashSet::new();
-    let mut targets: Vec<(String, String)> = Vec::new(); // (github_url, display_name)
-    for rec in &records {
-        match api.get_item(&rec.slug).await {
-            Ok(detail) => match detail.item.github_url {
-                Some(url) if !url.is_empty() => {
-                    if seen_urls.insert(url.clone()) {
-                        targets.push((url, rec.name.clone()));
-                    }
-                }
-                _ => output.print_warn(&format!(
-                    "{} has no GitHub provenance — re-scan with `saferskills scan <path>`.",
-                    rec.name
-                )),
-            },
-            Err(_) => output.print_warn(&format!(
-                "Could not resolve {} in the catalog — skipping.",
-                rec.name
-            )),
-        }
-    }
+    let BuiltBundle {
+        zip: bundle,
+        summary,
+        skips,
+        refs,
+    } = build_local_bundle(enm, &agents)?;
+    print_preflight(output, &summary, &skips);
 
-    let total = targets.len();
-    let mut results: Vec<serde_json::Value> = Vec::new();
-    let mut rate_limited = false;
-    for (url, name) in targets {
-        // A fresh single-use challenge per submit.
-        let pow = match obtain_pow(api, output).await {
-            Ok(p) => p,
-            Err(e) if e.code == ERR_RATE_LIMITED => {
-                rate_limited = true;
-                break;
-            }
-            Err(e) => {
-                output.print_warn(&format!("Skipping {name}: {}", e.message));
-                continue;
-            }
-        };
-        match api.submit_scan_url(&url, visibility, &pow).await {
-            Ok(resp) => {
-                let report_url = resp
-                    .share_url
-                    .clone()
-                    .unwrap_or_else(|| format!("{}/scans/{}", api.base(), resp.id));
-                output.print_step(&format!("Submitted {name}"));
-                results.push(json!({
-                    "name": name,
-                    "github_url": url,
-                    "run_id": resp.id,
-                    "report_url": report_url,
-                }));
-            }
-            Err(e) if e.code == ERR_RATE_LIMITED => {
-                rate_limited = true;
-                break;
-            }
-            Err(e) => output.print_warn(&format!("Skipping {name}: {}", e.message)),
-        }
-    }
+    let pow = obtain_pow_if_needed(api, output).await?;
+    let up = api
+        .submit_scan_upload(bundle, "local-audit.zip", visibility, None, &pow)
+        .await?;
+    let run = api.wait_for_run(&up.id, output, SCAN_TIMEOUT).await?;
 
-    if rate_limited {
-        output.print_warn(&format!(
-            "Daily scan limit reached: {} of {total} submitted. Retry tomorrow.",
-            results.len()
-        ));
-    } else {
-        output.print_step(&format!(
-            "{} of {total} submitted for scanning.",
-            results.len()
-        ));
-    }
-    if output.is_json() {
-        output.print_json(&json!({ "data": results, "rate_limited": rate_limited }));
-    }
+    // Persist each scored capability to the local scan cache so `list` can show
+    // its score later (keyed by the CLI-side content hash). Best-effort: a cache
+    // write failure must never fail the scan.
+    cache_completed_run(output, &run, &refs);
+
+    let local = LocalReport {
+        summary: &summary,
+        skips: &skips,
+    };
+    print_run_report(
+        output,
+        api.base(),
+        &run,
+        up.share_url.as_deref(),
+        detailed,
+        Some(&local),
+    );
     Ok(())
 }
 
+/// CLI-side identity of one bundled capability, used to correlate a server
+/// [`CapabilityRow`] back to its local bytes (→ the scan cache `content_hash`).
+struct LocalCapRef {
+    /// The capability subtree path (the anchor's parent dir) — the server's
+    /// `component_path` for a directory capability, the primary correlation key.
+    component_dir: String,
+    kind: String,
+    name: String,
+    content_hash: String,
+}
+
+/// Correlate one server [`CapabilityRow`] back to a bundled local capability:
+/// match on `component_path` (exact, or either-direction subtree prefix) first,
+/// then fall back to `(kind, name)`. Returns the local `content_hash`.
+fn correlate<'a>(row: &CapabilityRow, refs: &'a [LocalCapRef]) -> Option<&'a LocalCapRef> {
+    if let Some(cp) = row.component_path.as_deref().filter(|s| !s.is_empty()) {
+        if let Some(r) = refs.iter().find(|r| {
+            r.component_dir == cp
+                || is_subtree(&r.component_dir, cp)
+                || is_subtree(cp, &r.component_dir)
+        }) {
+            return Some(r);
+        }
+    }
+    refs.iter()
+        .find(|r| r.kind == row.kind && r.name == row.name)
+}
+
+/// Whether `path` lies under `prefix` as a `/`-segment subtree (`a/b/c` under
+/// `a/b`) — allocation-free (no `format!` in the correlation hot loop).
+fn is_subtree(path: &str, prefix: &str) -> bool {
+    path.len() > prefix.len() && path.starts_with(prefix) && path.as_bytes()[prefix.len()] == b'/'
+}
+
+/// Write each scored capability of a completed run to the local scan cache.
+/// Best-effort — logs a substep on failure, never errors.
+fn cache_completed_run(output: &OutputConfig, run: &ScanRunReportDetail, refs: &[LocalCapRef]) {
+    let now = chrono::Utc::now();
+    let report_url = run.report_url.clone();
+    let cached: Vec<CachedScan> = run
+        .capabilities
+        .iter()
+        .filter_map(|row| {
+            correlate(row, refs).map(|r| CachedScan {
+                content_hash: r.content_hash.clone(),
+                kind: row.kind.clone(),
+                name: row.name.clone(),
+                catalog_slug: row.catalog_slug.clone(),
+                score: row.aggregate_score,
+                tier: row.tier,
+                scanned_at: now,
+                report_url: report_url.clone(),
+            })
+        })
+        .collect();
+    if cached.is_empty() {
+        return;
+    }
+    if let Err(e) = scan_cache::upsert(cached) {
+        output.print_substep(&format!(
+            "Could not update the local scan cache: {}",
+            e.message
+        ));
+    }
+}
+
+/// One audited agent — display name + on-disk location + how many of its
+/// capabilities the bundle kept.
+struct AgentReport {
+    name: String,
+    location: String,
+    capabilities: usize,
+}
+
+/// Counts describing the bundled local-audit upload (pre-flight + JSON).
+struct BundleSummary {
+    capabilities: usize,
+    /// Agents that contributed at least one capability (the verdict's "N agents").
+    agents: usize,
+    /// How many of `capabilities` came from decomposing the Claude plugin cache —
+    /// surfaced as a pre-flight hint so the (now much larger) count is explained.
+    from_plugins: usize,
+    files: usize,
+    bytes: usize,
+    kinds: BTreeMap<String, usize>,
+    /// Per-agent detail (name + location + capability count) for EVERY detected
+    /// agent, in detection order — empty ones (count 0) are shown too.
+    agents_detail: Vec<AgentReport>,
+}
+
+/// The local-audit extras merged into the run report (title override + bundle
+/// summary + skips).
+struct LocalReport<'a> {
+    summary: &'a BundleSummary,
+    skips: &'a [SkipNote],
+}
+
+/// The assembled local-audit upload plus everything the caller needs after it:
+/// the pre-flight `summary`, the excluded-item `skips`, and the per-capability
+/// `refs` that correlate a server `CapabilityRow` back to its local bytes (→ the
+/// scan cache).
+struct BuiltBundle {
+    zip: Vec<u8>,
+    summary: BundleSummary,
+    skips: Vec<SkipNote>,
+    refs: Vec<LocalCapRef>,
+}
+
+/// Assemble the single structured `.zip`: priority + total-budget selection,
+/// casefold-dedup, then a byte-stable zip. Guards the 10 MiB compressed cap.
+fn build_local_bundle(enm: Enumeration, agents: &[DetectedAgent]) -> Result<BuiltBundle, SsError> {
+    let Enumeration {
+        capabilities,
+        mut skips,
+    } = enm;
+    let (kept, budget_skips) = enumerate::select_within_budget(capabilities);
+    skips.extend(budget_skips);
+
+    let mut agent_counts: HashMap<AgentId, usize> = HashMap::new();
+    let mut kinds: BTreeMap<String, usize> = BTreeMap::new();
+    let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut refs: Vec<LocalCapRef> = Vec::new();
+    let mut from_plugins = 0usize;
+    for cap in &kept {
+        *agent_counts.entry(cap.agent).or_default() += 1;
+        *kinds.entry(cap.kind.as_str().to_string()).or_default() += 1;
+        // Caps decomposed from the plugin cache mount under `<agent>/plugins/…`.
+        if cap.anchor.contains("/plugins/") {
+            from_plugins += 1;
+        }
+        // The capability subtree the server sees as `component_path` is the
+        // anchor's parent dir; compute the content hash on the same enumerated
+        // entries `list` will re-derive, so the join is exact.
+        refs.push(LocalCapRef {
+            component_dir: anchor_dir(&cap.anchor),
+            kind: cap.kind.as_str().to_string(),
+            name: cap.name.clone(),
+            content_hash: cap.content_hash(),
+        });
+        for (p, b) in &cap.entries {
+            entries.push((p.clone(), b.clone()));
+        }
+    }
+    // Per-agent detail for EVERY detected agent, in detection order — agents with
+    // no installed capability are shown (`no capabilities found`) so the section
+    // matches `doctor`'s detection list and the gap is self-explanatory. The
+    // verdict / pre-flight "N agents" count, by contrast, is the agents that
+    // actually contributed a capability.
+    let agents_detail: Vec<AgentReport> = agents
+        .iter()
+        .map(|a| AgentReport {
+            name: a.id.display_name().to_string(),
+            location: agent_location(a),
+            capabilities: agent_counts.get(&a.id).copied().unwrap_or(0),
+        })
+        .collect();
+    let agents_with_capabilities = agents_detail.iter().filter(|a| a.capabilities > 0).count();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let (entries, _dropped) = enumerate::casefold_dedup(entries);
+
+    let files = entries.len();
+    let bytes: usize = entries.iter().map(|(_, b)| b.len()).sum();
+    let zip = zip_from_entries(entries)?;
+    if zip.len() > UPLOAD_MAX_BYTES {
+        return Err(SsError::new(
+            ERR_SCAN_TARGET,
+            format!(
+                "Local audit bundle is {} compressed — over the 10 MiB upload cap.",
+                human_bytes(zip.len())
+            ),
+        )
+        .with_suggestion(
+            "Too many large capabilities to audit at once; scan a single path with `saferskills scan <path>`.",
+        ));
+    }
+
+    let summary = BundleSummary {
+        capabilities: kept.len(),
+        agents: agents_with_capabilities,
+        from_plugins,
+        files,
+        bytes,
+        kinds,
+        agents_detail,
+    };
+    Ok(BuiltBundle {
+        zip,
+        summary,
+        skips,
+        refs,
+    })
+}
+
+/// The capability subtree path — an anchor's parent dir (`a/b/SKILL.md` →
+/// `a/b`), the server's `component_path` for a directory capability. A
+/// segment-less anchor yields `""` (whole-bundle root).
+fn anchor_dir(anchor: &str) -> String {
+    match anchor.rsplit_once('/') {
+        Some((dir, _)) => dir.to_string(),
+        None => String::new(),
+    }
+}
+
+/// A `~`-contracted display location for a detected agent — its config root
+/// (`~/.claude`, `~/.cursor`, …), derived from the skills dir or MCP config path.
+fn agent_location(a: &DetectedAgent) -> String {
+    let root = a
+        .skill_dir
+        .as_ref()
+        .and_then(|d| d.parent())
+        .or_else(|| a.mcp_config_path.parent())
+        .unwrap_or(a.mcp_config_path.as_path());
+    contract_home(root)
+}
+
+/// The discovery summary printed before the upload submits.
+fn print_preflight(output: &OutputConfig, summary: &BundleSummary, skips: &[SkipNote]) {
+    let plugins_hint = if summary.from_plugins > 0 {
+        format!(" · {} from plugins", summary.from_plugins)
+    } else {
+        String::new()
+    };
+    output.print_step(&format!(
+        "Found {} capabilities across {} agents{} · {} · bundle {}",
+        summary.capabilities,
+        summary.agents,
+        plugins_hint,
+        kinds_str(&summary.kinds),
+        human_bytes(summary.bytes)
+    ));
+    if !skips.is_empty() {
+        let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+        for s in skips {
+            *counts.entry(s.reason.label()).or_default() += 1;
+        }
+        let grouped = counts
+            .iter()
+            .map(|(r, n)| format!("{n} {r}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        output.print_warn(&format!(
+            "Excluded {} item(s) from the bundle: {grouped}",
+            skips.len()
+        ));
+    }
+}
+
 // ─── Proof-of-Work ───────────────────────────────────────────────────────────
+
+/// Solve a PoW unless the API is loopback. The backend exempts loopback callers
+/// from the human-verification gate (`security.md` § Public-input handling
+/// #5/#12), so a local dev API needs no PoW — and its `/cli-challenge` returns
+/// 503 when no `SAFERSKILLS_CLI_POW_SECRET` is configured. Returns `""` to send
+/// no PoW header (the submit then rides the server-side loopback exemption).
+async fn obtain_pow_if_needed(api: &Api, output: &OutputConfig) -> Result<String, SsError> {
+    if base_is_loopback(api.base()) {
+        return Ok(String::new());
+    }
+    obtain_pow(api, output).await
+}
+
+/// Whether the resolved API base points at a loopback host (`localhost`,
+/// `127.0.0.0/8`, `::1`) — the host the backend's own loopback exemption keys on.
+fn base_is_loopback(base: &str) -> bool {
+    let after_scheme = base.split("://").nth(1).unwrap_or(base);
+    let authority = after_scheme.split('/').next().unwrap_or("");
+    let host_port = authority.rsplit('@').next().unwrap_or(authority);
+    // Bracketed IPv6 (`[::1]:8000`) vs `host:port`.
+    let host = if let Some(rest) = host_port.strip_prefix('[') {
+        rest.split(']').next().unwrap_or(rest)
+    } else {
+        host_port.split(':').next().unwrap_or(host_port)
+    };
+    host.eq_ignore_ascii_case("localhost") || host == "::1" || host.starts_with("127.")
+}
 
 /// Fetch a challenge, solve it off the reactor, and build the header value.
 async fn obtain_pow(api: &Api, output: &OutputConfig) -> Result<String, SsError> {
     let challenge = api.get_cli_challenge().await.map_err(|e| {
         // Surface a PoW-specific hint, but preserve a rate-limit code so the
-        // caller (scan --local) can stop gracefully.
+        // caller can stop gracefully.
         if e.code == ERR_RATE_LIMITED {
             e
         } else {
@@ -230,8 +508,7 @@ async fn obtain_pow(api: &Api, output: &OutputConfig) -> Result<String, SsError>
 
 // ─── deterministic zip ───────────────────────────────────────────────────────
 
-/// Pack `root` (a file or directory) into a byte-stable `.zip`: entries sorted,
-/// `/`-separators, a fixed mtime + `0o644` perms, fixed compression. `.git` is
+/// Pack `root` (a file or directory) into a byte-stable `.zip`. `.git` is
 /// skipped. Identical inputs → byte-identical archives. Returns `(bytes, count)`.
 pub(crate) fn deterministic_zip(root: &Path) -> Result<(Vec<u8>, usize), SsError> {
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
@@ -256,9 +533,17 @@ pub(crate) fn deterministic_zip(root: &Path) -> Result<(Vec<u8>, usize), SsError
             "Nothing to scan — the target is empty.",
         ));
     }
-    files.sort_by(|a, b| a.0.cmp(&b.0));
     let count = files.len();
+    let buf = zip_from_entries(files)?;
+    Ok((buf, count))
+}
 
+/// Pack `(rel_path, bytes)` entries into a byte-stable `.zip`: entries sorted,
+/// `/`-separators, a fixed mtime + `0o644` perms, fixed compression. Identical
+/// inputs → byte-identical archives. The shared zip core for both the
+/// single-target pack and the `scan --local` bundle.
+pub(crate) fn zip_from_entries(mut files: Vec<(String, Vec<u8>)>) -> Result<Vec<u8>, SsError> {
+    files.sort_by(|a, b| a.0.cmp(&b.0));
     let mut buf: Vec<u8> = Vec::new();
     {
         let mut zw = zip::ZipWriter::new(Cursor::new(&mut buf));
@@ -274,7 +559,7 @@ pub(crate) fn deterministic_zip(root: &Path) -> Result<(Vec<u8>, usize), SsError
         }
         zw.finish().map_err(zip_err)?;
     }
-    Ok((buf, count))
+    Ok(buf)
 }
 
 fn collect_dir(base: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) -> Result<(), SsError> {
@@ -336,7 +621,7 @@ fn zip_filename(path: &Path) -> String {
     }
 }
 
-// ─── target classification + report ──────────────────────────────────────────
+// ─── target classification ───────────────────────────────────────────────────
 
 /// Hand-rolled GitHub-URL check (no regex dep): `https://github.com/<org>/<repo>`
 /// with ≥2 non-empty path segments. Mirrors the backend's accepted shape.
@@ -350,51 +635,494 @@ pub(crate) fn is_github_url(s: &str) -> bool {
     }
 }
 
+// ─── the audit report (shared by url / path / local) ─────────────────────────
+
+/// Render a completed run as an elegant, verdict-first audit report. JSON mode
+/// emits one machine object (`run` fields + `capabilities` + `category_means` +
+/// `top_findings`, plus `bundle` + `skipped` for a local audit).
 fn print_run_report(
     output: &OutputConfig,
     base: &str,
     run: &ScanRunReportDetail,
     share_url: Option<&str>,
+    detailed: bool,
+    local: Option<&LocalReport>,
 ) {
+    // Prefer the unlisted submit `share_url`, then the server-authoritative
+    // public report URL (built from the backend's `public_base_url` — the webapp
+    // origin, which differs from the API origin in local dev), then a last-resort
+    // fallback for an older server that omits `report_url`.
     let report_url = share_url
         .map(String::from)
+        .or_else(|| run.report_url.clone())
         .unwrap_or_else(|| format!("{base}/scans/{}", run.id));
 
     if output.is_json() {
-        output.print_json(&json!({
-            "run_id": run.id,
-            "score": run.repo_aggregate_score,
-            "tier": run.repo_tier,
-            "report_url": report_url,
-            "visibility": run.visibility,
-            "expires_at": run.expires_at,
-        }));
+        output.print_json(&report_json(&report_url, run, local));
         return;
     }
+    print_human_report(output, &report_url, run, share_url, detailed, local);
+}
 
-    output.print_info("");
-    output.print_info(&format!(
-        "{}  {}/100",
-        color::tier_dot(run.repo_tier, output.color),
-        run.repo_aggregate_score
-    ));
-    for cap in &run.capabilities {
-        output.print_substep(&format!(
-            "{}  {}  {}/100",
-            cap.name,
-            color::tier_dot(cap.tier, output.color),
-            cap.aggregate_score
-        ));
+fn report_json(report_url: &str, run: &ScanRunReportDetail, local: Option<&LocalReport>) -> Value {
+    let capabilities: Vec<Value> = run
+        .capabilities
+        .iter()
+        .map(|c| {
+            json!({
+                "kind": c.kind,
+                "name": c.name,
+                "score": c.aggregate_score,
+                "tier": c.tier,
+                "sub_scores": c.sub_scores,
+                "findings_count": c.findings.len(),
+                "worst_severity": report::worst_severity(&c.findings).map(report::severity_str),
+            })
+        })
+        .collect();
+
+    let category_means: BTreeMap<String, i64> = category_means(run)
+        .into_iter()
+        .map(|(k, _, m)| (k.to_string(), m))
+        .collect();
+
+    let top_findings: Vec<Value> = top_findings(run)
+        .into_iter()
+        .map(|(cap, f)| {
+            json!({
+                "rule_id": f.rule_id,
+                "severity": f.severity,
+                "title": f.title,
+                "file": f.file_path,
+                "line": f.line_start,
+                "capability": cap,
+            })
+        })
+        .collect();
+
+    let mut obj = json!({
+        "run_id": run.id,
+        "score": run.repo_aggregate_score,
+        "tier": run.repo_tier,
+        "report_url": report_url,
+        "visibility": run.visibility,
+        "expires_at": run.expires_at,
+        "capabilities": capabilities,
+        "category_means": category_means,
+        "top_findings": top_findings,
+    });
+    if let Some(l) = local {
+        obj["bundle"] = bundle_json(l.summary);
+        obj["skipped"] = skips_json(l.skips);
     }
-    output.print_step(&format!("Report: {report_url}"));
+    obj
+}
+
+fn print_human_report(
+    output: &OutputConfig,
+    report_url: &str,
+    run: &ScanRunReportDetail,
+    share_url: Option<&str>,
+    detailed: bool,
+    local: Option<&LocalReport>,
+) {
+    let c = output.color;
+    let p = |s: &str| output.print_info(s);
+
+    // ── verdict ──
+    p("");
+    p(&format!("  {}", color::bold(&report_title(run, local), c)));
+    p(&format!(
+        "  {}   {}      {}",
+        color::tier_dot(run.repo_tier, c),
+        color::bold(&format!("{}/100", run.repo_aggregate_score), c),
+        color::dim(&verdict_meta(run, local), c),
+    ));
+
+    // ── category breakdown ──
+    let means = category_means(run);
+    if !means.is_empty() {
+        p("");
+        p(&format!(
+            "  {}  {}",
+            color::bold("Category breakdown", c),
+            color::dim("(mean across capabilities)", c)
+        ));
+        for (_, label, mean) in &means {
+            p(&format!(
+                "    {}  {}  {}",
+                report::pad(label, 13),
+                color::bar_gauge(*mean as u8, 10, c),
+                mean
+            ));
+        }
+    }
+
+    // ── agents detected (local audit only) ──
+    // Every detected agent is listed (matching `doctor`); an agent with no
+    // installed capability shows `no capabilities found` rather than vanishing.
+    if let Some(l) = local {
+        if !l.summary.agents_detail.is_empty() {
+            p("");
+            p(&format!("  {}", color::bold("Agents detected", c)));
+            for a in &l.summary.agents_detail {
+                let tail = if a.capabilities == 0 {
+                    "no capabilities found".to_string()
+                } else if a.capabilities == 1 {
+                    "1 capability".to_string()
+                } else {
+                    format!("{} capabilities", a.capabilities)
+                };
+                p(&format!(
+                    "    {}  {}  {}",
+                    report::pad(&a.name, 14),
+                    report::pad(&a.location, 24),
+                    color::dim(&tail, c)
+                ));
+            }
+        }
+    }
+
+    // ── capabilities, worst first ──
+    if !run.capabilities.is_empty() {
+        p("");
+        p(&format!(
+            "  {}",
+            color::bold("Capabilities  (worst first)", c)
+        ));
+        let mut caps: Vec<&CapabilityRow> = run.capabilities.iter().collect();
+        caps.sort_by(|a, b| {
+            a.aggregate_score
+                .cmp(&b.aggregate_score)
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        let limit = if detailed {
+            caps.len()
+        } else {
+            caps.len().min(8)
+        };
+        for cap in caps.iter().take(limit) {
+            let marker_plain = format!("{} {}", color::tier_glyph(cap.tier), cap.tier.label());
+            let marker = color::tier_paint(cap.tier, &report::pad(&marker_plain, 10), c);
+            let score = color::score_paint(
+                cap.aggregate_score,
+                &report::pad_left(cap.aggregate_score, 3),
+                c,
+            );
+            p(&format!(
+                "    {marker} {score}   {}  {}  {}",
+                report::pad(report::kind_label(&cap.kind), 5),
+                report::pad(&cap.name, 22),
+                report::finding_rollup(&cap.findings)
+            ));
+            if detailed {
+                report::print_axes(output, &cap.sub_scores, 8);
+            }
+        }
+        if caps.len() > limit {
+            p(&format!(
+                "    {}",
+                color::dim(
+                    &format!("· {} more — see the full report", caps.len() - limit),
+                    c
+                )
+            ));
+        }
+    }
+
+    // ── most problematic findings ──
+    let top = top_findings(run);
+    if !top.is_empty() {
+        p("");
+        p(&format!(
+            "  {}",
+            color::bold("Most problematic findings", c)
+        ));
+        for (cap_name, f) in &top {
+            report::print_finding_row(output, f, Some(cap_name), detailed, false);
+        }
+
+        // ── next ──
+        if let Some((cap_name, f)) = top.first() {
+            p("");
+            p(&format!(
+                "  {}    Review {cap_name} ({}) before keeping it installed.",
+                color::bold("Next", c),
+                report::severity_str(f.severity)
+            ));
+        }
+    }
+
+    // ── report link ──
+    p("");
+    p(&format!(
+        "  {}  → {}",
+        color::bold("Report", c),
+        color::hyperlink(report_url, report_url, c)
+    ));
     if share_url.is_some() {
-        output.print_info("Unlisted — reachable only via this link; expires in 90 days.");
+        p("  Unlisted — reachable only via this link; expires in 90 days.");
+    }
+}
+
+// ─── report data helpers (pure) ──────────────────────────────────────────────
+
+fn report_title(run: &ScanRunReportDetail, local: Option<&LocalReport>) -> String {
+    if local.is_some() {
+        return "SaferSkills · local audit".to_string();
+    }
+    if let Some(url) = &run.github_url {
+        if let Some(name) = repo_name_from_url(url) {
+            return name;
+        }
+    }
+    "SaferSkills · scan".to_string()
+}
+
+fn repo_name_from_url(url: &str) -> Option<String> {
+    let rest = url
+        .strip_prefix("https://github.com/")
+        .or_else(|| url.strip_prefix("http://github.com/"))?;
+    let segs: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
+    if segs.len() >= 2 {
+        Some(format!("{}/{}", segs[0], segs[1]))
+    } else {
+        None
+    }
+}
+
+fn verdict_meta(run: &ScanRunReportDetail, local: Option<&LocalReport>) -> String {
+    let caps = run.capability_count.max(run.capabilities.len() as i64);
+    let mut parts = vec![format!("{caps} capabilities")];
+    if let Some(l) = local {
+        parts.push(format!("{} agents", l.summary.agents));
+    }
+    parts.join(" · ")
+}
+
+/// Mean of each axis over `capabilities[].sub_scores`. Returns only axes present
+/// in the data, in fixed display order, as `(key, label, mean)`.
+fn category_means(run: &ScanRunReportDetail) -> Vec<(&'static str, &'static str, i64)> {
+    let mut out = Vec::new();
+    for (key, label) in color::AXES {
+        let vals: Vec<i64> = run
+            .capabilities
+            .iter()
+            .filter_map(|c| c.sub_scores.get(key).copied())
+            .collect();
+        if !vals.is_empty() {
+            let sum: i64 = vals.iter().sum();
+            let mean = (sum + vals.len() as i64 / 2) / vals.len() as i64; // rounded
+            out.push((key, label, mean));
+        }
+    }
+    out
+}
+
+/// Every capability's findings flattened, sorted severity-desc then `rule_id`,
+/// filtered to medium+ and capped at the top 5. `(capability_name, finding)`.
+fn top_findings(run: &ScanRunReportDetail) -> Vec<(String, &FindingResponse)> {
+    let mut flat: Vec<(String, &FindingResponse)> = Vec::new();
+    for cap in &run.capabilities {
+        for f in &cap.findings {
+            flat.push((cap.name.clone(), f));
+        }
+    }
+    flat.sort_by(|a, b| {
+        b.1.severity
+            .rank()
+            .cmp(&a.1.severity.rank())
+            .then_with(|| a.1.rule_id.cmp(&b.1.rule_id))
+    });
+    flat.into_iter()
+        .filter(|(_, f)| f.severity.rank() >= Severity::Medium.rank())
+        .take(5)
+        .collect()
+}
+
+// ─── JSON sub-objects ────────────────────────────────────────────────────────
+
+fn bundle_json(s: &BundleSummary) -> Value {
+    json!({
+        "capabilities": s.capabilities,
+        "agents": s.agents,
+        "from_plugins": s.from_plugins,
+        "files": s.files,
+        "bytes": s.bytes,
+        "kinds": s.kinds,
+        "agents_detail": Value::Array(
+            s.agents_detail
+                .iter()
+                .map(|a| json!({
+                    "name": a.name,
+                    "location": a.location,
+                    "capabilities": a.capabilities,
+                }))
+                .collect(),
+        ),
+    })
+}
+
+fn skips_json(skips: &[SkipNote]) -> Value {
+    Value::Array(
+        skips
+            .iter()
+            .map(|s| {
+                json!({
+                    "path": s.path,
+                    "reason": s.reason.as_str(),
+                    "agent": s.agent.map(|a| a.as_str()),
+                })
+            })
+            .collect(),
+    )
+}
+
+// ─── formatting helpers ──────────────────────────────────────────────────────
+
+fn kinds_str(kinds: &BTreeMap<String, usize>) -> String {
+    const ORDER: [&str; 5] = ["mcp_server", "skill", "hook", "rules", "plugin"];
+    let mut parts = Vec::new();
+    for k in ORDER {
+        if let Some(n) = kinds.get(k) {
+            parts.push(format!("{n} {k}"));
+        }
+    }
+    parts.join(" · ")
+}
+
+fn human_bytes(n: usize) -> String {
+    if n >= 1024 * 1024 {
+        format!("{:.1} MiB", n as f64 / (1024.0 * 1024.0))
+    } else if n >= 1024 {
+        format!("{} KiB", n / 1024)
+    } else {
+        format!("{n} B")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::dto::Tier;
+    use crate::cli::output::OutputFormat;
+    use std::collections::BTreeMap;
+
+    fn out_plain() -> OutputConfig {
+        OutputConfig {
+            format: OutputFormat::Human,
+            verbose: false,
+            quiet: false,
+            color: false,
+        }
+    }
+
+    fn finding(rule: &str, sev: Severity, title: &str, file: &str, line: u32) -> FindingResponse {
+        FindingResponse {
+            id: "f".into(),
+            rule_id: rule.into(),
+            severity: sev,
+            sub_score: "security".into(),
+            penalty: 0,
+            status_at_scan: "active".into(),
+            file_path: file.into(),
+            line_start: line,
+            line_end: None,
+            matched_content_sha256: "x".into(),
+            remediation_link: "".into(),
+            rubric_version: "v3".into(),
+            evidence_excerpt: None,
+            title: Some(title.into()),
+            explanation: None,
+            category_label: None,
+            severity_rationale: None,
+            remediation: None,
+        }
+    }
+
+    fn cap(
+        name: &str,
+        kind: &str,
+        score: u8,
+        tier: Tier,
+        findings: Vec<FindingResponse>,
+    ) -> CapabilityRow {
+        let mut sub = BTreeMap::new();
+        sub.insert("security".to_string(), score as i64);
+        sub.insert("supply_chain".to_string(), 80i64);
+        CapabilityRow {
+            kind: kind.into(),
+            name: name.into(),
+            component_path: None,
+            aggregate_score: score,
+            tier,
+            scan_id: "s".into(),
+            catalog_slug: "slug".into(),
+            sub_scores: sub,
+            findings,
+        }
+    }
+
+    fn run() -> ScanRunReportDetail {
+        ScanRunReportDetail {
+            id: "abc123".into(),
+            github_url: None,
+            repo_aggregate_score: 68,
+            repo_tier: Tier::Yellow,
+            kind_tally: BTreeMap::new(),
+            capability_count: 3,
+            capabilities: vec![
+                cap(
+                    "pre-commit-runner",
+                    "hook",
+                    34,
+                    Tier::Red,
+                    vec![
+                        finding(
+                            "SS-HOOKS-RCE-CURL-PIPE-01",
+                            Severity::Critical,
+                            "Pipes a remote script into a shell",
+                            "hooks/pre-commit.json",
+                            12,
+                        ),
+                        finding("SS-X-LOW-01", Severity::Low, "minor", "a.py", 1),
+                    ],
+                ),
+                cap(
+                    "pdf-extract",
+                    "skill",
+                    52,
+                    Tier::Orange,
+                    vec![finding(
+                        "SS-SKILL-PATH-ESCAPE-02",
+                        Severity::High,
+                        "Reads files outside the workspace",
+                        "scripts/extract.py",
+                        40,
+                    )],
+                ),
+                cap("humanizer", "skill", 91, Tier::Green, vec![]),
+            ],
+            status: Some("completed".into()),
+            visibility: Some("public".into()),
+            source_kind: Some("upload".into()),
+            share_url: None,
+            report_url: None,
+            expires_at: None,
+        }
+    }
+
+    #[test]
+    fn base_is_loopback_detects_local_apis() {
+        assert!(base_is_loopback("http://localhost:8000"));
+        assert!(base_is_loopback("http://127.0.0.1:8001"));
+        assert!(base_is_loopback("http://127.5.5.5"));
+        assert!(base_is_loopback("http://[::1]:8000"));
+        assert!(base_is_loopback("https://LOCALHOST:9000/"));
+        assert!(!base_is_loopback("https://saferskills.ai"));
+        assert!(!base_is_loopback("https://api.example.com:443/v1"));
+        assert!(!base_is_loopback("http://192.168.1.10:8000"));
+    }
 
     #[test]
     fn is_github_url_accepts_org_repo() {
@@ -421,6 +1149,19 @@ mod tests {
     }
 
     #[test]
+    fn zip_from_entries_is_byte_stable_and_order_independent() {
+        let a = vec![
+            ("b/y.txt".to_string(), b"y".to_vec()),
+            ("a/x.txt".to_string(), b"x".to_vec()),
+        ];
+        let b = vec![
+            ("a/x.txt".to_string(), b"x".to_vec()),
+            ("b/y.txt".to_string(), b"y".to_vec()),
+        ];
+        assert_eq!(zip_from_entries(a).unwrap(), zip_from_entries(b).unwrap());
+    }
+
+    #[test]
     fn deterministic_zip_single_file() {
         let dir = tempfile::tempdir().unwrap();
         let f = dir.path().join("SKILL.md");
@@ -441,5 +1182,184 @@ mod tests {
     fn zip_filename_adds_extension() {
         assert_eq!(zip_filename(Path::new("/x/my-skill")), "my-skill.zip");
         assert_eq!(zip_filename(Path::new("/x/bundle.zip")), "bundle.zip");
+    }
+
+    #[test]
+    fn category_means_are_mean_over_caps() {
+        let r = run();
+        let means = category_means(&r);
+        // security present on all three (34, 52, 91) → mean 59 (rounded).
+        let sec = means.iter().find(|(k, _, _)| *k == "security").unwrap();
+        assert_eq!(sec.2, (34 + 52 + 91 + 1) / 3); // rounded
+    }
+
+    #[test]
+    fn top_findings_severity_desc_medium_plus_only() {
+        let r = run();
+        let top = top_findings(&r);
+        // The Low finding is filtered out; critical sorts first.
+        assert_eq!(top.len(), 2);
+        assert_eq!(top[0].1.severity, Severity::Critical);
+        assert_eq!(top[0].0, "pre-commit-runner");
+        assert_eq!(top[1].1.severity, Severity::High);
+    }
+
+    #[test]
+    fn json_report_keeps_run_fields_and_adds_richness() {
+        let r = run();
+        let v = report_json("https://saferskills.ai/scans/runs/abc123", &r, None);
+        assert_eq!(v["run_id"], "abc123");
+        assert_eq!(v["score"], 68);
+        assert_eq!(v["tier"], "yellow");
+        assert!(v["report_url"].as_str().unwrap().contains("abc123"));
+        assert_eq!(v["capabilities"].as_array().unwrap().len(), 3);
+        assert!(v["category_means"]["security"].is_number());
+        // top_findings: critical first, medium+ only.
+        let top = v["top_findings"].as_array().unwrap();
+        assert_eq!(top.len(), 2);
+        assert_eq!(top[0]["severity"], "critical");
+        // No bundle/skipped without a local report.
+        assert!(v["bundle"].is_null());
+    }
+
+    #[test]
+    fn human_report_renders_without_color_or_ansi() {
+        // The renderer must not panic and (color off) emit no ANSI / OSC 8.
+        let r = run();
+        // print_human_report writes to stderr; just assert it doesn't panic and
+        // the pure builders behave. Verdict title for a local audit:
+        let summary = BundleSummary {
+            capabilities: 3,
+            agents: 2,
+            from_plugins: 1,
+            files: 12,
+            bytes: 2048,
+            kinds: BTreeMap::new(),
+            agents_detail: vec![
+                AgentReport {
+                    name: "Claude Code".into(),
+                    location: "~/.claude".into(),
+                    capabilities: 11,
+                },
+                AgentReport {
+                    name: "Cursor".into(),
+                    location: "~/.cursor".into(),
+                    capabilities: 1,
+                },
+                // A detected-but-empty agent — listed, marked, not counted in
+                // `agents` (the verdict's "with capabilities" tally).
+                AgentReport {
+                    name: "Gemini".into(),
+                    location: "~/.gemini".into(),
+                    capabilities: 0,
+                },
+            ],
+        };
+        let local = LocalReport {
+            summary: &summary,
+            skips: &[],
+        };
+        assert_eq!(report_title(&r, Some(&local)), "SaferSkills · local audit");
+        // Verdict counts only agents with capabilities (2), even though 3 are
+        // detected (the section lists all 3, incl. the empty Gemini).
+        assert!(verdict_meta(&r, Some(&local)).contains("2 agents"));
+        assert_eq!(local.summary.agents_detail.len(), 3);
+        assert_eq!(local.summary.agents_detail[0].name, "Claude Code");
+        assert_eq!(local.summary.agents_detail[0].location, "~/.claude");
+        assert_eq!(local.summary.agents_detail[2].capabilities, 0);
+        print_human_report(
+            &out_plain(),
+            "https://saferskills.ai/scans/runs/abc123",
+            &r,
+            None,
+            false,
+            Some(&local),
+        );
+    }
+
+    #[test]
+    fn report_title_from_github_url() {
+        let mut r = run();
+        r.github_url = Some("https://github.com/acme/widget".into());
+        assert_eq!(report_title(&r, None), "acme/widget");
+    }
+
+    #[test]
+    fn human_bytes_formats() {
+        assert_eq!(human_bytes(512), "512 B");
+        assert_eq!(human_bytes(2048), "2 KiB");
+        assert_eq!(human_bytes(3 * 1024 * 1024), "3.0 MiB");
+    }
+
+    #[test]
+    fn anchor_dir_is_parent_of_anchor() {
+        assert_eq!(
+            anchor_dir("claude-code/skills/pdf/SKILL.md"),
+            "claude-code/skills/pdf"
+        );
+        assert_eq!(anchor_dir("claude-code/hooks/x.json"), "claude-code/hooks");
+        assert_eq!(anchor_dir("loose"), "");
+    }
+
+    fn cap_ref(dir: &str, kind: &str, name: &str, hash: &str) -> LocalCapRef {
+        LocalCapRef {
+            component_dir: dir.into(),
+            kind: kind.into(),
+            name: name.into(),
+            content_hash: hash.into(),
+        }
+    }
+
+    fn row_with(component: Option<&str>, kind: &str, name: &str) -> CapabilityRow {
+        CapabilityRow {
+            kind: kind.into(),
+            name: name.into(),
+            component_path: component.map(String::from),
+            aggregate_score: 90,
+            tier: crate::api::dto::Tier::Green,
+            scan_id: "s".into(),
+            catalog_slug: "slug".into(),
+            sub_scores: BTreeMap::new(),
+            findings: vec![],
+        }
+    }
+
+    #[test]
+    fn correlate_matches_on_component_path() {
+        let refs = vec![
+            cap_ref("claude-code/skills/pdf", "skill", "pdf", "HASH_PDF"),
+            cap_ref("claude-code/hooks", "hook", "pre-commit", "HASH_HOOK"),
+        ];
+        // Exact component_path match.
+        let row = row_with(Some("claude-code/skills/pdf"), "skill", "pdf");
+        assert_eq!(correlate(&row, &refs).unwrap().content_hash, "HASH_PDF");
+        // Subtree match (server path nested under the local component dir).
+        let nested = row_with(Some("claude-code/skills/pdf/scripts"), "skill", "pdf");
+        assert_eq!(correlate(&nested, &refs).unwrap().content_hash, "HASH_PDF");
+    }
+
+    #[test]
+    fn is_subtree_requires_segment_boundary() {
+        assert!(is_subtree("a/b/c", "a/b"));
+        assert!(is_subtree("a/b", "a"));
+        assert!(!is_subtree("a/b", "a/b")); // equal is not a subtree
+        assert!(!is_subtree("a/bc", "a/b")); // not a segment boundary
+        assert!(!is_subtree("a", "a/b")); // shorter than prefix
+    }
+
+    #[test]
+    fn correlate_falls_back_to_kind_name() {
+        let refs = vec![cap_ref(
+            "claude-code/skills/pdf",
+            "skill",
+            "pdf",
+            "HASH_PDF",
+        )];
+        // No component_path on the row → (kind, name) fallback.
+        let row = row_with(None, "skill", "pdf");
+        assert_eq!(correlate(&row, &refs).unwrap().content_hash, "HASH_PDF");
+        // No match at all → None.
+        let miss = row_with(None, "skill", "other");
+        assert!(correlate(&miss, &refs).is_none());
     }
 }

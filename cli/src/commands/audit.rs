@@ -94,6 +94,7 @@ async fn try_first_run_audit(inter: Interaction, output: &OutputConfig) -> Resul
                         target: None,
                         local: true,
                         private,
+                        detailed: false,
                     },
                     output,
                 )

@@ -20,7 +20,7 @@ import structlog
 from procrastinate.retry import RetryStrategy
 from sqlalchemy import func, update
 
-from app.ingestion import procrastinate_app
+from app.ingestion import INGEST_CYCLE_PRIORITY, procrastinate_app
 
 # Import side-effect: register EVERY adapter class in ADAPTER_REGISTRY (the
 # sources package __init__ imports all five adapter modules). Importing the
@@ -229,12 +229,23 @@ async def _mark_source_blocked(source: str, *, reason: str) -> None:
 
 
 def _register_periodic(source_name: str, cron: str, queue: str) -> None:
-    """Register a periodic Procrastinate task for one cadenced source."""
+    """Register a periodic Procrastinate task for one cadenced source.
+
+    `priority`/`queueing_lock` mirror the Phase-C maintenance tasks (see
+    `app.ingestion.INGEST_CYCLE_PRIORITY`): the priority lifts a scheduled cycle
+    above the bulk auto-scan / popularity fan-out so it isn't starved by the
+    backlog, and the per-source queueing_lock dedups against an in-flight cycle so
+    a fast cadence (mcp_registry/npm hourly) can't stack a second crawl behind the
+    first — Procrastinate's periodic deferrer hits the lock and logs a caught,
+    benign unique-violation instead of piling up todo jobs.
+    """
 
     @procrastinate_app.periodic(cron=cron)
     @procrastinate_app.task(
         name=f"ingest_cycle_{source_name}",
         queue=queue,
+        priority=INGEST_CYCLE_PRIORITY,
+        queueing_lock=f"ingest_cycle_{source_name}_lock",
         retry=cast(
             RetryStrategy, IngestionRetry()
         ),  # IngestionRetry is BaseRetryStrategy; cast accepted at runtime

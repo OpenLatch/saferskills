@@ -325,7 +325,7 @@ fn json_to_toml(v: &Value) -> toml_edit::Item {
     }
 }
 
-fn toml_to_json(item: &toml_edit::Item) -> Value {
+pub(crate) fn toml_to_json(item: &toml_edit::Item) -> Value {
     use toml_edit::Value as TVal;
     match item {
         toml_edit::Item::Value(TVal::String(s)) => Value::String(s.value().clone()),

@@ -20,10 +20,15 @@ Scoring follows the rubric `scan-report.schema.json` contract:
 
 - Each finding contributes `penalty` (clamped 0-40) to its sub-score.
 - `raw_sub_score = max(0, 100 - sum(penalties))`.
-- If any contributing finding has severity=critical: `final_sub_score = min(raw, 40)`.
+- If any contributing finding has severity=critical: `final_sub_score = min(raw, 20)`.
 - Aggregate = sum of (final_sub_score * weight) where weights are
   35 / 20 / 15 / 15 / 15 per the PRD (security / supply_chain / maintenance /
   transparency / community).
+- **Severity ceiling** (supersedes D-13's per-sub-score-only floor, amends D-01):
+  a single ACTIVE critical caps the whole aggregate at ≤15, a high at ≤45, so a
+  security failure can't be diluted by the 65% non-security weight. `info` +
+  `shadow` findings never trigger it. The repo rollup applies the same ceiling
+  over the union of every capability's findings.
 - Tier: ≥80 green, ≥60 yellow, ≥40 orange, <40 red.
 """
 
@@ -55,6 +60,22 @@ SEVERITY_PENALTY: dict[str, int] = {
     "high": 25,
     "critical": 40,
 }
+
+# Aggregate severity ceiling (supersedes the D-13 per-sub-score-only floor).
+# A single ACTIVE high/critical finding caps the WHOLE aggregate, so a security
+# failure is never diluted by good docs/community. info + shadow never trigger it.
+SEVERITY_CEILING: dict[str, int] = {"critical": 15, "high": 45}
+
+
+def _severity_ceiling(findings: list[EngineFinding]) -> int | None:
+    """Lowest ceiling implied by the worst ACTIVE finding (shadow + info ignored)."""
+    caps = [
+        SEVERITY_CEILING[f.severity]
+        for f in findings
+        if f.status_at_scan == "active" and f.severity in SEVERITY_CEILING
+    ]
+    return min(caps) if caps else None
+
 
 SUB_SCORE_WEIGHTS: dict[str, int] = {
     "security": 35,
@@ -393,7 +414,7 @@ def aggregate_score(
         finding_ids: list[str] = []  # populated later when DB IDs exist
         raw = max(0, 100 - sum(f.penalty for f in contributing))
         critical_floor = any(f.severity == "critical" for f in contributing)
-        final = min(raw, 40) if critical_floor else raw
+        final = min(raw, 20) if critical_floor else raw
         weight = SUB_SCORE_WEIGHTS[sub_score]
         weighted = final * weight / 100.0
 
@@ -409,13 +430,20 @@ def aggregate_score(
         formula_parts.append(f"{weight}% x {final}")
         weights_used[sub_score] = round(weighted, 2)
 
-    aggregate = round(weighted_total)
+    weighted_aggregate = round(weighted_total)
+    ceiling = _severity_ceiling(findings)
+    aggregate = min(weighted_aggregate, ceiling) if ceiling is not None else weighted_aggregate
     tier = tier_for(aggregate)
 
     breakdowns["aggregate_math"] = {
         "formula": " + ".join(formula_parts),
         "weighted_contributions": weights_used,
         "tier_mapping": f"aggregate {aggregate} → tier {tier}",
+        "severity_ceiling": {
+            "ceiling": ceiling,
+            "weighted_aggregate": weighted_aggregate,
+            "applied": ceiling is not None and aggregate < weighted_aggregate,
+        },
     }
 
     return sub_scores, breakdowns, aggregate, tier
@@ -534,6 +562,11 @@ def _score_file_index(
 
     scores = [c.result.aggregate_score for c in scored]
     repo_aggregate = round(sum(scores) / len(scores))
+    # Mirror the per-capability severity ceiling over the union of all capability
+    # findings, so one dangerous capability can't be diluted back up by clean ones.
+    repo_ceiling = _severity_ceiling([f for c in scored for f in c.result.findings])
+    if repo_ceiling is not None:
+        repo_aggregate = min(repo_aggregate, repo_ceiling)
     repo_tier = tier_for(repo_aggregate)
 
     kind_tally: dict[str, int] = {}

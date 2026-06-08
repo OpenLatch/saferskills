@@ -52,12 +52,30 @@ chrono = { version = "0.4", features = ["serde"] }
 ctrlc = "3"
 tempfile = "3"                       # atomic temp-then-rename writes
 
+# Sentry crash reporting — panics only, rustls-only TLS (no OpenSSL/native-tls,
+# so the `cli-rustls` CI lane stays green). Optional + feature-gated so a build
+# without `crash-report` drops the dep entirely from the graph. Mirrors
+# openlatch-client. See src/core/crash_report/ + .claude/rules/telemetry.md.
+sentry = { version = "0.48", default-features = false, features = [
+    "backtrace",
+    "contexts",
+    "panic",
+    "debug-images",
+    "reqwest",
+    "rustls",
+], optional = true }
+
 [features]
 default = []
 # Additive PostHog HTTP path (mirror openlatch-client gating). When OFF the
 # `command_invoked` event is computed but never sent; when ON it is POSTed only
 # if a key was baked AND consent + opt-out env allow it (D-05-13).
 telemetry-network = []
+# Rust panic reporting to Sentry (crash_report module). Scrubbed before send.
+# Disabling drops the `sentry` dep entirely from the graph; the module exposes a
+# no-op shim under `#[cfg(not(feature = "crash-report"))]` so main.rs compiles
+# in both configs (mirror openlatch-client).
+crash-report = ["dep:sentry"]
 # Test-only override of the baked PostHog host/key. NEVER enabled in releases.
 insecure-test-keys = []
 
@@ -83,5 +101,12 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
-panic = "abort"
+# Panic strategy: UNWIND (the default — note the deliberate absence of
+# `panic = "abort"`). Mirrors openlatch-client so Sentry's panic integration
+# captures a full backtrace on a crash. Empirically verified the release binary
+# stays well under the 15 MB `cli-build` gate (~3.6 MB with crash-report on), so
+# the abort-fallback path the plan allowed for is not needed. Re-measure if a
+# future dep pushes the binary near the gate.
+# Packed DWARF so `sentry-cli debug-files upload` can locate per-target symbol
+# files in release artifacts (separate-symbol upload).
 split-debuginfo = "packed"

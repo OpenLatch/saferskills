@@ -11,6 +11,16 @@ use std::io::IsTerminal;
 
 use crate::api::dto::{Severity, Tier};
 
+/// The 5 scoring axes, in fixed display order, with their report labels. Shared
+/// by the `scan` run report and the `install` digest.
+pub const AXES: [(&str, &str); 5] = [
+    ("security", "Security"),
+    ("supply_chain", "Supply chain"),
+    ("maintenance", "Maintenance"),
+    ("transparency", "Transparency"),
+    ("community", "Community"),
+];
+
 /// Tri-state color choice from the `--color` flag (mirrors clap's `ColorChoice`
 /// without taking a dependency on it for this internal precedence logic).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -146,6 +156,83 @@ pub fn tier_dot(tier: Tier, enabled: bool) -> String {
     paint(code, &body, enabled)
 }
 
+// ---------------------------------------------------------------------------
+// Score gauges + tier glyphs + OSC 8 links (the audit-report vocabulary)
+// ---------------------------------------------------------------------------
+
+/// The ANSI code for a 0–100 score band, mirroring the webapp `--score-*`
+/// thresholds: ≥80 green, ≥60 yellow, ≥40 orange (256-color), else red.
+pub fn score_color_code(score: u8) -> &'static str {
+    match score {
+        s if s >= 80 => "32",       // green
+        s if s >= 60 => "33",       // yellow
+        s if s >= 40 => "38;5;208", // orange (256-color)
+        _ => "31",                  // red
+    }
+}
+
+/// A horizontal bar gauge — `█`×round(score/100·width) filled + `░`×rest,
+/// colored by the score band. With color off it degrades to a plain
+/// `██████░░░░` that pipes cleanly.
+pub fn bar_gauge(score: u8, width: usize, enabled: bool) -> String {
+    let score = score.min(100);
+    let filled = ((score as usize * width) + 50) / 100; // round to nearest
+    let filled = filled.min(width);
+    let bar: String = "\u{2588}".repeat(filled) + &"\u{2591}".repeat(width - filled);
+    paint(score_color_code(score), &bar, enabled)
+}
+
+/// A distinct glyph per tier so tiers differ without color — Green `●`,
+/// Yellow `◐`, Orange `◑`, Red `✗`, Unscoped/Unknown `○`.
+pub fn tier_glyph(tier: Tier) -> char {
+    match tier {
+        Tier::Green => '\u{25cf}',                    // ●
+        Tier::Yellow => '\u{25d0}',                   // ◐
+        Tier::Orange => '\u{25d1}',                   // ◑
+        Tier::Red => '\u{2717}',                      // ✗
+        Tier::Unscoped | Tier::Unknown => '\u{25cb}', // ○
+    }
+}
+
+/// The ANSI code for a tier badge (matches `tier_dot`).
+fn tier_code(tier: Tier) -> &'static str {
+    match tier {
+        Tier::Green => "32",
+        Tier::Yellow | Tier::Orange => "33",
+        Tier::Red => "31",
+        Tier::Unscoped | Tier::Unknown => "2",
+    }
+}
+
+/// A `tier_glyph` + capitalized label, colored by tier — the worst-first row
+/// marker (reads at a glance even monochrome).
+pub fn tier_marker(tier: Tier, enabled: bool) -> String {
+    let body = format!("{} {}", tier_glyph(tier), tier.label());
+    paint(tier_code(tier), &body, enabled)
+}
+
+/// Paint arbitrary text (e.g. a pre-padded cell) in a tier's color. Lets a
+/// caller align columns on the plain text, then colorize without breaking width.
+pub fn tier_paint(tier: Tier, text: &str, enabled: bool) -> String {
+    paint(tier_code(tier), text, enabled)
+}
+
+/// Paint arbitrary text in a 0–100 score band's color.
+pub fn score_paint(score: u8, text: &str, enabled: bool) -> String {
+    paint(score_color_code(score), text, enabled)
+}
+
+/// An OSC 8 hyperlink (`text` linking to `url`) when stdout is an interactive
+/// TTY, else the bare `text`. Callers also print the literal URL so logs/pipes
+/// keep it.
+pub fn hyperlink(url: &str, text: &str, enabled_tty: bool) -> String {
+    if enabled_tty {
+        format!("\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\")
+    } else {
+        text.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,5 +289,77 @@ mod tests {
     #[test]
     fn tier_dot_unscoped_renders() {
         assert!(tier_dot(Tier::Unscoped, false).contains("Unscoped"));
+    }
+
+    #[test]
+    fn score_color_band_edges() {
+        // Band edges: 39/40 (red→orange), 59/60 (orange→yellow), 79/80 (→green).
+        assert_eq!(score_color_code(39), "31");
+        assert_eq!(score_color_code(40), "38;5;208");
+        assert_eq!(score_color_code(59), "38;5;208");
+        assert_eq!(score_color_code(60), "33");
+        assert_eq!(score_color_code(79), "33");
+        assert_eq!(score_color_code(80), "32");
+        assert_eq!(score_color_code(100), "32");
+        assert_eq!(score_color_code(0), "31");
+    }
+
+    #[test]
+    fn bar_gauge_plain_when_color_off() {
+        let g = bar_gauge(60, 10, false);
+        assert!(!g.contains("\x1b["), "no ANSI when color off");
+        // 60% of 10 → 6 filled, 4 empty.
+        assert_eq!(g.chars().filter(|c| *c == '\u{2588}').count(), 6);
+        assert_eq!(g.chars().filter(|c| *c == '\u{2591}').count(), 4);
+    }
+
+    #[test]
+    fn bar_gauge_rounds_and_clamps() {
+        // 0 → all empty; 100 → all filled; over-100 clamps.
+        assert_eq!(
+            bar_gauge(0, 10, false)
+                .chars()
+                .filter(|c| *c == '\u{2588}')
+                .count(),
+            0
+        );
+        assert_eq!(
+            bar_gauge(100, 10, false)
+                .chars()
+                .filter(|c| *c == '\u{2588}')
+                .count(),
+            10
+        );
+        assert_eq!(
+            bar_gauge(200, 10, false)
+                .chars()
+                .filter(|c| *c == '\u{2588}')
+                .count(),
+            10
+        );
+    }
+
+    #[test]
+    fn tier_glyph_is_distinct_per_tier() {
+        assert_eq!(tier_glyph(Tier::Green), '\u{25cf}');
+        assert_eq!(tier_glyph(Tier::Red), '\u{2717}');
+        assert_ne!(tier_glyph(Tier::Yellow), tier_glyph(Tier::Orange));
+        assert_eq!(tier_glyph(Tier::Unscoped), tier_glyph(Tier::Unknown));
+    }
+
+    #[test]
+    fn tier_marker_carries_label_without_color() {
+        let m = tier_marker(Tier::Orange, false);
+        assert!(m.contains("Orange"));
+        assert!(m.contains('\u{25d1}'));
+        assert!(!m.contains("\x1b["));
+    }
+
+    #[test]
+    fn hyperlink_bare_url_when_not_tty() {
+        assert_eq!(hyperlink("https://x.test", "View", false), "View");
+        let osc = hyperlink("https://x.test", "View", true);
+        assert!(osc.contains("https://x.test"));
+        assert!(osc.contains("\x1b]8;;"));
     }
 }

@@ -19,6 +19,17 @@ use crate::core::http::ApiClient;
 /// The custom header carrying a solved Proof-of-Work for CLI scan-submit.
 const POW_HEADER: &str = "X-SaferSkills-CLI-PoW";
 
+/// Build the PoW header list — an empty `pow` sends none (the server's
+/// `_gate_submission` treats a *present* header as a PoW attempt, so an empty
+/// value must be omitted, not sent blank).
+fn pow_headers(pow: &str) -> Vec<(&str, &str)> {
+    if pow.is_empty() {
+        Vec::new()
+    } else {
+        vec![(POW_HEADER, pow)]
+    }
+}
+
 /// Request body for `POST /api/v1/scans` (a GitHub-URL submit).
 #[derive(Debug, Serialize)]
 struct ScanSubmitBody<'a> {
@@ -97,12 +108,15 @@ impl Api {
     }
 
     /// `POST /api/v1/scans` — submit a GitHub URL, carrying the solved PoW header.
+    /// An empty `pow` sends **no** PoW header (loopback callers are gate-exempt
+    /// server-side, so a local dev API needs none — see `scan::obtain_pow_if_needed`).
     pub async fn submit_scan_url(
         &self,
         github_url: &str,
         visibility: &str,
         pow: &str,
     ) -> Result<ScanSubmitResponse, SsError> {
+        let headers = pow_headers(pow);
         self.client
             .post_json_for(
                 "/api/v1/scans",
@@ -110,7 +124,7 @@ impl Api {
                     github_url,
                     visibility,
                 },
-                &[(POW_HEADER, pow)],
+                &headers,
             )
             .await
     }
@@ -141,8 +155,9 @@ impl Api {
         if let Some(k) = kind {
             form = form.text("kind", k.to_string());
         }
+        let headers = pow_headers(pow);
         self.client
-            .post_multipart("/api/v1/scans/upload", form, &[(POW_HEADER, pow)])
+            .post_multipart("/api/v1/scans/upload", form, &headers)
             .await
     }
 

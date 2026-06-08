@@ -41,8 +41,8 @@ The aggregate score is a closed-form weighted sum of five sub-scores (PRD §5.2,
 
 | Severity | Penalty range | Notes |
 |---|---|---|
-| `critical` | −30 to −40 | Triggers critical-floor cap (see below) |
-| `high` | −20 to −30 | |
+| `critical` | −30 to −40 | An active critical caps the **whole aggregate** at ≤15 (see Severity ceiling below) |
+| `high` | −20 to −30 | An active high caps the **whole aggregate** at ≤45 |
 | `medium` | −10 to −20 | |
 | `low` | −5 to −10 | |
 | `info` | 0 | Advisory only; surfaces in trace, no score impact |
@@ -51,22 +51,28 @@ The aggregate score is a closed-form weighted sum of five sub-scores (PRD §5.2,
 
 ```
 sub_score   = max(0, 100 - Σ penalty_i)
-              # Critical floor: if any contributing finding has severity=critical,
-              # cap the sub-score at 40:
-              sub_score = min(sub_score, 40)
+              # if any contributing finding has severity=critical, cap the
+              # sub-score at 20:
+              sub_score = min(sub_score, 20)
 
-aggregate   = round(
+weighted    = round(
                 0.35 * security
               + 0.20 * supply_chain
               + 0.15 * maintenance
               + 0.15 * transparency
               + 0.15 * community
               )
+
+# Severity ceiling — the lowest cap implied by the worst ACTIVE finding:
+#   any active critical → 15;  any active high → 45;  else none.
+aggregate   = min(weighted, ceiling)   if a ceiling applies else weighted
 ```
 
-Penalty per finding is set in the rule's frontmatter (`weight` field, 0–40) and never tuned at runtime. The critical floor (locked decision **D-13**) prevents one catastrophic finding from being averaged away by many minor passes — a `critical` security finding caps the security sub-score at 40 regardless of how many `info`-severity passes accompany it.
+Penalty per finding is set in the rule's frontmatter (`weight` field, 0–40) and never tuned at runtime.
 
-**Every public scan report renders the explicit math**: per-finding penalty, running sub-score, critical-floor application, weighted aggregate, tier-band mapping. The report's `score_breakdown` field carries the same numbers in machine-readable form.
+**Severity ceiling.** Because security is only 35% of the weight, a critical security failure with everything else clean would otherwise land near ~72 ("yellow / Watch") — the 65% non-security weight mathematically floors the aggregate well above the "block" band, so a serious flaw is diluted by good docs/community. The severity ceiling fixes this structurally: a single **active** critical finding caps the **whole aggregate** at **≤15** (solidly red / Block), an **active** high caps it at **≤45**. `info` and `shadow` findings never trigger it. The repo rollup applies the same ceiling over the union of every capability's findings, so one dangerous capability among many clean ones cannot be averaged back up. This **supersedes** the earlier per-sub-score critical-floor model (locked decision **D-13**, which capped only the security sub-score at 40) and amends the pure weighted-sum of **D-01**; the per-sub-score critical floor is retained at 20 (down from 40) only for breakdown coherence — the aggregate ceiling now dominates.
+
+**Every public scan report renders the explicit math**: per-finding penalty, running sub-score, critical-floor application, weighted aggregate, severity-ceiling application, tier-band mapping. The report's `score_breakdown` field carries the same numbers in machine-readable form (`aggregate_math.severity_ceiling`).
 
 The aggregate is bucketed into a tier:
 
@@ -155,12 +161,12 @@ Every finding carries: `rule_id`, `severity`, `file_path`, `line_start`/`line_en
 
 Each catalog item carries an `agent_compatibility` list — the agent platforms the artifact can run on. It is **catalog metadata, not a scoring input**: it never affects a score, only the catalog's *Agent compatibility* filter. Because it is metadata (not a verdict), it is derived by a documented deterministic mapping rather than the rule-RFC process.
 
-At W2 there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill):
+At W2 there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill — the `skill` set later widened by `0017_skill_compat_codex`):
 
 | `kind` | `agent_compatibility` | Rationale |
 |---|---|---|
 | `mcp_server` | `claude-code, cursor, codex, copilot, windsurf, cline, gemini, openclaw` | MCP is a cross-agent transport standard — every supported agent can consume it |
-| `skill` | `claude-code, openclaw` | Claude Skills format; OpenClaw is Claude-compatible |
+| `skill` | `claude-code, codex, copilot, gemini, openclaw` | The Claude Skills (`SKILL.md`) format — the agents that natively load a `skills/` directory (Claude Code + Claude-compatible OpenClaw, plus OpenAI Codex, GitHub Copilot, and Gemini, which have each shipped a `skills/` surface) |
 | `plugin` | `claude-code, openclaw` | Claude Code plugin packaging |
 | `hook` | `claude-code, openclaw` | Claude Code lifecycle hooks |
 | `rules` | `cursor, windsurf, cline, copilot` | Editor rule-file format consumed by those editors |

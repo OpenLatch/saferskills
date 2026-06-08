@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
+from app.core.config import get_settings
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
 from app.models.scan_run import ScanRun
@@ -156,6 +157,12 @@ def build_scan_run_report(
                 content_hash=content_hash,
             )
         )
+    # The canonical viewer URL on the webapp: an unlisted run is reachable ONLY
+    # via its token URL (the public `/scans/<id>` page 404s it), so reuse
+    # `share_url` there; a public run links to the public report page. Built from
+    # `public_base_url` so a client need not know the webapp origin.
+    public_base = get_settings().public_base_url.rstrip("/")
+    report_url = share_url or f"{public_base}/scans/{run.id}"
     return ScanRunReportDetail.model_validate(
         {
             "id": str(run.id),
@@ -178,6 +185,7 @@ def build_scan_run_report(
             "uploaded_filename": run.original_filename,
             "expires_at": run.expires_at,
             "share_url": share_url,
+            "report_url": report_url,
             "manifest": manifest,
             "download": download,
         }

@@ -324,3 +324,8 @@ class ScanRunReport(OrmBaseModel):
         alias="shareUrl",
         description="The capability URL `/scans/r/<token>` — present only on the unlisted detail response served via the token route. NEVER present in any list payload.",
     )
+    report_url: AnyUrl | None = Field(
+        None,
+        alias="reportUrl",
+        description="The canonical public report URL on the webapp (`<public_base_url>/scans/<run_id>` for a public run, or the `/scans/r/<token>` capability URL for an unlisted run). Built from the server's `public_base_url`, so a client (e.g. the CLI) need not know the webapp origin — which differs from the API origin in local dev. Null on legacy responses.",
+    )

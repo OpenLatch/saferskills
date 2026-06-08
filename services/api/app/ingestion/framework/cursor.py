@@ -43,6 +43,23 @@ async def write_cursor(
     await session.execute(stmt)
 
 
+async def save_cursor_progress(session: AsyncSession, source: str, value: dict[str, Any]) -> None:
+    """Persist ONLY the resume marker (cursor_value) mid-cycle — no health bookkeeping.
+
+    Distinct from `write_cursor`: it does NOT touch `last_successful_cycle_at`,
+    `last_attempted_cycle_at`, or `consecutive_failure_count`. Used to checkpoint an
+    in-progress multi-page crawl (e.g. mcp_registry's full-feed sweep) so an aborted
+    cycle (--reload / restart / stalled-retry) resumes from the last page instead of
+    re-crawling from the epoch. A sweep is only marked successful by `write_cursor`
+    once it completes.
+    """
+    await session.execute(
+        update(CrawlerCursor)
+        .where(CrawlerCursor.source == source)
+        .values(cursor_value=value, updated_at=func.now())
+    )
+
+
 async def is_source_paused(session: AsyncSession, source: str) -> bool:
     row = (
         await session.execute(select(CrawlerCursor.status).where(CrawlerCursor.source == source))

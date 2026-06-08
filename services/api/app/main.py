@@ -21,7 +21,12 @@ from app.core.access_log_middleware import AccessLogMiddleware
 from app.core.config import get_settings
 from app.core.db_pool import close_pool, init_pool
 from app.core.middleware import StartupGuardMiddleware, service_unavailable_response
-from app.core.observability import init_observability, record_pool_timeout_breadcrumb
+from app.core.observability import (
+    init_observability,
+    instrument_app,
+    record_pool_timeout_breadcrumb,
+    shutdown_observability,
+)
 from app.core.startup import run_startup
 from app.core.startup_state import startup_state
 from app.routers import (
@@ -42,6 +47,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     await init_observability(settings)
+    # OTel auto-instrumentation (FastAPI/SQLAlchemy/HTTPX) — only once the
+    # TracerProvider is configured (endpoint set). Non-fatal: a broken
+    # instrumentor must never keep the app from booting.
+    if settings.otel_exporter_otlp_endpoint:
+        with contextlib.suppress(Exception):
+            instrument_app(_app)
     # Bring the DB to head before anything touches it. `run_startup()` is NOT
     # suppressed — it self-handles failure by entering degraded mode (the
     # StartupGuardMiddleware then serves 503 on every route but /health).
@@ -126,7 +137,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             await bounded(procrastinate_app.close_async(), timeout=5.0, label="procrastinate close")
         # 3. Expiry sweep loop.
         await cancel_and_settle(sweep_task, timeout=5.0, label="expiry sweep")
-        # 4. SQLAlchemy pool — last, after every session-holder is gone.
+        # 4. PostHog — flush buffered events before the loop closes (bounded; the
+        #    sync client.shutdown() runs in a thread so it can't hang teardown).
+        await bounded(asyncio.to_thread(shutdown_observability), timeout=5.0, label="posthog flush")
+        # 5. SQLAlchemy pool — last, after every session-holder is gone.
         await bounded(close_pool(), timeout=5.0, label="db pool close")
 
 
