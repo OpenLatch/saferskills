@@ -12,11 +12,15 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 import app.observability.events as events
-from app.observability.events import _BACKEND_DISTINCT_ID
+from app.observability.events import _BACKEND_DISTINCT_ID  # pyright: ignore[reportPrivateUsage]
 
 
-def test_emit_calls_capture_with_posthog_7x_keyword_signature(monkeypatch) -> None:
+def test_emit_calls_capture_with_posthog_7x_keyword_signature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = MagicMock()
     monkeypatch.setattr(events, "_posthog_client", client)
 
@@ -33,7 +37,7 @@ def test_emit_calls_capture_with_posthog_7x_keyword_signature(monkeypatch) -> No
     assert kwargs["properties"]["$process_person_profile"] is False
 
 
-def test_emit_is_a_noop_when_client_unset(monkeypatch) -> None:
+def test_emit_is_a_noop_when_client_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     """No PostHog client → structlog-only, never an attribute error."""
     monkeypatch.setattr(events, "_posthog_client", None)
     events.emit_scan_started(scan_id="abc-123")  # must not raise

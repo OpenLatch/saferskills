@@ -149,7 +149,7 @@ def test_sslmode_dsn_builds_an_async_engine_without_raising() -> None:
     ],
 )
 def test_ssl_query_param_is_coerced_back_to_sslmode(raw: str, expected: str) -> None:
-    from app.core.config import _coerce_ssl_to_sslmode
+    from app.core.config import _coerce_ssl_to_sslmode  # pyright: ignore[reportPrivateUsage]
 
     assert _coerce_ssl_to_sslmode(raw) == expected
 
@@ -163,7 +163,7 @@ def test_libpq_conninfo_renames_ssl_for_psycopg() -> None:
     initialization incomplete after 30.0 sec` — degrading the ingestion worker on
     every boot. `_libpq_conninfo` must strip the driver suffix AND rename `ssl`.
     """
-    from app.ingestion import _libpq_conninfo
+    from app.ingestion import _libpq_conninfo  # pyright: ignore[reportPrivateUsage]
 
     out = _libpq_conninfo("postgresql+asyncpg://u:p@host:5432/db?ssl=disable")
     assert out == "postgresql://u:p@host:5432/db?sslmode=disable"
