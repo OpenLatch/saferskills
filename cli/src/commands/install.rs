@@ -929,6 +929,82 @@ mod tests {
         assert_eq!(gate_outcome_str(GateLevel::TypeName), "confirmed");
     }
 
+    #[test]
+    fn axis_labels_pad_to_widest() {
+        // The 5 labels right-pad to "Supply chain" (12) so the bars align.
+        assert_eq!(pad_axis_label("Security"), "Security    ");
+        assert_eq!(pad_axis_label("Supply chain"), "Supply chain");
+        assert_eq!(pad_axis_label("Community").len(), 12);
+    }
+
+    fn out_plain() -> OutputConfig {
+        OutputConfig {
+            format: crate::cli::output::OutputFormat::Human,
+            verbose: false,
+            quiet: false,
+            color: false,
+        }
+    }
+
+    fn detail_with_sub_scores() -> ItemDetailResponse {
+        let mut sub = std::collections::BTreeMap::new();
+        sub.insert("security".to_string(), 40i64);
+        sub.insert("supply_chain".to_string(), 75i64);
+        sub.insert("maintenance".to_string(), 88i64);
+        let mut item = sample("acme--repo--skill-pdf", "skill", Some("acme"), Some("repo"));
+        item.display_name = "PDF Extract".into();
+        ItemDetailResponse {
+            item,
+            latest_scan: Some(crate::api::dto::ScanReportDetail {
+                id: "s1".into(),
+                github_url: None,
+                slug: "acme--repo--skill-pdf".into(),
+                display_name: "PDF Extract".into(),
+                aggregate_score: 62,
+                tier: Tier::Yellow,
+                sub_scores: sub,
+                findings: vec![],
+                scanned_at: None,
+                rubric_version: None,
+                engine_version: None,
+                component_path: None,
+                scan_run_id: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn render_digest_does_not_panic_and_is_json_quiet_safe() {
+        let detail = detail_with_sub_scores();
+        // Human path: renders the digest + axis bars (to stderr) without panic.
+        render_digest(&out_plain(), &detail, Some(62), Tier::Yellow);
+        // Quiet + JSON are silent no-ops.
+        let mut quiet = out_plain();
+        quiet.quiet = true;
+        render_digest(&quiet, &detail, Some(62), Tier::Yellow);
+        let mut json = out_plain();
+        json.format = crate::cli::output::OutputFormat::Json;
+        render_digest(&json, &detail, Some(62), Tier::Yellow);
+        // Unscored item (no latest_scan) renders just the title line.
+        let unscored = ItemDetailResponse {
+            item: sample("x--y--skill-z", "skill", None, None),
+            latest_scan: None,
+        };
+        render_digest(&out_plain(), &unscored, None, Tier::Unscoped);
+    }
+
+    #[test]
+    fn announce_agents_notes_default_all() {
+        let agents = crate::agents::detect_all(Scope::Global);
+        // Renders regardless of how many agents are detected (possibly zero in CI).
+        announce_agents(&out_plain(), &agents, true);
+        announce_agents(&out_plain(), &agents, false);
+        // JSON is a silent no-op.
+        let mut json = out_plain();
+        json.format = crate::cli::output::OutputFormat::Json;
+        announce_agents(&json, &agents, true);
+    }
+
     fn sample(slug: &str, kind: &str, org: Option<&str>, repo: Option<&str>) -> CatalogItemSummary {
         CatalogItemSummary {
             id: "id".into(),
