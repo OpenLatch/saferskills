@@ -62,3 +62,22 @@ agent version. Until ticked, treat the surface as best-effort.
 Out-of-scope surfaces (NOT written by this CLI — no live-verify needed here):
 Windsurf hooks (`.windsurf/hooks.json`), Cline/Cursor Rules, Gemini skill dir,
 Codex `openai.yaml`.
+
+## Read-only enumeration reuse (`scan --local`, D-05-27)
+
+`agents/enumerate.rs` (the `scan --local` audit) **reads** these same config
+shapes to enumerate what's already installed — it never writes. It reuses the
+writer's key/format resolution so the read agrees with the write:
+
+- MCP key shape: `writer::openclaw_key` (probed `mcpServers` ∨ `mcp.servers`),
+  Copilot's `servers` (VS Code) vs `mcpServers` (CLI), and `writer::toml_to_json`
+  for Codex `[mcp_servers.*]`. JSONC configs parse via `jsonc_parser`.
+- Skills: each `<skill_dir>/<name>/` containing `SKILL.md`.
+- Hooks (Claude Code only, v1): `~/.claude/settings.json` with a `hooks` key +
+  `~/.claude/hooks/*.json`.
+- Rules (Cursor, v1): `~/.cursor/rules/*.mdc` + `.cursorrules`/`.windsurfrules`.
+
+The writers expose **no read accessor**, so the JSON/TOML reads in
+`enumerate.rs` are new read-only code; the synthetic bundle paths
+(`<agent>/skills/<name>/…`, `<agent>/mcp/<server>/mcp.json`, …) match the backend
+`discovery.py` anchor layout so one upload scans like a repo.

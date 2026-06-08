@@ -75,24 +75,33 @@ jobs:
         with: { egress-policy: audit }
       - uses: actions/checkout@v6
 
-      # Telemetry key bake. The value comes from the shared OpenLatch-portfolio
-      # PostHog project secret POSTHOG_KEY (one project for cost — D-19's
-      # separate-project rule superseded 2026-06-04; SaferSkills events carry a
-      # `product: saferskills` discriminator, see cli/src/core/telemetry.rs).
-      # The compile-time env var name stays SAFERSKILLS_POSTHOG_KEY (build.rs
-      # reads it); only the value source changes. If unset the binary still
-      # ships, with analytics inert (build.rs bakes an empty key → hard no-op).
-      # Warn rather than fail so the first release isn't blocked before the key
-      # is wired.
-      - name: Note PostHog key availability
+      # Telemetry + crash-report key bake. Both come from repo-level secrets on the
+      # shared OpenLatch-portfolio tenants: POSTHOG_PROJECT_KEY (one PostHog project
+      # for cost — D-19's separate-project rule superseded 2026-06-04; SaferSkills
+      # events carry a `product: saferskills` discriminator, see
+      # cli/src/core/telemetry.rs) and SENTRY_DSN_CLI (the saferskills-cli Sentry
+      # project). The compile-time env names stay SAFERSKILLS_POSTHOG_KEY /
+      # SAFERSKILLS_SENTRY_DSN (build.rs reads them); only the value source changes.
+      # POSTHOG_PROJECT_KEY is the single canonical name across all surfaces
+      # (deploy.yml + webapp), which also resolves the public-repo scoping note by
+      # using a repo-level secret. If either is unset the binary still ships, with
+      # that channel inert (build.rs bakes empty → hard no-op). Warn, never fail,
+      # so the first release isn't blocked before the keys are wired.
+      - name: Note telemetry/crash-report key availability
         shell: bash
         env:
-          KEY: ${{ secrets.POSTHOG_KEY }}
+          KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          DSN: ${{ secrets.SENTRY_DSN_CLI }}
         run: |
           if [ -z "$KEY" ]; then
-            echo "::warning::POSTHOG_KEY is unset — binaries ship with analytics disabled."
+            echo "::warning::POSTHOG_PROJECT_KEY is unset — binaries ship with analytics disabled."
           else
-            echo "POSTHOG_KEY is set (length: ${#KEY})"
+            echo "POSTHOG_PROJECT_KEY is set (length: ${#KEY})"
+          fi
+          if [ -z "$DSN" ]; then
+            echo "::warning::SENTRY_DSN_CLI is unset — binaries ship with crash reporting disabled."
+          else
+            echo "SENTRY_DSN_CLI is set (length: ${#DSN})"
           fi
 
       - uses: ./.github/actions/setup-rust
@@ -109,16 +118,18 @@ jobs:
         if: matrix.cross != true
         shell: bash
         env:
-          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
-        run: cargo build --release --features telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
+          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          SAFERSKILLS_SENTRY_DSN: ${{ secrets.SENTRY_DSN_CLI }}
+        run: cargo build --release --features crash-report,telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
 
       - name: Build (cross via Docker)
         if: matrix.cross == true
         shell: bash
         env:
-          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
-        # Cross.toml forwards SAFERSKILLS_POSTHOG_KEY into the container.
-        run: cross build --release --features telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
+          SAFERSKILLS_POSTHOG_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          SAFERSKILLS_SENTRY_DSN: ${{ secrets.SENTRY_DSN_CLI }}
+        # Cross.toml forwards SAFERSKILLS_POSTHOG_KEY + SAFERSKILLS_SENTRY_DSN into the container.
+        run: cross build --release --features crash-report,telemetry-network --manifest-path cli/Cargo.toml --target ${{ matrix.target }}
 
       - name: Size gate (<15 MB, Unix)
         if: runner.os != 'Windows'
@@ -137,6 +148,27 @@ jobs:
           $size = (Get-Item "cli\target\${{ matrix.target }}\release\saferskills.exe").Length
           Write-Host "saferskills.exe size: $size bytes"
           if ($size -gt 15728640) { Write-Error "saferskills.exe is ${size}B, must be < 15MB"; exit 1 }
+
+      # Upload debug symbols (separated by `split-debuginfo = "packed"`) to the
+      # saferskills-cli Sentry project so a crash from a stripped release binary
+      # symbolicates. `--include-sources` embeds source context. DE region
+      # (SaferSkills Sentry is on de.sentry.io). Non-fatal + skipped when the
+      # auth token is unset, so a release isn't blocked before secrets are wired.
+      - name: Upload debug symbols to Sentry
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: openlatch
+          SENTRY_PROJECT: saferskills-cli
+          SENTRY_URL: https://de.sentry.io
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::warning::SENTRY_AUTH_TOKEN unset — skipping debug-symbol upload."; exit 0
+          fi
+          npx --yes @sentry/cli debug-files upload --include-sources \
+            "cli/target/${{ matrix.target }}/release" \
+            || echo "::warning::sentry-cli debug-files upload failed (non-fatal)"
 
       - name: Package binary
         shell: bash

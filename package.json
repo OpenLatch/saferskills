@@ -36,6 +36,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@sentry/cli",
       "@swc/core",
       "core-js",
       "esbuild",

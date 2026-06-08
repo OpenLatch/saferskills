@@ -25,7 +25,9 @@ Telemetry has three independent legs at W1:
 
 Initialized in the webapp via `PUBLIC_POSTHOG_KEY` (cf. `environment-config.md`). At W1 the page is anonymous; PostHog identification arrives with auth in W5.
 
-**Shared-project discriminator (mandatory).** Because PostHog is one project shared across the OpenLatch portfolio (see Purpose above), **every** SaferSkills PostHog event — webapp, backend, and the install CLI (`cli/src/core/telemetry.rs`) — MUST carry the property `product: "saferskills"`. It is the filter that keeps SaferSkills insights/dashboards isolated inside the shared project. The install CLI emits it today; the webapp/backend emitters add it when their PostHog wiring lands.
+**Shared-project discriminator (mandatory).** Because PostHog is one project shared across the OpenLatch portfolio (see Purpose above), **every** SaferSkills PostHog event — webapp, backend, and the install CLI (`cli/src/core/telemetry.rs`) — MUST carry the property `product: "saferskills"`. It is the filter that keeps SaferSkills insights/dashboards isolated inside the shared project. All three legs emit it: the install CLI in its `command_invoked` payload; the **webapp** as a `posthog.register({ product, environment })` super-property (`webapp/src/lib/observability.ts`); the **backend** in `app/observability/events.py::_emit`, which mirrors every `emit_*` event to PostHog (`capture(distinct_id, event, {**props, "product": "saferskills"})`) when `POSTHOG_PROJECT_KEY` is set — degrading to structlog-only when it is not.
+
+**Ingestion host is `https://eu.i.posthog.com`** (the EU ingestion subdomain) across all three legs — `POSTHOG_HOST` (backend), `PUBLIC_POSTHOG_HOST` (webapp), the baked `SAFERSKILLS_POSTHOG_HOST` (CLI). The single canonical key-secret name is `POSTHOG_PROJECT_KEY` (backend secret, webapp build-arg, CLI bake-secret).
 
 ### Closed-enum event names
 
@@ -90,7 +92,7 @@ No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the
 | 21 | `popularity_recompute_completed` | `top500_changed_count_bucket` ∈ {`0`,`1-10`,`11-100`,`101-1k`,`1k+`} |
 | 22 | `sources_page_viewed` | (frontend, no properties) |
 
-Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycle_started`, `emit_ingestion_cycle_completed`, `emit_ingestion_cycle_failed`, `emit_ingestion_cycle_archived` → `catalog_item_archived`, `emit_popularity_recompute_completed`). Phase A logs cycle events via structlog; PostHog emission wires up as the helpers land. The frontend `sources_page_viewed` event uses the existing `webapp/src/lib/analytics.ts` pattern.
+Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycle_started`, `emit_ingestion_cycle_completed`, `emit_ingestion_cycle_failed`, `emit_ingestion_cycle_archived` → `catalog_item_archived`, `emit_popularity_recompute_completed`). Every helper logs via structlog **and** mirrors to PostHog through the shared `_emit` dispatch (no-op when `POSTHOG_PROJECT_KEY` is unset). The frontend `sources_page_viewed` event uses the existing `webapp/src/lib/analytics.ts` pattern.
 
 ## Install-telemetry event (I-05)
 
@@ -104,13 +106,21 @@ Fired by `app/observability/events.py::emit_install_reported` when the install C
 
 ## Sentry
 
-`SENTRY_DSN` env var (cf. `environment-config.md`); separate Sentry project from OpenLatch.
+Separate Sentry projects from OpenLatch (brand-independence D-19), all under the org `openlatch` on the **DE region** (`https://de.sentry.io`). **Four surfaces, three projects:**
 
-- **Errors only.** No transactions, no performance traces, no session replay at W1.
-- **Breadcrumb scrubbing**: the Sentry init MUST configure `beforeBreadcrumb` to drop any breadcrumb whose `data` field references a path under `rubric/`, `schemas/`, or any user-submitted URL. This prevents scanned-artifact content leaking into Sentry.
-- **PII scrubbing**: `sendDefaultPii: false`. Email scrubbing on every event payload.
-- **Single channel**: all alerts land in one Slack/Discord channel; the env tag (`development` / `staging` / `production`) is in the message body, never used as the channel router.
-- Sample rate: 100% of errors in W1 (low volume); revisit when traffic grows.
+| Project | Surface(s) | DSN env / bake |
+|---|---|---|
+| `saferskills-api` | FastAPI backend (`app/core/observability.py`) | `SENTRY_DSN` (Fly secret from `SENTRY_DSN_API`) |
+| `saferskills-webapp` | Browser bundle (`webapp/src/lib/observability.ts`) **and** the SSR/proxy Node runtime (`webapp/src/middleware.ts`) | `PUBLIC_SENTRY_DSN` (build-arg) + the runtime `SENTRY_DSN` (Fly secret), both from `SENTRY_DSN_WEBAPP` |
+| `saferskills-cli` | Rust install CLI (`cli/src/core/crash_report/`, `crash-report` feature) | baked `SAFERSKILLS_SENTRY_DSN` (from `SENTRY_DSN_CLI`) |
+
+- **Errors only.** No transactions, no performance traces, no session replay (`tracesSampleRate: 0`).
+- **Breadcrumb + event scrubbing**: each init drops breadcrumbs referencing `rubric/` / `schemas/` / any user-submitted URL, and redacts the unlisted capability `share_token` (`/scans/r/<token>`) from event/breadcrumb URLs (backend `scrub_sentry_event`, webapp `redactCapabilityToken`, CLI `before_send` scrub). This prevents scanned-artifact content + the possession-is-auth token leaking into Sentry.
+- **PII scrubbing**: `sendDefaultPii: false`; `event.user` / cookies dropped.
+- **Environment tag**: `development` / `staging` / `production` — backend `settings.env`, webapp browser-derived (`resolveEnvironment()`) + SSR `process.env.ENV`, CLI baked. In the message body, never the channel router (single channel).
+- **Release**: `saferskills-<surface>@<sha|version>`; source-maps (webapp) + debug symbols (CLI, `split-debuginfo=packed`) are uploaded in the build keyed to that release, using `SENTRY_AUTH_TOKEN`.
+- Sample rate: 100% of errors (low volume); revisit when traffic grows.
+- **Degradation is silent**: a missing DSN disables that surface's Sentry — never a boot/build failure.
 
 ## Outbound proxies — no PII
 
@@ -118,11 +128,16 @@ The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes 
 
 ## OpenTelemetry
 
-`OTEL_EXPORTER_OTLP_ENDPOINT` (optional; cf. `environment-config.md`). Server-side only at W1.
+`OTEL_EXPORTER_OTLP_ENDPOINT` (optional; cf. `environment-config.md`). Server-side (backend) only.
 
-- Traces: every FastAPI route emits a span; scan-pipeline invocations emit child spans per rule fired.
-- Metrics: standard process + HTTP histograms; per-rule firing counters (`rule_id` as a low-cardinality label).
+- **Traces are exported now.** When the endpoint is set, `app/core/observability.py::_init_otel` wires a `TracerProvider` (`ParentBased(ALWAYS_ON)` sampler) + `BatchSpanProcessor(OTLPSpanExporter("{endpoint}/v1/traces"))` (HTTP/protobuf), and `app/main.py` auto-instruments FastAPI routes (`excluded_urls="health,ready,metrics"`), SQLAlchemy queries, and outbound HTTPX. The Resource carries `service.name=saferskills-api`, `service.version`, `deployment.environment`, and `service.instance.id` (the Fly Machine id). Export targets the **shared Grafana Vector** over Fly 6PN (`http://openlatch-observability[-staging].internal:4318`) — same org, so it ingests with no Vector edit.
+- **Logs ↔ traces correlation**: `app/core/logging.py::inject_trace_context` stamps `trace_id` / `span_id` on every JSON log line, so Grafana cross-navigates Loki ↔ Tempo. Logs reach Loki via the Fly NATS drain (no app config).
+- **Metrics are deferred.** The DB-pool observable gauges (`ingestion.db_pool.in_use` / `.available`) stay registered (harmless), but no metric reader/exporter is wired yet — a `/metrics` endpoint + a Vector `prometheus_scrape` block land in a separate openlatch-platform PR.
 - **Never log raw scanned-artifact bytes** in span attributes. Hashes + sizes + counts only.
+
+## Feature flags
+
+Server-side flags are a thin wrapper over the PostHog client (`app/core/feature_flags.py`): `is_enabled(flag, distinct_id, default=False)` / `get_payload(...)`. Local evaluation when `POSTHOG_SERVER_KEY` (a `phx_…` personal API key) is set; else remote `/decide` via the project key; else the supplied default. The webapp mirror is `webapp/src/lib/feature-flags.ts` (`isFeatureEnabled`). Flag names are a **closed, reviewed set** — at launch exactly one example flag (`saferskills-example-flag`) exists and nothing real is gated by it. Every lookup degrades to its default (never breaks a request) when PostHog is unconfigured.
 
 ## Hard rules
 
@@ -142,5 +157,8 @@ The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes 
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |
 | PostHog project-sharing / `product` discriminator change | "Purpose" + Hard rules #4 + the shared-project discriminator note + `cli/src/core/telemetry.rs` |
 | Sentry sample rate / scope change | "Sentry" |
-| New OTel exporter / endpoint | "OpenTelemetry" + `environment-config.md` |
+| New Sentry surface / project / DSN secret | "Sentry" project table + `environment-config.md` + `ci-cd.md` § Deployment |
+| New OTel exporter / endpoint / instrumentor | "OpenTelemetry" + `app/core/observability.py` + `environment-config.md` |
+| Metrics export wired (separate openlatch-platform PR) | "OpenTelemetry" — replace "Metrics are deferred" with the exporter + the Vector scrape block |
+| New / changed feature flag | "Feature flags" (closed flag set) + `app/core/feature_flags.py` + `webapp/src/lib/feature-flags.ts` |
 | New vendor (e.g. a separate logs sink) | New section here + `environment-config.md` |

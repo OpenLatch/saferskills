@@ -2,7 +2,7 @@
 //!
 //! Files:
 //! - `config.toml` — commented template; active keys `api_url`,
-//!   `gate_threshold`, `telemetry`.
+//!   `min_score`, `telemetry`.
 //! - `installs.json` — the install registry (see [`crate::core::registry`]).
 //! - `bin/` — postinstall-fallback binary cache.
 //! - `cache/` — rules-content cache.
@@ -22,6 +22,9 @@ use crate::core::error::{
 
 /// Default API origin (reads go same-origin through the webapp `/api/*` proxy).
 pub const DEFAULT_API_BASE: &str = "https://saferskills.ai";
+
+/// Default minimum aggregate score that installs without a confirm.
+pub const DEFAULT_MIN_SCORE: u8 = 90;
 
 /// Resolve the SaferSkills home directory: `SAFERSKILLS_DIR` env override, else
 /// `~/.saferskills` (matches the PRD on every OS; `%USERPROFILE%` resolves the
@@ -79,8 +82,9 @@ pub fn ensure_dir() -> Result<(), SsError> {
 pub struct Config {
     /// Override the API origin.
     pub api_url: Option<String>,
-    /// Lowest finding severity that prompts. Default `medium`.
-    pub gate_threshold: Option<String>,
+    /// Minimum aggregate score (0–100) that installs without a confirm.
+    /// Default `90` (see [`Config::min_score`]).
+    pub min_score: Option<u8>,
     /// Usage analytics (PostHog) consent. `None` = not yet chosen — the CLI
     /// prompts once on the first interactive launch and stores the answer here.
     /// (Install reporting is unconditional and has no config key.)
@@ -130,6 +134,18 @@ impl Config {
             .trim_end_matches('/')
             .to_string()
     }
+
+    /// Resolve the install score gate: `SAFERSKILLS_MIN_SCORE` env > `min_score`
+    /// config > [`DEFAULT_MIN_SCORE`]. Clamped to 0–100. A non-numeric env value
+    /// is ignored (falls through to config/default).
+    pub fn min_score(&self) -> u8 {
+        if let Ok(v) = std::env::var("SAFERSKILLS_MIN_SCORE") {
+            if let Ok(n) = v.trim().parse::<u32>() {
+                return n.min(100) as u8;
+            }
+        }
+        self.min_score.unwrap_or(DEFAULT_MIN_SCORE).min(100)
+    }
 }
 
 /// The commented `config.toml` template written on first run.
@@ -140,9 +156,10 @@ pub fn default_config_toml() -> &'static str {
      # API origin the CLI reads from. Default: https://saferskills.ai\n\
      # api_url = \"https://saferskills.ai\"\n\
      \n\
-     # Lowest finding severity that prompts before install.\n\
-     # One of: info | low | medium | high | critical. Default: medium\n\
-     # gate_threshold = \"medium\"\n\
+     # Minimum aggregate score (0–100) that installs without a confirm. Default: 90\n\
+     # Below this an install warns + asks; red-tier (<40) requires typing the name.\n\
+     # Also overridable with SAFERSKILLS_MIN_SCORE.\n\
+     # min_score = 90\n\
      \n\
      # Anonymous usage analytics (PostHog). Asked once on first run; stored here.\n\
      # Set false to opt out — also disabled by SAFERSKILLS_NO_TELEMETRY /\n\
@@ -240,11 +257,37 @@ mod tests {
     #[test]
     fn parse_config_toml() {
         let cfg: Config =
-            toml::from_str("api_url = \"https://staging.test\"\ngate_threshold = \"high\"\n")
-                .unwrap();
+            toml::from_str("api_url = \"https://staging.test\"\nmin_score = 75\n").unwrap();
         assert_eq!(cfg.api_url.as_deref(), Some("https://staging.test"));
-        assert_eq!(cfg.gate_threshold.as_deref(), Some("high"));
+        assert_eq!(cfg.min_score, Some(75));
         assert!(cfg.telemetry.is_none()); // unset → not yet chosen (prompted on first run)
+    }
+
+    #[test]
+    fn min_score_precedence_env_over_config_over_default() {
+        // SAFETY: single-threaded test; we set/remove the override around the asserts.
+        let default_cfg = Config::default();
+        assert_eq!(default_cfg.min_score(), DEFAULT_MIN_SCORE); // default 90
+
+        let configured = Config {
+            min_score: Some(50),
+            ..Config::default()
+        };
+        assert_eq!(configured.min_score(), 50); // config beats default
+
+        std::env::set_var("SAFERSKILLS_MIN_SCORE", "70");
+        assert_eq!(configured.min_score(), 70); // env beats config
+        assert_eq!(default_cfg.min_score(), 70); // env beats default
+
+        // Out-of-range env clamps to 100.
+        std::env::set_var("SAFERSKILLS_MIN_SCORE", "150");
+        assert_eq!(default_cfg.min_score(), 100);
+
+        // Non-numeric env is ignored (falls through to config/default).
+        std::env::set_var("SAFERSKILLS_MIN_SCORE", "high");
+        assert_eq!(configured.min_score(), 50);
+
+        std::env::remove_var("SAFERSKILLS_MIN_SCORE");
     }
 
     #[test]

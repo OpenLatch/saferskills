@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+* **cli:** `install` is reshaped around the **aggregate score**. Every install now
+  prints a **digest** (global score + tier + the 5-axis Security / Supply chain /
+  Maintenance / Transparency / Community breakdown, mirroring `scan`), then
+  **discloses which agents** it will write to (the default is every detected &
+  compatible agent), then applies a **score gate**: an item scoring below
+  `min_score` (default **90**) — or an unscored item — warns and requires a
+  confirm, and a **red-tier (`< 40`)** item requires typing the item name. This
+  **replaces** the previous finding-severity gate (the `gate_threshold` config key
+  is removed). `--yes`/`--force` bypass the below-threshold confirm; only `--force`
+  bypasses the red-tier type-name gate. New `min_score` config key +
+  `SAFERSKILLS_MIN_SCORE` env override (precedence env > config > 90). `install
+  --json` additionally emits `sub_scores`, `min_score`, the resolved target
+  `agents`, and the `gate` decision (D-05-19).
+* **cli:** `scan --local` now audits every capability **actually installed across
+  your detected agents** (skills, MCP servers, hooks, rules) instead of the CLI's
+  own install ledger — discovered from each agent's own config, bundled into one
+  size-controlled `.zip`, scanned in a single run, and rendered as a rich
+  per-capability audit report (verdict, category bars, an **Agents detected**
+  section listing every detected agent + its config location and capability
+  count — empty agents shown as `no capabilities found`, matching `doctor` —
+  worst-first capabilities, most-problematic findings). `--private` keeps the run unlisted; `--detailed`
+  expands per-capability axis bars + inline findings. The same rich report now
+  renders for `scan <path>` and `scan <url>` too (D-05-27).
+
 ## [0.1.0](https://github.com/OpenLatch/saferskills/compare/v0.0.2-placeholder...v0.1.0) (2026-06-04)
 
 

@@ -37,6 +37,7 @@ mod tests {
                 target: Some("./definitely-not-a-real-path-xyz".to_string()),
                 local: false,
                 private: false,
+                detailed: false,
             },
             &o,
         )

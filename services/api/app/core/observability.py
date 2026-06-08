@@ -1,18 +1,30 @@
-"""Observability bootstrap — Sentry + OpenTelemetry.
+"""Observability bootstrap — structured logging + Sentry + OpenTelemetry + PostHog.
 
-W1 posture: every initialiser is a no-op when its env var is unset, so
-`docker compose up` works against a fresh checkout without secrets.
+Posture: every initialiser is a no-op when its key/endpoint is unset, so
+`docker compose up` works against a fresh checkout without secrets. Observability
+must NEVER break the app — every init is wrapped and degrades on failure.
 
-W2 Phase A adds the Sentry breadcrumb scrubber from `app.observability.events`
-(per `.claude/rules/telemetry.md` § Sentry). The scrubber drops any
-breadcrumb whose data references rubric/, schemas/, fp-audit fixtures, or any
-GitHub URL — prevents scanned-artifact content from leaking to Sentry.
+Legs:
+  - **Logging** (`app.core.logging`): structlog JSON → stdout, with
+    `inject_trace_context` for Loki↔Tempo correlation. Configured FIRST.
+  - **Sentry**: errors only, with the breadcrumb + event scrubbers from
+    `app.observability.events` (drops scanned-artifact content; redacts the
+    unlisted capability token).
+  - **OpenTelemetry**: traces exported via OTLP/HTTP to the shared Grafana Vector
+    (`OTEL_EXPORTER_OTLP_ENDPOINT`). Metrics are deferred — the pool gauges stay
+    registered (harmless) but no metric reader/exporter is wired yet.
+  - **PostHog**: server-side product analytics (the `emit_*` allowlist), tagged
+    `product = "saferskills"`. Client lives in `app.observability.events`.
 """
+
+import socket
 
 import structlog
 
 from app.core.config import Settings
 from app.core.log_redaction import install_log_redaction
+from app.core.logging import configure_logging
+from app.observability import events
 from app.observability.events import scrub_sentry_breadcrumb, scrub_sentry_event
 
 logger = structlog.get_logger(__name__)
@@ -41,6 +53,8 @@ def record_pool_timeout_breadcrumb(subsystem: str) -> None:
 
 
 async def init_observability(settings: Settings) -> None:
+    # Logging first — so every subsequent init line is structured JSON on stdout.
+    configure_logging(settings.log_level)
     # Always-on: redact the unlisted capability token from access/app logs
     # (D-UP-32(a)) — independent of Sentry/OTel being configured.
     install_log_redaction()
@@ -68,18 +82,88 @@ async def init_observability(settings: Settings) -> None:
 
     if settings.otel_exporter_otlp_endpoint:
         try:
-            from opentelemetry import trace  # type: ignore[import-not-found]
-            from opentelemetry.sdk.resources import Resource  # type: ignore[import-not-found]
-            from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]
-
-            resource = Resource.create(
-                {"service.name": "saferskills-api", "service.version": settings.version}
-            )
-            trace.set_tracer_provider(TracerProvider(resource=resource))
-            _init_db_pool_gauges(settings, resource)
-            logger.info("otel.initialised")
+            _init_otel(settings)
+            logger.info("otel.initialised", endpoint=settings.otel_exporter_otlp_endpoint)
         except Exception as exc:  # observability must never break the app
             logger.warning("otel.init_failed", error=str(exc))
+
+    # Server-side PostHog (no-op when the project key is unset).
+    events.init_posthog(
+        project_key=settings.posthog_project_key,
+        host=settings.posthog_host,
+        server_key=settings.posthog_server_key,
+    )
+
+
+def instrument_app(app: object) -> None:
+    """Attach the OTel auto-instrumentors (FastAPI routes, SQLAlchemy queries,
+    outbound HTTPX). No-op-safe: only called when an OTLP endpoint is configured,
+    and wrapped by the caller. Health/ready/metrics routes are excluded so probe
+    traffic doesn't flood Tempo with empty spans.
+    """
+    from opentelemetry.instrumentation.fastapi import (  # type: ignore[import-not-found]
+        FastAPIInstrumentor,
+    )
+    from opentelemetry.instrumentation.httpx import (  # type: ignore[import-not-found]
+        HTTPXClientInstrumentor,
+    )
+    from opentelemetry.instrumentation.sqlalchemy import (  # type: ignore[import-not-found]
+        SQLAlchemyInstrumentor,
+    )
+
+    from app.db.session import async_engine
+
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="health,ready,metrics")  # pyright: ignore[reportArgumentType]
+    SQLAlchemyInstrumentor().instrument(engine=async_engine.sync_engine)
+    HTTPXClientInstrumentor().instrument()
+
+
+def shutdown_observability() -> None:
+    """Flush the PostHog client on shutdown (best-effort, bounded). Called from
+    the FastAPI lifespan `finally`."""
+    events.shutdown_posthog()
+
+
+def _init_otel(settings: Settings) -> None:
+    """Wire the TracerProvider + OTLP/HTTP span exporter + pool gauges.
+
+    Traces export to the shared Grafana Vector at `{endpoint}/v1/traces`
+    (HTTP/protobuf). `ParentBased(ALWAYS_ON)` keeps the trace whole — a child
+    span inherits the parent's sampling decision, and root spans are always
+    sampled (low volume at launch; revisit when traffic grows). The Resource
+    identifies this process in Tempo: service name/version, environment, and a
+    per-Machine instance id.
+    """
+    from opentelemetry import trace  # type: ignore[import-not-found]
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (  # type: ignore[import-not-found]
+        OTLPSpanExporter,
+    )
+    from opentelemetry.sdk.resources import Resource  # type: ignore[import-not-found]
+    from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]
+    from opentelemetry.sdk.trace.export import (  # type: ignore[import-not-found]
+        BatchSpanProcessor,
+    )
+    from opentelemetry.sdk.trace.sampling import (  # type: ignore[import-not-found]
+        ALWAYS_ON,
+        ParentBased,
+    )
+
+    instance_id = settings.fly_machine_id or socket.gethostname()
+    resource = Resource.create(
+        {
+            "service.name": "saferskills-api",
+            "service.version": settings.version,
+            "deployment.environment": settings.env,
+            "service.instance.id": instance_id,
+        }
+    )
+    provider = TracerProvider(resource=resource, sampler=ParentBased(ALWAYS_ON))
+    endpoint = settings.otel_exporter_otlp_endpoint.rstrip("/")  # type: ignore[union-attr]
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces"))
+    )
+    trace.set_tracer_provider(provider)
+    _init_db_pool_gauges(settings, resource)
 
 
 def _init_db_pool_gauges(settings: Settings, resource: object) -> None:
@@ -90,9 +174,9 @@ def _init_db_pool_gauges(settings: Settings, resource: object) -> None:
     (crash-resilience addendum §2) — a Grafana alert at `in_use > 12 / 15` fires
     *before* contention turns into hangs.
 
-    Like the TracerProvider above, this wires the SDK provider + instruments but
-    no metric reader/exporter — that dep is not installed at W1 and the addendum
-    adds none. The callbacks register now and start being collected the moment a
+    This wires the SDK MeterProvider + instruments but NO metric reader/exporter
+    yet — metrics export is deferred to a separate openlatch-platform Vector PR.
+    The callbacks register now and start being collected the moment a
     PeriodicExportingMetricReader + OTLP metric exporter are added in infra.
     """
     from opentelemetry import metrics  # type: ignore[import-not-found]

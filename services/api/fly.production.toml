@@ -10,6 +10,15 @@ strategy = "canary"
 [env]
 PORT = "8000"
 VERSION = "0.0.0-foundation"
+ENV = "production"
+LOG_LEVEL = "INFO"
+# OpenTelemetry traces → the shared Grafana Vector over 6PN internal DNS (same
+# Fly org). Logs already flow via the Fly NATS drain; only traces need this
+# endpoint. Metrics are deferred (no metric exporter wired yet). See telemetry.md.
+OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability.internal:4318"
+OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+OTEL_SERVICE_NAME = "saferskills-api"
+POSTHOG_HOST = "https://eu.i.posthog.com"
 # Non-secret runtime config only. `SAFERSKILLS_PROXY_SHARED_SECRET` (the
 # trusted-proxy token read by scans.py::_rate_limit_ip) is a SECRET — staged via
 # `flyctl secrets set --stage` in deploy.yml, never committed here. See ci-cd.md.

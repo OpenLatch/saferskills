@@ -226,15 +226,16 @@ fn scan_missing_path_is_a_target_error() {
 
 #[test]
 fn scan_with_no_target_audits_local() {
-    // `scan` with no target defaults to a local audit (not an error). With an
-    // empty sandboxed registry it reports nothing to audit and exits 0.
+    // `scan` with no target routes to a local audit (D-05-27) — it enumerates
+    // capabilities installed across detected agents (no longer the CLI's install
+    // ledger). We assert only the routing preamble: the audit outcome depends on
+    // what is actually installed on the host, and the full enumerate → bundle →
+    // upload → report chain is covered against a mock in tests/scan_cli.rs.
     let tmp = tempfile::tempdir().unwrap();
     cli(tmp.path())
         .arg("scan")
         .assert()
-        .success()
-        .stderr(predicate::str::contains("auditing installed capabilities"))
-        .stderr(predicate::str::contains("nothing to audit"));
+        .stderr(predicate::str::contains("auditing installed capabilities"));
 }
 
 #[test]

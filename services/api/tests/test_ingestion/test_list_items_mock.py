@@ -359,11 +359,11 @@ async def test_mcp_registry_completed_sweep_advances_watermark() -> None:
         _ = [item async for item in adapter.list_items(client)]
 
     write_cursor.assert_awaited_once()
-    final_value = (
-        write_cursor.await_args.args[3]
-        if len(write_cursor.await_args.args) > 3
-        else write_cursor.await_args.args[2]
-    )
+    # `await_args` is mock introspection (`_Call | None`); type as Any so the
+    # positional-arg indexing isn't fought by the fixed-length tuple stub.
+    await_args: Any = write_cursor.await_args
+    assert await_args is not None
+    final_value = await_args.args[3] if len(await_args.args) > 3 else await_args.args[2]
     assert final_value["next_cursor"] is None
     assert final_value["updated_since"] == "2025-03-03T00:00:00Z"
-    assert write_cursor.await_args.kwargs.get("success") is True
+    assert await_args.kwargs.get("success") is True

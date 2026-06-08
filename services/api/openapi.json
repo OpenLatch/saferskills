@@ -2058,6 +2058,17 @@
             "title": "Repo Tier",
             "type": "string"
           },
+          "report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Url"
+          },
           "rubric_version": {
             "title": "Rubric Version",
             "type": "string"

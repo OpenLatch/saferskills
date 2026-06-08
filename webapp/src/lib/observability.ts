@@ -22,6 +22,23 @@ export function redactCapabilityToken(url: string | undefined): string | undefin
   return url.replace(/(\/scans\/r\/)[^/?#]+/g, '$1<redacted>')
 }
 
+/**
+ * Derive the deployment environment from the runtime hostname (browser-only).
+ * Shared by the Sentry `environment` tag and the PostHog `environment`
+ * super-property so every event/error is grouped consistently.
+ *
+ * - hostname contains `staging` OR ends in `.fly.dev` → `staging`
+ * - `saferskills.ai` / `www.saferskills.ai` → `production`
+ * - anything else (incl. SSR / no `window`) → `development`
+ */
+export function resolveEnvironment(): 'development' | 'staging' | 'production' {
+  if (typeof window === 'undefined') return 'development'
+  const host = window.location.hostname
+  if (host.includes('staging') || host.endsWith('.fly.dev')) return 'staging'
+  if (host === 'saferskills.ai' || host === 'www.saferskills.ai') return 'production'
+  return 'development'
+}
+
 export async function initObservability(): Promise<void> {
   if (initialized) return
   initialized = true
@@ -36,6 +53,8 @@ async function initSentry(): Promise<void> {
 
   Sentry.init({
     dsn,
+    environment: resolveEnvironment(),
+    release: import.meta.env.PUBLIC_GIT_SHA || undefined,
     sendDefaultPii: false,
     sampleRate: 1.0,
     tracesSampleRate: 0,
@@ -79,7 +98,7 @@ async function initSentry(): Promise<void> {
 async function initPostHog(): Promise<void> {
   const key = import.meta.env.PUBLIC_POSTHOG_KEY
   if (!key) return
-  const host = import.meta.env.PUBLIC_POSTHOG_HOST ?? 'https://eu.posthog.com'
+  const host = import.meta.env.PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com'
 
   const { default: posthog } = await import('posthog-js')
   posthog.init(key, {
@@ -90,7 +109,8 @@ async function initPostHog(): Promise<void> {
     disable_session_recording: true,
     persistence: 'memory',
     person_profiles: 'never',
-    advanced_disable_decide: true,
+    // `false` enables the /decide call needed for feature flags (feature-flags.ts).
+    advanced_disable_decide: false,
     sanitize_properties: (properties) => {
       const sanitized: Record<string, unknown> = {}
       for (const [k, v] of Object.entries(properties)) {
@@ -100,4 +120,7 @@ async function initPostHog(): Promise<void> {
       return sanitized
     },
   })
+  // Super-properties stamped on EVERY event: the shared-project SaferSkills
+  // discriminator (telemetry.md — mandatory) + the env tag.
+  posthog.register({ product: 'saferskills', environment: resolveEnvironment() })
 }

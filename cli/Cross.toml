@@ -3,7 +3,14 @@
 # Unlike openlatch-client, the SaferSkills CLI has NO keyring / secret-service
 # dependency, so there is no `libdbus-1-dev` pre-build step — the default
 # `cross` container image already has everything a rustls-only reqwest build
-# needs. We only forward the PostHog key so `build.rs` can bake it inside the
-# Docker container the same way the native legs do.
+# needs. We forward the build-time baked secrets so `build.rs` can bake them
+# inside the Docker container the same way the native legs do: the PostHog key
+# (telemetry), the Sentry DSN (crash reporting), and the release identifier
+# Sentry stamps onto each event.
 [build.env]
-passthrough = ["SAFERSKILLS_POSTHOG_KEY"]
+passthrough = [
+    "SAFERSKILLS_POSTHOG_KEY",
+    "SAFERSKILLS_SENTRY_DSN",
+    "SAFERSKILLS_RELEASE",
+    "GITHUB_SHA",
+]

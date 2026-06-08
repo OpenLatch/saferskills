@@ -11,6 +11,7 @@ use saferskills::cli::output::OutputConfig;
 use saferskills::cli::{self, Cli, Commands};
 use saferskills::commands;
 use saferskills::core::config::Config;
+use saferskills::core::crash_report;
 use saferskills::core::error::SsError;
 use saferskills::core::telemetry;
 
@@ -30,10 +31,23 @@ fn attach_parent_console_if_any() {}
 fn main() {
     attach_parent_console_if_any();
 
-    // SIGINT → exit 130 (D-05-11). No telemetry flush is needed: the CLI's
-    // single `command_invoked` event is sent at the end of a normal run, not
-    // buffered, so there is nothing to lose on interrupt.
-    let _ = ctrlc::set_handler(|| std::process::exit(130));
+    // Crash reporting first — captures panics in everything below, including the
+    // tokio runtime construction and clap parsing. The guard is bound to main's
+    // stack so its Drop (2s flush) runs on normal exit. A hard no-op when the
+    // `crash-report` feature is off, no DSN is baked, or consent resolves to
+    // disabled (opt-out env / `[crashreport] enabled = false`).
+    let _crash_guard = crash_report::init();
+    // Chain our panic hook onto sentry's (which init installed under unwind).
+    crash_report::install_panic_hook();
+
+    // SIGINT → exit 130 (D-05-11). Flush pending crash reports first —
+    // `process::exit` skips Drop impls, so the guard's flush-on-drop never runs.
+    // The single PostHog `command_invoked` event is sent at the end of a normal
+    // run (not buffered), so there is nothing to lose there on interrupt.
+    let _ = ctrlc::set_handler(|| {
+        crash_report::flush(std::time::Duration::from_secs(2));
+        std::process::exit(130);
+    });
 
     let exit_code = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -84,6 +98,10 @@ async fn run() -> i32 {
     };
 
     let (cmd_label, sub_label) = cli::command_label(command);
+    // Tag the Sentry scope with the closed-enum command grammar (never a flag
+    // value) so a panic carries the command that triggered it. No-op when crash
+    // reporting is disabled.
+    crash_report::enrich_cli_scope(cmd_label, sub_label);
     let started = std::time::Instant::now();
 
     // First-launch security audit (D-05-26): a one-time opt-in offer to scan

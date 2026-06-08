@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -174,12 +175,14 @@ def test_ingest_cycle_tasks_outrank_fanout_and_dedup_per_source() -> None:
     hourly cadence stacks a second crawl behind an in-flight one (the npm-pileup /
     mcp_registry-zombie-stacking bug).
     """
-    import app.ingestion.tasks  # noqa: F401  # side-effect: registers periodic tasks
+    import app.ingestion.tasks  # noqa: F401  # pyright: ignore[reportUnusedImport]  # side-effect: registers periodic tasks
     from app.ingestion import INGEST_CYCLE_PRIORITY, procrastinate_app
 
-    cycles = {
-        name: t for name, t in procrastinate_app.tasks.items() if name.startswith("ingest_cycle_")
-    }
+    # procrastinate's Task is generic with unresolved params here, so the task
+    # registry reads as partially-unknown — pin it to dict[str, Any] at the
+    # third-party boundary (a plain annotated assignment ruff won't restructure).
+    registered: dict[str, Any] = procrastinate_app.tasks  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    cycles = {name: t for name, t in registered.items() if name.startswith("ingest_cycle_")}
     assert cycles, "no ingest_cycle_* tasks registered"
     assert INGEST_CYCLE_PRIORITY > 0  # must beat the priority-0 fan-out
 

@@ -187,6 +187,11 @@ pub struct ScanArgs {
     /// Keep the scan unlisted (token URL + expiry).
     #[arg(long)]
     pub private: bool,
+
+    /// Expand the per-capability 5-axis breakdown + inline critical/high
+    /// findings (the default report stays concise).
+    #[arg(long)]
+    pub detailed: bool,
 }
 
 /// `doctor`.

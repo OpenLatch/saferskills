@@ -6,7 +6,7 @@
 npx saferskills info mcp-server-github        # see an item's score + findings
 npx saferskills install mcp-server-github     # install to your detected agents
 npx saferskills scan ./my-skill        # scan a local capability
-npx saferskills scan                   # no target → audit everything installed
+npx saferskills scan --local           # audit every capability installed across your agents
 ```
 
 No install required — `npx saferskills <command>` runs the prebuilt native binary. Or install it permanently:
@@ -25,12 +25,12 @@ SaferSkills scans Skills, MCP servers, hooks, and plugins for security, supply-c
 | Command | Status | What it does |
 |---|---|---|
 | `info <name>` (alias `check`) | ✅ | Resolve a name → catalog item; print score, tier, findings, and the report URL. |
-| `install <name>` | ✅ | Install a Skill / MCP server to your detected agents, gated by finding severity. |
+| `install <name>` | ✅ | Install a Skill / MCP server to your detected agents. Shows a **digest** (global score + 5-axis breakdown), discloses **which agents** it will write to, then gates on the **aggregate score**: below `min_score` (default 90) it warns + confirms; a red-tier (`< 40`) item requires typing the name. |
 | `uninstall <name>` | ✅ | Reverse exactly what an install wrote. |
 | `update [--all]` | ✅ | Refresh installed capabilities; re-verify scores. |
 | `list` | ✅ | Show installed capabilities with current scores. |
 | `doctor` | ✅ | Diagnose registry-vs-filesystem drift. |
-| `scan [path\|url]` | ✅ | Scan a local path or GitHub URL; with no target, audit everything installed. Prints the report URL. |
+| `scan [path\|url]` | ✅ | Scan a local path or GitHub URL. With `--local` (or no target), **audit every capability installed across your detected agents** — skills, MCP servers, hooks, and rules are discovered from each agent's own config, bundled into one upload, scanned in one run, and rendered as a single per-capability audit report. `--private` keeps the run unlisted; `--detailed` expands per-capability axis bars + inline findings. |
 | `completion <shell>` | ✅ | Print a shell completion script. |
 
 ## Global flags
@@ -53,10 +53,12 @@ The badge links to the full [public report at `saferskills.ai/items/<slug>`](htt
 
 State lives under `~/.saferskills/` (override with `SAFERSKILLS_DIR`):
 
-- `config.toml` — `api_url`, `gate_threshold`, `telemetry`.
-- `installs.json` — the install registry.
+- `config.toml` — `api_url`, `min_score`, `telemetry`.
+- `installs.json` — the install registry, used by `list` / `uninstall` / `update`. **`scan --local` does not read it** — it audits whatever is installed across your agents' own config dirs, regardless of how it got there, so you need no prior saferskills installs to audit your setup.
 
 The API origin resolves as `SAFERSKILLS_API_URL` env → `config.toml` `api_url` → `https://saferskills.ai`.
+
+The install score gate resolves as `SAFERSKILLS_MIN_SCORE` env → `config.toml` `min_score` → `90`. An item scoring below it (or unscored) warns and asks before installing; a red-tier (`< 40`) item requires typing the item name. `--yes` confirms a below-threshold install; only `--force` bypasses the red-tier type-name gate.
 
 ## Telemetry
 
@@ -123,6 +125,7 @@ Remove-Item Env:\SAFERSKILLS_API_URL
 | Variable | Effect |
 |---|---|
 | `SAFERSKILLS_API_URL` | API origin to call. Precedence: this env → `config.toml` `api_url` → `https://saferskills.ai`. |
+| `SAFERSKILLS_MIN_SCORE` | Minimum aggregate score (0–100) that installs without a confirm. Precedence: this env → `config.toml` `min_score` → `90`. |
 | `SAFERSKILLS_DIR` | Override the state dir (default `~/.saferskills/` — holds `config.toml` + `installs.json`). Handy for an isolated dev sandbox. |
 | `SAFERSKILLS_NO_TELEMETRY` | Set to disable **all** telemetry (usage analytics + install reporting). `DO_NOT_TRACK` and `CI` are honored the same way. (Source builds are inert regardless.) |
 | `SAFERSKILLS_TELEMETRY` | Force usage analytics on (`1`/`true`) or off (`0`), skipping the first-run prompt. Does not affect install reporting. |
