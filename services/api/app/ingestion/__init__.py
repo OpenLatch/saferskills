@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from procrastinate import App, PsycopgConnector
 
-from app.core.config import _coerce_ssl_to_sslmode, get_settings
+from app.core.config import coerce_ssl_to_sslmode, get_settings
 
 _settings = get_settings()
 
@@ -42,7 +42,7 @@ def _libpq_conninfo(database_url: str) -> str:
     stripped = database_url.replace("postgresql+asyncpg://", "postgresql://", 1).replace(
         "postgresql+psycopg://", "postgresql://", 1
     )
-    return _coerce_ssl_to_sslmode(stripped)
+    return coerce_ssl_to_sslmode(stripped)
 
 
 procrastinate_app = App(

@@ -149,9 +149,9 @@ def test_sslmode_dsn_builds_an_async_engine_without_raising() -> None:
     ],
 )
 def test_ssl_query_param_is_coerced_back_to_sslmode(raw: str, expected: str) -> None:
-    from app.core.config import _coerce_ssl_to_sslmode  # pyright: ignore[reportPrivateUsage]
+    from app.core.config import coerce_ssl_to_sslmode
 
-    assert _coerce_ssl_to_sslmode(raw) == expected
+    assert coerce_ssl_to_sslmode(raw) == expected
 
 
 def test_libpq_conninfo_renames_ssl_for_psycopg() -> None:

@@ -42,10 +42,12 @@ def _coerce_sslmode_to_ssl(value: str) -> str:
     return urlunsplit(parts._replace(query=urlencode(rebuilt)))
 
 
-def _coerce_ssl_to_sslmode(value: str) -> str:
+def coerce_ssl_to_sslmode(value: str) -> str:
     """Rename asyncpg's `ssl` query param back to libpq's `sslmode`.
 
-    The exact inverse of `_coerce_sslmode_to_ssl`. `settings.database_url` is the
+    Public (unlike its `_coerce_sslmode_to_ssl` inverse) because it is consumed
+    cross-module by `app.ingestion._libpq_conninfo`. The exact inverse of
+    `_coerce_sslmode_to_ssl`. `settings.database_url` is the
     asyncpg-flavoured DSN (it carries `?ssl=disable`), but Procrastinate's psycopg3
     `PsycopgConnector` speaks **libpq**, which rejects `ssl` outright
     (`invalid URI query parameter: "ssl"`) — it wants `sslmode`. The value strings
