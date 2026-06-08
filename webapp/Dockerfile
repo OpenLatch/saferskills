@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.10
 # SaferSkills webapp — Astro 6 SSR via @astrojs/node standalone runtime.
 # Replaces the W1 nginx static host per plan/01a-design-system-foundation.md §1.6 (D-FE-22).
 
