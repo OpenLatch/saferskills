@@ -7,11 +7,15 @@ real running agent and confirms it loads, then ticks it here. A surface that
 cannot be verified ships **detect-only with a copy-paste fallback** for that one
 surface — never a per-agent descope (the full-8 wedge is non-negotiable).
 
-> This CLI ships exactly the **two install shapes** of D-05-16: `mcp_server`
-> (format-preserving map-merge) and `skill` (folder copy). Surfaces outside those
-> two (Windsurf *hooks*, Cline/Cursor *Rules*, Codex `openai.yaml`) are **not
-> written** by this CLI, so they need no live-verify here — they are listed only
-> to record why they're out of scope.
+> This CLI installs **every capability kind** the platform catalogs across every
+> compatible agent (the original two-shape scope of D-05-16 was widened): the five
+> install shapes are `mcp_server` (format-preserving map-merge), `skill` (folder
+> copy), `rules` (single-file copy), `hook` (per-event `settings.json` merge), and
+> `plugin` (native bundle install). The per-capability config the CLI needs comes
+> from the backend `install_spec` field (`app/scan/discovery.py::build_install_spec`)
+> on the report — not CLI-side zip re-parsing. The backend `agent_compatibility` is
+> the outer filter, so a writer never sees a kind its agent can't take; the on-disk
+> surface check is `writer::kind_supported`.
 
 ## MCP map-merge — per-agent key + URL landmines
 
@@ -46,6 +50,66 @@ Notes:
 Frontmatter `name` must equal the folder name (Copilot/VS Code enforces it); the
 writer copies the SaferSkills snapshot `.zip` into `<skills>/<name>/`.
 
+## Rules file copy
+
+| Agent | Rules dir (global / project) | File extension | Backend compat |
+|---|---|---|---|
+| cursor | `~/.cursor/rules` / `.cursor/rules` | `.mdc` | ✓ |
+| windsurf | `.windsurf/rules` (workspace) | `.md` | ✓ |
+| cline | `~/Documents/Cline/Rules` / `.clinerules` | `.md` | ✓ |
+| copilot | `.github/instructions` (repo-level) | `.instructions.md` | ✓ |
+
+`install_rules_file` copies the source rules body (read from the snapshot `.zip` at
+`install_spec.rules_files[0].path`) to `<rules_dir>/<name><ext>` → an
+[`InstallChange::File`]. Verify = the file exists; uninstall = remove it.
+
+## Hook settings.json merge
+
+| Agent | Settings file (global / project) | Block | Backend compat |
+|---|---|---|---|
+| claude-code | `~/.claude/settings.json` / `.claude/settings.json` | top-level `hooks` | ✓ |
+| openclaw | `~/.openclaw/openclaw.json` (probe-and-adapt) | top-level `hooks` | ✓ (hook only) |
+
+`merge_json_hook` merges the source `hooks` block (the `hooks` value of the
+capability's anchor file in the snapshot, or the file itself when its top-level keys
+ARE the events) into the settings `hooks` block, recording one `ConfigKey`
+`hooks.<event>` per event so uninstall byte-restores via `restore_json_key` (a new
+event is removed exactly; an existing event is restored to its prior array).
+Claude hooks live in `settings.json`, **not** the MCP config path — hence the
+distinct `hooks_path` on `DetectedAgent`.
+
+## Plugin native bundle install
+
+| Agent | Plugins root | Layout | Backend compat |
+|---|---|---|---|
+| claude-code | `~/.claude/plugins` | `cache/<mp>/<plugin>/<ver>/` + `installed_plugins.json` | ✓ |
+| openclaw | — | layout not yet live-verified → gated OFF | ✓ (deferred) |
+
+`install_plugin` extracts the bundle `.zip` (prefix-stripped to `component_path`)
+into `<plugins>/cache/<mp>/<plugin>/<ver>/` — the exact layout the local-audit
+enumerator (`enumerate.rs::discover_plugins`) reads — and merges a
+`plugins["<plugin>@<mp>"].installs[] = {scope:"user", version}` ledger entry into
+`installed_plugins.json`. `<plugin>`/`<ver>` come from `install_spec.plugin_ref`
+(`<ver>` falls back to `ref_sha[..7]`); `<mp>` is a stable id derived from the repo
+coordinates (`<org>-<repo>`) — we own both the write and the read, so it round-trips.
+Recorded as a `File` (the version dir) + a `ConfigKey` (the ledger, restoring the
+whole prior `plugins` map). NOT a shell-out to `claude` — that would forfeit the
+reversible-install guarantee. A `lifecycle_test` closes the loop: install → assert
+the version dir + ledger land → `enumerate_from` re-discovers the plugin → uninstall.
+
+### OpenClaw caveat (flagged risk, not a silent drop)
+
+OpenClaw is in the `hook` + `plugin` backend compat set, but its on-disk hook/plugin
+layout is **not yet documented** in `enumerate.rs` (the plugin enumerator
+early-returns for non-Claude). So:
+- **OpenClaw hook** ships against its own config file (`hooks_path = ~/.openclaw/
+  openclaw.json`), probe-and-adapt like the MCP key shape — best-effort until
+  live-verified.
+- **OpenClaw plugin** is gated OFF (`plugin_dir = None` ⇒ `kind_supported` returns
+  false) until its layout is live-verified and added to `enumerate.rs` + `detect.rs`.
+  The backend `install_spec.plugin_ref` is agent-agnostic, so enabling it later is a
+  CLI-only follow-up.
+
 ## Live-verification checklist (MED/LOW surfaces)
 
 Tick after a real install loads the entry in the running agent; record the date +
@@ -58,10 +122,19 @@ agent version. Until ticked, treat the surface as best-effort.
       `Code` / `Code - Insiders` / `VSCodium` path is the one the running extension reads.
 - [ ] **windsurf — MCP apply-on-restart**: confirm the merged `mcp_config.json`
       entry is picked up after a Cascade restart.
+- [ ] **rules dest paths** (cursor `.mdc`, windsurf `.md`, cline `Rules/`,
+      copilot `.github/instructions/*.instructions.md`): confirm a copied rules file
+      is the one each running agent reads.
+- [ ] **claude-code — hook apply**: confirm a merged `settings.json` `hooks` block
+      fires in a running session.
+- [ ] **openclaw — hook config file**: confirm `~/.openclaw/openclaw.json` is where a
+      running OpenClaw reads its `hooks` block (the probe-and-adapt target).
+- [ ] **openclaw — plugin layout** (currently gated OFF): document + verify before
+      flipping `plugin_dir` on in `detect.rs`.
 
 Out-of-scope surfaces (NOT written by this CLI — no live-verify needed here):
-Windsurf hooks (`.windsurf/hooks.json`), Cline/Cursor Rules, Gemini skill dir,
-Codex `openai.yaml`.
+Gemini skill dir, Codex `openai.yaml`. (Windsurf hooks remain MCP-only here — the
+hook shape is wired for claude-code + openclaw only.)
 
 ## Read-only enumeration reuse (`scan --local`, D-05-27)
 

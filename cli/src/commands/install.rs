@@ -85,8 +85,8 @@ pub async fn run_install(
         resolve_conflict(args, inter, output, &mut records, idx)?;
     }
 
-    // 8. Build the resolved item (downloads the skill zip if needed).
-    let resolved = build_resolved_item(&api, &detail.item, &kind, output).await?;
+    // 8. Build the resolved item (downloads the artifact bytes when needed).
+    let resolved = build_resolved_item(&api, &detail, &kind, output).await?;
 
     if args.dry_run {
         return print_plan(output, &chosen, &resolved);
@@ -600,38 +600,178 @@ fn derive_mcp_entry(item: &CatalogItemSummary) -> Value {
     json!({ "command": "npx", "args": ["-y", pkg], "env": {} })
 }
 
+/// A clear error when one of the config-bearing kinds (rules/hook/plugin) was
+/// scanned before install specs were recorded (a pre-feature scan → null spec).
+fn needs_rescan_err(kind: &str) -> SsError {
+    SsError::new(
+        ERR_WRITER_UNSUPPORTED,
+        format!("This {kind} was scanned before install details were recorded."),
+    )
+    .with_suggestion(
+        "It will be re-scanned automatically — retry shortly, or open its page to trigger a rescan.",
+    )
+}
+
+/// Read one entry's bytes from a downloaded snapshot `.zip` by its repo-relative
+/// path (the zip carries repo-relative paths — the scan's `file_hashes` keys).
+fn read_zip_entry(zip_bytes: &[u8], path: &str) -> Option<Vec<u8>> {
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).ok()?;
+    let want = path.replace('\\', "/");
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).ok()?;
+        if entry.name().replace('\\', "/") == want {
+            let mut buf = Vec::new();
+            std::io::Read::read_to_end(&mut entry, &mut buf).ok()?;
+            return Some(buf);
+        }
+    }
+    None
+}
+
+/// The `hooks` block carried by a hook anchor file — the file's `hooks` value, or
+/// the file itself when its top-level keys ARE the events. Parsed as JSONC so a
+/// commented `settings.json` is tolerated.
+fn hook_block_from_bytes(bytes: &[u8]) -> Option<Value> {
+    let text = String::from_utf8_lossy(bytes);
+    let v: Value =
+        jsonc_parser::parse_to_serde_value(&text, &jsonc_parser::ParseOptions::default())
+            .ok()
+            .flatten()?;
+    if let Some(hooks) = v.get("hooks") {
+        return Some(hooks.clone());
+    }
+    v.is_object().then_some(v)
+}
+
+/// The synthesized marketplace cache-dir name `<mp>` for a plugin install. We
+/// control both the write (`install_plugin`) and the read (`verify`/enumerate), so
+/// a stable derived id from the repo coordinates is sufficient + reversible.
+fn plugin_marketplace_name(item: &CatalogItemSummary) -> String {
+    match (&item.github_org, &item.github_repo) {
+        (Some(o), Some(r)) => format!("{o}-{r}"),
+        _ => capability_name(&item.slug, &item.kind),
+    }
+}
+
+async fn download_snapshot_zip(
+    api: &Api,
+    slug: &str,
+    output: &OutputConfig,
+    label: &str,
+) -> Result<Vec<u8>, SsError> {
+    let spinner = output.create_spinner(label);
+    let zip = api.download_item_zip(slug).await;
+    if let Some(pb) = spinner {
+        pb.finish_and_clear();
+    }
+    zip
+}
+
 pub(crate) async fn build_resolved_item(
     api: &Api,
-    item: &CatalogItemSummary,
+    detail: &ItemDetailResponse,
     kind: &str,
     output: &OutputConfig,
 ) -> Result<ResolvedItem, SsError> {
+    let item = &detail.item;
     let name = capability_name(&item.slug, kind);
+    let scan = detail.latest_scan.as_ref();
+    let spec = scan.and_then(|s| s.install_spec.as_ref());
+    let component_path = scan.and_then(|s| s.component_path.clone());
+    let base = ResolvedItem {
+        slug: item.slug.clone(),
+        name: name.clone(),
+        kind: kind.to_string(),
+        ..Default::default()
+    };
     match kind {
-        "mcp_server" => Ok(ResolvedItem {
-            slug: item.slug.clone(),
-            name,
-            kind: kind.to_string(),
-            mcp_entry: Some(derive_mcp_entry(item)),
-            skill_zip: None,
-        }),
-        "skill" => {
-            let spinner = output.create_spinner("Downloading skill files…");
-            let zip = api.download_item_zip(&item.slug).await;
-            if let Some(pb) = spinner {
-                pb.finish_and_clear();
-            }
+        "mcp_server" => {
+            // Prefer the server-provided launch spec; else the legacy heuristic.
+            let from_spec = spec.and_then(|s| s.mcp_entry.clone());
+            let is_heuristic = from_spec.is_none();
+            let mcp_entry = from_spec.unwrap_or_else(|| derive_mcp_entry(item));
             Ok(ResolvedItem {
-                slug: item.slug.clone(),
-                name,
-                kind: kind.to_string(),
-                mcp_entry: None,
-                skill_zip: Some(zip?),
+                mcp_entry: Some(mcp_entry),
+                mcp_is_heuristic: is_heuristic,
+                ..base
+            })
+        }
+        "skill" => {
+            let zip =
+                download_snapshot_zip(api, &item.slug, output, "Downloading skill files…").await?;
+            Ok(ResolvedItem {
+                skill_zip: Some(zip),
+                ..base
+            })
+        }
+        "rules" => {
+            let spec = spec.ok_or_else(|| needs_rescan_err(kind))?;
+            let rule_path = spec
+                .rules_files
+                .as_ref()
+                .and_then(|f| f.first())
+                .map(|f| f.path.clone())
+                .or_else(|| component_path.clone())
+                .ok_or_else(|| needs_rescan_err(kind))?;
+            let zip = download_snapshot_zip(api, &item.slug, output, "Downloading rules…").await?;
+            let body = read_zip_entry(&zip, &rule_path).ok_or_else(|| {
+                SsError::new(
+                    ERR_WRITER_UNSUPPORTED,
+                    format!("The rules file `{rule_path}` was not in the snapshot."),
+                )
+            })?;
+            Ok(ResolvedItem {
+                rules_body: Some(body),
+                ..base
+            })
+        }
+        "hook" => {
+            let _spec = spec.ok_or_else(|| needs_rescan_err(kind))?;
+            let anchor = component_path
+                .clone()
+                .ok_or_else(|| needs_rescan_err(kind))?;
+            let zip = download_snapshot_zip(api, &item.slug, output, "Downloading hook…").await?;
+            let file = read_zip_entry(&zip, &anchor).ok_or_else(|| {
+                SsError::new(
+                    ERR_WRITER_UNSUPPORTED,
+                    format!("The hook file `{anchor}` was not in the snapshot."),
+                )
+            })?;
+            let hook_entry = hook_block_from_bytes(&file).ok_or_else(|| {
+                SsError::new(
+                    ERR_WRITER_UNSUPPORTED,
+                    "The hook file has no recognizable `hooks` block.",
+                )
+            })?;
+            Ok(ResolvedItem {
+                hook_entry: Some(hook_entry),
+                ..base
+            })
+        }
+        "plugin" => {
+            let spec = spec.ok_or_else(|| needs_rescan_err(kind))?;
+            let pref = spec.plugin_ref.clone().unwrap_or_default();
+            let plugin_name = pref.name.unwrap_or_else(|| name.clone());
+            let version = pref
+                .version
+                .or_else(|| {
+                    scan.and_then(|s| s.ref_sha.as_ref())
+                        .map(|s| s[..s.len().min(7)].to_string())
+                })
+                .unwrap_or_else(|| "0.0.0".to_string());
+            let zip = download_snapshot_zip(api, &item.slug, output, "Downloading plugin…").await?;
+            Ok(ResolvedItem {
+                name: plugin_name,
+                plugin_zip: Some(zip),
+                component_path,
+                plugin_marketplace: Some(plugin_marketplace_name(item)),
+                plugin_version: Some(version),
+                ..base
             })
         }
         other => Err(SsError::new(
             ERR_WRITER_UNSUPPORTED,
-            format!("This CLI installs Skills + MCP servers; `{other}` is not supported."),
+            format!("`{other}` is not an installable capability kind."),
         )),
     }
 }
@@ -677,7 +817,7 @@ fn install_to_agents(
             }
         }
     }
-    if resolved.kind == "mcp_server" {
+    if resolved.kind == "mcp_server" && resolved.mcp_is_heuristic {
         output.print_substep(
             "Verify the MCP launch command in your config — SaferSkills used a best-effort default.",
         );
@@ -773,8 +913,7 @@ pub(crate) fn verify_record(record: &InstallRecord) -> Vec<(AgentId, VerifyStatu
         slug: record.slug.clone(),
         name: capability_name(&record.slug, &record.kind),
         kind: record.kind.clone(),
-        mcp_entry: None,
-        skill_zip: None,
+        ..Default::default()
     };
     for agent_id in &record.agents {
         let Some(id) = AgentId::from_canonical(agent_id) else {
@@ -967,8 +1106,10 @@ mod tests {
                 scanned_at: None,
                 rubric_version: None,
                 engine_version: None,
+                ref_sha: None,
                 component_path: None,
                 scan_run_id: None,
+                install_spec: None,
             }),
         }
     }

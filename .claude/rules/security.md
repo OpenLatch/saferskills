@@ -58,6 +58,8 @@ The **durable auto-scan pipeline** (`ingestion.md` § Durable auto-scan pipeline
 
 **Finding `evidence_excerpt` is report-DTO-only, never a trace field.** The explainable-finding report (the v3 `FindingDetail` card) shows the matched-line window verbatim so a reader sees the exact value spotted. Those lines are resolved at request time **from the stored snapshot** (`app/services/finding_evidence.py` → `artifact_bytes.resolve_snapshot`; public `artifact_blobs` or the token-gated `upload_files`) and carried **only on the report response** (`FindingResponse.evidence_excerpt` / the inline `evidenceExcerpt` in the two report schemas). It is the same already-public/published bytes the snapshot tier already exposes — NOT new disclosure. The `findings` table and the scan **trace** stay hash-only (this invariant is unchanged): the excerpt is never persisted on `findings`, never written into a trace, and degrades to absent when the snapshot has no bytes (binary / oversize / expired).
 
+**`scans.install_spec` is stored-snapshot tier, never a trace field.** The per-capability install descriptor (`{kind, mcp_entry, hook_events, rules_files, plugin_ref}`) the `saferskills` CLI consumes is derived by `app/scan/discovery.py::build_install_spec` from the SAME already-public scanned bytes the snapshot tier serves (a config manifest's launch command, a hook's event names, a plugin's name/version, a rules file's path) — config coordinates, not artifact payload. It is persisted on `scans` (a `0018` JSONB column) + surfaced on the report DTO, but it is **NEVER** folded into a finding, written onto the `findings` table, or placed in a scan **trace** (this no-raw-payload invariant is unchanged). It is reproduction of already-public config, not new disclosure; the vendor-appeal deletion path clears it with the rest of the scan.
+
 ## Public-input handling
 
 Every user-submitted GitHub URL is treated as untrusted:
@@ -97,3 +99,4 @@ Every user-submitted GitHub URL is treated as untrusted:
 | Upload validation / zip-safety / token-redaction change | "Public-input handling" #8/#9 + `app/scan/upload.py` + `app/core/log_redaction.py` |
 | Access-log writer / IP-redaction change | `privacy.md` + `app/core/access_log_middleware.py` (redact at write time; never store raw IP) |
 | Finding `evidence_excerpt` (explainable findings) change | "Scan-trace transparency" (report-DTO-only, snapshot-sourced) + `app/services/finding_evidence.py` — re-verify the `findings` table + trace stay hash-only |
+| `scans.install_spec` (CLI install descriptor) change | "Scan-trace transparency" (stored-snapshot tier, never a trace field) + `app/scan/discovery.py::build_install_spec` + `database.md` § Migrations — re-verify it is never folded into a finding/trace |

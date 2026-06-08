@@ -19,5 +19,6 @@ pub fn writer() -> Box<dyn ConfigWriter> {
         key: KeyShape::Openclaw,
         url_field: "url",
         supports_project: true,
+        rules_ext: "",
     })
 }

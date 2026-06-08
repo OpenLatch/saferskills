@@ -136,3 +136,8 @@ class ScanReportDetail(OrmBaseModel):
     # scan belongs to a repo scan run (one capability of several in the repo).
     component_path: str | None = None
     scan_run_id: str | None = None
+    # Per-capability install descriptor the `saferskills` CLI consumes to
+    # install/uninstall/update this capability across compatible agents. Null for
+    # kinds with no config (skill) + pre-feature scans. Snapshot-tier (already-public
+    # bytes); NEVER a scan-trace field. See app/scan/discovery.py::build_install_spec.
+    install_spec: dict[str, Any] | None = None

@@ -9,6 +9,7 @@ from app.scan.discovery import (
     KIND_RULES,
     KIND_SKILL,
     Capability,
+    build_install_spec,
     discover_capabilities,
 )
 
@@ -267,3 +268,77 @@ def test_upload_flat_mcp_json_keeps_declared_name() -> None:
     by_path = {c.component_path: c for c in caps}
     assert by_path["mcp.json"].kind == KIND_MCP
     assert by_path["mcp.json"].name == "gh-mcp"
+
+
+# ── install_spec extraction (CLI install descriptor, D-05-16 extension) ──────
+
+
+def test_install_spec_mcp_from_package_json_mcpservers() -> None:
+    spec = build_install_spec(
+        KIND_MCP,
+        [
+            (
+                "srv/package.json",
+                _b(
+                    '{"name":"x","mcpServers":{"gh":{"command":"npx","args":["-y","gh"],"env":{}}}}'
+                ),
+            )
+        ],
+        "srv",
+    )
+    assert spec is not None
+    assert spec["kind"] == KIND_MCP
+    assert spec["mcp_entry"] == {"command": "npx", "args": ["-y", "gh"], "env": {}}
+
+
+def test_install_spec_mcp_url_transport_normalizes() -> None:
+    spec = build_install_spec(
+        KIND_MCP, [("srv/mcp.json", _b('{"serverUrl":"https://x/mcp"}'))], "srv"
+    )
+    assert spec is not None
+    assert spec["mcp_entry"] == {"url": "https://x/mcp"}
+
+
+def test_install_spec_hook_events_from_settings() -> None:
+    spec = build_install_spec(
+        KIND_HOOK,
+        [(".claude/settings.json", _b('{"hooks":{"PreToolUse":[],"Stop":[]}}'))],
+        ".claude/settings.json",
+    )
+    assert spec is not None
+    assert spec["kind"] == KIND_HOOK
+    assert set(spec["hook_events"]) == {"PreToolUse", "Stop"}  # type: ignore[arg-type]
+
+
+def test_install_spec_plugin_ref_from_manifest() -> None:
+    spec = build_install_spec(
+        KIND_PLUGIN, [(".claude-plugin/plugin.json", _b('{"name":"ksail","version":"1.2.3"}'))], ""
+    )
+    assert spec is not None
+    assert spec["plugin_ref"] == {"name": "ksail", "version": "1.2.3", "marketplace_git": None}
+
+
+def test_install_spec_rules_classifies_target() -> None:
+    mdc = build_install_spec(KIND_RULES, [], ".cursor/rules/a.mdc")
+    assert mdc is not None
+    assert mdc["rules_files"] == [{"path": ".cursor/rules/a.mdc", "target": "cursor_mdc"}]
+    win = build_install_spec(KIND_RULES, [], "x/.windsurfrules")
+    assert win is not None
+    assert win["rules_files"] == [{"path": "x/.windsurfrules", "target": "windsurfrules"}]
+
+
+def test_install_spec_skill_is_none() -> None:
+    assert build_install_spec(KIND_SKILL, [("SKILL.md", _b("---\nname: a\n---\n"))], "") is None
+
+
+def test_discover_populates_install_spec_on_capability() -> None:
+    # End-to-end: a discovered plugin capability carries its install_spec.
+    caps = discover_capabilities(
+        [
+            (".claude-plugin/plugin.json", _b('{"name":"ksail","version":"0.1.0"}')),
+            ("README.md", _b("# ksail")),
+        ]
+    )
+    plugin = next(c for c in caps if c.kind == KIND_PLUGIN)
+    assert plugin.install_spec is not None
+    assert plugin.install_spec["plugin_ref"]["name"] == "ksail"  # type: ignore[index]

@@ -102,6 +102,7 @@ def build_scan_report_detail(
             "ref_sha": scan.ref_sha,
             "component_path": scan.component_path,
             "scan_run_id": str(scan.scan_run_id) if scan.scan_run_id is not None else None,
+            "install_spec": scan.install_spec,
         }
     )
 

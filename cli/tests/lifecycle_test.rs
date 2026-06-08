@@ -19,11 +19,12 @@ fn mcp_item() -> ResolvedItem {
         name: "github".into(),
         kind: "mcp_server".into(),
         mcp_entry: Some(serde_json::json!({"command":"npx","args":["-y","acme/repo"],"env":{}})),
-        skill_zip: None,
+        ..Default::default()
     }
 }
 
-/// Build a DetectedAgent pointing at tempdir paths for `id`.
+/// Build a DetectedAgent pointing at tempdir paths for `id`. All capability
+/// surfaces are wired to the tempdir so the per-kind round-trips can target them.
 fn agent_at(id: AgentId, root: &std::path::Path) -> DetectedAgent {
     let config = if id == AgentId::Codex {
         root.join("config.toml")
@@ -38,6 +39,9 @@ fn agent_at(id: AgentId, root: &std::path::Path) -> DetectedAgent {
         version: None,
         mcp_config_path: config,
         skill_dir: Some(root.join("skills")),
+        rules_dir: Some(root.join("rules")),
+        hooks_path: Some(root.join("settings.json")),
+        plugin_dir: Some(root.join("plugins")),
         scope: Scope::Global,
     }
 }
@@ -97,6 +101,9 @@ fn copilot_vscode_surface_uses_servers_key() {
         version: None,
         mcp_config_path: vscode.join("mcp.json"),
         skill_dir: None,
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: None,
         scope: Scope::Project,
     };
     let writer = writers::writer_for(AgentId::Copilot);
@@ -146,8 +153,8 @@ fn skill_round_trip_for_claude() {
         slug: "acme--kit--skill-github".into(),
         name: "github".into(),
         kind: "skill".into(),
-        mcp_entry: None,
         skill_zip: Some(buf),
+        ..Default::default()
     };
     let changes = writer.install(&item, &agent, false).unwrap();
     assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
@@ -174,6 +181,9 @@ fn claude_fixture_preserves_comment_and_restores_byte_for_byte() {
         version: None,
         mcp_config_path: path.clone(),
         skill_dir: None,
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: None,
         scope: Scope::Global,
     };
     let writer = writers::writer_for(AgentId::ClaudeCode);
@@ -208,6 +218,9 @@ fn codex_fixture_preserves_comment_and_restores() {
         version: None,
         mcp_config_path: path.clone(),
         skill_dir: None,
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: None,
         scope: Scope::Global,
     };
     let writer = writers::writer_for(AgentId::Codex);
@@ -243,6 +256,9 @@ fn openclaw_probes_existing_nested_key_shape() {
         version: None,
         mcp_config_path: path.clone(),
         skill_dir: None,
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: None,
         scope: Scope::Global,
     };
     let writer = writers::writer_for(AgentId::Openclaw);
@@ -253,4 +269,178 @@ fn openclaw_probes_existing_nested_key_shape() {
     assert!(raw.contains("\"servers\""));
     assert!(writer.verify(&item, &agent) == VerifyStatus::Ok);
     writer.uninstall(&changes).unwrap();
+}
+
+// ── rules / hook / plugin install shapes (every-kind expansion) ──────────────
+
+#[test]
+fn rules_round_trip_for_each_compatible_agent() {
+    // rules → cursor / windsurf / cline / copilot, each with its own extension.
+    for (id, ext) in [
+        (AgentId::Cursor, ".mdc"),
+        (AgentId::Windsurf, ".md"),
+        (AgentId::Cline, ".md"),
+        (AgentId::Copilot, ".instructions.md"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_at(id, dir.path());
+        let writer = writers::writer_for(id);
+        let item = ResolvedItem {
+            slug: "acme--repo--rules-style".into(),
+            name: "style".into(),
+            kind: "rules".into(),
+            rules_body: Some(b"# Be consistent".to_vec()),
+            ..Default::default()
+        };
+        let changes = writer
+            .install(&item, &agent, false)
+            .unwrap_or_else(|e| panic!("{id} rules install: {}", e.message));
+        assert_eq!(
+            writer.verify(&item, &agent),
+            VerifyStatus::Ok,
+            "{id}: verify"
+        );
+        let expected = agent
+            .rules_dir
+            .as_ref()
+            .unwrap()
+            .join(format!("style{ext}"));
+        assert!(expected.exists(), "{id}: expected {}", expected.display());
+        writer.uninstall(&changes).unwrap();
+        assert_eq!(
+            writer.verify(&item, &agent),
+            VerifyStatus::Missing,
+            "{id}: after uninstall"
+        );
+    }
+}
+
+#[test]
+fn hook_round_trip_and_byte_for_byte_restore() {
+    let dir = tempfile::tempdir().unwrap();
+    let settings = dir.path().join("settings.json");
+    // A pre-existing hooks block + a sibling comment that must survive.
+    let before = "{\n  // user's own comment\n  \"hooks\": {\n    \"PreToolUse\": []\n  }\n}\n";
+    std::fs::write(&settings, before).unwrap();
+    let agent = DetectedAgent {
+        id: AgentId::ClaudeCode,
+        version: None,
+        mcp_config_path: dir.path().join("mcp.json"),
+        skill_dir: None,
+        rules_dir: None,
+        hooks_path: Some(settings.clone()),
+        plugin_dir: None,
+        scope: Scope::Global,
+    };
+    let item = ResolvedItem {
+        slug: "acme--repo--hook-guard".into(),
+        name: "guard".into(),
+        kind: "hook".into(),
+        hook_entry: Some(serde_json::json!({
+            "PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo hi"}]}]
+        })),
+        ..Default::default()
+    };
+    let writer = writers::writer_for(AgentId::ClaudeCode);
+    let changes = writer.install(&item, &agent, false).unwrap();
+    let after = std::fs::read_to_string(&settings).unwrap();
+    assert!(
+        after.contains("user's own comment"),
+        "comment preserved:\n{after}"
+    );
+    assert!(after.contains("PostToolUse"), "new event merged:\n{after}");
+    assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
+
+    writer.uninstall(&changes).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&settings).unwrap(),
+        before,
+        "byte-for-byte restore"
+    );
+    assert_eq!(writer.verify(&item, &agent), VerifyStatus::Missing);
+}
+
+#[test]
+fn plugin_install_lands_and_enumerate_rediscovers() {
+    use saferskills::agents::enumerate::{enumerate_from, CapKind};
+
+    let dir = tempfile::tempdir().unwrap();
+    let plugins_root = dir.path().join("plugins");
+
+    // A minimal plugin bundle zip — the `.claude-plugin/plugin.json` anchor.
+    let mut buf = Vec::new();
+    {
+        use std::io::Write as _;
+        let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+        let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
+        w.start_file(".claude-plugin/plugin.json", opts).unwrap();
+        w.write_all(br#"{"name":"ksail","version":"0.1.0"}"#)
+            .unwrap();
+        w.finish().unwrap();
+    }
+
+    let agent = DetectedAgent {
+        id: AgentId::ClaudeCode,
+        version: None,
+        mcp_config_path: dir.path().join("mcp.json"),
+        skill_dir: None,
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: Some(plugins_root.clone()),
+        scope: Scope::Global,
+    };
+    let item = ResolvedItem {
+        slug: "devantler-tech--ksail--plugin-ksail".into(),
+        name: "ksail".into(),
+        kind: "plugin".into(),
+        plugin_zip: Some(buf),
+        component_path: Some(String::new()),
+        plugin_marketplace: Some("devantler-tech-ksail".into()),
+        plugin_version: Some("0.1.0".into()),
+        ..Default::default()
+    };
+    let writer = writers::writer_for(AgentId::ClaudeCode);
+    let changes = writer.install(&item, &agent, false).unwrap();
+    assert_eq!(changes.len(), 2, "version dir + ledger entry");
+
+    let vdir = plugins_root
+        .join("cache")
+        .join("devantler-tech-ksail")
+        .join("ksail")
+        .join("0.1.0");
+    assert!(
+        vdir.join(".claude-plugin").join("plugin.json").exists(),
+        "version dir populated"
+    );
+    let ledger = std::fs::read_to_string(plugins_root.join("installed_plugins.json")).unwrap();
+    assert!(
+        ledger.contains("ksail@devantler-tech-ksail"),
+        "ledger entry: {ledger}"
+    );
+    assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
+
+    // Close the read/write loop: the local-audit enumerator re-discovers it.
+    // (enumerate derives the Claude root from skill_dir.parent(), so give one.)
+    let enum_agent = DetectedAgent {
+        id: AgentId::ClaudeCode,
+        version: None,
+        mcp_config_path: dir.path().join("mcp.json"),
+        skill_dir: Some(dir.path().join("skills")),
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: Some(plugins_root.clone()),
+        scope: Scope::Global,
+    };
+    let found = enumerate_from(&[enum_agent]);
+    assert!(
+        found
+            .capabilities
+            .iter()
+            .any(|c| c.kind == CapKind::Plugin && c.name == "ksail"),
+        "enumerate should re-discover the installed plugin"
+    );
+
+    writer.uninstall(&changes).unwrap();
+    assert!(!vdir.exists(), "version dir removed on uninstall");
+    assert_eq!(writer.verify(&item, &agent), VerifyStatus::Missing);
 }

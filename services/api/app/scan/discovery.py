@@ -82,12 +82,17 @@ class Capability:
     `file_subset` is the slice of the repo the engine scores for this capability
     (its own subtree plus the repo-wide files). `component_path` is the relative
     path that anchors it ("" for a root / whole-repo capability).
+
+    `install_spec` is the per-capability install descriptor the `saferskills`
+    install CLI consumes (`build_install_spec`); None for kinds with no config
+    (skill / unknown).
     """
 
     kind: str
     name: str
     component_path: str
     file_subset: list[tuple[str, bytes]]
+    install_spec: dict[str, object] | None = None
 
 
 @dataclass
@@ -143,15 +148,18 @@ def _frontmatter_name(content: bytes) -> str | None:
     return None
 
 
-def _json_field(content: bytes, field: str) -> object:
-    text = content.decode("utf-8", errors="replace")
+def _json_parse(content: bytes) -> dict[str, object] | None:
+    """Parse `content` as a JSON object, or None when it is not a JSON dict."""
     try:
-        parsed: object = json.loads(text)
+        parsed: object = json.loads(content.decode("utf-8", errors="replace"))
     except ValueError:
         return None
-    if isinstance(parsed, dict):
-        return cast("dict[str, object]", parsed).get(field)
-    return None
+    return cast("dict[str, object]", parsed) if isinstance(parsed, dict) else None
+
+
+def _json_field(content: bytes, field: str) -> object:
+    parsed = _json_parse(content)
+    return parsed.get(field) if parsed is not None else None
 
 
 def _json_str(content: bytes, field: str) -> str | None:
@@ -348,11 +356,182 @@ def _upload_loose_fanout(file_index: list[tuple[str, bytes]]) -> list[Capability
             name=comp.name,
             component_path=comp.component_path,
             file_subset=[(path, content), *repo_wide],
+            install_spec=build_install_spec(
+                comp.kind, [(path, content), *repo_wide], comp.component_path
+            ),
         )
         for comp, (path, content) in zip(comps, loose, strict=True)
     ]
     capabilities.sort(key=lambda c: (c.kind, c.name, c.component_path))
     return capabilities
+
+
+# ── install-spec extraction (CLI install descriptor) ────────────────────────
+#
+# The install CLI (`saferskills install`) needs the per-capability config bytes to
+# install/uninstall/update across compatible agents. The scan already parses every
+# install-relevant byte during discovery; `build_install_spec` re-derives a compact
+# descriptor from the SAME already-public bytes (stored-snapshot tier). Keys are
+# snake_case to match the wire; the `mcp_entry` value keeps its literal launch-config
+# keys (`command`/`args`/`env`/`url`) since the CLI merges it verbatim.
+
+# Closed set of Claude hook event names — used to recognize a bare hook block whose
+# top-level keys ARE the events (no enclosing `hooks` wrapper).
+_HOOK_EVENTS: frozenset[str] = frozenset(
+    {
+        "PreToolUse",
+        "PostToolUse",
+        "UserPromptSubmit",
+        "Notification",
+        "Stop",
+        "SubagentStop",
+        "PreCompact",
+        "SessionStart",
+        "SessionEnd",
+    }
+)
+
+
+def _content_at(file_subset: list[tuple[str, bytes]], path: str) -> bytes | None:
+    target = _posix(path)
+    for p, content in file_subset:
+        if _posix(p) == target:
+            return content
+    return None
+
+
+def _content_in_dir(
+    file_subset: list[tuple[str, bytes]], component_path: str, basenames: set[str]
+) -> bytes | None:
+    """First file directly inside `component_path` whose lowercase basename matches."""
+    for p, content in file_subset:
+        posix = _posix(p)
+        if _dirname(posix) == component_path and _basename(posix).lower() in basenames:
+            return content
+    return None
+
+
+def _normalize_mcp_entry(obj: object) -> dict[str, object] | None:
+    """Reduce a launch object to `{command,args,env}` or `{url}` (CLI merge shape)."""
+    if not isinstance(obj, dict):
+        return None
+    o = cast("dict[str, object]", obj)
+    command = o.get("command")
+    if isinstance(command, str) and command:
+        entry: dict[str, object] = {"command": command}
+        args = o.get("args")
+        if isinstance(args, list):
+            entry["args"] = args
+        env = o.get("env")
+        if isinstance(env, dict):
+            entry["env"] = env
+        return entry
+    url = o.get("url") or o.get("serverUrl") or o.get("httpUrl")
+    if isinstance(url, str) and url:
+        return {"url": url}
+    return None
+
+
+def _mcp_entry(
+    file_subset: list[tuple[str, bytes]], component_path: str
+) -> dict[str, object] | None:
+    content = _content_in_dir(
+        file_subset, component_path, {"mcp.json", ".mcp.json", "package.json"}
+    )
+    if content is None:
+        return None
+    parsed = _json_parse(content)
+    if parsed is None:
+        return None
+    servers = parsed.get("mcpServers")
+    if isinstance(servers, dict) and servers:
+        first = next(iter(cast("dict[str, object]", servers).values()))
+        return _normalize_mcp_entry(first)
+    # A direct launch object (`mcp.json` carrying `command`/`url` at top level).
+    return _normalize_mcp_entry(parsed)
+
+
+def _hook_events(file_subset: list[tuple[str, bytes]], component_path: str) -> list[str] | None:
+    # A hook capability anchors on a single file (the hook json, or settings.json).
+    content = _content_at(file_subset, component_path)
+    parsed = _json_parse(content) if content is not None else None
+    if parsed is None:
+        return None
+    block = parsed.get("hooks")
+    if isinstance(block, dict):
+        events = list(cast("dict[str, object]", block).keys())
+    else:
+        events = [k for k in parsed if k in _HOOK_EVENTS]
+    return events or None
+
+
+def _plugin_ref(
+    file_subset: list[tuple[str, bytes]], component_path: str
+) -> dict[str, object] | None:
+    content = _content_in_dir(file_subset, component_path, {"plugin.json"})
+    if content is None:
+        manifest = (
+            f"{component_path}/.claude-plugin/plugin.json"
+            if component_path
+            else ".claude-plugin/plugin.json"
+        )
+        content = _content_at(file_subset, manifest)
+    parsed = _json_parse(content) if content is not None else None
+    if parsed is None:
+        return None
+    name = parsed.get("name")
+    version = parsed.get("version")
+    return {
+        "name": name if isinstance(name, str) and name else None,
+        "version": version if isinstance(version, str) and version else None,
+        # The marketplace git is not carried in plugin.json; the CLI derives the
+        # marketplace cache-dir from the repo coordinates. Kept for forward-compat.
+        "marketplace_git": None,
+    }
+
+
+def _rules_files(component_path: str) -> list[dict[str, str]] | None:
+    """A rules capability anchors on a single file; classify its source format."""
+    base = _basename(_posix(component_path)).lower()
+    if base == ".cursorrules":
+        target = "cursorrules"
+    elif base == ".windsurfrules":
+        target = "windsurfrules"
+    elif base.endswith(".mdc"):
+        target = "cursor_mdc"
+    else:
+        return None
+    return [{"path": _posix(component_path), "target": target}]
+
+
+def build_install_spec(
+    kind: str, file_subset: list[tuple[str, bytes]], component_path: str
+) -> dict[str, object] | None:
+    """Per-capability install descriptor for the `saferskills` CLI, derived from the
+    capability's own scanned bytes. None for kinds with no install config (skill /
+    unknown) or when the relevant manifest can't be parsed.
+    """
+    if kind == KIND_MCP:
+        entry = _mcp_entry(file_subset, component_path)
+        if entry is None:
+            return None
+        return {"kind": KIND_MCP, "mcp_entry": entry}
+    if kind == KIND_HOOK:
+        events = _hook_events(file_subset, component_path)
+        if events is None:
+            return None
+        return {"kind": KIND_HOOK, "hook_events": events}
+    if kind == KIND_PLUGIN:
+        ref = _plugin_ref(file_subset, component_path)
+        if ref is None:
+            return None
+        return {"kind": KIND_PLUGIN, "plugin_ref": ref}
+    if kind == KIND_RULES:
+        files = _rules_files(component_path)
+        if files is None:
+            return None
+        return {"kind": KIND_RULES, "rules_files": files}
+    return None
 
 
 def discover_capabilities(
@@ -377,7 +556,15 @@ def discover_capabilities(
 
     if not components:
         kind = _infer_fallback_kind(file_index)
-        return [Capability(kind=kind, name="", component_path="", file_subset=list(file_index))]
+        return [
+            Capability(
+                kind=kind,
+                name="",
+                component_path="",
+                file_subset=list(file_index),
+                install_spec=build_install_spec(kind, list(file_index), ""),
+            )
+        ]
 
     _disambiguate_names(components)
 
@@ -412,6 +599,7 @@ def discover_capabilities(
                 name=comp.name,
                 component_path=comp.component_path,
                 file_subset=subset,
+                install_spec=build_install_spec(comp.kind, subset, comp.component_path),
             )
         )
 

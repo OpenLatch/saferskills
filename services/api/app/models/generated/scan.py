@@ -115,6 +115,11 @@ class Scan(Base):
         nullable=False,
     )
 
+    install_spec: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     scan_run_id: Mapped[UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
         sa.ForeignKey("scan_runs.id", ondelete="SET NULL"),

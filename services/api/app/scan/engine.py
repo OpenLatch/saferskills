@@ -143,6 +143,7 @@ class CapabilityResult:
     name: str
     component_path: str
     result: ScanResult
+    install_spec: dict[str, Any] | None = None
 
 
 @dataclass
@@ -534,6 +535,7 @@ def score_capability(
         name=cap.name,
         component_path=cap.component_path,
         result=result,
+        install_spec=cap.install_spec,
     )
 
 

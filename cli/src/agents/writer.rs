@@ -1,16 +1,28 @@
 //! The `ConfigWriter` contract + the shared install engine (D-05-16, D-05-24).
 //!
-//! Two install shapes:
+//! Five install shapes — one per capability kind the platform catalogs:
 //! 1. **mcp_server** → a format-preserving additive map-merge keyed by server
 //!    name (`jsonc-parser` CST for JSON agents, `toml_edit` for Codex). Comments
 //!    and key order survive; the prior value is captured so an uninstall restores
 //!    exactly.
 //! 2. **skill** → a filesystem folder copy of the capability's `SKILL.md` tree
 //!    (downloaded as the SaferSkills snapshot `.zip`) into the agent's skills dir.
+//! 3. **rules** → a single-file copy into the agent's rules dir with the agent's
+//!    own extension (`.mdc` Cursor, `.md` Windsurf/Cline, `.instructions.md`
+//!    Copilot) — an [`InstallChange::File`].
+//! 4. **hook** → a per-event JSONC merge into the agent's `settings.json` `hooks`
+//!    block; each event records a `hooks.<event>` [`InstallChange::ConfigKey`] so
+//!    uninstall byte-restores via the shared `restore_json_key`.
+//! 5. **plugin** → a native bundle install (NOT shelling out to `claude`): the
+//!    `.zip` is extracted into `<plugins>/cache/<mp>/<plugin>/<ver>/` + a ledger
+//!    entry merged into `installed_plugins.json` (the exact layout the local-audit
+//!    enumerator reads back), recorded as a `File` + a `ConfigKey`.
 //!
 //! Every mutation is recorded as an [`InstallChange`] BEFORE the registry row is
 //! written, so a partial failure can be reverted in LIFO order (D-05-24). Writes
 //! are atomic (temp → fsync → rename) via [`crate::core::config::atomic_write`].
+//! Uninstall/update/rollback/doctor all fall out of replaying these changes — a
+//! new kind gets them for free once its install records the right `InstallChange`s.
 
 use std::fs;
 use std::io::{Cursor, Read};
@@ -57,17 +69,33 @@ pub enum VerifyStatus {
 /// A resolved capability ready to install. The install flow ([`crate::commands::
 /// install`]) builds this from the catalog item: an `mcp_entry` for an MCP server
 /// (the `{command,args,env}` / URL object) or `skill_zip` bytes for a skill.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ResolvedItem {
     pub slug: String,
     /// The server/skill name — the MCP registry key + the skill folder name.
     pub name: String,
-    /// `skill` | `mcp_server` | …
+    /// `skill` | `mcp_server` | `rules` | `hook` | `plugin`
     pub kind: String,
     /// The MCP launch object to merge (mcp_server kind).
     pub mcp_entry: Option<Value>,
     /// The `.zip` bytes of the SKILL.md tree (skill kind).
     pub skill_zip: Option<Vec<u8>>,
+    /// The rules-file bytes to copy into the agent's rules dir (rules kind).
+    pub rules_body: Option<Vec<u8>>,
+    /// The `hooks` block to merge into the agent's settings.json (hook kind) —
+    /// an object of `{event: [matcher-groups]}`.
+    pub hook_entry: Option<Value>,
+    /// The `.zip` bytes of the plugin bundle subtree (plugin kind).
+    pub plugin_zip: Option<Vec<u8>>,
+    /// The capability subtree path (plugin kind) — stripped on zip extraction.
+    pub component_path: Option<String>,
+    /// The marketplace cache-dir name `<mp>` (plugin kind).
+    pub plugin_marketplace: Option<String>,
+    /// The plugin version dir name `<ver>` (plugin kind).
+    pub plugin_version: Option<String>,
+    /// True when the MCP launch entry was a best-effort heuristic (no server-side
+    /// `install_spec`) — the install flow then nudges the user to verify it.
+    pub mcp_is_heuristic: bool,
 }
 
 /// The install/uninstall/verify contract one agent's writer implements.
@@ -450,39 +478,46 @@ fn safe_join(base: &Path, rel: &str) -> Option<PathBuf> {
     Some(out)
 }
 
-/// Extract the skill `.zip` into `<skill_dir>/<name>/`, returning the folder root
-/// as the recorded change (uninstall removes the folder).
-pub fn install_skill(
-    skill_dir: &Path,
-    name: &str,
-    zip_bytes: &[u8],
-    dry_run: bool,
-) -> Result<InstallChange, SsError> {
-    let dest = skill_dir.join(name);
-    if dry_run {
-        return Ok(InstallChange::File {
-            path: path_str(&dest),
-        });
+/// Strip a `component_path` prefix from a zip entry's rel-path so a per-capability
+/// subtree extracts at the destination root. A repo-wide entry (LICENSE/README at
+/// the repo root, no prefix) is kept verbatim. Returns None for the prefix dir
+/// entry itself (nothing to write).
+fn strip_component_prefix(rel: &str, prefix: &str) -> Option<String> {
+    let rel = rel.replace('\\', "/");
+    if prefix.is_empty() {
+        return Some(rel);
     }
+    let prefix = prefix.trim_end_matches('/');
+    match rel.strip_prefix(prefix).and_then(|r| r.strip_prefix('/')) {
+        Some(s) if !s.is_empty() => Some(s.to_string()),
+        Some(_) => None,   // the prefix dir entry itself
+        None => Some(rel), // a sibling repo-wide file → keep at root
+    }
+}
 
+/// Extract a `.zip` into `dest`, stripping `strip_prefix` from each entry (zip-slip
+/// guarded). Shared by skill + plugin installs.
+fn unzip_into(dest: &Path, zip_bytes: &[u8], strip_prefix: &str) -> Result<(), SsError> {
     let mut archive = zip::ZipArchive::new(Cursor::new(zip_bytes))
-        .map_err(|e| SsError::new(ERR_WRITE_ROLLBACK, format!("Invalid skill archive: {e}")))?;
-    fs::create_dir_all(&dest).map_err(|e| {
+        .map_err(|e| SsError::new(ERR_WRITE_ROLLBACK, format!("Invalid archive: {e}")))?;
+    fs::create_dir_all(dest).map_err(|e| {
         SsError::new(
             ERR_WRITE_ROLLBACK,
             format!("Failed to create {}: {e}", dest.display()),
         )
     })?;
-
     for i in 0..archive.len() {
         let mut entry = archive
             .by_index(i)
-            .map_err(|e| SsError::new(ERR_WRITE_ROLLBACK, format!("Corrupt skill archive: {e}")))?;
-        let rel = entry.name().to_string();
-        let Some(target) = safe_join(&dest, &rel) else {
+            .map_err(|e| SsError::new(ERR_WRITE_ROLLBACK, format!("Corrupt archive: {e}")))?;
+        let raw = entry.name().to_string();
+        let Some(rel) = strip_component_prefix(&raw, strip_prefix) else {
+            continue;
+        };
+        let Some(target) = safe_join(dest, &rel) else {
             return Err(SsError::new(
                 ERR_WRITE_ROLLBACK,
-                format!("Refusing unsafe path in skill archive: {rel}"),
+                format!("Refusing unsafe path in archive: {raw}"),
             ));
         };
         if entry.is_dir() {
@@ -501,10 +536,261 @@ pub fn install_skill(
         })?;
         atomic_write(&target, &buf)?;
     }
+    Ok(())
+}
 
+/// Extract the skill `.zip` into `<skill_dir>/<name>/`, returning the folder root
+/// as the recorded change (uninstall removes the folder).
+pub fn install_skill(
+    skill_dir: &Path,
+    name: &str,
+    zip_bytes: &[u8],
+    dry_run: bool,
+) -> Result<InstallChange, SsError> {
+    let dest = skill_dir.join(name);
+    if dry_run {
+        return Ok(InstallChange::File {
+            path: path_str(&dest),
+        });
+    }
+    unzip_into(&dest, zip_bytes, "")?;
     Ok(InstallChange::File {
         path: path_str(&dest),
     })
+}
+
+// ─── rules file copy ─────────────────────────────────────────────────────────
+
+/// Copy a rules body to `<rules_dir>/<file_name>`, returning the file as the
+/// recorded change (uninstall removes it). Verify = the file exists.
+pub fn install_rules_file(
+    rules_dir: &Path,
+    file_name: &str,
+    body: &[u8],
+    dry_run: bool,
+) -> Result<InstallChange, SsError> {
+    let dest = rules_dir.join(file_name);
+    if !dry_run {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                SsError::new(
+                    ERR_WRITE_ROLLBACK,
+                    format!("Failed to create {}: {e}", parent.display()),
+                )
+            })?;
+        }
+        atomic_write(&dest, body)?;
+    }
+    Ok(InstallChange::File {
+        path: path_str(&dest),
+    })
+}
+
+// ─── hook settings.json merge ────────────────────────────────────────────────
+
+/// Merge a `hooks` block (`{event: [matcher-groups]}`) into `settings_path` under
+/// the top-level `hooks` key, preserving comments + order. Records ONE change per
+/// event — `ConfigKey { key: "hooks.<event>", prior: <prior event value> }` — so
+/// uninstall reuses the dotted-key `restore_json_key`: a NEW event is removed
+/// (prior `None` → byte-for-byte, untouched siblings preserved), an existing event
+/// is restored to its prior array. New events append; an existing event has the
+/// source matcher-groups appended to its array.
+pub fn merge_json_hook(
+    settings_path: &Path,
+    hook_block: &Value,
+    dry_run: bool,
+) -> Result<Vec<InstallChange>, SsError> {
+    let Value::Object(events) = hook_block else {
+        return Err(SsError::new(
+            ERR_WRITE_ROLLBACK,
+            "Hook spec is not an object of {event: [groups]}.",
+        ));
+    };
+    let source = read_or_empty(settings_path)?;
+    let root = parse_cst(&source, settings_path)?;
+    let root_obj = root.object_value_or_set();
+    let hooks = root_obj.object_value_or_set("hooks");
+
+    let mut changes = Vec::new();
+    for (event, groups) in events {
+        if !matches!(groups, Value::Array(_)) {
+            continue;
+        }
+        // Per-event prior captured BEFORE we touch it (None when the event is new).
+        let prior = hooks
+            .get(event)
+            .and_then(|p| p.value())
+            .and_then(|n| n.to_serde_value());
+        match hooks.get(event) {
+            Some(prop) => {
+                // Append the source matcher-groups to the existing event array.
+                let mut merged = match prop.value().and_then(|v| v.to_serde_value()) {
+                    Some(Value::Array(a)) => a,
+                    _ => Vec::new(),
+                };
+                if let Value::Array(new_groups) = groups {
+                    merged.extend(new_groups.iter().cloned());
+                }
+                prop.set_value(json_to_cst(&Value::Array(merged)));
+            }
+            None => {
+                hooks.append(event, json_to_cst(groups));
+            }
+        }
+        changes.push(InstallChange::ConfigKey {
+            file: path_str(settings_path),
+            key: format!("hooks.{event}"),
+            prior,
+        });
+    }
+
+    if !dry_run {
+        atomic_write(settings_path, root.to_string().as_bytes())?;
+    }
+    Ok(changes)
+}
+
+/// Verify a hook install — every `event` is present under `hooks` in the settings.
+pub fn verify_hook(settings_path: &Path, events: &[String]) -> VerifyStatus {
+    let Ok(source) = fs::read_to_string(settings_path) else {
+        return VerifyStatus::Missing;
+    };
+    let Ok(root) = CstRootNode::parse(
+        if source.trim().is_empty() {
+            "{}"
+        } else {
+            &source
+        },
+        &ParseOptions::default(),
+    ) else {
+        return VerifyStatus::Malformed;
+    };
+    let Some(obj) = root.object_value() else {
+        return VerifyStatus::Missing;
+    };
+    let Some(hooks) = obj.object_value("hooks") else {
+        return VerifyStatus::Missing;
+    };
+    if events.iter().all(|e| hooks.get(e).is_some()) {
+        VerifyStatus::Ok
+    } else {
+        VerifyStatus::Missing
+    }
+}
+
+// ─── plugin bundle install ───────────────────────────────────────────────────
+
+/// Install a plugin bundle the way Claude Code's own cache reads it (NOT shelling
+/// out to `claude`, which would forfeit the reversible-install guarantee):
+/// extract the `.zip` (prefix-stripped to `component_path`) into
+/// `<plugins_root>/cache/<mp>/<plugin>/<version>/`, then merge a ledger entry into
+/// `<plugins_root>/installed_plugins.json`. Records the version dir as a `File`
+/// change + the ledger as a `ConfigKey` (restoring the whole prior `plugins` map),
+/// so a LIFO uninstall removes both.
+#[allow(clippy::too_many_arguments)]
+pub fn install_plugin(
+    plugins_root: &Path,
+    mp: &str,
+    plugin: &str,
+    version: &str,
+    component_path: &str,
+    zip_bytes: &[u8],
+    dry_run: bool,
+) -> Result<Vec<InstallChange>, SsError> {
+    let version_dir = plugins_root
+        .join("cache")
+        .join(mp)
+        .join(plugin)
+        .join(version);
+    let ledger_path = plugins_root.join("installed_plugins.json");
+
+    // Ledger merge (records the prior whole `plugins` map for an exact restore).
+    let source = read_or_empty(&ledger_path)?;
+    let root = parse_cst(&source, &ledger_path)?;
+    let root_obj = root.object_value_or_set();
+    let prior = root_obj
+        .get("plugins")
+        .and_then(|p| p.value())
+        .and_then(|n| n.to_serde_value());
+    let plugins = root_obj.object_value_or_set("plugins");
+
+    let ledger_key = format!("{plugin}@{mp}");
+    let install = serde_json::json!({ "scope": "user", "version": version });
+    match plugins.get(&ledger_key) {
+        Some(prop) => {
+            // Existing entry → append this install to its `installs[]` (serde-land
+            // merge, then set the merged object back).
+            let mut entry = match prop.value().and_then(|v| v.to_serde_value()) {
+                Some(Value::Object(m)) => m,
+                _ => serde_json::Map::new(),
+            };
+            let mut installs = match entry.get("installs") {
+                Some(Value::Array(a)) => a.clone(),
+                _ => Vec::new(),
+            };
+            installs.push(install);
+            entry.insert("installs".to_string(), Value::Array(installs));
+            prop.set_value(json_to_cst(&Value::Object(entry)));
+        }
+        None => {
+            plugins.append(
+                &ledger_key,
+                json_to_cst(&serde_json::json!({ "installs": [install] })),
+            );
+        }
+    }
+
+    if !dry_run {
+        unzip_into(&version_dir, zip_bytes, component_path)?;
+        atomic_write(&ledger_path, root.to_string().as_bytes())?;
+    }
+    // File first, ConfigKey second → LIFO revert restores the ledger then the dir.
+    Ok(vec![
+        InstallChange::File {
+            path: path_str(&version_dir),
+        },
+        InstallChange::ConfigKey {
+            file: path_str(&ledger_path),
+            key: "plugins".to_string(),
+            prior,
+        },
+    ])
+}
+
+/// Verify a plugin install — the version dir exists AND the ledger lists it.
+pub fn verify_plugin(plugins_root: &Path, mp: &str, plugin: &str, version: &str) -> VerifyStatus {
+    let version_dir = plugins_root
+        .join("cache")
+        .join(mp)
+        .join(plugin)
+        .join(version);
+    if !version_dir.is_dir() {
+        return VerifyStatus::Missing;
+    }
+    let ledger_path = plugins_root.join("installed_plugins.json");
+    let Ok(source) = fs::read_to_string(&ledger_path) else {
+        return VerifyStatus::Missing;
+    };
+    let Ok(root) = CstRootNode::parse(
+        if source.trim().is_empty() {
+            "{}"
+        } else {
+            &source
+        },
+        &ParseOptions::default(),
+    ) else {
+        return VerifyStatus::Malformed;
+    };
+    let present = root
+        .object_value()
+        .and_then(|o| o.object_value("plugins"))
+        .and_then(|p| p.get(&format!("{plugin}@{mp}")))
+        .is_some();
+    if present {
+        VerifyStatus::Ok
+    } else {
+        VerifyStatus::Missing
+    }
 }
 
 fn remove_path(path: &str) -> Result<(), SsError> {
@@ -539,13 +825,17 @@ pub fn revert_changes(changes: &[InstallChange]) -> Result<(), SsError> {
     Ok(())
 }
 
-/// The shared "skill kind needs a skills dir" backstop used by skill-capable
-/// writers' `supports_kind`.
-pub fn skill_supported(kind: &str, agent: &DetectedAgent) -> bool {
+/// The shared kind-support backstop used by every writer's `supports_kind`. A
+/// writer can install `kind` for `agent` iff the agent exposes the surface that
+/// kind needs (the backend `agent_compatibility` is the outer filter, so a writer
+/// never sees a kind its agent can't take — this is the on-disk-surface check).
+pub fn kind_supported(kind: &str, agent: &DetectedAgent) -> bool {
     match kind {
         "mcp_server" => true,
         "skill" => agent.skill_dir.is_some(),
-        // hook / plugin / rules are not one of the two install shapes (D-05-16).
+        "rules" => agent.rules_dir.is_some(),
+        "hook" => agent.hooks_path.is_some(),
+        "plugin" => agent.plugin_dir.is_some(),
         _ => false,
     }
 }

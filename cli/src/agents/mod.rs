@@ -166,6 +166,15 @@ pub struct DetectedAgent {
     pub mcp_config_path: PathBuf,
     /// The skills directory (None for agents with no skill concept).
     pub skill_dir: Option<PathBuf>,
+    /// The rules directory a `rules` capability copies into (cursor / windsurf /
+    /// cline / copilot). None for agents with no rules surface.
+    pub rules_dir: Option<PathBuf>,
+    /// The `settings.json` a `hook` capability merges into (claude-code /
+    /// openclaw). None for agents with no hook surface.
+    pub hooks_path: Option<PathBuf>,
+    /// The `plugins/` root a `plugin` capability installs into (claude-code).
+    /// None for agents with no plugin surface.
+    pub plugin_dir: Option<PathBuf>,
     pub scope: Scope,
 }
 

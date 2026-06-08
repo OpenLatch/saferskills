@@ -298,12 +298,27 @@ impl Api {
 
     /// Resolve a typed name to a single catalog item.
     ///
+    /// 0. **Slug fast-path.** The webapp Install card emits the full catalog
+    ///    slug (`<org>--<repo>--<kind>-<name>`), which never surfaces via FTS
+    ///    `q=` (the hyphenated slug tokenizes to nothing and the display name is
+    ///    unrelated), so `install <slug>` would 404 despite the item existing.
+    ///    Any value carrying the `--` slug separator is therefore resolved by a
+    ///    direct `GET /items/{slug}` first; a 404 falls through to fuzzy search.
     /// 1. `search_items(name)` → `data[]`.
     /// 2. Exact (case-insensitive) match on `display_name`, `slug`, or the
     ///    `<name>` portion of the slug's trailing `<kind>-<name>` segment.
     /// 3. Else the top-`N` jaro_winkler matches (≥ threshold) become a
     ///    did-you-mean `SS-E-1200`, with the `scan` fallback line.
     pub async fn resolve(&self, name: &str) -> Result<CatalogItemSummary, SsError> {
+        if name.contains("--") {
+            match self.get_item(name).await {
+                Ok(detail) => return Ok(detail.item),
+                // Not a live slug — fall through to fuzzy did-you-mean search.
+                Err(e) if e.code == ERR_ITEM_NOT_FOUND => {}
+                Err(e) => return Err(e),
+            }
+        }
+
         let envelope = self.search_items(name, None).await?;
         let data = envelope.data;
 

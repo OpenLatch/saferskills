@@ -210,6 +210,48 @@ pub struct CatalogListEnvelope {
     pub page_size: i64,
 }
 
+/// The install descriptor the CLI consumes to install/uninstall/update a
+/// capability across compatible agents (mirrors `app/scan/discovery.py::
+/// build_install_spec`; snake_case keys). Every field `#[serde(default)]` for
+/// forward-compat — a pre-feature scan carries `install_spec: null` and the CLI
+/// falls back to its legacy behaviour.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct InstallSpec {
+    #[serde(default)]
+    pub kind: Option<String>,
+    /// The MCP launch object to merge (`{command,args,env}` or `{url}`).
+    #[serde(default)]
+    pub mcp_entry: Option<serde_json::Value>,
+    /// The hook event names this hook registers (`PreToolUse`, …).
+    #[serde(default)]
+    pub hook_events: Option<Vec<String>>,
+    /// Source rules files (path + source format).
+    #[serde(default)]
+    pub rules_files: Option<Vec<RulesFile>>,
+    /// Plugin coordinates (name/version/marketplace).
+    #[serde(default)]
+    pub plugin_ref: Option<PluginRef>,
+}
+
+/// One rules file in an `install_spec` — its repo path + source format.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RulesFile {
+    pub path: String,
+    #[serde(default)]
+    pub target: Option<String>,
+}
+
+/// Plugin coordinates carried on an `install_spec`.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct PluginRef {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub marketplace_git: Option<String>,
+}
+
 /// A per-capability scan report (`GET /scans/{scan_id}`, and `latest_scan` on
 /// the item detail).
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -232,9 +274,14 @@ pub struct ScanReportDetail {
     #[serde(default)]
     pub engine_version: Option<String>,
     #[serde(default)]
+    pub ref_sha: Option<String>,
+    #[serde(default)]
     pub component_path: Option<String>,
     #[serde(default)]
     pub scan_run_id: Option<String>,
+    /// Per-capability install descriptor (null for skill + pre-feature scans).
+    #[serde(default)]
+    pub install_spec: Option<InstallSpec>,
 }
 
 /// The item-detail response (`GET /items/{slug}`). Only the fields the CLI
