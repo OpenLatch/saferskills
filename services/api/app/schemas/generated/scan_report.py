@@ -290,3 +290,8 @@ class ScanReport(OrmBaseModel):
         None,
         description="What triggered this scan. `rescan_rules` = an automatic re-evaluation of an already-scanned capability after a rubric/engine version bump (re-scored from stored bytes, no GitHub re-fetch).",
     )
+    install_spec: dict[str, Any] | None = Field(
+        None,
+        alias="installSpec",
+        description="Per-capability install descriptor the `saferskills` CLI consumes to install/uninstall this capability across compatible agents (D-05-16 extension). Derived from the same already-public scanned bytes the snapshot tier serves — stored-snapshot tier, NEVER a scan-trace field and NEVER folded into a finding. Null for kinds with no config (skill) and for pre-feature scans (repopulated by the `rescan_rules` trigger). Shape (snake_case keys): `{kind, mcp_entry, hook_events, rules_files, plugin_ref}` — see app/scan/discovery.py::build_install_spec.",
+    )

@@ -18,5 +18,6 @@ pub fn writer() -> Box<dyn ConfigWriter> {
         key: KeyShape::CopilotSurface,
         url_field: "url",
         supports_project: true,
+        rules_ext: ".instructions.md",
     })
 }

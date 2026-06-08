@@ -33,7 +33,10 @@ from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan, ScanEvent
 from app.models.scan_run import ScanRun
 from app.models.upload_file import UploadFile
-from app.scan.discovery import _is_repo_wide  # pyright: ignore[reportPrivateUsage]
+from app.scan.discovery import (
+    _is_repo_wide,  # pyright: ignore[reportPrivateUsage]
+    build_install_spec,
+)
 from app.scan.engine import CapabilityResult, RepoScanResult, ScanResult
 from app.scan.fetch import GithubRef, parse_github_url
 from app.services.agent_compat import agent_compatibility_for
@@ -503,6 +506,7 @@ async def _apply_scan_result(
     item: CatalogItem | None,
     meta: RepositoryMetadata | None,
     upload_run_id: UUID | None = None,
+    install_spec: dict[str, object] | None = None,
 ) -> None:
     """Fill a (flushed) scan row from an engine result: score, findings, manifest,
     snapshot. Shared by the single-scan and per-capability-run write paths.
@@ -553,6 +557,16 @@ async def _apply_scan_result(
         manifest = _pick_manifest(result.files_index, item.kind)
         if manifest is not None:
             scan.manifest_path, scan.manifest_source = manifest
+
+        # Per-capability install descriptor for the `saferskills` CLI. The run
+        # fan-out passes the discovery-derived spec; the legacy single-scan path
+        # re-derives from the capability's own (already-public) bytes so a
+        # vendor rescan keeps it populated.
+        scan.install_spec = (
+            install_spec
+            if install_spec is not None
+            else build_install_spec(item.kind, result.files_index, scan.component_path or "")
+        )
 
         # Persist the per-capability text-file snapshot for diffs + zip. Unlisted
         # uploads resolve from the per-run upload_files store (bytes already
@@ -745,6 +759,7 @@ async def persist_completed_scan_run(
             item=item,
             meta=meta,
             upload_run_id=run.id if use_upload_files else None,
+            install_spec=cap.install_spec,
         )
         if is_upload:
             # `_apply_scan_result` copies the engine's sentinel ref_sha; uploads

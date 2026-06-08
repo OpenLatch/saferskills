@@ -18,5 +18,6 @@ pub fn writer() -> Box<dyn ConfigWriter> {
         key: KeyShape::Fixed(&["mcpServers"]),
         url_field: "serverUrl",
         supports_project: false,
+        rules_ext: ".md",
     })
 }

@@ -1765,6 +1765,18 @@
             "title": "Id",
             "type": "string"
           },
+          "install_spec": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Spec"
+          },
           "latency_ms": {
             "title": "Latency Ms",
             "type": "integer"

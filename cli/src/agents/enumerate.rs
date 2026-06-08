@@ -1447,6 +1447,9 @@ mod tests {
             version: None,
             mcp_config_path: mcp,
             skill_dir: skill,
+            rules_dir: None,
+            hooks_path: None,
+            plugin_dir: None,
             scope: Scope::Global,
         }
     }

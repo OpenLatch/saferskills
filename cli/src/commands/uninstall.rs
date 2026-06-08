@@ -127,8 +127,11 @@ fn agent_dirs(id: AgentId) -> Vec<PathBuf> {
     for scope in [Scope::Global, Scope::Project] {
         if let Some(a) = detect::detect(id, scope) {
             dirs.push(a.mcp_config_path.clone());
-            if let Some(sd) = a.skill_dir {
-                dirs.push(sd);
+            for extra in [a.skill_dir, a.rules_dir, a.hooks_path, a.plugin_dir]
+                .into_iter()
+                .flatten()
+            {
+                dirs.push(extra);
             }
         }
     }

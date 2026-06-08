@@ -96,18 +96,33 @@ fn claude_code(scope: Scope) -> Option<DetectedAgent> {
     if !(present(&dot) || present(&dot_json) || which("claude")) {
         return None;
     }
-    let (mcp_config_path, skill_dir) = match scope {
-        Scope::Global => (dot_json, Some(dot.join("skills"))),
-        Scope::Project => (
-            cwd().join(".mcp.json"),
-            Some(cwd().join(".claude").join("skills")),
+    let (mcp_config_path, skill_dir, hooks_path, plugin_dir) = match scope {
+        Scope::Global => (
+            dot_json,
+            Some(dot.join("skills")),
+            Some(dot.join("settings.json")),
+            Some(dot.join("plugins")),
         ),
+        Scope::Project => {
+            let proj = cwd().join(".claude");
+            (
+                cwd().join(".mcp.json"),
+                Some(proj.join("skills")),
+                Some(proj.join("settings.json")),
+                // The plugin cache is a single global store (`~/.claude/plugins`);
+                // there is no per-project plugin install — keep the global root.
+                Some(dot.join("plugins")),
+            )
+        }
     };
     Some(DetectedAgent {
         id: AgentId::ClaudeCode,
         version: None,
         mcp_config_path,
         skill_dir,
+        rules_dir: None,
+        hooks_path,
+        plugin_dir,
         scope,
     })
 }
@@ -118,9 +133,12 @@ fn cursor(scope: Scope) -> Option<DetectedAgent> {
     if !(present(&dot) || which("cursor") || which("cursor-agent")) {
         return None;
     }
-    let mcp_config_path = match scope {
-        Scope::Global => dot.join("mcp.json"),
-        Scope::Project => cwd().join(".cursor").join("mcp.json"),
+    let (mcp_config_path, rules_dir) = match scope {
+        Scope::Global => (dot.join("mcp.json"), dot.join("rules")),
+        Scope::Project => {
+            let proj = cwd().join(".cursor");
+            (proj.join("mcp.json"), proj.join("rules"))
+        }
     };
     Some(DetectedAgent {
         id: AgentId::Cursor,
@@ -129,6 +147,9 @@ fn cursor(scope: Scope) -> Option<DetectedAgent> {
         // a copy-paste fallback via the writer's confidence.
         mcp_config_path,
         skill_dir: None,
+        rules_dir: Some(rules_dir),
+        hooks_path: None,
+        plugin_dir: None,
         scope,
     })
 }
@@ -149,6 +170,9 @@ fn codex(scope: Scope) -> Option<DetectedAgent> {
         version: None,
         mcp_config_path,
         skill_dir: Some(dir.join("skills")),
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: None,
         scope,
     })
 }
@@ -171,6 +195,10 @@ fn copilot(scope: Scope) -> Option<DetectedAgent> {
         version: None,
         mcp_config_path,
         skill_dir: Some(dir.join("skills")),
+        // Copilot custom instructions are repo-level (`.github/instructions/*.instructions.md`).
+        rules_dir: Some(cwd().join(".github").join("instructions")),
+        hooks_path: None,
+        plugin_dir: None,
         scope,
     })
 }
@@ -187,6 +215,10 @@ fn windsurf(scope: Scope) -> Option<DetectedAgent> {
         version: None,
         mcp_config_path: dir.join("mcp_config.json"),
         skill_dir: None,
+        // Windsurf rules are workspace-level (`.windsurf/rules/<name>.md`).
+        rules_dir: Some(cwd().join(".windsurf").join("rules")),
+        hooks_path: None,
+        plugin_dir: None,
         scope,
     })
 }
@@ -207,11 +239,20 @@ fn cline(scope: Scope) -> Option<DetectedAgent> {
         }
         _ => dot_cline.join("mcp.json"),
     };
+    let rules_dir = match scope {
+        // Cline global "Rules" live under the user Documents tree; the project
+        // surface is the workspace `.clinerules/` directory.
+        Scope::Global => home.join("Documents").join("Cline").join("Rules"),
+        Scope::Project => cwd().join(".clinerules"),
+    };
     Some(DetectedAgent {
         id: AgentId::Cline,
         version: None,
         mcp_config_path,
         skill_dir: None,
+        rules_dir: Some(rules_dir),
+        hooks_path: None,
+        plugin_dir: None,
         scope,
     })
 }
@@ -232,6 +273,9 @@ fn gemini(scope: Scope) -> Option<DetectedAgent> {
         version: None,
         mcp_config_path,
         skill_dir: Some(dir.join("skills")),
+        rules_dir: None,
+        hooks_path: None,
+        plugin_dir: None,
         scope,
     })
 }
@@ -244,7 +288,7 @@ fn openclaw(scope: Scope) -> Option<DetectedAgent> {
         return None;
     }
     let mcp_config_path = match scope {
-        Scope::Global => cfg,
+        Scope::Global => cfg.clone(),
         Scope::Project => cwd().join(".mcp.json"),
     };
     Some(DetectedAgent {
@@ -252,6 +296,12 @@ fn openclaw(scope: Scope) -> Option<DetectedAgent> {
         version: None,
         mcp_config_path,
         skill_dir: Some(dir.join("skills")),
+        rules_dir: None,
+        // OpenClaw hooks merge into its own config file (probe-and-adapt, like the
+        // MCP key shape). Its plugin layout is not yet live-verified — `plugin_dir`
+        // stays None so `supports_kind` gates OpenClaw plugins off (B6 / SCHEMAS.md).
+        hooks_path: Some(cfg.clone()),
+        plugin_dir: None,
         scope,
     })
 }

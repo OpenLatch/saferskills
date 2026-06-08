@@ -21,8 +21,9 @@ use std::path::Path;
 use serde_json::Value;
 
 use super::writer::{
-    install_skill, merge_json_mcp, merge_toml_mcp, openclaw_key, reject_project_if_unsupported,
-    revert_changes, skill_supported, verify_json_mcp, verify_toml_mcp, Confidence, ConfigWriter,
+    install_plugin, install_rules_file, install_skill, kind_supported, merge_json_hook,
+    merge_json_mcp, merge_toml_mcp, openclaw_key, reject_project_if_unsupported, revert_changes,
+    verify_hook, verify_json_mcp, verify_plugin, verify_toml_mcp, Confidence, ConfigWriter,
     ResolvedItem, VerifyStatus,
 };
 use super::{AgentId, DetectedAgent};
@@ -81,6 +82,9 @@ pub struct JsonMcpWriter {
     /// `serverUrl` (Windsurf), `httpUrl`/`url` (Gemini), `url` (everyone else).
     pub url_field: &'static str,
     pub supports_project: bool,
+    /// The per-agent rules-file extension (`.mdc` Cursor, `.md` Windsurf/Cline,
+    /// `.instructions.md` Copilot). Empty for agents with no rules surface.
+    pub rules_ext: &'static str,
 }
 
 /// Rename a generic `"url"` field to the agent's URL-field name (landmine). A
@@ -119,6 +123,62 @@ fn no_skill_dir_err(id: AgentId) -> SsError {
     .with_suggestion("This capability can't be auto-installed for this agent; copy it in manually.")
 }
 
+fn no_rules_dir_err(id: AgentId) -> SsError {
+    SsError::new(
+        ERR_WRITER_UNSUPPORTED,
+        format!(
+            "{} has no rules directory for a rules install.",
+            id.display_name()
+        ),
+    )
+    .with_suggestion("This capability can't be auto-installed for this agent; copy it in manually.")
+}
+
+fn no_hooks_err(id: AgentId) -> SsError {
+    SsError::new(
+        ERR_WRITER_UNSUPPORTED,
+        format!(
+            "{} has no settings file for a hook install.",
+            id.display_name()
+        ),
+    )
+}
+
+fn no_plugin_dir_err(id: AgentId) -> SsError {
+    SsError::new(
+        ERR_WRITER_UNSUPPORTED,
+        format!(
+            "{} has no plugins directory for a plugin install.",
+            id.display_name()
+        ),
+    )
+}
+
+/// The rules file name an agent writes for capability `name` (`<name><ext>`).
+fn rules_file_name(name: &str, ext: &str) -> String {
+    let stem: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let stem = stem.trim_matches('-');
+    format!("{}{ext}", if stem.is_empty() { "rules" } else { stem })
+}
+
+/// The hook event names carried on a resolved item's `hook_entry` block (its keys).
+fn hook_event_names(item: &ResolvedItem) -> Vec<String> {
+    item.hook_entry
+        .as_ref()
+        .and_then(|v| v.as_object())
+        .map(|o| o.keys().cloned().collect())
+        .unwrap_or_default()
+}
+
 impl ConfigWriter for JsonMcpWriter {
     fn id(&self) -> AgentId {
         self.id
@@ -127,7 +187,7 @@ impl ConfigWriter for JsonMcpWriter {
         self.confidence
     }
     fn supports_kind(&self, kind: &str, agent: &DetectedAgent) -> bool {
-        skill_supported(kind, agent)
+        kind_supported(kind, agent)
     }
 
     fn install(
@@ -160,6 +220,51 @@ impl ConfigWriter for JsonMcpWriter {
                     .ok_or_else(|| no_entry_err(self.id))?;
                 Ok(vec![install_skill(skill_dir, &item.name, zip, dry_run)?])
             }
+            "rules" => {
+                let rules_dir = agent
+                    .rules_dir
+                    .as_ref()
+                    .ok_or_else(|| no_rules_dir_err(self.id))?;
+                let body = item
+                    .rules_body
+                    .as_ref()
+                    .ok_or_else(|| no_entry_err(self.id))?;
+                let file = rules_file_name(&item.name, self.rules_ext);
+                Ok(vec![install_rules_file(rules_dir, &file, body, dry_run)?])
+            }
+            "hook" => {
+                let settings = agent
+                    .hooks_path
+                    .as_ref()
+                    .ok_or_else(|| no_hooks_err(self.id))?;
+                let entry = item
+                    .hook_entry
+                    .as_ref()
+                    .ok_or_else(|| no_entry_err(self.id))?;
+                merge_json_hook(settings, entry, dry_run)
+            }
+            "plugin" => {
+                let plugins_root = agent
+                    .plugin_dir
+                    .as_ref()
+                    .ok_or_else(|| no_plugin_dir_err(self.id))?;
+                let zip = item
+                    .plugin_zip
+                    .as_ref()
+                    .ok_or_else(|| no_entry_err(self.id))?;
+                let mp = item.plugin_marketplace.as_deref().unwrap_or("saferskills");
+                let version = item.plugin_version.as_deref().unwrap_or("0.0.0");
+                let component = item.component_path.as_deref().unwrap_or("");
+                install_plugin(
+                    plugins_root,
+                    mp,
+                    &item.name,
+                    version,
+                    component,
+                    zip,
+                    dry_run,
+                )
+            }
             other => Err(SsError::new(
                 ERR_WRITER_UNSUPPORTED,
                 format!(
@@ -184,6 +289,29 @@ impl ConfigWriter for JsonMcpWriter {
                 Some(dir) if dir.join(&item.name).exists() => VerifyStatus::Ok,
                 _ => VerifyStatus::Missing,
             },
+            "rules" => match agent.rules_dir.as_ref() {
+                Some(dir)
+                    if dir
+                        .join(rules_file_name(&item.name, self.rules_ext))
+                        .exists() =>
+                {
+                    VerifyStatus::Ok
+                }
+                _ => VerifyStatus::Missing,
+            },
+            "hook" => match agent.hooks_path.as_ref() {
+                Some(p) => verify_hook(p, &hook_event_names(item)),
+                None => VerifyStatus::Missing,
+            },
+            "plugin" => match agent.plugin_dir.as_ref() {
+                Some(root) => verify_plugin(
+                    root,
+                    item.plugin_marketplace.as_deref().unwrap_or("saferskills"),
+                    &item.name,
+                    item.plugin_version.as_deref().unwrap_or("0.0.0"),
+                ),
+                None => VerifyStatus::Missing,
+            },
             _ => VerifyStatus::Missing,
         }
     }
@@ -202,7 +330,7 @@ impl ConfigWriter for CodexWriter {
         self.confidence
     }
     fn supports_kind(&self, kind: &str, agent: &DetectedAgent) -> bool {
-        skill_supported(kind, agent)
+        kind_supported(kind, agent)
     }
 
     fn install(
