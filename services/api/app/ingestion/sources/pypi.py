@@ -129,99 +129,110 @@ class PypiAdapter(RegistryAdapter):
         items_yielded = 0
         new_last_processed = last_processed
 
-        # Fetch the simple index to enumerate candidate package names.
-        index_r = await client.get(
-            simple_index,
-            headers={"Accept": "text/html"},
-        )
-        if index_r.status_code not in (200, 304):
-            yield RawItem(
-                source_id="pypi/simple_index",
-                raw_body_bytes=index_r.content,
-                raw_body_hash=hashlib.sha256(index_r.content).hexdigest(),
-                http_status=index_r.status_code,
-                error_reason=("http_5xx" if index_r.status_code >= 500 else "other"),
-                fetch_tier=1,
+        # `completed` gates the terminal cursor write in the `finally` below: True
+        # ONLY when the candidate walk finishes naturally. An index-fetch failure, a
+        # mid-walk exception, or worker-cancel/abandonment all leave it False → the
+        # cycle is recorded failed (success=False). The terminal write previously sat
+        # OUTSIDE any try/finally, so an abandoned walk skipped it and an index
+        # non-200 returned without recording a failure at all (same class of gap as
+        # npm). The per-page resume marker (`last_processed_name`) is preserved on
+        # every path so the next cycle resumes where this one stopped.
+        completed = False
+        try:
+            # Fetch the simple index to enumerate candidate package names.
+            index_r = await client.get(
+                simple_index,
+                headers={"Accept": "text/html"},
             )
-            return
+            if index_r.status_code not in (200, 304):
+                yield RawItem(
+                    source_id="pypi/simple_index",
+                    raw_body_bytes=index_r.content,
+                    raw_body_hash=hashlib.sha256(index_r.content).hexdigest(),
+                    http_status=index_r.status_code,
+                    error_reason=("http_5xx" if index_r.status_code >= 500 else "other"),
+                    fetch_tier=1,
+                )
+                return  # `finally` records the failed cycle (completed stays False)
 
-        # Parse package names from the HTML index.
-        parser = _SimpleIndexParser()
-        with contextlib.suppress(Exception):
-            parser.feed(index_r.text)
-        all_names = parser.names
+            # Parse package names from the HTML index.
+            parser = _SimpleIndexParser()
+            with contextlib.suppress(Exception):
+                parser.feed(index_r.text)
+            all_names = parser.names
 
-        # Filter by regex and advance past the last-processed cursor.
-        candidates = [n for n in all_names if compiled.search(n)]
-        past_cursor = not last_processed
-        for pkg_name in candidates:
-            if not past_cursor:
-                if pkg_name == last_processed:
-                    past_cursor = True
-                continue
+            # Filter by regex and advance past the last-processed cursor.
+            candidates = [n for n in all_names if compiled.search(n)]
+            past_cursor = not last_processed
+            for pkg_name in candidates:
+                if not past_cursor:
+                    if pkg_name == last_processed:
+                        past_cursor = True
+                    continue
 
-            if items_yielded >= max_items:
-                break
+                if items_yielded >= max_items:
+                    break
 
-            pkg_url = f"{json_base.rstrip('/')}/{pkg_name}/json"
-            r = await client.get(pkg_url)
+                pkg_url = f"{json_base.rstrip('/')}/{pkg_name}/json"
+                r = await client.get(pkg_url)
 
-            if r.status_code == 304:
+                if r.status_code == 304:
+                    yield RawItem(
+                        source_id=f"pypi/{pkg_name}",
+                        raw_body_bytes=b"",
+                        raw_body_hash=hashlib.sha256(b"").hexdigest(),
+                        http_status=304,
+                        etag=r.headers.get("etag"),
+                        from_cache=True,
+                        fetch_tier=1,
+                    )
+                    new_last_processed = pkg_name
+                    items_yielded += 1
+                    continue
+
+                if r.status_code != 200:
+                    yield RawItem(
+                        source_id=f"pypi/{pkg_name}",
+                        raw_body_bytes=r.content,
+                        raw_body_hash=hashlib.sha256(r.content).hexdigest(),
+                        http_status=r.status_code,
+                        error_reason=("http_5xx" if r.status_code >= 500 else "other"),
+                        fetch_tier=1,
+                    )
+                    new_last_processed = pkg_name
+                    items_yielded += 1
+                    continue
+
+                body = r.content
+                try:
+                    data = r.json()
+                except Exception:
+                    new_last_processed = pkg_name
+                    items_yielded += 1
+                    continue
+
                 yield RawItem(
                     source_id=f"pypi/{pkg_name}",
-                    raw_body_bytes=b"",
-                    raw_body_hash=hashlib.sha256(b"").hexdigest(),
-                    http_status=304,
+                    raw_body_bytes=body,
+                    raw_body_hash=hashlib.sha256(body).hexdigest(),
+                    http_status=200,
                     etag=r.headers.get("etag"),
-                    from_cache=True,
+                    from_cache=False,
                     fetch_tier=1,
+                    payload_hint=data,
                 )
                 new_last_processed = pkg_name
                 items_yielded += 1
-                continue
-
-            if r.status_code != 200:
-                yield RawItem(
-                    source_id=f"pypi/{pkg_name}",
-                    raw_body_bytes=r.content,
-                    raw_body_hash=hashlib.sha256(r.content).hexdigest(),
-                    http_status=r.status_code,
-                    error_reason=("http_5xx" if r.status_code >= 500 else "other"),
-                    fetch_tier=1,
+            completed = True  # the candidate walk finished without interruption
+        finally:
+            async with AsyncSessionLocal() as session:
+                await write_cursor(
+                    session,
+                    self.config.name,
+                    {"last_processed_name": new_last_processed},
+                    success=completed,
                 )
-                new_last_processed = pkg_name
-                items_yielded += 1
-                continue
-
-            body = r.content
-            try:
-                data = r.json()
-            except Exception:
-                new_last_processed = pkg_name
-                items_yielded += 1
-                continue
-
-            yield RawItem(
-                source_id=f"pypi/{pkg_name}",
-                raw_body_bytes=body,
-                raw_body_hash=hashlib.sha256(body).hexdigest(),
-                http_status=200,
-                etag=r.headers.get("etag"),
-                from_cache=False,
-                fetch_tier=1,
-                payload_hint=data,
-            )
-            new_last_processed = pkg_name
-            items_yielded += 1
-
-        async with AsyncSessionLocal() as session:
-            await write_cursor(
-                session,
-                self.config.name,
-                {"last_processed_name": new_last_processed},
-                success=True,
-            )
-            await session.commit()
+                await session.commit()
 
     def normalize(self, raw: RawItem) -> NormalizedItem | None:
         """Map a PyPI package JSON response to a NormalizedItem."""

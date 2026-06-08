@@ -63,6 +63,11 @@ class NpmAdapter(RegistryAdapter):
         last_seq = cursor.get("seq", 0)
         items_yielded = 0
 
+        # `completed` gates the terminal cursor write in the `finally` below:
+        # True ONLY when the changes feed drained without interruption. A non-200,
+        # a mid-stream exception, OR a worker-cancel/abandonment of this async
+        # generator all leave it False → the cycle is recorded as failed.
+        completed = False
         try:
             async with client.stream(
                 "GET",
@@ -75,17 +80,11 @@ class NpmAdapter(RegistryAdapter):
                 },
             ) as r:
                 if r.status_code != 200:
-                    # A 429/5xx on the changes stream means we got NO data — record
-                    # the cycle as failed (success=False) and stop cleanly, rather
-                    # than falling through to the success=True cursor write below
-                    # (which would silently green a no-op cycle, WS-8b). The next
-                    # tick retries from the same `seq`.
+                    # A 429/5xx on the changes stream means we got NO data — leave
+                    # `completed=False` so the `finally` records the cycle as failed
+                    # (success=False) rather than silently greening a no-op cycle
+                    # (WS-8b). The next tick retries from the same `seq`.
                     logger.warning("npm.stream_non_200", status=r.status_code, last_seq=last_seq)
-                    async with AsyncSessionLocal() as session:
-                        await write_cursor(
-                            session, self.config.name, {"seq": last_seq}, success=False
-                        )
-                        await session.commit()
                     return
                 async for line in r.aiter_lines():
                     line = line.strip()
@@ -130,18 +129,29 @@ class NpmAdapter(RegistryAdapter):
                     items_yielded += 1
                     if items_yielded >= max_items:
                         break
+                completed = True  # the changes feed drained without interruption
         except Exception:
-            # Stream closed or network error — persist what we have.
+            # Stream closed or network error mid-stream — `completed` stays False,
+            # so the `finally` records this as a failed cycle (advances the streak).
             logger.warning("npm.stream_interrupted", last_seq=last_seq)
-
-        async with AsyncSessionLocal() as session:
-            await write_cursor(
-                session,
-                self.config.name,
-                {"seq": last_seq},
-                success=True,
-            )
-            await session.commit()
+        finally:
+            # Terminal cursor write on EVERY exit path — clean drain, mid-stream
+            # error, AND worker-cancel/abandonment of this async generator (the
+            # `finally` runs on a CancelledError/GeneratorExit too, before it
+            # propagates). The previous terminal write sat OUTSIDE the try, so an
+            # abandoned cycle skipped it entirely: a streak advanced by an earlier
+            # non-200/interrupt then never reset, which the dashboard read as
+            # `npm:consecutive_failures` despite 6 succeeded runs (count=8 /
+            # last_success=NULL). `success=completed` resets the streak + stamps
+            # `last_successful_cycle_at` only on a fully-drained feed.
+            async with AsyncSessionLocal() as session:
+                await write_cursor(
+                    session,
+                    self.config.name,
+                    {"seq": last_seq},
+                    success=completed,
+                )
+                await session.commit()
 
     def normalize(self, raw: RawItem) -> NormalizedItem | None:
         """Map an npm package doc to a NormalizedItem."""

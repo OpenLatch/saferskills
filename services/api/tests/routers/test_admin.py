@@ -130,10 +130,12 @@ async def test_force_cycle_api_source_queues(db_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_force_cycle_webhook_source_400_no_orphan_job(db_client: AsyncClient) -> None:
+async def test_admin_force_cycle_webhook_400(db_client: AsyncClient) -> None:
     # github_skills is a webhook source (no cadence → no `ingest_cycle_*` task).
     # Regression: even with a live queue it must 400 and enqueue NOTHING — never
     # silently 200-queue an orphan job no worker ever runs (allow_unknown=False).
+    # The message is reworded from the old "not schedulable (disabled or non-api)"
+    # to an accurate webhook/disabled explanation (Fix 1).
     from procrastinate.testing import InMemoryConnector
 
     from app.ingestion import procrastinate_app
@@ -143,8 +145,37 @@ async def test_force_cycle_webhook_source_400_no_orphan_job(db_client: AsyncClie
         await conn.open_async()
         resp = await db_client.post("/api/v1/admin/sources/github_skills/force-cycle", headers=_HDR)
         assert resp.status_code == 400
-        assert "not schedulable" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        assert "no periodic cycle" in detail
+        assert "webhook" in detail
+        assert "not schedulable" not in detail  # the misleading old message is gone
         assert conn.jobs == {}  # no orphan job leaked onto the queue
+
+
+@pytest.mark.asyncio
+async def test_admin_force_cycle_already_enqueued_409(db_client: AsyncClient) -> None:
+    # A cadenced source whose `ingest_cycle_*` cycle is already queued (holds the
+    # per-source `queueing_lock`) must return 409 "already queued or running" — NOT
+    # the old broad-except 400 "not schedulable" (which mislabelled a busy source as
+    # unschedulable, the dashboard's "3 failed" after a force-cycle ALL). Regression:
+    # force-cycle npm twice on the same queue; the second hits the held lock.
+    from procrastinate.testing import InMemoryConnector
+
+    from app.ingestion import procrastinate_app
+
+    conn = InMemoryConnector()
+    with procrastinate_app.replace_connector(conn):
+        await conn.open_async()
+        first = await db_client.post("/api/v1/admin/sources/npm/force-cycle", headers=_HDR)
+        assert first.status_code == 200  # the cycle is now queued (holds the lock)
+
+        second = await db_client.post("/api/v1/admin/sources/npm/force-cycle", headers=_HDR)
+        assert second.status_code == 409
+        detail = second.json()["detail"]
+        assert "already queued or running" in detail
+        assert "not schedulable" not in detail
+        # Exactly one job on the queue — the second defer was rejected, no duplicate.
+        assert [j["task_name"] for j in conn.jobs.values()] == ["ingest_cycle_npm"]
 
 
 @pytest.mark.asyncio

@@ -64,8 +64,10 @@ uv run saferskills-admin popularity top-n 500 --kind mcp_server
 - **Overview** — overall-status chip + counts, a `critical[]` banner, and a table of
   every source (status · last run · added/updated · next run · fails). Auto-refreshes
   every 5s. `↑/↓` select, `Enter` drills in, `r` refresh, `f` cycles the
-  all/critical/running filter, `q` quits. A connection error shows a red bar and keeps
-  the last good snapshot.
+  all/critical/running filter, `c` force-cycles **all** sources (behind a confirm modal;
+  the inline status reports the acknowledged/failed tally so a partial failure never
+  hides the successes), `q` quits. A connection error shows a red bar and keeps the last
+  good snapshot.
 - **Drill-down** — live/last-run/schedule/health cards + run history. `Esc`/`backspace`
   goes back; `c` force-cycle, `p` pause, `u` unpause — each behind a confirm modal, then
   the same audit-logged admin endpoint + refresh.

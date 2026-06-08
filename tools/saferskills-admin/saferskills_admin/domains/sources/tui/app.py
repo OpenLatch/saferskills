@@ -284,6 +284,7 @@ class DashboardScreen(Screen[None]):
     BINDINGS = [
         Binding("r", "refresh", "Refresh"),
         Binding("f", "cycle_filter", "Filter"),
+        Binding("c", "force_cycle_all", "Force-cycle all"),
         # `app.quit` (namespaced) resolves to App.action_quit; a bare `quit`
         # binding on a screen does NOT bubble up, so it would be a no-op.
         Binding("q", "app.quit", "Quit"),
@@ -301,6 +302,7 @@ class DashboardScreen(Screen[None]):
         yield Static("", id="summary")
         yield Static("", id="critical")
         yield Static("", id="error")
+        yield Static("", id="action-status")
         yield DataTable(id="sources-table")
         yield Footer()
 
@@ -314,7 +316,10 @@ class DashboardScreen(Screen[None]):
         self.load()
         self.set_interval(5.0, self.load)
 
-    @work(exclusive=True)
+    # group="dash-load": own group so the exclusive auto-refresh can't cancel the
+    # default-group `_confirm_force_cycle_all` worker mid-confirm (same hazard the
+    # SourceDetailScreen load() carries — see its group note).
+    @work(exclusive=True, group="dash-load")
     async def load(self) -> None:
         try:
             snap = await asyncio.to_thread(self.client.snapshot)
@@ -391,6 +396,85 @@ class DashboardScreen(Screen[None]):
         source = event.row_key.value
         if source:
             self.app.push_screen(SourceDetailScreen(self.client, source))
+
+    def action_force_cycle_all(self) -> None:
+        self._confirm_force_cycle_all()
+
+    @work
+    async def _confirm_force_cycle_all(self) -> None:
+        """Confirm, then force-cycle EVERY source in the current snapshot.
+
+        Fans the per-source POSTs out concurrently and waits for ALL of them
+        (`return_exceptions=True`) so the inline status reports the exact
+        accepted/failed tally — a partial failure (e.g. a webhook source the
+        backend won't schedule) never hides the successes, and a green line
+        only appears when every source acknowledged.
+
+        A backend **409** ("a cycle is already queued or running") is NOT a failure
+        — the source IS schedulable, it's just mid-cycle — so it's tallied as
+        acknowledged-with-note, never counted as failed (the old broad-except backend
+        message mislabelled this as "not schedulable / 3 failed"). A webhook/disabled
+        source still surfaces its accurate 400 reason as a hard failure.
+        """
+        sources = [
+            p.get("source") for p in (self._snapshot or {}).get("data", []) if p.get("source")
+        ]
+        if not sources:
+            self.notify("No sources to force-cycle yet", severity="warning")
+            return
+        ok = await self.app.push_screen_wait(
+            ConfirmModal(f"Force-cycle ALL {len(sources)} sources?")
+        )
+        if not ok:
+            return
+        # Persistent inline line (not a toast) — see SourceDetailScreen._confirm_action.
+        status = self.query_one("#action-status", Static)
+        status.update(f"[yellow]⟳ force-cycle ALL {len(sources)} sources — sending…[/]")
+        results = await asyncio.gather(
+            *(asyncio.to_thread(self.client.force_cycle, s) for s in sources),
+            return_exceptions=True,
+        )
+        already_running: list[str] = []
+        failures: list[tuple[str, Exception]] = []
+        for src, res in zip(sources, results, strict=True):
+            if isinstance(res, HealthClientError) and res.status_code == 409:
+                already_running.append(src)  # acknowledged-with-note (busy, not failed)
+            elif isinstance(res, Exception):
+                failures.append((src, res))
+        # An already-running source counts as acknowledged (it's cycling) — only a
+        # hard failure (webhook/disabled 400, transport error) reduces the tally.
+        accepted = len(sources) - len(failures)
+        now = time.strftime("%H:%M:%S")
+        if failures:
+            detail = "; ".join(f"{escape(src)} — {escape(str(exc))}" for src, exc in failures)
+            note = f" [dim]({len(already_running)} already running)[/]" if already_running else ""
+            status.update(
+                f"[yellow]⚠ force-cycle ALL: {accepted}/{len(sources)} acknowledged "
+                f"at {now}{note}, {len(failures)} failed[/]\n[red]{detail}[/]"
+            )
+            self.notify(
+                f"{accepted}/{len(sources)} acknowledged, {len(failures)} failed",
+                title="force-cycle all",
+                severity="warning",
+                timeout=10,
+            )
+        else:
+            note = f" [dim]({len(already_running)} already running)[/]" if already_running else ""
+            status.update(
+                f"[green]✓ force-cycle ALL {len(sources)} sources acknowledged "
+                f"at {now}{note}[/]  [dim]— watch the table below[/]"
+            )
+            self.notify(
+                f"✓ all {len(sources)} sources acknowledged force-cycle",
+                severity="information",
+                timeout=8,
+            )
+        # Re-poll a few times so the new runs surface promptly (see the detail-screen
+        # note) instead of waiting up to 5s for the next auto-refresh.
+        _blink(self.query_one("#sources-table", DataTable))
+        self.load()
+        for delay in (0.8, 1.8, 3.2, 5.0):
+            self.set_timer(delay, self.load)
 
 
 class SourcesDashboardApp(App[None]):
