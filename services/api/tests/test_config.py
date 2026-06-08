@@ -115,6 +115,61 @@ def test_sslmode_dsn_builds_an_async_engine_without_raising() -> None:
     assert engine.url.query.get("ssl") == "require"
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # The Procrastinate breakage: the asyncpg `?ssl=disable` (what
+        # `_normalize_db_dsn` produces) rejected by libpq → renamed to `sslmode`.
+        (
+            "postgresql://u:p@host:5432/db?ssl=disable",
+            "postgresql://u:p@host:5432/db?sslmode=disable",
+        ),
+        # All values map straight across.
+        (
+            "postgresql://u:p@host:5432/db?ssl=require",
+            "postgresql://u:p@host:5432/db?sslmode=require",
+        ),
+        # `sslmode=` is NOT touched (it is not a substring match of `ssl=`).
+        (
+            "postgresql://u:p@host:5432/db?sslmode=require",
+            "postgresql://u:p@host:5432/db?sslmode=require",
+        ),
+        # Other params preserved; only `ssl` is renamed.
+        (
+            "postgresql://u:p@host:5432/db?ssl=disable&application_name=ss",
+            "postgresql://u:p@host:5432/db?sslmode=disable&application_name=ss",
+        ),
+        # An explicit `sslmode` wins — the asyncpg alias is dropped, not duplicated.
+        (
+            "postgresql://u:p@host:5432/db?sslmode=require&ssl=require",
+            "postgresql://u:p@host:5432/db?sslmode=require",
+        ),
+        # No SSL param at all → untouched.
+        ("postgresql://u:p@host:5432/db", "postgresql://u:p@host:5432/db"),
+    ],
+)
+def test_ssl_query_param_is_coerced_back_to_sslmode(raw: str, expected: str) -> None:
+    from app.core.config import coerce_ssl_to_sslmode
+
+    assert coerce_ssl_to_sslmode(raw) == expected
+
+
+def test_libpq_conninfo_renames_ssl_for_psycopg() -> None:
+    """Regression: the Procrastinate psycopg pool DSN must use libpq `sslmode`.
+
+    `settings.database_url` carries the asyncpg `?ssl=disable` form, but libpq
+    rejects `ssl` (`invalid URI query parameter: "ssl"`), so every psycopg pool
+    connection failed and `open_async()` died with `PoolTimeout: pool
+    initialization incomplete after 30.0 sec` — degrading the ingestion worker on
+    every boot. `_libpq_conninfo` must strip the driver suffix AND rename `ssl`.
+    """
+    from app.ingestion import _libpq_conninfo  # pyright: ignore[reportPrivateUsage]
+
+    out = _libpq_conninfo("postgresql+asyncpg://u:p@host:5432/db?ssl=disable")
+    assert out == "postgresql://u:p@host:5432/db?sslmode=disable"
+    assert "ssl=disable" not in out  # the libpq-fatal token is gone
+
+
 # ── Turnstile secret startup guard ──────────────────────────────────────────
 
 

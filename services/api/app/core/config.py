@@ -42,6 +42,36 @@ def _coerce_sslmode_to_ssl(value: str) -> str:
     return urlunsplit(parts._replace(query=urlencode(rebuilt)))
 
 
+def coerce_ssl_to_sslmode(value: str) -> str:
+    """Rename asyncpg's `ssl` query param back to libpq's `sslmode`.
+
+    Public (unlike its `_coerce_sslmode_to_ssl` inverse) because it is consumed
+    cross-module by `app.ingestion._libpq_conninfo`. The exact inverse of
+    `_coerce_sslmode_to_ssl`. `settings.database_url` is the
+    asyncpg-flavoured DSN (it carries `?ssl=disable`), but Procrastinate's psycopg3
+    `PsycopgConnector` speaks **libpq**, which rejects `ssl` outright
+    (`invalid URI query parameter: "ssl"`) — it wants `sslmode`. The value strings
+    are identical (`disable` / `require` / `verify-full` / …), so only the key is
+    renamed. If an explicit `sslmode` is already present it wins and the `ssl`
+    alias is dropped. (`"ssl="` is not a substring of `"sslmode="`, so a DSN that
+    only carries `sslmode` is left untouched.)
+    """
+    if "ssl=" not in value:
+        return value
+    parts = urlsplit(value)
+    pairs = parse_qsl(parts.query, keep_blank_values=True)
+    has_sslmode = any(key == "sslmode" for key, _ in pairs)
+    rebuilt: list[tuple[str, str]] = []
+    for key, val in pairs:
+        if key == "ssl":
+            if has_sslmode:
+                continue  # explicit sslmode wins — drop the asyncpg alias
+            rebuilt.append(("sslmode", val))
+        else:
+            rebuilt.append((key, val))
+    return urlunsplit(parts._replace(query=urlencode(rebuilt)))
+
+
 class Settings(BaseSettings):
     """Runtime configuration."""
 
