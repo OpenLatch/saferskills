@@ -9,6 +9,27 @@ export const Default: Story = () => (
   </>
 )
 
+export const ScanLocalAudit: Story = () => (
+  <>
+    <InstallTabs scanSlug="github-mcp" defaultVerb="scan" />
+    <Toast />
+  </>
+)
+
+export const ListInventory: Story = () => (
+  <>
+    <InstallTabs scanSlug="github-mcp" defaultVerb="list" />
+    <Toast />
+  </>
+)
+
+export const InfoReport: Story = () => (
+  <>
+    <InstallTabs scanSlug="github-mcp" defaultVerb="info" />
+    <Toast />
+  </>
+)
+
 export const Cursor: Story = () => (
   <>
     <InstallTabs scanSlug="linear-mcp" defaultAgent="cursor" />

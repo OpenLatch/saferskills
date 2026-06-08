@@ -262,9 +262,9 @@ def _emit(event: str, **props: object) -> None:
         return
     try:
         client.capture(
-            _BACKEND_DISTINCT_ID,
             event,
-            {**props, "product": "saferskills", "$process_person_profile": False},
+            distinct_id=_BACKEND_DISTINCT_ID,
+            properties={**props, "product": "saferskills", "$process_person_profile": False},
         )
     except Exception:  # observability must never break the app
         logger.warning("posthog.capture_failed", event=event)

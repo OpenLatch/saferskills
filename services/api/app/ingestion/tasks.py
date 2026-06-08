@@ -12,6 +12,7 @@ before the loop builds tasks (Procrastinate also lists them in import_paths).
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -19,8 +20,13 @@ import httpx
 import structlog
 from procrastinate.retry import RetryStrategy
 from sqlalchemy import func, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ingestion import INGEST_CYCLE_PRIORITY, procrastinate_app
+from app.ingestion import (
+    INGEST_CYCLE_PRIORITY,
+    PERIODIC_MAINTENANCE_PRIORITY,
+    procrastinate_app,
+)
 
 # Import side-effect: register EVERY adapter class in ADAPTER_REGISTRY (the
 # sources package __init__ imports all five adapter modules). Importing the
@@ -212,6 +218,54 @@ async def record_run_finished(
         logger.warning("ingestion.run_record_finish_failed", run_id=str(run_id))
 
 
+async def mark_stale_ingestion_runs(session: AsyncSession, *, cutoff: datetime) -> int:
+    """Flip every `running` ingestion_runs row started before `cutoff` to `failed`.
+
+    These are orphans: a worker reload (or crash) BETWEEN `record_run_started` and
+    `record_run_finished` leaves the row stuck `running` forever. The eagle-eye
+    health view then reads the source as permanently `stuck` (its `is_stuck`
+    >30-min predicate over `min(started_at) FILTER (status='running')`) and inflates
+    the `running` count (the `running=6` while `never_run=7` nonsense). Reaping them
+    is the missing sibling of `scan_runner.mark_stale_runs_failed` (which only covers
+    `scan_runs`). Reuse the `StaleRunReaped` error_class (already in the data from the
+    hand-reap) for continuity. Returns the count; the caller owns the commit
+    (session-taking inner of `recover_stale_ingestion_runs`)."""
+    from app.models import IngestionRun
+
+    result = await session.execute(
+        update(IngestionRun)
+        .where(IngestionRun.status == "running")
+        .where(IngestionRun.started_at < cutoff)
+        .values(
+            status="failed",
+            ended_at=func.now(),
+            error_class="StaleRunReaped",
+            error_message="reaped: stale running row",
+        )
+    )
+    return int(cast("Any", result).rowcount or 0)
+
+
+async def recover_stale_ingestion_runs() -> int:
+    """Reap orphaned `running` ingestion_runs rows (boot + periodic). Returns count.
+
+    Mirrors `app/queue/scan_runner.py::recover_stale_scans` for the ingest side.
+    Grace = `ingestion_stalled_seconds` (default 4h) — the SAME worst-case-cycle-safe
+    constant the `ingestion_stalled_retrier` uses, so a legitimately long in-flight
+    crawl (mcp_registry full-feed) is never reaped out from under itself. Owns its
+    own session + commit."""
+    from app.core.config import get_settings
+    from app.db.session import AsyncSessionLocal
+
+    cutoff = datetime.now(UTC) - timedelta(seconds=get_settings().ingestion_stalled_seconds)
+    async with AsyncSessionLocal() as session:
+        reaped = await mark_stale_ingestion_runs(session, cutoff=cutoff)
+        await session.commit()
+    if reaped:
+        logger.info("ingestion.run_reaper.reaped", count=reaped)
+    return reaped
+
+
 async def _mark_source_blocked(source: str, *, reason: str) -> None:
     """Flip a source's crawler_cursors.status to `blocked` in its own session.
 
@@ -254,6 +308,32 @@ def _register_periodic(source_name: str, cron: str, queue: str) -> None:
         timestamp: int, _src: str = source_name, trigger: str = "scheduled"
     ) -> dict[str, Any]:
         return await run_source_cycle(_src, trigger=trigger)
+
+
+@procrastinate_app.periodic(cron="*/15 * * * *")
+@procrastinate_app.task(
+    name="ingestion_run_reaper",
+    queue="periodic",
+    queueing_lock="ingestion_run_reaper_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
+)
+async def ingestion_run_reaper(timestamp: int) -> dict[str, int]:
+    """Periodic reaper (every 15 min) for orphaned `running` ingestion_runs rows.
+
+    Sibling to `ingestion_stalled_retrier`: that re-queues abandoned Procrastinate
+    *jobs* (a `doing` cycle a worker dropped); this reaps the orphaned *run-records*
+    a reload left `running` forever — a distinct concern, since a run-record is not
+    a Procrastinate job and has nothing to retry. Without it the eagle-eye view
+    shows phantom `stuck`/inflated-`running` between boots. The boot hook
+    (`app/main.py`, after `recover_stale_scans`) clears them at startup; this keeps
+    them clear on a long-running process.
+    """
+    try:
+        reaped = await recover_stale_ingestion_runs()
+    except Exception:
+        logger.exception("ingestion_run_reaper.failed")
+        return {"reaped": 0}
+    return {"reaped": reaped}
 
 
 # Build the periodic tasks by looping the YAML configs (config-first). Both `api`

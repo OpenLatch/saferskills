@@ -17,7 +17,16 @@ from ....shared.http_client import create_client
 
 
 class HealthClientError(Exception):
-    """A dashboard API call failed (transport or HTTP >=400)."""
+    """A dashboard API call failed (transport or HTTP >=400).
+
+    `status_code` is the HTTP status (None for a transport-level failure) so callers
+    can distinguish a benign 409 "already queued/running" (the source IS schedulable,
+    just busy) from a real failure when tallying a force-cycle ALL.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class SourcesHealthClient:
@@ -38,7 +47,9 @@ class SourcesHealthClient:
                 detail = resp.json().get("detail", "")
             except ValueError:
                 detail = resp.text[:200]
-            raise HealthClientError(f"HTTP {resp.status_code} {detail}".strip())
+            raise HealthClientError(
+                f"HTTP {resp.status_code} {detail}".strip(), status_code=resp.status_code
+            )
         if resp.status_code == 204 or not resp.content:
             return {}
         return resp.json()

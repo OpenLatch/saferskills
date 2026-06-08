@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -367,3 +369,137 @@ async def test_mcp_registry_completed_sweep_advances_watermark() -> None:
     assert final_value["next_cursor"] is None
     assert final_value["updated_since"] == "2025-03-03T00:00:00Z"
     assert await_args.kwargs.get("success") is True
+
+
+# ---------------------------------------------------------------------------
+# npm continuous-feed list_items — terminal cursor write on EVERY exit path
+# ---------------------------------------------------------------------------
+
+
+def _npm_config() -> SourceConfig:
+    return SourceConfig(
+        name="npm",
+        kind="api",
+        hosts=["replicate.npmjs.com"],
+        discovery={
+            "changes_url": "https://replicate.npmjs.com/_changes",
+            "name_prefixes": ["mcp-"],
+        },
+    )
+
+
+class _FakeStream:
+    """Async-context-manager stand-in for `client.stream(...)`.
+
+    `aiter_lines()` yields the supplied JSON lines; if `interrupt_at` is set it
+    raises CancelledError at that index, faithfully reproducing a worker
+    cancel/abandonment of the changes-feed generator mid-stream.
+    """
+
+    def __init__(
+        self, lines: list[str], *, status: int = 200, interrupt_at: int | None = None
+    ) -> None:
+        self._lines = lines
+        self.status_code = status
+        self.headers: dict[str, str] = {}
+        self._interrupt_at = interrupt_at
+
+    async def __aenter__(self) -> _FakeStream:
+        return self
+
+    async def __aexit__(self, *_: object) -> bool:
+        return False
+
+    async def aiter_lines(self) -> AsyncIterator[str]:
+        for i, line in enumerate(self._lines):
+            if self._interrupt_at is not None and i == self._interrupt_at:
+                raise asyncio.CancelledError
+            yield line
+
+
+def _npm_line(seq: int, name: str) -> str:
+    return json.dumps({"seq": seq, "doc": {"name": name, "dist-tags": {}, "versions": {}}})
+
+
+def _npm_patches(write_cursor: AsyncMock) -> Any:
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.commit = AsyncMock()
+    return (
+        patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
+        patch("app.ingestion.framework.cursor.read_cursor", AsyncMock(return_value={"seq": 0})),
+        patch("app.ingestion.framework.cursor.write_cursor", write_cursor),
+    )
+
+
+@pytest.mark.asyncio
+async def test_npm_cursor_resets_on_success() -> None:
+    """A fully-drained changes feed writes the terminal cursor with success=True
+    (resets the streak + stamps last_successful_cycle_at). Reproduces the missing
+    reset behind the count=8 / last_success=NULL bug."""
+    from app.ingestion.sources.npm import NpmAdapter
+
+    adapter = NpmAdapter(_npm_config())
+    lines = [_npm_line(5, "mcp-foo"), _npm_line(6, "mcp-bar")]
+    client = MagicMock()
+    client.stream = MagicMock(return_value=_FakeStream(lines))
+
+    write_cursor = AsyncMock()
+    p1, p2, p3 = _npm_patches(write_cursor)
+    with p1, p2, p3:
+        items = [item async for item in adapter.list_items(client)]
+
+    assert len(items) == 2  # both mcp- packages yielded
+    write_cursor.assert_awaited_once()
+    await_args: Any = write_cursor.await_args
+    assert await_args.kwargs.get("success") is True
+    assert await_args.args[2] == {"seq": 6}  # cursor advanced to the last seq
+
+
+@pytest.mark.asyncio
+async def test_npm_cursor_increments_on_interrupt() -> None:
+    """A worker-cancel mid-stream still writes a TERMINAL cursor (success=False) via
+    the `finally`, rather than skipping it and leaving the streak stale. On `main`
+    the terminal write sat outside the try, so abandonment never reset/advanced it —
+    the count=8 / last_success=NULL state."""
+    from app.ingestion.sources.npm import NpmAdapter
+
+    adapter = NpmAdapter(_npm_config())
+    # First line processed (seq=5), then a cancel before the second.
+    lines = [_npm_line(5, "mcp-foo"), _npm_line(6, "mcp-bar")]
+    client = MagicMock()
+    client.stream = MagicMock(return_value=_FakeStream(lines, interrupt_at=1))
+
+    write_cursor = AsyncMock()
+    p1, p2, p3 = _npm_patches(write_cursor)
+    with p1, p2, p3, pytest.raises(asyncio.CancelledError):
+        _ = [item async for item in adapter.list_items(client)]
+
+    # The terminal write STILL ran (in the finally) — as a FAILURE so the streak
+    # advances rather than being silently skipped.
+    write_cursor.assert_awaited_once()
+    await_args: Any = write_cursor.await_args
+    assert await_args.kwargs.get("success") is False
+    assert await_args.args[2] == {"seq": 5}  # the last seq seen before the cancel
+
+
+@pytest.mark.asyncio
+async def test_npm_cursor_failure_on_non_200() -> None:
+    """A non-200 on the changes stream records the cycle as failed (success=False)
+    via the finally, never silently greening a no-op (WS-8b)."""
+    from app.ingestion.sources.npm import NpmAdapter
+
+    adapter = NpmAdapter(_npm_config())
+    client = MagicMock()
+    client.stream = MagicMock(return_value=_FakeStream([], status=503))
+
+    write_cursor = AsyncMock()
+    p1, p2, p3 = _npm_patches(write_cursor)
+    with p1, p2, p3:
+        items = [item async for item in adapter.list_items(client)]
+
+    assert items == []
+    write_cursor.assert_awaited_once()
+    await_args: Any = write_cursor.await_args
+    assert await_args.kwargs.get("success") is False

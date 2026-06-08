@@ -66,6 +66,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         from app.queue.scan_runner import recover_stale_scans
 
         await recover_stale_scans()
+    # Same idea for orphaned `running` ingestion_runs rows (a reload between
+    # record_run_started/finished) — the missing ingest-side reaper. Clears the
+    # phantom `stuck`/inflated-`running` the eagle-eye view would otherwise show.
+    with contextlib.suppress(Exception):
+        from app.ingestion.tasks import recover_stale_ingestion_runs
+
+        await recover_stale_ingestion_runs()
 
     # Unlisted-run expiry sweep — only once migrations + pool are up, never in
     # degraded mode (I-3.5, D-UP-17 / P1-7). Cancelled cleanly on shutdown.

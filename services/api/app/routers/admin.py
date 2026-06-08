@@ -420,7 +420,26 @@ async def admin_force_cycle_source(
 ) -> dict[str, Any]:
     if source not in load_source_configs():
         raise HTTPException(404, f"unknown source {source!r}")
+    from procrastinate.exceptions import AlreadyEnqueued, TaskNotFound
+
     from app.ingestion import procrastinate_app
+
+    # Pre-check the per-source `queueing_lock` (the same lock-aware pattern as
+    # `tasks_scan.defer_scan_job`): a cycle already `todo`/`doing` holds
+    # `ingest_cycle_<source>_lock`, so a second defer would raise AlreadyEnqueued.
+    # Surface that as an honest 409 — the source IS schedulable, it's just busy —
+    # instead of the old broad-except "not schedulable" mislabel (the dashboard's
+    # misleading "3 failed" after a force-cycle ALL). Best-effort: a list_jobs
+    # error falls through to the defer, where AlreadyEnqueued is the race backstop.
+    lock = f"ingest_cycle_{source}_lock"
+    try:
+        existing: list[Any] = list(
+            await procrastinate_app.job_manager.list_jobs_async(queueing_lock=lock)
+        )
+    except Exception:
+        existing = []
+    if any(getattr(j, "status", None) in ("todo", "doing") for j in existing):
+        raise HTTPException(409, f"a cycle is already queued or running for {source!r}")
 
     try:
         # allow_unknown=False so a non-cadenced source (webhook/disabled — no
@@ -429,10 +448,19 @@ async def admin_force_cycle_source(
         await procrastinate_app.configure_task(
             name=f"ingest_cycle_{source}", allow_unknown=False
         ).defer_async(timestamp=int(time.time()), trigger="force")
-    except Exception as exc:  # task not registered (disabled/non-api source)
+    except AlreadyEnqueued as exc:
+        # Race backstop: a concurrent defer claimed the lock between the pre-check
+        # and here. Same honest 409 as the pre-check.
+        raise HTTPException(409, f"a cycle is already queued or running for {source!r}") from exc
+    except TaskNotFound as exc:
+        # No registered periodic `ingest_cycle_*` task — a webhook or disabled
+        # source. Keep 400 (correct to reject) but reword: the old message claimed
+        # "not schedulable (disabled or non-api)" even for a genuine webhook.
         raise HTTPException(
-            400, f"source {source!r} is not schedulable (disabled or non-api)"
+            400, f"{source!r} has no periodic cycle (webhook or disabled source)"
         ) from exc
+    # Any other exception propagates → 500: a real bug must not be swallowed as a
+    # benign "not schedulable".
     await _audit(session, action="sources.force_cycle", actor_fp=actor_fp, target=source)
     return {"ok": True, "queued": True}
 

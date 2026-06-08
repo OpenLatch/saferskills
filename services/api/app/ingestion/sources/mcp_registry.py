@@ -116,110 +116,114 @@ class McpRegistryAdapter(RegistryAdapter):
                 await cp_session.commit()
 
         sweep_complete = False
-        while True:
-            # Checkpoint the page we are ABOUT to fetch (resume point on abort).
-            await _checkpoint(opaque_cursor)
+        try:
+            while True:
+                # Checkpoint the page we are ABOUT to fetch (resume point on abort).
+                await _checkpoint(opaque_cursor)
 
-            params: dict[str, str] = {
-                "updated_since": updated_since,
-                "limit": str(page_limit),
-            }
-            if opaque_cursor:
-                params["cursor"] = opaque_cursor
+                params: dict[str, str] = {
+                    "updated_since": updated_since,
+                    "limit": str(page_limit),
+                }
+                if opaque_cursor:
+                    params["cursor"] = opaque_cursor
 
-            r = await client.get(url, params=params)
+                r = await client.get(url, params=params)
 
-            if r.status_code == 304:
-                yield RawItem(
-                    source_id=f"mcp_registry/cursor:{opaque_cursor or 'start'}",
-                    raw_body_bytes=b"",
-                    raw_body_hash=hashlib.sha256(b"").hexdigest(),
-                    http_status=304,
-                    etag=r.headers.get("etag"),
-                    from_cache=True,
-                    fetch_tier=1,
-                )
-                sweep_complete = True  # nothing new since the watermark
-                break
+                if r.status_code == 304:
+                    yield RawItem(
+                        source_id=f"mcp_registry/cursor:{opaque_cursor or 'start'}",
+                        raw_body_bytes=b"",
+                        raw_body_hash=hashlib.sha256(b"").hexdigest(),
+                        http_status=304,
+                        etag=r.headers.get("etag"),
+                        from_cache=True,
+                        fetch_tier=1,
+                    )
+                    sweep_complete = True  # nothing new since the watermark
+                    break
 
-            if r.status_code != 200:
-                yield RawItem(
-                    source_id=f"mcp_registry/cursor:{opaque_cursor or 'start'}",
-                    raw_body_bytes=r.content,
-                    raw_body_hash=hashlib.sha256(r.content).hexdigest(),
-                    http_status=r.status_code,
-                    error_reason=(
-                        "rate_limit"
-                        if r.status_code in (429, 403)
-                        else "http_5xx"
-                        if r.status_code >= 500
-                        else "other"
-                    ),
-                    fetch_tier=1,
-                )
-                # Transient fetch failure — keep the checkpoint, do NOT complete.
-                break
+                if r.status_code != 200:
+                    yield RawItem(
+                        source_id=f"mcp_registry/cursor:{opaque_cursor or 'start'}",
+                        raw_body_bytes=r.content,
+                        raw_body_hash=hashlib.sha256(r.content).hexdigest(),
+                        http_status=r.status_code,
+                        error_reason=(
+                            "rate_limit"
+                            if r.status_code in (429, 403)
+                            else "http_5xx"
+                            if r.status_code >= 500
+                            else "other"
+                        ),
+                        fetch_tier=1,
+                    )
+                    # Transient fetch failure — keep the checkpoint, do NOT complete.
+                    break
 
-            data = r.json()
-            servers: list[dict[str, Any]] = data.get("servers") or []
-            for record in servers:
-                # The /v0/servers feed wraps each entry: the server object lives under
-                # `server`, registry bookkeeping under `_meta`. Unwrap both (fall back
-                # to the bare record if an older unwrapped shape ever reappears).
-                inner: Any = record.get("server")
-                server: dict[str, Any] = (
-                    cast("dict[str, Any]", inner) if isinstance(inner, dict) else record
-                )
-                meta_raw: Any = record.get("_meta")
-                meta_outer: dict[str, Any] = (
-                    cast("dict[str, Any]", meta_raw) if isinstance(meta_raw, dict) else {}
-                )
-                meta_inner: Any = meta_outer.get("io.modelcontextprotocol.registry/official")
-                meta: dict[str, Any] = (
-                    cast("dict[str, Any]", meta_inner) if isinstance(meta_inner, dict) else {}
-                )
+                data = r.json()
+                servers: list[dict[str, Any]] = data.get("servers") or []
+                for record in servers:
+                    # The /v0/servers feed wraps each entry: the server object lives
+                    # under `server`, registry bookkeeping under `_meta`. Unwrap both
+                    # (fall back to the bare record if an older shape ever reappears).
+                    inner: Any = record.get("server")
+                    server: dict[str, Any] = (
+                        cast("dict[str, Any]", inner) if isinstance(inner, dict) else record
+                    )
+                    meta_raw: Any = record.get("_meta")
+                    meta_outer: dict[str, Any] = (
+                        cast("dict[str, Any]", meta_raw) if isinstance(meta_raw, dict) else {}
+                    )
+                    meta_inner: Any = meta_outer.get("io.modelcontextprotocol.registry/official")
+                    meta: dict[str, Any] = (
+                        cast("dict[str, Any]", meta_inner) if isinstance(meta_inner, dict) else {}
+                    )
 
-                # Latest version only — the feed returns every published version.
-                if meta.get("isLatest") is False:
-                    continue
+                    # Latest version only — the feed returns every published version.
+                    if meta.get("isLatest") is False:
+                        continue
 
-                body = json.dumps(server, separators=(",", ":"), sort_keys=True).encode()
-                server_id: str = (
-                    str(server.get("name") or "") or hashlib.sha256(body).hexdigest()[:16]
-                )
-                updated_at: str = str(meta.get("updatedAt") or meta.get("updated_at") or "")
-                if updated_at > new_high_water:
-                    new_high_water = updated_at
-                yield RawItem(
-                    source_id=f"mcp_registry/{server_id}",
-                    raw_body_bytes=body,
-                    raw_body_hash=hashlib.sha256(body).hexdigest(),
-                    http_status=200,
-                    fetched_at=dt.datetime.now(tz=dt.UTC).isoformat(),
-                    from_cache=False,
-                    fetch_tier=1,
-                    payload_hint=server,
-                )
+                    body = json.dumps(server, separators=(",", ":"), sort_keys=True).encode()
+                    server_id: str = (
+                        str(server.get("name") or "") or hashlib.sha256(body).hexdigest()[:16]
+                    )
+                    updated_at: str = str(meta.get("updatedAt") or meta.get("updated_at") or "")
+                    if updated_at > new_high_water:
+                        new_high_water = updated_at
+                    yield RawItem(
+                        source_id=f"mcp_registry/{server_id}",
+                        raw_body_bytes=body,
+                        raw_body_hash=hashlib.sha256(body).hexdigest(),
+                        http_status=200,
+                        fetched_at=dt.datetime.now(tz=dt.UTC).isoformat(),
+                        from_cache=False,
+                        fetch_tier=1,
+                        payload_hint=server,
+                    )
 
-            page_meta: dict[str, Any] = data.get("metadata") or {}
-            opaque_cursor = page_meta.get("nextCursor") or page_meta.get("next_cursor")
-            if not opaque_cursor:
-                sweep_complete = True
-                break
-
-        # Only a fully-drained feed (or a 304) advances the watermark + marks the
-        # cycle successful + clears the resume cursor. A mid-sweep abort or transport
-        # error leaves the last per-page checkpoint untouched so the next cycle
-        # resumes from there instead of restarting at the epoch.
-        if sweep_complete:
-            async with AsyncSessionLocal() as session:
-                await write_cursor(
-                    session,
-                    self.config.name,
-                    {"updated_since": new_high_water, "next_cursor": None},
-                    success=True,
-                )
-                await session.commit()
+                page_meta: dict[str, Any] = data.get("metadata") or {}
+                opaque_cursor = page_meta.get("nextCursor") or page_meta.get("next_cursor")
+                if not opaque_cursor:
+                    sweep_complete = True
+                    break
+        finally:
+            # Terminal write is `finally`-guarded so it runs on every exit path,
+            # INCLUDING worker-cancel/abandonment of this async generator — but the
+            # split is unchanged: ONLY a fully-drained feed (or a 304) advances the
+            # watermark, marks the cycle successful, and clears the resume cursor
+            # (`if sweep_complete`). A mid-sweep abort / transport error / cancel
+            # leaves the last per-page checkpoint untouched (no success write), so the
+            # next cycle resumes from there instead of restarting at the epoch.
+            if sweep_complete:
+                async with AsyncSessionLocal() as session:
+                    await write_cursor(
+                        session,
+                        self.config.name,
+                        {"updated_since": new_high_water, "next_cursor": None},
+                        success=True,
+                    )
+                    await session.commit()
 
     def normalize(self, raw: RawItem) -> NormalizedItem | None:
         """Map an MCP Registry server record to a NormalizedItem."""

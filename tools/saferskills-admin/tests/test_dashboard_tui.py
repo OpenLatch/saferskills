@@ -552,6 +552,108 @@ def test_confirm_modal_y_confirms() -> None:
     asyncio.run(scenario())
 
 
+def test_force_cycle_all_confirms_and_cycles_every_source() -> None:
+    # `c` on the landing screen force-cycles EVERY source in the snapshot after a
+    # confirm, and reports an all-acknowledged inline status + toast.
+    async def scenario() -> None:
+        client = FakeClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test(notifications=True) as pilot:
+            await _settle(pilot)
+            await pilot.press("c")  # force-cycle-all → ConfirmModal
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=12)
+            assert sorted(client.force_cycle_calls) == ["npm", "smithery"]
+            status = app.screen.query_one("#action-status", Static)
+            rendered = str(status.render())
+            assert "force-cycle ALL" in rendered and "acknowledged" in rendered
+            notes = _notifs(app)
+            assert any(n.severity == "information" and "acknowledged" in n.message for n in notes)
+
+    asyncio.run(scenario())
+
+
+def test_force_cycle_all_reports_partial_failure() -> None:
+    # When one source fails the gate (a webhook source the backend won't schedule →
+    # a reworded 400), the others still go through and the status reports the tally.
+    class PartialClient(FakeClient):
+        def force_cycle(self, source: str) -> dict[str, Any]:
+            if source == "smithery":
+                raise HealthClientError(
+                    "HTTP 400 'smithery' has no periodic cycle (webhook or disabled source)",
+                    status_code=400,
+                )
+            return super().force_cycle(source)
+
+    async def scenario() -> None:
+        client = PartialClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test(notifications=True) as pilot:
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=12)
+            assert client.force_cycle_calls == ["npm"]  # smithery raised
+            rendered = str(app.screen.query_one("#action-status", Static).render())
+            assert "1/2 acknowledged" in rendered and "1 failed" in rendered
+            assert "no periodic cycle" in rendered  # the accurate webhook reason
+            notes = _notifs(app)
+            assert any(n.severity == "warning" and "failed" in n.message for n in notes)
+
+    asyncio.run(scenario())
+
+
+def test_force_cycle_all_tallies_409_as_acknowledged() -> None:
+    # A source already mid-cycle returns 409 — it IS schedulable, just busy — so it
+    # must be tallied as acknowledged-with-note, NEVER as a hard failure (the old
+    # broad-except backend message mislabelled this "not schedulable / N failed").
+    class BusyClient(FakeClient):
+        def force_cycle(self, source: str) -> dict[str, Any]:
+            if source == "smithery":
+                raise HealthClientError(
+                    "HTTP 409 a cycle is already queued or running for 'smithery'",
+                    status_code=409,
+                )
+            return super().force_cycle(source)
+
+    async def scenario() -> None:
+        client = BusyClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test(notifications=True) as pilot:
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.click("#confirm-yes")
+            await _settle(pilot, ticks=12)
+            assert client.force_cycle_calls == ["npm"]  # smithery raised 409
+            rendered = str(app.screen.query_one("#action-status", Static).render())
+            # No hard failure — all acknowledged, with the busy source noted.
+            assert "force-cycle ALL 2 sources acknowledged" in rendered
+            assert "1 already running" in rendered
+            assert "failed" not in rendered
+            notes = _notifs(app)
+            assert any(n.severity == "information" and "acknowledged" in n.message for n in notes)
+
+    asyncio.run(scenario())
+
+
+def test_force_cycle_all_cancel_does_nothing() -> None:
+    async def scenario() -> None:
+        client = FakeClient()
+        app = SourcesDashboardApp(client)
+        async with app.run_test() as pilot:
+            await _settle(pilot)
+            await pilot.press("c")
+            await _settle(pilot)
+            await pilot.press("n")  # cancel the confirm
+            await _settle(pilot, ticks=8)
+            assert client.force_cycle_calls == []
+
+    asyncio.run(scenario())
+
+
 def test_dashboard_help_smoke() -> None:
     result = runner.invoke(cli_app, ["sources", "dashboard", "--help"])
     assert result.exit_code == 0
