@@ -9,8 +9,9 @@ I-04 ingestion adapters will refine it with real manifest signals (declared
 `engines` / `agents` fields, MCP transport, editor-rule frontmatter).
 
 The same CASE-on-kind logic is mirrored in the Alembic backfill
-(``2026_05_29_0003_add_agent_compatibility``) so existing rows match new ones.
-Keep the two in sync — when this mapping changes, ship a new backfill migration.
+(``2026_05_29_0003_add_agent_compatibility``, with the `skill` set later widened
+by ``2026_06_08_0017_skill_compat_codex``) so existing rows match new ones. Keep
+the two in sync — when this mapping changes, ship a new backfill migration.
 """
 
 from __future__ import annotations
@@ -37,13 +38,19 @@ ALL_AGENTS: tuple[str, ...] = get_args(AgentName)
 
 # kind → the agents that can consume that artifact kind.
 #   mcp_server : MCP is a cross-agent transport standard → every agent.
-#   skill      : Claude Skills format → Claude Code + the Claude-compatible OpenClaw.
+#   skill      : the Claude Skills (SKILL.md) format → the agents that natively
+#                load a skills directory. Beyond Claude Code + Claude-compatible
+#                OpenClaw, OpenAI Codex, GitHub Copilot, and Gemini have each
+#                shipped a `skills/` surface (mirrors the install CLI's
+#                skill-capable set — those agents given a `skill_dir` in
+#                `cli/src/agents/detect.rs`; widened from the W2 Claude-only
+#                default in migration 0017_skill_compat_codex).
 #   plugin     : Claude Code plugin packaging → Claude Code (+ OpenClaw).
 #   hook       : Claude Code lifecycle hooks → Claude Code (+ OpenClaw).
 #   rules      : editor rule files → the rule-consuming editors.
 _KIND_TO_AGENTS: dict[str, tuple[str, ...]] = {
     "mcp_server": ALL_AGENTS,
-    "skill": ("claude-code", "openclaw"),
+    "skill": ("claude-code", "codex", "copilot", "gemini", "openclaw"),
     "plugin": ("claude-code", "openclaw"),
     "hook": ("claude-code", "openclaw"),
     "rules": ("cursor", "windsurf", "cline", "copilot"),
