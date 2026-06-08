@@ -19,6 +19,7 @@ pub mod api;
 pub mod cli;
 pub mod commands;
 pub mod core;
+pub mod tui;
 
 // Flat re-exports so call sites can use `crate::config`, `crate::error`, … —
 // the same ergonomic shape openlatch-client exposes.

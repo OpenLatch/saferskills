@@ -80,6 +80,10 @@ pub enum Commands {
     /// List installed capabilities with current scores.
     List(ListArgs),
 
+    /// Search the catalog interactively (or headless with --json), then install.
+    #[command(visible_alias = "find")]
+    Search(SearchArgs),
+
     /// Scan a local path or GitHub URL — with no target, audit everything installed.
     Scan(ScanArgs),
 
@@ -173,6 +177,104 @@ pub struct UpdateArgs {
 #[derive(Debug, clap::Args)]
 pub struct ListArgs {}
 
+/// Catalog sort key — a thin clap mirror of the server's `SortKey`. The
+/// `#[value(name = …)]` names are the exact snake_case query values the API
+/// accepts, so [`SortArg::as_server_key`] is a passthrough.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum SortArg {
+    /// Most installed (the trending default).
+    #[value(name = "most_installed")]
+    MostInstalled,
+    /// Fewest installs.
+    #[value(name = "least_installed")]
+    LeastInstalled,
+    /// Most recently added/updated.
+    #[value(name = "recent")]
+    Recent,
+    /// Oldest first.
+    #[value(name = "oldest")]
+    Oldest,
+    /// Highest security score first.
+    #[value(name = "highest_score")]
+    HighestScore,
+    /// Lowest security score first.
+    #[value(name = "lowest_score")]
+    LowestScore,
+    /// Most GitHub stars.
+    #[value(name = "most_starred")]
+    MostStarred,
+    /// Name A→Z.
+    #[value(name = "name_asc")]
+    NameAsc,
+    /// Name Z→A.
+    #[value(name = "name_desc")]
+    NameDesc,
+    /// Most install activity (trailing quarter).
+    #[value(name = "most_active")]
+    MostActive,
+    /// Least install activity.
+    #[value(name = "least_active")]
+    LeastActive,
+}
+
+impl SortArg {
+    /// The exact server query value.
+    pub fn as_server_key(self) -> &'static str {
+        match self {
+            SortArg::MostInstalled => "most_installed",
+            SortArg::LeastInstalled => "least_installed",
+            SortArg::Recent => "recent",
+            SortArg::Oldest => "oldest",
+            SortArg::HighestScore => "highest_score",
+            SortArg::LowestScore => "lowest_score",
+            SortArg::MostStarred => "most_starred",
+            SortArg::NameAsc => "name_asc",
+            SortArg::NameDesc => "name_desc",
+            SortArg::MostActive => "most_active",
+            SortArg::LeastActive => "least_active",
+        }
+    }
+}
+
+/// `search [query]` — interactive faceted catalog finder + installer (alias
+/// `find`). With `--json` (or any non-TTY context) it runs headless: one fetch,
+/// the catalog envelope printed as JSON to stdout, no TUI.
+#[derive(Debug, clap::Args)]
+pub struct SearchArgs {
+    /// Seed query (FTS + fuzzy). Omit for the trending list.
+    pub query: Option<String>,
+
+    /// Restrict to these capability kinds (repeatable): `skill`, `mcp_server`,
+    /// `hook`, `plugin`, `rules`.
+    #[arg(long = "kind")]
+    pub kind: Vec<String>,
+
+    /// Restrict to these agent compatibilities (repeatable; canonical ids).
+    #[arg(long = "agent")]
+    pub agent: Vec<String>,
+
+    /// Restrict to these scan tiers (repeatable): `green`, `yellow`, `orange`,
+    /// `red`.
+    #[arg(long = "scan-tier")]
+    pub scan_tier: Vec<String>,
+
+    /// Minimum aggregate score (0–100).
+    #[arg(long = "score-min", value_parser = clap::value_parser!(u8).range(0..=100))]
+    pub score_min: Option<u8>,
+
+    /// Sort key (default: most_installed — trending).
+    #[arg(long, value_enum)]
+    pub sort: Option<SortArg>,
+
+    /// Page size (1–100; default 50).
+    #[arg(long, default_value_t = 50, value_parser = clap::value_parser!(u32).range(1..=100))]
+    pub limit: u32,
+
+    /// Include low/empty quality_tier items (default hides them).
+    #[arg(long = "show-low-quality")]
+    pub show_low_quality: bool,
+}
+
 /// `scan [target]`.
 #[derive(Debug, clap::Args)]
 pub struct ScanArgs {
@@ -253,6 +355,7 @@ pub fn command_label(cmd: &Commands) -> (&'static str, Option<&'static str>) {
         Commands::Uninstall(_) => ("uninstall", None),
         Commands::Update(_) => ("update", None),
         Commands::List(_) => ("list", None),
+        Commands::Search(_) => ("search", None),
         Commands::Scan(_) => ("scan", None),
         Commands::Doctor(_) => ("doctor", None),
         Commands::Completion { .. } => ("completion", None),
@@ -268,6 +371,8 @@ pub const KNOWN_SUBCOMMANDS: &[&str] = &[
     "uninstall",
     "update",
     "list",
+    "search",
+    "find",
     "scan",
     "doctor",
     "completion",
