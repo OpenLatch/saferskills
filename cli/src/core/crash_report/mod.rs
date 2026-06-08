@@ -18,18 +18,22 @@
 //! chains a SaferSkills hook that tags the panic location, then calls the
 //! previous (sentry) hook so both fire.
 
+// The submodule files live directly in `crash_report/`. They are declared at
+// this top level — NOT inside the inline `imp` module — so each resolves to
+// `crash_report/<file>.rs`. A `#[path = "../config.rs"]` on a module declared
+// *inside* `mod imp` resolves relative to the inline module's virtual directory,
+// i.e. `crash_report/imp/../config.rs`: that normalizes lexically on Windows but
+// fails on Linux, where `imp/` is not a real directory the kernel can resolve
+// `..` through (the cli-fmt/clippy/test CI lanes run on Linux).
+#[cfg(feature = "crash-report")]
+mod config;
+#[cfg(feature = "crash-report")]
+mod consent;
+#[cfg(feature = "crash-report")]
+mod scrub;
+
 #[cfg(feature = "crash-report")]
 mod imp {
-    // The submodule files live alongside this `mod.rs`. Because they are
-    // declared inside the inline `imp` module, `#[path]` resolves relative to
-    // `crash_report/imp/`, so step up one level to reach the sibling files.
-    #[path = "../config.rs"]
-    pub mod config;
-    #[path = "../consent.rs"]
-    pub mod consent;
-    #[path = "../scrub.rs"]
-    pub mod scrub;
-
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -37,7 +41,7 @@ mod imp {
 
     use crate::core::config::config_path;
 
-    use self::consent::resolve;
+    use super::consent::resolve;
 
     /// Baked DSN from `build.rs`. Empty string when unset at build time (dev /
     /// fork / `cargo install` with no secret) — [`resolve_dsn`] then yields
@@ -100,7 +104,7 @@ mod imp {
             traces_sample_rate: 0.0,
             attach_stacktrace: true,
             // Scrub every outgoing event (panic message + backtrace frames).
-            before_send: Some(Arc::new(scrub::scrub_event)),
+            before_send: Some(Arc::new(super::scrub::scrub_event)),
             ..Default::default()
         };
 
