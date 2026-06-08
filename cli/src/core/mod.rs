@@ -7,4 +7,5 @@ pub mod error;
 pub mod http;
 pub mod pow;
 pub mod registry;
+pub mod scan_cache;
 pub mod telemetry;

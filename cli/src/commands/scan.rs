@@ -26,6 +26,7 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 
+use super::report;
 use crate::agents::enumerate::{self, Enumeration, SkipNote};
 use crate::agents::{detect_all, AgentId, DetectedAgent, Scope};
 use crate::api::dto::{CapabilityRow, FindingResponse, ScanRunReportDetail, Severity};
@@ -33,9 +34,10 @@ use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::OutputConfig;
 use crate::cli::ScanArgs;
-use crate::core::config::Config;
+use crate::core::config::{contract_home, Config};
 use crate::core::error::{SsError, ERR_POW_FAILED, ERR_RATE_LIMITED, ERR_SCAN_TARGET};
 use crate::core::pow;
+use crate::core::scan_cache::{self, CachedScan};
 
 /// Client-side wait for a single interactive scan to finish.
 const SCAN_TIMEOUT: Duration = Duration::from_secs(180);
@@ -66,7 +68,7 @@ pub async fn run_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsEr
             "No target given — auditing installed capabilities (same as `scan --local`).",
         );
     }
-    run_local(&api, output, visibility, args.detailed).await
+    run_local_audit(&api, output, visibility, args.detailed).await
 }
 
 // ─── single-target paths ─────────────────────────────────────────────────────
@@ -128,7 +130,10 @@ async fn scan_path(
 
 // ─── scan --local: audit everything installed (D-05-27) ──────────────────────
 
-async fn run_local(
+/// Audit everything installed across detected agents. Shared by `scan --local`
+/// and `list`'s inline "scan the unscanned now" invitation — the latter calls it
+/// (`visibility="public"`) then re-renders from the freshly populated scan cache.
+pub(crate) async fn run_local_audit(
     api: &Api,
     output: &OutputConfig,
     visibility: &str,
@@ -153,7 +158,12 @@ async fn run_local(
         return Ok(());
     }
 
-    let (bundle, summary, skips) = build_local_bundle(enm, &agents)?;
+    let BuiltBundle {
+        zip: bundle,
+        summary,
+        skips,
+        refs,
+    } = build_local_bundle(enm, &agents)?;
     print_preflight(output, &summary, &skips);
 
     let pow = obtain_pow_if_needed(api, output).await?;
@@ -161,6 +171,11 @@ async fn run_local(
         .submit_scan_upload(bundle, "local-audit.zip", visibility, None, &pow)
         .await?;
     let run = api.wait_for_run(&up.id, output, SCAN_TIMEOUT).await?;
+
+    // Persist each scored capability to the local scan cache so `list` can show
+    // its score later (keyed by the CLI-side content hash). Best-effort: a cache
+    // write failure must never fail the scan.
+    cache_completed_run(output, &run, &refs);
 
     let local = LocalReport {
         summary: &summary,
@@ -175,6 +190,72 @@ async fn run_local(
         Some(&local),
     );
     Ok(())
+}
+
+/// CLI-side identity of one bundled capability, used to correlate a server
+/// [`CapabilityRow`] back to its local bytes (→ the scan cache `content_hash`).
+struct LocalCapRef {
+    /// The capability subtree path (the anchor's parent dir) — the server's
+    /// `component_path` for a directory capability, the primary correlation key.
+    component_dir: String,
+    kind: String,
+    name: String,
+    content_hash: String,
+}
+
+/// Correlate one server [`CapabilityRow`] back to a bundled local capability:
+/// match on `component_path` (exact, or either-direction subtree prefix) first,
+/// then fall back to `(kind, name)`. Returns the local `content_hash`.
+fn correlate<'a>(row: &CapabilityRow, refs: &'a [LocalCapRef]) -> Option<&'a LocalCapRef> {
+    if let Some(cp) = row.component_path.as_deref().filter(|s| !s.is_empty()) {
+        if let Some(r) = refs.iter().find(|r| {
+            r.component_dir == cp
+                || is_subtree(&r.component_dir, cp)
+                || is_subtree(cp, &r.component_dir)
+        }) {
+            return Some(r);
+        }
+    }
+    refs.iter()
+        .find(|r| r.kind == row.kind && r.name == row.name)
+}
+
+/// Whether `path` lies under `prefix` as a `/`-segment subtree (`a/b/c` under
+/// `a/b`) — allocation-free (no `format!` in the correlation hot loop).
+fn is_subtree(path: &str, prefix: &str) -> bool {
+    path.len() > prefix.len() && path.starts_with(prefix) && path.as_bytes()[prefix.len()] == b'/'
+}
+
+/// Write each scored capability of a completed run to the local scan cache.
+/// Best-effort — logs a substep on failure, never errors.
+fn cache_completed_run(output: &OutputConfig, run: &ScanRunReportDetail, refs: &[LocalCapRef]) {
+    let now = chrono::Utc::now();
+    let report_url = run.report_url.clone();
+    let cached: Vec<CachedScan> = run
+        .capabilities
+        .iter()
+        .filter_map(|row| {
+            correlate(row, refs).map(|r| CachedScan {
+                content_hash: r.content_hash.clone(),
+                kind: row.kind.clone(),
+                name: row.name.clone(),
+                catalog_slug: row.catalog_slug.clone(),
+                score: row.aggregate_score,
+                tier: row.tier,
+                scanned_at: now,
+                report_url: report_url.clone(),
+            })
+        })
+        .collect();
+    if cached.is_empty() {
+        return;
+    }
+    if let Err(e) = scan_cache::upsert(cached) {
+        output.print_substep(&format!(
+            "Could not update the local scan cache: {}",
+            e.message
+        ));
+    }
 }
 
 /// One audited agent — display name + on-disk location + how many of its
@@ -208,12 +289,20 @@ struct LocalReport<'a> {
     skips: &'a [SkipNote],
 }
 
+/// The assembled local-audit upload plus everything the caller needs after it:
+/// the pre-flight `summary`, the excluded-item `skips`, and the per-capability
+/// `refs` that correlate a server `CapabilityRow` back to its local bytes (→ the
+/// scan cache).
+struct BuiltBundle {
+    zip: Vec<u8>,
+    summary: BundleSummary,
+    skips: Vec<SkipNote>,
+    refs: Vec<LocalCapRef>,
+}
+
 /// Assemble the single structured `.zip`: priority + total-budget selection,
 /// casefold-dedup, then a byte-stable zip. Guards the 10 MiB compressed cap.
-fn build_local_bundle(
-    enm: Enumeration,
-    agents: &[DetectedAgent],
-) -> Result<(Vec<u8>, BundleSummary, Vec<SkipNote>), SsError> {
+fn build_local_bundle(enm: Enumeration, agents: &[DetectedAgent]) -> Result<BuiltBundle, SsError> {
     let Enumeration {
         capabilities,
         mut skips,
@@ -224,6 +313,7 @@ fn build_local_bundle(
     let mut agent_counts: HashMap<AgentId, usize> = HashMap::new();
     let mut kinds: BTreeMap<String, usize> = BTreeMap::new();
     let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut refs: Vec<LocalCapRef> = Vec::new();
     let mut from_plugins = 0usize;
     for cap in &kept {
         *agent_counts.entry(cap.agent).or_default() += 1;
@@ -232,6 +322,15 @@ fn build_local_bundle(
         if cap.anchor.contains("/plugins/") {
             from_plugins += 1;
         }
+        // The capability subtree the server sees as `component_path` is the
+        // anchor's parent dir; compute the content hash on the same enumerated
+        // entries `list` will re-derive, so the join is exact.
+        refs.push(LocalCapRef {
+            component_dir: anchor_dir(&cap.anchor),
+            kind: cap.kind.as_str().to_string(),
+            name: cap.name.clone(),
+            content_hash: cap.content_hash(),
+        });
         for (p, b) in &cap.entries {
             entries.push((p.clone(), b.clone()));
         }
@@ -278,7 +377,22 @@ fn build_local_bundle(
         kinds,
         agents_detail,
     };
-    Ok((zip, summary, skips))
+    Ok(BuiltBundle {
+        zip,
+        summary,
+        skips,
+        refs,
+    })
+}
+
+/// The capability subtree path — an anchor's parent dir (`a/b/SKILL.md` →
+/// `a/b`), the server's `component_path` for a directory capability. A
+/// segment-less anchor yields `""` (whole-bundle root).
+fn anchor_dir(anchor: &str) -> String {
+    match anchor.rsplit_once('/') {
+        Some((dir, _)) => dir.to_string(),
+        None => String::new(),
+    }
 }
 
 /// A `~`-contracted display location for a detected agent — its config root
@@ -291,18 +405,6 @@ fn agent_location(a: &DetectedAgent) -> String {
         .or_else(|| a.mcp_config_path.parent())
         .unwrap_or(a.mcp_config_path.as_path());
     contract_home(root)
-}
-
-/// Replace a leading home-directory prefix with `~` for a compact, PII-light path.
-fn contract_home(p: &Path) -> String {
-    let s = p.to_string_lossy().into_owned();
-    if let Some(home) = dirs::home_dir() {
-        let h = home.to_string_lossy();
-        if let Some(rest) = s.strip_prefix(h.as_ref()) {
-            return format!("~{rest}");
-        }
-    }
-    s
 }
 
 /// The discovery summary printed before the upload submits.
@@ -574,7 +676,7 @@ fn report_json(report_url: &str, run: &ScanRunReportDetail, local: Option<&Local
                 "tier": c.tier,
                 "sub_scores": c.sub_scores,
                 "findings_count": c.findings.len(),
-                "worst_severity": worst_severity(&c.findings).map(severity_str),
+                "worst_severity": report::worst_severity(&c.findings).map(report::severity_str),
             })
         })
         .collect();
@@ -649,7 +751,7 @@ fn print_human_report(
         for (_, label, mean) in &means {
             p(&format!(
                 "    {}  {}  {}",
-                pad(label, 13),
+                report::pad(label, 13),
                 color::bar_gauge(*mean as u8, 10, c),
                 mean
             ));
@@ -673,8 +775,8 @@ fn print_human_report(
                 };
                 p(&format!(
                     "    {}  {}  {}",
-                    pad(&a.name, 14),
-                    pad(&a.location, 24),
+                    report::pad(&a.name, 14),
+                    report::pad(&a.location, 24),
                     color::dim(&tail, c)
                 ));
             }
@@ -701,17 +803,20 @@ fn print_human_report(
         };
         for cap in caps.iter().take(limit) {
             let marker_plain = format!("{} {}", color::tier_glyph(cap.tier), cap.tier.label());
-            let marker = color::tier_paint(cap.tier, &pad(&marker_plain, 10), c);
-            let score =
-                color::score_paint(cap.aggregate_score, &pad_left(cap.aggregate_score, 3), c);
+            let marker = color::tier_paint(cap.tier, &report::pad(&marker_plain, 10), c);
+            let score = color::score_paint(
+                cap.aggregate_score,
+                &report::pad_left(cap.aggregate_score, 3),
+                c,
+            );
             p(&format!(
                 "    {marker} {score}   {}  {}  {}",
-                pad(kind_label(&cap.kind), 5),
-                pad(&cap.name, 22),
-                finding_rollup(&cap.findings)
+                report::pad(report::kind_label(&cap.kind), 5),
+                report::pad(&cap.name, 22),
+                report::finding_rollup(&cap.findings)
             ));
             if detailed {
-                print_capability_axes(output, cap);
+                report::print_axes(output, &cap.sub_scores, 8);
             }
         }
         if caps.len() > limit {
@@ -734,30 +839,7 @@ fn print_human_report(
             color::bold("Most problematic findings", c)
         ));
         for (cap_name, f) in &top {
-            let title = f.title.clone().unwrap_or_else(|| f.rule_id.clone());
-            p(&format!(
-                "    {}  {}",
-                color::severity_badge(f.severity, c),
-                title
-            ));
-            p(&format!(
-                "                {}",
-                color::dim(
-                    &format!(
-                        "{} · {} · {}:{}",
-                        f.rule_id, cap_name, f.file_path, f.line_start
-                    ),
-                    c
-                )
-            ));
-            if detailed {
-                if let Some(rem) = &f.remediation {
-                    p(&format!(
-                        "                {}",
-                        color::dim(&format!("→ {}", rem.action), c)
-                    ));
-                }
-            }
+            report::print_finding_row(output, f, Some(cap_name), detailed, false);
         }
 
         // ── next ──
@@ -766,7 +848,7 @@ fn print_human_report(
             p(&format!(
                 "  {}    Review {cap_name} ({}) before keeping it installed.",
                 color::bold("Next", c),
-                severity_str(f.severity)
+                report::severity_str(f.severity)
             ));
         }
     }
@@ -780,21 +862,6 @@ fn print_human_report(
     ));
     if share_url.is_some() {
         p("  Unlisted — reachable only via this link; expires in 90 days.");
-    }
-}
-
-/// `--detailed` per-capability 5-axis bars.
-fn print_capability_axes(output: &OutputConfig, cap: &CapabilityRow) {
-    let c = output.color;
-    for (key, label) in color::AXES {
-        if let Some(v) = cap.sub_scores.get(key) {
-            output.print_info(&format!(
-                "        {}  {}  {}",
-                pad(label, 13),
-                color::bar_gauge((*v).clamp(0, 100) as u8, 10, c),
-                v
-            ));
-        }
     }
 }
 
@@ -873,67 +940,6 @@ fn top_findings(run: &ScanRunReportDetail) -> Vec<(String, &FindingResponse)> {
         .collect()
 }
 
-fn worst_severity(findings: &[FindingResponse]) -> Option<Severity> {
-    findings.iter().map(|f| f.severity).max_by_key(|s| s.rank())
-}
-
-fn severity_str(sev: Severity) -> &'static str {
-    match sev {
-        Severity::Critical => "critical",
-        Severity::High => "high",
-        Severity::Medium => "medium",
-        Severity::Low => "low",
-        Severity::Info => "info",
-        Severity::Unknown => "unknown",
-    }
-}
-
-/// A short finding rollup chip, mirroring the webapp's clear/high/warn classes.
-fn finding_rollup(findings: &[FindingResponse]) -> String {
-    let total = findings.len();
-    if total == 0 {
-        return "all clear".to_string();
-    }
-    let crit = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Critical)
-        .count();
-    let high = findings
-        .iter()
-        .filter(|f| f.severity == Severity::High)
-        .count();
-    let med = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Medium)
-        .count();
-    let low = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Low)
-        .count();
-    if crit > 0 {
-        format!("{crit} critical · {total} findings")
-    } else if high > 0 {
-        format!("{high} high · {total} findings")
-    } else if med > 0 {
-        format!("{med} medium")
-    } else if low > 0 {
-        format!("{low} low")
-    } else {
-        format!("{total} findings")
-    }
-}
-
-fn kind_label(kind: &str) -> &str {
-    match kind {
-        "skill" => "Skill",
-        "mcp_server" => "MCP",
-        "hook" => "Hook",
-        "plugin" => "Plugin",
-        "rules" => "Rules",
-        other => other,
-    }
-}
-
 // ─── JSON sub-objects ────────────────────────────────────────────────────────
 
 fn bundle_json(s: &BundleSummary) -> Value {
@@ -973,27 +979,6 @@ fn skips_json(skips: &[SkipNote]) -> Value {
 }
 
 // ─── formatting helpers ──────────────────────────────────────────────────────
-
-/// Right-pad a plain (uncolored) string to `width` display columns.
-fn pad(s: &str, width: usize) -> String {
-    let n = s.chars().count();
-    if n >= width {
-        s.to_string()
-    } else {
-        format!("{s}{}", " ".repeat(width - n))
-    }
-}
-
-/// Left-pad a small number to `width` columns.
-fn pad_left(n: u8, width: usize) -> String {
-    let s = n.to_string();
-    let len = s.len();
-    if len >= width {
-        s
-    } else {
-        format!("{}{s}", " ".repeat(width - len))
-    }
-}
 
 fn kinds_str(kinds: &BTreeMap<String, usize>) -> String {
     const ORDER: [&str; 5] = ["mcp_server", "skill", "hook", "rules", "plugin"];
@@ -1220,19 +1205,6 @@ mod tests {
     }
 
     #[test]
-    fn finding_rollup_chips() {
-        assert_eq!(finding_rollup(&[]), "all clear");
-        let crit = vec![
-            finding("R1", Severity::Critical, "t", "a", 1),
-            finding("R2", Severity::Low, "t", "a", 2),
-            finding("R3", Severity::Low, "t", "a", 3),
-        ];
-        assert_eq!(finding_rollup(&crit), "1 critical · 3 findings");
-        let med = vec![finding("R", Severity::Medium, "t", "a", 1)];
-        assert_eq!(finding_rollup(&med), "1 medium");
-    }
-
-    #[test]
     fn json_report_keeps_run_fields_and_adds_richness() {
         let r = run();
         let v = report_json("https://saferskills.ai/scans/runs/abc123", &r, None);
@@ -1317,5 +1289,77 @@ mod tests {
         assert_eq!(human_bytes(512), "512 B");
         assert_eq!(human_bytes(2048), "2 KiB");
         assert_eq!(human_bytes(3 * 1024 * 1024), "3.0 MiB");
+    }
+
+    #[test]
+    fn anchor_dir_is_parent_of_anchor() {
+        assert_eq!(
+            anchor_dir("claude-code/skills/pdf/SKILL.md"),
+            "claude-code/skills/pdf"
+        );
+        assert_eq!(anchor_dir("claude-code/hooks/x.json"), "claude-code/hooks");
+        assert_eq!(anchor_dir("loose"), "");
+    }
+
+    fn cap_ref(dir: &str, kind: &str, name: &str, hash: &str) -> LocalCapRef {
+        LocalCapRef {
+            component_dir: dir.into(),
+            kind: kind.into(),
+            name: name.into(),
+            content_hash: hash.into(),
+        }
+    }
+
+    fn row_with(component: Option<&str>, kind: &str, name: &str) -> CapabilityRow {
+        CapabilityRow {
+            kind: kind.into(),
+            name: name.into(),
+            component_path: component.map(String::from),
+            aggregate_score: 90,
+            tier: crate::api::dto::Tier::Green,
+            scan_id: "s".into(),
+            catalog_slug: "slug".into(),
+            sub_scores: BTreeMap::new(),
+            findings: vec![],
+        }
+    }
+
+    #[test]
+    fn correlate_matches_on_component_path() {
+        let refs = vec![
+            cap_ref("claude-code/skills/pdf", "skill", "pdf", "HASH_PDF"),
+            cap_ref("claude-code/hooks", "hook", "pre-commit", "HASH_HOOK"),
+        ];
+        // Exact component_path match.
+        let row = row_with(Some("claude-code/skills/pdf"), "skill", "pdf");
+        assert_eq!(correlate(&row, &refs).unwrap().content_hash, "HASH_PDF");
+        // Subtree match (server path nested under the local component dir).
+        let nested = row_with(Some("claude-code/skills/pdf/scripts"), "skill", "pdf");
+        assert_eq!(correlate(&nested, &refs).unwrap().content_hash, "HASH_PDF");
+    }
+
+    #[test]
+    fn is_subtree_requires_segment_boundary() {
+        assert!(is_subtree("a/b/c", "a/b"));
+        assert!(is_subtree("a/b", "a"));
+        assert!(!is_subtree("a/b", "a/b")); // equal is not a subtree
+        assert!(!is_subtree("a/bc", "a/b")); // not a segment boundary
+        assert!(!is_subtree("a", "a/b")); // shorter than prefix
+    }
+
+    #[test]
+    fn correlate_falls_back_to_kind_name() {
+        let refs = vec![cap_ref(
+            "claude-code/skills/pdf",
+            "skill",
+            "pdf",
+            "HASH_PDF",
+        )];
+        // No component_path on the row → (kind, name) fallback.
+        let row = row_with(None, "skill", "pdf");
+        assert_eq!(correlate(&row, &refs).unwrap().content_hash, "HASH_PDF");
+        // No match at all → None.
+        let miss = row_with(None, "skill", "other");
+        assert!(correlate(&miss, &refs).is_none());
     }
 }

@@ -101,6 +101,29 @@ pub struct LocalCapability {
     pub bytes: usize,
 }
 
+impl LocalCapability {
+    /// Stable CLI-side identity of this capability's bytes (NOT the server hash
+    /// — only used to correlate `list` ↔ the local scan cache, `core::scan_cache`).
+    /// sha256 over the sorted `(rel_path, bytes)` entries, length-prefixing each
+    /// field so no concatenation ambiguity can collide two distinct trees.
+    /// Determinism only needs to match itself across runs — `list` and
+    /// `scan --local` both call it on the same enumerated entries.
+    pub fn content_hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut entries: Vec<&(String, Vec<u8>)> = self.entries.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut hasher = Sha256::new();
+        for (rel, bytes) in entries {
+            hasher.update((rel.len() as u64).to_le_bytes());
+            hasher.update(rel.as_bytes());
+            hasher.update((bytes.len() as u64).to_le_bytes());
+            hasher.update(bytes);
+        }
+        let digest: [u8; 32] = hasher.finalize().into();
+        digest.iter().map(|b| format!("{b:02x}")).collect()
+    }
+}
+
 /// Why a file or capability was left out of the bundle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkipReason {
@@ -1426,6 +1449,49 @@ mod tests {
             skill_dir: skill,
             scope: Scope::Global,
         }
+    }
+
+    fn literal_cap(entries: Vec<(&str, &[u8])>) -> LocalCapability {
+        let entries: Vec<(String, Vec<u8>)> = entries
+            .into_iter()
+            .map(|(p, b)| (p.to_string(), b.to_vec()))
+            .collect();
+        let bytes = entries.iter().map(|(_, b)| b.len()).sum();
+        LocalCapability {
+            agent: AgentId::ClaudeCode,
+            kind: CapKind::Skill,
+            name: "x".into(),
+            origin: PathBuf::from("/x"),
+            anchor: entries.first().map(|(p, _)| p.clone()).unwrap_or_default(),
+            entries,
+            bytes,
+        }
+    }
+
+    #[test]
+    fn content_hash_is_stable_and_order_independent() {
+        let a = literal_cap(vec![
+            ("a/SKILL.md", b"---\nname: x\n---\n"),
+            ("a/run.py", b"hi"),
+        ]);
+        let b = literal_cap(vec![
+            ("a/run.py", b"hi"),
+            ("a/SKILL.md", b"---\nname: x\n---\n"),
+        ]);
+        assert_eq!(a.content_hash(), a.content_hash(), "stable across calls");
+        assert_eq!(
+            a.content_hash(),
+            b.content_hash(),
+            "entry order independent"
+        );
+        assert_eq!(a.content_hash().len(), 64, "hex sha256");
+    }
+
+    #[test]
+    fn content_hash_changes_when_bytes_change() {
+        let a = literal_cap(vec![("a/SKILL.md", b"original")]);
+        let b = literal_cap(vec![("a/SKILL.md", b"edited!!")]);
+        assert_ne!(a.content_hash(), b.content_hash());
     }
 
     #[test]

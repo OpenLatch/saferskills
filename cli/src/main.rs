@@ -145,7 +145,7 @@ async fn dispatch(
         Commands::Install(args) => commands::install::run_install(args, inter, output).await,
         Commands::Uninstall(args) => commands::uninstall::run_uninstall(args, inter, output).await,
         Commands::Update(args) => commands::update::run_update(args, inter, output).await,
-        Commands::List(args) => commands::list::run_list(args, output).await,
+        Commands::List(args) => commands::list::run_list(args, inter, output).await,
         Commands::Scan(args) => commands::scan::run_scan(args, output).await,
         Commands::Doctor(args) => commands::doctor::run_doctor(args, inter, output).await,
         Commands::Completion { shell } => commands::completion::run_completion(*shell, output),

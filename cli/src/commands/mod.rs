@@ -7,6 +7,7 @@ pub mod doctor;
 pub mod info;
 pub mod install;
 pub mod list;
+pub(crate) mod report;
 pub mod scan;
 pub mod uninstall;
 pub mod update;

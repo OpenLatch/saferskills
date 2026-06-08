@@ -4,6 +4,9 @@
 //! - `config.toml` — commented template; active keys `api_url`,
 //!   `min_score`, `telemetry`.
 //! - `installs.json` — the install registry (see [`crate::core::registry`]).
+//! - `scan_cache.json` — the local scan-results cache (see
+//!   [`crate::core::scan_cache`]); lets `list` show a score for a previously
+//!   scanned capability that was never installed via the CLI.
 //! - `bin/` — postinstall-fallback binary cache.
 //! - `cache/` — rules-content cache.
 //!
@@ -48,6 +51,24 @@ pub fn config_path() -> PathBuf {
 /// `~/.saferskills/installs.json`.
 pub fn installs_path() -> PathBuf {
     saferskills_dir().join("installs.json")
+}
+
+/// `~/.saferskills/scan_cache.json` — the local scan-results cache.
+pub fn scan_cache_path() -> PathBuf {
+    saferskills_dir().join("scan_cache.json")
+}
+
+/// Replace a leading home-directory prefix with `~` for a compact, PII-light
+/// display path. Shared by `scan`'s agent locations and `list`'s PATH column.
+pub fn contract_home(p: &std::path::Path) -> String {
+    let s = p.to_string_lossy().into_owned();
+    if let Some(home) = dirs::home_dir() {
+        let h = home.to_string_lossy();
+        if let Some(rest) = s.strip_prefix(h.as_ref()) {
+            return format!("~{rest}");
+        }
+    }
+    s
 }
 
 /// `~/.saferskills/cache/`.
