@@ -36,7 +36,15 @@ colorchoice-clap = "1"
 reqwest = { version = "0.12", features = ["json", "stream", "multipart", "rustls-tls"], default-features = false }
 reqwest-eventsource = "0.6"          # SSE (scan progress stream)
 sha2 = "0.10"                        # pure-Rust SHA-256 for the PoW solver (rustls-safe; no openssl)
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
+# Interactive `search` TUI (live server search + facet sidebar + multi-select +
+# preview). All TLS-free (the `cli-rustls` CI lane stays green). ratatui draws to
+# stderr (stdout stays machine-clean); crossterm's `event-stream` feature backs
+# the async key loop; nucleo does the local fuzzy re-rank of the candidate pool.
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+nucleo = "0.5"
+futures-util = { version = "0.3", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.1"                         # config.toml parse

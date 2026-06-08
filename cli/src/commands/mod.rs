@@ -9,6 +9,7 @@ pub mod install;
 pub mod list;
 pub(crate) mod report;
 pub mod scan;
+pub mod search;
 pub mod uninstall;
 pub mod update;
 

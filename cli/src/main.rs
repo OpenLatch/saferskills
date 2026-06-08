@@ -45,6 +45,10 @@ fn main() {
     // The single PostHog `command_invoked` event is sent at the end of a normal
     // run (not buffered), so there is nothing to lose there on interrupt.
     let _ = ctrlc::set_handler(|| {
+        // Restore the terminal first if a TUI (`search`) owns it — `process::exit`
+        // skips every Drop, including the RAII TerminalGuard. A hard no-op for
+        // every non-TUI command (the ACTIVE flag is unset).
+        saferskills::tui::terminal::restore_on_signal();
         crash_report::flush(std::time::Duration::from_secs(2));
         std::process::exit(130);
     });
@@ -146,6 +150,7 @@ async fn dispatch(
         Commands::Uninstall(args) => commands::uninstall::run_uninstall(args, inter, output).await,
         Commands::Update(args) => commands::update::run_update(args, inter, output).await,
         Commands::List(args) => commands::list::run_list(args, inter, output).await,
+        Commands::Search(args) => commands::search::run_search(args, inter, output).await,
         Commands::Scan(args) => commands::scan::run_scan(args, output).await,
         Commands::Doctor(args) => commands::doctor::run_doctor(args, inter, output).await,
         Commands::Completion { shell } => commands::completion::run_completion(*shell, output),
