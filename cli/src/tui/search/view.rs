@@ -601,8 +601,10 @@ mod tests {
                 scanned_at: None,
                 rubric_version: None,
                 engine_version: None,
+                ref_sha: None,
                 component_path: None,
                 scan_run_id: None,
+                install_spec: None,
             })
         } else {
             None
