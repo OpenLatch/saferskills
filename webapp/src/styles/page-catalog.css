@@ -143,23 +143,72 @@ html.dark .cat-side {
 }
 .cat-results .col-head {
   display: grid;
-  grid-template-columns: 56px 1.7fr 110px 1fr 110px 1.1fr 80px;
+  grid-template-columns: 52px 1.4fr 116px 1.05fr 1.5fr 88px;
   gap: 16px;
-  padding: 10px 32px;
+  padding: 11px 32px;
   border-bottom: 1px solid var(--color-ink);
   background: var(--color-paper);
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.22em;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--fg-3);
+  align-items: center;
 }
 html.dark .cat-results .col-head {
   border-bottom-color: var(--color-line);
 }
+
+/* sortable column header — quiet by default, the active sort is emphasized */
+.sort-h {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--fg-3);
+  transition: color var(--dur-xs);
+}
+.sort-h .sort-caret {
+  font-size: 8px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--dur-xs);
+}
+.sort-h:hover {
+  color: var(--color-ink);
+}
+.sort-h:hover .sort-caret {
+  opacity: 0.55;
+}
+html.dark .sort-h:hover {
+  color: var(--fg-1);
+}
+.sort-h.active {
+  color: var(--color-ink);
+}
+html.dark .sort-h.active {
+  color: var(--fg-1);
+}
+.sort-h.active .sort-caret {
+  opacity: 1;
+  color: var(--brand-primary);
+}
+.sort-h:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .cat-row {
   display: grid;
-  grid-template-columns: 56px 1.7fr 110px 1fr 110px 1.1fr 80px;
+  grid-template-columns: 52px 1.4fr 116px 1.05fr 1.5fr 88px;
   gap: 16px;
   padding: 16px 32px;
   border-bottom: 1px solid var(--color-line);
@@ -167,9 +216,34 @@ html.dark .cat-results .col-head {
   background: var(--color-paper);
   transition: background var(--dur-xs);
   position: relative;
+  /* staggered entrance — index threaded from React as --cat-row-i. Mirrors the
+     sk-bar-grow / dz-stamp stagger idiom (token durations, reduced-motion off). */
+  animation: cat-row-in var(--dur-md) var(--ease-out) both;
+  animation-delay: calc(var(--cat-row-i, 0) * 45ms);
 }
 html.dark .cat-row {
   border-bottom-color: var(--color-line);
+}
+@keyframes cat-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* the dotstrip arrives a beat after its row settles */
+.cat-row .scr .dotstrip {
+  animation: cat-row-in var(--dur-md) var(--ease-out) both;
+  animation-delay: calc(var(--cat-row-i, 0) * 45ms + 90ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cat-row,
+  .cat-row .scr .dotstrip {
+    animation: none;
+  }
 }
 .cat-row:hover {
   background: var(--color-paper-deep);
@@ -196,17 +270,26 @@ html.dark .cat-row {
 html.dark .cat-row .nm .name {
   color: var(--fg-1);
 }
-.cat-row .nm .desc {
+/* capability sub-line: kind tag (+ UPLOAD badge) · author */
+.cat-row .nm-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   font-family: var(--font-sans);
   font-size: 12.5px;
   color: var(--fg-3);
   line-height: 1.4;
+}
+.cat-row .nm-sub .author {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
-.cat-row .nm .desc .tag-mini {
+.cat-row .nm-sub .tag-mini {
   display: inline-block;
+  flex-shrink: 0;
   padding: 1px 6px;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -215,21 +298,28 @@ html.dark .cat-row .nm .name {
   color: var(--fg-2);
   background: var(--color-paper-deep);
   border: 1px solid var(--color-line);
-  margin-right: 6px;
 }
-html.dark .cat-row .nm .desc .tag-mini {
+html.dark .cat-row .nm-sub .tag-mini {
   background: rgba(255, 255, 255, 0.04);
 }
 /* I-3.5 — UPLOAD provenance badge: teal-tinted variant of the kind tag. */
-.cat-row .nm .desc .tag-mini.up {
+.cat-row .nm-sub .tag-mini.up {
   color: var(--brand-primary);
   border-color: color-mix(in srgb, var(--brand-primary) 45%, transparent);
   background: color-mix(in srgb, var(--brand-primary) 8%, transparent);
 }
+
+/* merged score cell — big number, 10-dot strip stacked directly below */
 .cat-row .scr {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.cat-row .scr .scr-num {
+  display: flex;
   align-items: baseline;
-  gap: 0;
 }
 .cat-row .scr .n {
   font-family: var(--font-loud);
@@ -249,11 +339,22 @@ html.dark .cat-row .scr .n {
   color: var(--fg-3);
   margin-left: 4px;
 }
-.cat-row .dots {
-  font-family: var(--font-mono);
-  font-size: 14px;
+.cat-row .scr .dotstrip {
+  font-size: 13px;
   letter-spacing: 1px;
   line-height: 1;
+}
+
+/* dedicated description column */
+.cat-row .desc {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--fg-3);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .cat-row .meta {
   font-family: var(--font-mono);
@@ -277,46 +378,27 @@ html.dark .cat-row .scr .n {
 html.dark .cat-row .meta .star {
   color: var(--fg-1);
 }
+/* discreet install affordance — a quiet ghost label that lights up on row hover.
+   Stays a decorative <span> inside the row <a> (no nested-interactive). */
 .cat-row .install-hex {
-  --btn-h: 30px;
-  --cap-w: 14px;
+  justify-self: end;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  height: var(--btn-h);
-  background: var(--color-ink);
-  color: var(--color-paper);
   font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  text-decoration: none;
-  cursor: pointer;
-  border: 0;
-  -webkit-mask:
-    var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
-    var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
-    linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
-    calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
-  mask:
-    var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
-    var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
-    linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
-    calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
-  transition: background var(--dur-xs);
+  color: var(--fg-3);
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition:
+    color var(--dur-xs),
+    border-color var(--dur-xs);
 }
-.cat-row .install-hex:hover {
-  background: var(--brand-primary);
-}
-html.dark .cat-row .install-hex {
-  background: var(--fg-1);
-  color: var(--color-paper);
-}
-html.dark .cat-row .install-hex:hover {
-  background: var(--brand-primary);
-  color: var(--color-paper);
+.cat-row:hover .install-hex {
+  color: var(--brand-primary);
+  border-bottom-color: currentColor;
 }
 
 /* feature row — top trending stays bold */
@@ -420,19 +502,8 @@ html.dark .cat-pagination .pg-ct b {
   color: var(--fg-1);
 }
 
-/* sort picker — folded in from the old ribbon, now sits in the footer line */
-.cat-pagination .sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-/* The sort control is the DS `Select` atom (ui/components/atoms/Select.tsx);
-   its trigger + menu CSS is DS-owned in ui/styles/components.css (`.ds-select*`). */
+/* Sorting moved to the clickable column headers (`.sort-h`); the footer is now
+   count + pager only. The old `.cat-pagination .sort` DS-Select picker is gone. */
 
 /* ============================================================
    RESPONSIVE — stack at ≤980px (mockup L5053)

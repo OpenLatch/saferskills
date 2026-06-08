@@ -262,7 +262,7 @@ pub struct CapabilityRow {
 }
 
 /// A repo scan run — the roll-up the CLI's `scan` / `scan --local` report (the
-/// run report IS the roll-up, D-05-33). Declared in Phase A, consumed in C.
+/// run report IS the roll-up).
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScanRunReportDetail {
     pub id: String,

@@ -1,9 +1,5 @@
 //! Command handlers. Dispatch is a single `match` in `main.rs` over the clap
-//! enum → one free `run_*` fn per command (no command trait), per D-05-03.
-//!
-//! Phase A wired `info`, `completion`, and `man`; Phase B fills in the lifecycle
-//! commands (`install` / `uninstall` / `update` / `list` / `doctor`); Phase C
-//! ships `scan` / `scan --local` + the first-launch `audit` gate.
+//! enum → one free `run_*` fn per command (no command trait).
 
 pub mod audit;
 pub mod completion;
@@ -31,12 +27,14 @@ mod tests {
         }
     }
 
+    // A non-existent path target fails fast with a target error before any
+    // network. (No target → a local audit instead; covered in tests/smoke.rs.)
     #[tokio::test]
-    async fn scan_without_target_is_a_target_error() {
+    async fn scan_nonexistent_path_is_a_target_error() {
         let o = out();
         let err = scan::run_scan(
             &ScanArgs {
-                target: None,
+                target: Some("./definitely-not-a-real-path-xyz".to_string()),
                 local: false,
                 private: false,
             },

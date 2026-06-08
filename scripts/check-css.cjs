@@ -44,7 +44,16 @@ const SHELL_FILES = [
 // molecule (`style={{ '--dz-frac': progress }}`), consumed as scaleX(var(--dz-frac, 0)).
 // `--dz-i`: DropZone file-card index set inline (`style={{ '--dz-i': i }}`),
 // consumed as the per-card stagger `animation-delay: calc(var(--dz-i, 0) * 50ms)`.
-const RUNTIME_VARS = new Set(['--search-dropdown-max-h', '--wb-frac', '--dz-frac', '--dz-i'])
+// `--cat-row-i`: catalog row index set inline by CatalogResultsList
+// (`style={{ '--cat-row-i': idx }}`), consumed as the per-row entrance stagger
+// `animation-delay: calc(var(--cat-row-i, 0) * 45ms)`.
+const RUNTIME_VARS = new Set([
+  '--search-dropdown-max-h',
+  '--wb-frac',
+  '--dz-frac',
+  '--dz-i',
+  '--cat-row-i',
+])
 
 function listCss(dir) {
   const abs = path.join(ROOT, dir)

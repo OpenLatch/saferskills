@@ -117,7 +117,7 @@ fn mock_api(findings: bool) -> ServerGuard {
 
 /// A `saferskills` command isolated from the host: temp `SAFERSKILLS_DIR`, temp
 /// `HOME` carrying a faked claude-code surface (`~/.claude.json`), and the mock
-/// API. `CI=1` keeps telemetry + the first-run audit/notice off.
+/// API. `CI=1` keeps telemetry + the first-run audit/consent prompts off.
 fn cli(ss_dir: &std::path::Path, home: &std::path::Path, api: &str) -> Command {
     let mut cmd = Command::cargo_bin("saferskills").unwrap();
     cmd.env("SAFERSKILLS_DIR", ss_dir)

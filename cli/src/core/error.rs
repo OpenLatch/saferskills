@@ -13,10 +13,10 @@
 //! SS-E-1000s  config / local state
 //! SS-E-1100s  network / API
 //! SS-E-1200s  resolution / not-found
-//! SS-E-1300s  install gating          (Phase B)
-//! SS-E-1400s  agent detection         (Phase B)
-//! SS-E-1500s  config writers          (Phase B)
-//! SS-E-1600s  scan / upload           (Phase C)
+//! SS-E-1300s  install gating
+//! SS-E-1400s  agent detection
+//! SS-E-1500s  config writers
+//! SS-E-1600s  scan / upload
 //! SS-E-9999   internal bug (pre-filled GitHub issue URL)
 //! ```
 //!
@@ -183,10 +183,6 @@ pub const ERR_STATE_CORRUPT: &str = "SS-E-1002";
 pub const ERR_STATE_WRITE_FAILED: &str = "SS-E-1003";
 /// A filesystem operation was denied (permission). Exit code `4`.
 pub const ERR_PERMISSION: &str = "SS-E-1004";
-/// A command exists in the grammar but is not wired up in this build yet
-/// (Phase B/C stub). Kept in the config/state range as a generic CLI-internal
-/// signal — it is not a user input error.
-pub const ERR_NOT_IMPLEMENTED: &str = "SS-E-1090";
 
 // ---------------------------------------------------------------------------
 // SS-E-1100s — network / API
@@ -209,7 +205,7 @@ pub const ERR_API_DECODE: &str = "SS-E-1103";
 pub const ERR_ITEM_NOT_FOUND: &str = "SS-E-1200";
 
 // ---------------------------------------------------------------------------
-// SS-E-1300s — install gating (Phase B)
+// SS-E-1300s — install gating
 // ---------------------------------------------------------------------------
 
 /// An already-installed item collided with the registry and no resolution flag
@@ -223,7 +219,7 @@ pub const ERR_GATE_CANCELLED: &str = "SS-E-1301";
 pub const ERR_NEEDS_FLAG: &str = "SS-E-1302";
 
 // ---------------------------------------------------------------------------
-// SS-E-1400s — agent detection (Phase B)
+// SS-E-1400s — agent detection
 // ---------------------------------------------------------------------------
 
 /// No supported agents were detected on the machine (CLI-9). Exit `1`.
@@ -232,7 +228,7 @@ pub const ERR_NO_AGENTS: &str = "SS-E-1400";
 pub const ERR_UNKNOWN_AGENT: &str = "SS-E-1401";
 
 // ---------------------------------------------------------------------------
-// SS-E-1500s — config writers (Phase B)
+// SS-E-1500s — config writers
 // ---------------------------------------------------------------------------
 
 /// A config write failed mid-flight; partial edits were rolled back (D-05-24).
@@ -243,7 +239,7 @@ pub const ERR_WRITE_ROLLBACK: &str = "SS-E-1500";
 pub const ERR_WRITER_UNSUPPORTED: &str = "SS-E-1501";
 
 // ---------------------------------------------------------------------------
-// SS-E-1600s — scan / upload (Phase C)
+// SS-E-1600s — scan / upload
 // ---------------------------------------------------------------------------
 
 /// A scan submission was rejected by the API gate (PoW / rate-limit / captcha).

@@ -441,6 +441,19 @@ class Settings(BaseSettings):
             "traffic). Asserted at startup (crash-resilience addendum §1.5)."
         ),
     )
+    ingestion_worker_shutdown_timeout_s: float = Field(
+        default=5.0,
+        gt=0,
+        description=(
+            "Seconds the Procrastinate worker waits for in-flight jobs to finish "
+            "on shutdown before ABORTING them (passed as `shutdown_graceful_timeout` "
+            "to `run_worker_async`). Without it the worker waits forever for an "
+            "in-flight job (e.g. a multi-minute mcp_registry full-feed cycle), so a "
+            "`--reload` mid-ingestion hangs the process. Aborted jobs are durable — "
+            "Procrastinate re-queues SHUTDOWN-aborted jobs + batches commit "
+            "incrementally — so at most the current 25-item batch is re-run."
+        ),
+    )
     ingestion_stalled_seconds: int = Field(
         default=14_400,  # 4h
         ge=60,

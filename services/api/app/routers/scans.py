@@ -109,6 +109,24 @@ def _set_unlisted_headers(response: Response) -> None:
 _background_tasks: set[asyncio.Task[None]] = set()
 
 
+async def cancel_background_scans(
+    timeout: float,  # noqa: ASYNC109 — bounded-teardown helper (delegates to cancel_and_settle)
+) -> None:
+    """Cancel the fire-and-forget interactive scan tasks on lifespan shutdown.
+
+    Snapshots `_background_tasks` (the set mutates as tasks self-remove via their
+    done-callback), cancels each, and bounded-waits — so an orphaned interactive
+    scan never runs on into a dying event loop. No-op when none are in flight.
+    """
+    tasks = list(_background_tasks)
+    if not tasks:
+        return
+    from app.core.shutdown import cancel_and_settle
+
+    for task in tasks:
+        await cancel_and_settle(task, timeout, f"interactive-scan {task.get_name()}")
+
+
 def _captcha_http_error() -> HTTPException:
     """403 with the bucketed `{"error": ...}` shape the frontend `mapUploadError`
     (`scans.ts`) parses — matches `_upload_http_error` so the gate buckets cleanly."""

@@ -954,6 +954,40 @@ html.dark .input input {
   color: var(--color-line);
 }
 
+/* Sparkline (atom) — inline trend line, token-colored so it flips for dark mode.
+   currentColor drives every stroke/fill; the placeholder modifier mutes + dashes
+   it for the live-with-fallback launch state. No motion. */
+.sparkline {
+  display: block;
+  color: var(--brand-primary);
+  overflow: visible;
+}
+.sparkline-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.sparkline-area {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0.12;
+}
+.sparkline-dot {
+  fill: currentColor;
+}
+.sparkline--placeholder {
+  color: var(--fg-3);
+}
+.sparkline--placeholder .sparkline-line {
+  stroke-dasharray: 2 2;
+  opacity: 0.75;
+}
+.sparkline--placeholder .sparkline-area {
+  opacity: 0.06;
+}
+
 .band {
   display: inline-flex;
   align-items: center;

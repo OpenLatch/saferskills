@@ -1,16 +1,10 @@
-import Select from '@ui/components/atoms/Select'
-import type { CatalogSort } from '@/lib/api/items'
-import { SORT_OPTIONS } from './constants'
-
 interface Props {
   page: number
   pageSize: number
   totalPages: number
   totalCount: number
   itemCount: number
-  sort: CatalogSort
   onPageChange: (page: number) => void
-  onSortChange: (sort: CatalogSort) => void
 }
 
 /** Build the page-button list: first, neighbors of current, last — with gaps. */
@@ -28,9 +22,9 @@ function pageList(current: number, total: number): (number | 'gap')[] {
 }
 
 /**
- * Catalog footer: the result-range count (left), the numbered pager (center),
- * and the sort picker (right) on a single line — the old ribbon bar is folded
- * in here, and the ⌘G jump affordance was dropped.
+ * Catalog footer: the result-range count (left) and the numbered pager (center).
+ * Sorting moved entirely to the clickable column headers, so the old sort picker
+ * is gone from here.
  */
 export default function CatalogPagination({
   page,
@@ -38,9 +32,7 @@ export default function CatalogPagination({
   totalPages,
   totalCount,
   itemCount,
-  sort,
   onPageChange,
-  onSortChange,
 }: Props) {
   const items = pageList(page, Math.max(1, totalPages))
   const start = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
@@ -94,15 +86,6 @@ export default function CatalogPagination({
           ›
         </button>
       </div>
-      <span className="sort">
-        <span>Sort by</span>
-        <Select
-          value={sort}
-          options={SORT_OPTIONS}
-          ariaLabel="Sort catalog"
-          onChange={(v) => onSortChange(v as CatalogSort)}
-        />
-      </span>
     </nav>
   )
 }

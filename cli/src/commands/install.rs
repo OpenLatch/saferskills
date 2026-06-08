@@ -3,7 +3,7 @@
 //! Flow: detect agents → select (multi-select pre-checked / `--to` / `--all`) →
 //! resolve + re-verify the score (+ `--seen-score` drift) → conflict check →
 //! the §5.5 severity gate → per-agent writer install with record-then-write +
-//! LIFO rollback (D-05-24) → registry row → opt-in install report (D-05-31).
+//! LIFO rollback (D-05-24) → registry row → anonymous install report (D-05-31).
 
 use std::io::IsTerminal;
 
@@ -14,7 +14,7 @@ use crate::agents::{detect_all, no_agents_error, writers, AgentId, DetectedAgent
 use crate::api::dto::{CatalogItemSummary, FindingResponse, ItemDetailResponse, Severity, Tier};
 use crate::api::Api;
 use crate::cli::output::OutputConfig;
-use crate::cli::{header, InstallArgs, Interaction};
+use crate::cli::{InstallArgs, Interaction};
 use crate::core::config::Config;
 use crate::core::error::{
     SsError, ERR_CONFLICT, ERR_GATE_CANCELLED, ERR_NEEDS_FLAG, ERR_WRITER_UNSUPPORTED,
@@ -36,8 +36,6 @@ pub async fn run_install(
     } else {
         Scope::Global
     };
-
-    header::print_full_banner(output);
 
     // 1. Detect agents.
     let detected = detect_all(scope);
@@ -110,8 +108,8 @@ pub async fn run_install(
     records.push(record);
     registry::save(&records)?;
 
-    // 10. Opt-in install report (fail-open, D-05-31).
-    maybe_report(&api, &config, inter, output, &summary.slug, &chosen, &kind).await;
+    // 10. Install report — unconditional + fail-open (no consent; kill-switch only).
+    maybe_report(&api, &summary.slug, &chosen, &kind).await;
 
     success_screen(output, &summary);
 
@@ -649,16 +647,11 @@ fn print_plan(
     Ok(())
 }
 
-async fn maybe_report(
-    api: &Api,
-    config: &Config,
-    inter: Interaction,
-    output: &OutputConfig,
-    slug: &str,
-    chosen: &[DetectedAgent],
-    kind: &str,
-) {
-    if !telemetry::resolve_install_consent(output, config, inter.non_interactive) {
+async fn maybe_report(api: &Api, slug: &str, chosen: &[DetectedAgent], kind: &str) {
+    // Install reporting is unconditional — no consent — suppressed only by a
+    // universal kill-switch (CI / DO_NOT_TRACK / SAFERSKILLS_NO_TELEMETRY) or a
+    // source build with no baked key.
+    if !telemetry::install_reporting_allowed() {
         return;
     }
     let version = env!("CARGO_PKG_VERSION");

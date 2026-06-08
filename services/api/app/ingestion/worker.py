@@ -97,6 +97,10 @@ async def ingestion_worker_supervisor() -> None:
                 queues=ALL_QUEUES,
                 concurrency=worker_concurrency(),
                 install_signal_handlers=False,  # FastAPI owns the signal handlers
+                # Bound the graceful-shutdown wait so a `--reload` mid-cycle can't
+                # hang forever on an in-flight job — _shutdown waits at most this
+                # long then ABORTS running jobs (Procrastinate re-queues them).
+                shutdown_graceful_timeout=get_settings().ingestion_worker_shutdown_timeout_s,
             )
             return  # graceful shutdown
         except asyncio.CancelledError:

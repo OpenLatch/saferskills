@@ -2,10 +2,10 @@
 //!
 //! Files:
 //! - `config.toml` — commented template; active keys `api_url`,
-//!   `gate_threshold`, `telemetry`, `install_telemetry`.
+//!   `gate_threshold`, `telemetry`.
 //! - `installs.json` — the install registry (see [`crate::core::registry`]).
 //! - `bin/` — postinstall-fallback binary cache.
-//! - `cache/` — rules-content cache (Phase B).
+//! - `cache/` — rules-content cache.
 //!
 //! Precedence: CLI flags > `SAFERSKILLS_*` env > `config.toml` > defaults.
 //! All writes are atomic: a temp file in the SAME directory → fsync → rename.
@@ -73,26 +73,18 @@ pub fn ensure_dir() -> Result<(), SsError> {
     })
 }
 
-/// Parse a boolean env var: `true`/`1` → `Some(true)`, other non-empty →
-/// `Some(false)`, unset → `None`.
-fn env_bool(name: &str) -> Option<bool> {
-    std::env::var(name)
-        .ok()
-        .map(|v| matches!(v.as_str(), "true" | "1"))
-}
-
 /// On-disk `config.toml` shape. All keys optional — absence means "use the
 /// default" (D-05-10). Unknown keys are ignored.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
     /// Override the API origin.
     pub api_url: Option<String>,
-    /// Lowest finding severity that prompts (Phase B). Default `medium`.
+    /// Lowest finding severity that prompts. Default `medium`.
     pub gate_threshold: Option<String>,
-    /// Opt-OUT usage analytics toggle (PostHog). `None` = unset (default on).
+    /// Usage analytics (PostHog) consent. `None` = not yet chosen — the CLI
+    /// prompts once on the first interactive launch and stores the answer here.
+    /// (Install reporting is unconditional and has no config key.)
     pub telemetry: Option<bool>,
-    /// Opt-IN install telemetry. Default `false`.
-    pub install_telemetry: Option<bool>,
     /// Whether the one-time first-launch security audit has been offered/run.
     /// `Some(true)` short-circuits the prompt so it never re-asks (D-05-26).
     pub audited: Option<bool>,
@@ -138,22 +130,6 @@ impl Config {
             .trim_end_matches('/')
             .to_string()
     }
-
-    /// Whether opt-out usage analytics are enabled, honoring the env opt-out
-    /// (`SAFERSKILLS_TELEMETRY`) over the file key over the default (on).
-    pub fn telemetry_enabled(&self) -> bool {
-        env_bool("SAFERSKILLS_TELEMETRY")
-            .or(self.telemetry)
-            .unwrap_or(true)
-    }
-
-    /// Whether opt-in install telemetry is enabled. Env
-    /// (`SAFERSKILLS_INSTALL_TELEMETRY`) over file key over the default (off).
-    pub fn install_telemetry_enabled(&self) -> bool {
-        env_bool("SAFERSKILLS_INSTALL_TELEMETRY")
-            .or(self.install_telemetry)
-            .unwrap_or(false)
-    }
 }
 
 /// The commented `config.toml` template written on first run.
@@ -168,26 +144,26 @@ pub fn default_config_toml() -> &'static str {
      # One of: info | low | medium | high | critical. Default: medium\n\
      # gate_threshold = \"medium\"\n\
      \n\
-     # Anonymous usage analytics (opt-OUT). Default: true.\n\
-     # Also disabled by SAFERSKILLS_NO_TELEMETRY / DO_NOT_TRACK / CI.\n\
-     # telemetry = true\n\
-     \n\
-     # Report installs to improve catalog popularity signals (opt-IN). Default: false.\n\
-     # install_telemetry = false\n\
+     # Anonymous usage analytics (PostHog). Asked once on first run; stored here.\n\
+     # Set false to opt out — also disabled by SAFERSKILLS_NO_TELEMETRY /\n\
+     # DO_NOT_TRACK / CI, or forced on with SAFERSKILLS_TELEMETRY=1.\n\
+     # (Anonymous install counts are reported automatically; the same opt-out\n\
+     # envs above suppress them too.)\n\
+     # telemetry = false\n\
      \n\
      # Set true once the one-time first-launch security audit has been offered.\n\
      # Managed by the CLI; you should not need to edit this.\n\
      # audited = false\n"
 }
 
-/// Persist the opt-in `install_telemetry` choice to `config.toml`, preserving
+/// Persist the usage-analytics `telemetry` consent to `config.toml`, preserving
 /// the commented template + any existing keys (toml_edit). Best-effort: the
-/// caller treats a write failure as non-fatal (consent still applies this run).
-pub fn set_install_telemetry(value: bool) -> Result<(), SsError> {
+/// caller treats a write failure as non-fatal (the choice still applies this run).
+pub fn set_telemetry(value: bool) -> Result<(), SsError> {
     let path = config_path();
     let base = fs::read_to_string(&path).unwrap_or_else(|_| default_config_toml().to_string());
     let mut doc = base.parse::<toml_edit::DocumentMut>().unwrap_or_default();
-    doc["install_telemetry"] = toml_edit::value(value);
+    doc["telemetry"] = toml_edit::value(value);
     ensure_dir()?;
     atomic_write(&path, doc.to_string().as_bytes())
 }
@@ -268,8 +244,7 @@ mod tests {
                 .unwrap();
         assert_eq!(cfg.api_url.as_deref(), Some("https://staging.test"));
         assert_eq!(cfg.gate_threshold.as_deref(), Some("high"));
-        assert!(cfg.telemetry_enabled()); // unset → default on
-        assert!(!cfg.install_telemetry_enabled()); // unset → default off
+        assert!(cfg.telemetry.is_none()); // unset → not yet chosen (prompted on first run)
     }
 
     #[test]

@@ -222,7 +222,7 @@ fn mock_api(slug: &str, kind: &str) -> ServerGuard {
 /// A `saferskills` command isolated from the host: throw-away `SAFERSKILLS_DIR`,
 /// a faked `HOME` carrying one agent's surface, a hermetic `XDG_CONFIG_HOME`
 /// (pins Cline's VS-Code-globalStorage probe inside the fake home), and the mock
-/// API. `CI=1` keeps telemetry + the first-run audit/notice off.
+/// API. `CI=1` keeps telemetry + the first-run audit/consent prompts off.
 fn cli(ss: &Path, home: &Path, api: &str) -> Command {
     let mut cmd = Command::cargo_bin("saferskills").unwrap();
     cmd.env("SAFERSKILLS_DIR", ss)

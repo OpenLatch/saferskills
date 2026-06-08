@@ -1,8 +1,27 @@
-//! Opt-out anonymous usage analytics (D-05-13) — mirrors openlatch-client.
+//! Anonymous telemetry — mirrors openlatch-client.
+//!
+//! Two channels, **exactly one prompt**:
+//! - **Usage analytics** (the PostHog `command_invoked` event, here): opt-in.
+//!   A single first-run question ([`resolve_telemetry_consent`]) stores the
+//!   answer in the `telemetry` config key; OFF until accepted.
+//! - **Install reporting** (the `/installs` API call in `commands::install`):
+//!   **no consent** — it reports an anonymous `(agent, capability kind)` install
+//!   count on every install ([`install_reporting_allowed`]). It is suppressed
+//!   ONLY by a universal kill-switch (`CI` / `DO_NOT_TRACK` /
+//!   `SAFERSKILLS_NO_TELEMETRY`) or a build with no baked key.
+//!
+//! The two share the same universal kill-switches and the same "source builds
+//! send nothing" guarantee, so a single opt-out env silences both.
 //!
 //! - The PostHog project key is **baked at build time** by `build.rs`
-//!   (`SAFERSKILLS_POSTHOG_KEY`). Empty (dev / forks) ⇒ a hard no-op: the
-//!   `command_invoked` event is computed but never sent.
+//!   (`SAFERSKILLS_POSTHOG_KEY`). Empty (dev / forks) ⇒ a hard no-op: neither
+//!   channel ever sends and the usage-analytics prompt is skipped entirely
+//!   (source builds send nothing).
+//! - **First-run consent (usage analytics only)**: on the first interactive
+//!   launch the user is asked once whether to enable usage analytics; the answer
+//!   is stored in `config.toml` and never re-asked. Any non-interactive context
+//!   (`--json` / `--quiet` / `--non-interactive` / non-TTY / CI) — or a build
+//!   with no baked key — stays OFF and never prompts (opt-in default).
 //! - A single `command_invoked` event carries a CLOSED-ENUM `(command,
 //!   subcommand)` label derived from the grammar — NEVER a flag value — plus
 //!   the exit code and a coarse duration bucket. No PII, ever.
@@ -11,17 +30,17 @@
 //!   separate-project rule superseded 2026-06-04) can filter SaferSkills data
 //!   apart. PostHog is internal analytics; public brand independence is intact.
 //! - Universal opt-out: `SAFERSKILLS_NO_TELEMETRY` / `DO_NOT_TRACK` / `CI`
-//!   (any non-empty value), or the `telemetry = false` config key.
+//!   (any non-empty value) silences BOTH channels; `telemetry = false`
+//!   additionally disables usage analytics. An explicit `SAFERSKILLS_TELEMETRY=1`
+//!   forces usage analytics on without prompting.
 //! - The network POST is gated behind the `telemetry-network` feature (a blip
 //!   must never delay or fail a user command; the send is best-effort with a
 //!   tight timeout).
-//! - First-run disclosure prints ONCE (sentinel-gated), only in interactive
-//!   human mode; suppressed under `--json` / `--quiet` / non-TTY / CI.
 
 use std::io::IsTerminal;
 
 use crate::cli::output::OutputConfig;
-use crate::core::config::{saferskills_dir, set_install_telemetry, Config};
+use crate::core::config::{set_telemetry, Config};
 
 /// The PostHog project key baked by `build.rs` (empty when unset).
 pub const fn baked_key() -> &'static str {
@@ -32,9 +51,6 @@ pub const fn baked_key() -> &'static str {
 /// send path, so it is compiled in only under the `telemetry-network` feature.
 #[cfg(feature = "telemetry-network")]
 const POSTHOG_HOST: &str = env!("SAFERSKILLS_POSTHOG_HOST");
-
-/// Sentinel filename marking that the first-run notice has been shown.
-const NOTICE_SENTINEL: &str = ".telemetry-notice";
 
 fn env_present(key: &str) -> bool {
     std::env::var_os(key).is_some_and(|v| !v.is_empty())
@@ -76,73 +92,66 @@ fn event_label(command: &str, subcommand: Option<&str>) -> String {
     }
 }
 
-/// Show the one-time first-run disclosure. Always writes the sentinel (so it is
-/// genuinely one-time + never re-prompts non-interactively); prints the
-/// paragraph only when analytics are enabled AND the session is interactive
-/// human (D-05-13 non-interactive contract).
-pub fn maybe_first_run_notice(output: &OutputConfig, enabled: bool) {
-    let sentinel = saferskills_dir().join(NOTICE_SENTINEL);
-    if sentinel.exists() {
-        return;
+/// Pure consent precedence: a universal opt-out forces OFF; else an explicit
+/// `SAFERSKILLS_TELEMETRY` env wins; else the stored config key. `None` means
+/// "not yet decided" — the caller prompts (interactive) or defaults off.
+fn consent_from(opted_out: bool, env_explicit: Option<bool>, stored: Option<bool>) -> Option<bool> {
+    if opted_out {
+        return Some(false);
     }
-    // Best-effort sentinel write — never block a command on telemetry I/O.
-    let _ = std::fs::create_dir_all(saferskills_dir());
-    let _ = std::fs::write(&sentinel, b"shown\n");
-
-    let interactive =
-        enabled && !output.is_json() && !output.is_quiet() && std::io::stderr().is_terminal();
-    if !interactive {
-        return;
-    }
-    eprintln!(
-        "SaferSkills collects anonymous usage analytics (which command ran, its exit code, and a\n\
-         coarse duration — never arguments, names, paths, or any personal data) to improve the CLI.\n\
-         Disable any time with SAFERSKILLS_NO_TELEMETRY=1 (DO_NOT_TRACK and CI are also honored).\n\
-         Details: https://saferskills.ai/privacy\n"
-    );
+    env_explicit.or(stored)
 }
 
-/// Resolve whether to report opt-in install telemetry (D-05-31), prompting once
-/// on the first interactive install.
+/// Resolve usage-analytics consent (the PostHog channel only — install reporting
+/// is unconditional, see [`install_reporting_allowed`]), prompting **once** on
+/// the first interactive launch and persisting the answer to `config.toml`.
 ///
 /// Precedence: a universal opt-out env (`CI` / `DO_NOT_TRACK` /
-/// `SAFERSKILLS_NO_TELEMETRY`) forces OFF; then an explicit
-/// `SAFERSKILLS_INSTALL_TELEMETRY` env; then the `install_telemetry` config key.
-/// If still unset: in any non-interactive context (`--json` / `--quiet` /
-/// `--non-interactive` / non-TTY / CI) reporting **stays OFF** (opt-in default,
-/// never hangs the pipeline); only an interactive TTY prompts — and the choice
-/// is persisted to `config.toml` so it is asked just once.
-pub fn resolve_install_consent(
+/// `SAFERSKILLS_NO_TELEMETRY`) forces OFF; then an explicit `SAFERSKILLS_TELEMETRY`
+/// env; then the stored `telemetry` config key. If still undecided: any
+/// non-interactive context (`--json` / `--quiet` / `--non-interactive` / non-TTY /
+/// CI) — or a build with no baked PostHog key (analytics can never send) — stays
+/// OFF and never prompts; only an interactive TTY asks, and the choice is saved so
+/// it is asked exactly once.
+pub fn resolve_telemetry_consent(
     output: &OutputConfig,
     config: &Config,
     non_interactive: bool,
 ) -> bool {
-    if opted_out_env() {
-        return false;
-    }
-    if let Some(v) = env_bool("SAFERSKILLS_INSTALL_TELEMETRY") {
-        return v;
-    }
-    if let Some(v) = config.install_telemetry {
+    if let Some(v) = consent_from(
+        opted_out_env(),
+        env_bool("SAFERSKILLS_TELEMETRY"),
+        config.telemetry,
+    ) {
         return v;
     }
     let interactive = !non_interactive
         && !output.is_json()
         && !output.is_quiet()
         && std::io::stderr().is_terminal();
-    if !interactive {
-        return false; // opt-in default — stays off, never prompts
+    // No baked key ⇒ analytics can never be sent, so never bother the user.
+    if !interactive || baked_key().is_empty() {
+        return false;
     }
     let choice = inquire::Confirm::new(
-        "Report anonymous install counts to SaferSkills (improves catalog popularity signals)?",
+        "Enable anonymous usage analytics to help improve the SaferSkills CLI?",
     )
     .with_default(false)
-    .with_help_message("Anonymous: agent + capability kind only — never names, paths, or any PII. Change anytime in ~/.saferskills/config.toml.")
+    .with_help_message("Anonymous: which command ran, its exit code, and a coarse duration — never arguments, names, paths, or any PII. Change anytime in ~/.saferskills/config.toml or with SAFERSKILLS_NO_TELEMETRY=1.")
     .prompt()
     .unwrap_or(false);
     // Persist so we ask exactly once (best-effort — applies this run regardless).
-    let _ = set_install_telemetry(choice);
+    let _ = set_telemetry(choice);
     choice
+}
+
+/// Whether the unconditional install report may send. Install reporting carries
+/// **no separate consent** — it fires on every install EXCEPT under a universal
+/// kill-switch (`CI` / `DO_NOT_TRACK` / `SAFERSKILLS_NO_TELEMETRY`) or in a build
+/// with no baked key (source / fork builds send nothing). The reported data is
+/// anonymous — `(agent, capability kind)` only, never names / paths / PII.
+pub fn install_reporting_allowed() -> bool {
+    !opted_out_env() && !baked_key().is_empty()
 }
 
 /// Build the `command_invoked` event payload. Extracted from the send path so
@@ -235,6 +244,20 @@ mod tests {
             // Mirrors the production guard: enabled requires a baked key.
             assert!(!is_enabled(true) || opted_out_env());
         }
+    }
+
+    #[test]
+    fn consent_precedence() {
+        // Universal opt-out forces OFF even over a stored / explicit "true".
+        assert_eq!(consent_from(true, Some(true), Some(true)), Some(false));
+        // Explicit env wins over the stored config key.
+        assert_eq!(consent_from(false, Some(true), Some(false)), Some(true));
+        assert_eq!(consent_from(false, Some(false), Some(true)), Some(false));
+        // No env → the stored choice decides.
+        assert_eq!(consent_from(false, None, Some(true)), Some(true));
+        assert_eq!(consent_from(false, None, Some(false)), Some(false));
+        // Nothing decided yet → caller must prompt / default off.
+        assert_eq!(consent_from(false, None, None), None);
     }
 
     #[test]

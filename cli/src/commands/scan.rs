@@ -1,4 +1,7 @@
-//! `saferskills scan <target>` / `scan --local` (D-05-26/27, Phase C).
+//! `saferskills scan [target]` / `scan --local`.
+//!
+//! With a target it scans a single artifact; with no target (or `--local`) it
+//! audits everything installed across detected agents.
 //!
 //! Sends local content (or a GitHub URL) to the API, which scans it server-side
 //! and returns a public-by-default run report (`--private` → unlisted + a share
@@ -27,22 +30,28 @@ const SCAN_TIMEOUT: Duration = Duration::from_secs(180);
 /// Show the PoW spinner only when the difficulty is high enough to be felt.
 const SPINNER_DIFFICULTY: u32 = 16;
 
-/// Entry point. Routes to `--local` (enumerate installed), a GitHub URL, or a
-/// local path.
+/// Entry point. A GitHub URL or a local path is scanned directly; with neither a
+/// target nor `--local`, defaults to a local audit of everything installed.
 pub async fn run_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsError> {
     let config = Config::load()?;
     let api = Api::new(config.api_base(None))?;
     let visibility = if args.private { "unlisted" } else { "public" };
 
-    match (args.local, args.target.as_deref()) {
-        (true, _) => run_local(&api, output, visibility).await,
-        (false, Some(t)) if is_github_url(t) => scan_url(&api, output, t, visibility).await,
-        (false, Some(t)) => scan_path(&api, output, Path::new(t), visibility).await,
-        (false, None) => Err(SsError::new(ERR_SCAN_TARGET, "No scan target given.")
-            .with_suggestion(
-                "Pass a local path or a GitHub URL, or use --local to scan everything installed.",
-            )),
+    // An explicit target (and no `--local`) scans that single artifact.
+    if !args.local {
+        if let Some(t) = args.target.as_deref() {
+            return if is_github_url(t) {
+                scan_url(&api, output, t, visibility).await
+            } else {
+                scan_path(&api, output, Path::new(t), visibility).await
+            };
+        }
+        // No target given → audit everything installed, like `scan --local`.
+        output.print_info(
+            "No target given — auditing installed capabilities (same as `scan --local`).",
+        );
     }
+    run_local(&api, output, visibility).await
 }
 
 // ─── single-target paths ─────────────────────────────────────────────────────

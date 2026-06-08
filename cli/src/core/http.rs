@@ -96,7 +96,7 @@ impl ApiClient {
     }
 
     /// `POST {base}{path}` with a JSON body; treats any 2xx (incl. 204) as ok.
-    /// Used by opt-in install telemetry (the caller swallows errors — fail-open).
+    /// Used by anonymous install telemetry (the caller swallows errors — fail-open).
     pub async fn post_json<B: Serialize>(&self, path: &str, body: &B) -> Result<(), SsError> {
         let url = format!("{}{}", self.base, path);
         let resp = self
