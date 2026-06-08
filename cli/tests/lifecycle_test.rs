@@ -286,7 +286,7 @@ fn rules_round_trip_for_each_compatible_agent() {
         let agent = agent_at(id, dir.path());
         let writer = writers::writer_for(id);
         let item = ResolvedItem {
-            slug: format!("acme--repo--rules-style"),
+            slug: "acme--repo--rules-style".into(),
             name: "style".into(),
             kind: "rules".into(),
             rules_body: Some(b"# Be consistent".to_vec()),
