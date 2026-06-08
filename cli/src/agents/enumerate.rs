@@ -1320,7 +1320,7 @@ fn apply_cap_budget(
         }
     }
     // Keep smallest non-anchor files first; drop the largest that don't fit.
-    others.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
+    others.sort_by_key(|a| a.1.len());
     let mut cur: usize = keep.iter().map(|(_, b)| b.len()).sum();
     for (p, b) in others {
         if cur + b.len() <= budget::MAX_CAPABILITY_BYTES {

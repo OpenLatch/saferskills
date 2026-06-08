@@ -115,7 +115,7 @@ fn merge_entries(
 ) -> Vec<CachedScan> {
     let mut by_hash: HashMap<String, CachedScan> = HashMap::new();
     // `existing` first, then `new`, so a new entry wins on an equal timestamp.
-    for e in existing.into_iter().chain(new.into_iter()) {
+    for e in existing.into_iter().chain(new) {
         match by_hash.get(&e.content_hash) {
             Some(prev) if prev.scanned_at > e.scanned_at => {}
             _ => {
