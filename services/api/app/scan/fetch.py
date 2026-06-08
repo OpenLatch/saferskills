@@ -189,6 +189,13 @@ async def resolve_ref(
             f"https://api.github.com/repos/{ref.org}/{ref.repo}/branches/{default_branch}",
             headers=branch_headers,
         )
+        if branch_response.status_code == 404:
+            # Default branch unresolvable — repo deleted mid-window, an empty repo
+            # with no commits, or a renamed branch. Permanent: a retry re-resolves
+            # to the same 404. Raise FetchError (not the raw HTTPStatusError) so the
+            # caller's `except FetchError` stamps recency + logs cleanly instead of
+            # re-raising into 3 wasted Procrastinate retries + a traceback.
+            raise FetchError(f"branch not found: {ref.org}/{ref.repo}@{default_branch}")
         branch_response.raise_for_status()
         sha = branch_response.json().get("commit", {}).get("sha")
         if not isinstance(sha, str) or len(sha) != 40:
@@ -221,6 +228,11 @@ async def _resolve_ref_sha(client: httpx.AsyncClient, ref: GithubRef) -> tuple[s
         f"https://api.github.com/repos/{ref.org}/{ref.repo}/branches/{default_branch}",
         headers=await _auth_headers(),
     )
+    if branch_response.status_code == 404:
+        # Default branch unresolvable (deleted mid-window / empty repo / renamed) —
+        # permanent, so surface as FetchError (not the raw HTTPStatusError) for the
+        # caller's clean permanent-failure handling.
+        raise FetchError(f"branch not found: {ref.org}/{ref.repo}@{default_branch}")
     branch_response.raise_for_status()
     branch_body = branch_response.json()
     sha = branch_body.get("commit", {}).get("sha")
@@ -265,7 +277,22 @@ def _extract_tarball(blob: bytes, destination: Path) -> tuple[int, list[str]]:
             inner_path = Path(*parts[1:])
             extracted_member = member
             extracted_member.name = str(inner_path)
-            archive.extract(extracted_member, destination, filter="data")
+            try:
+                archive.extract(extracted_member, destination, filter="data")
+            except (OSError, ValueError) as exc:
+                # A member whose name is illegal on the local filesystem (e.g. a
+                # `?` / `:` / trailing `…` on Windows → WinError 123) or rejected
+                # by the tar `data` filter must NOT abort the whole repo extraction.
+                # Skip just this file (near-always a binary the scanner ignores) and
+                # record it as skipped — otherwise the OSError bubbles out as a
+                # `transient` failure and burns 3 retries re-downloading the repo.
+                logger.warning(
+                    "extract_tarball.member_skipped",
+                    member=member.name,
+                    error=str(exc)[:200],
+                )
+                skipped.append(member.name)
+                continue
             kept += 1
     return kept, skipped
 

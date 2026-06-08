@@ -82,6 +82,20 @@ procrastinate_app = App(
 # cron window, so the conflict never arises. Preserves all dedup semantics.
 PERIODIC_MAINTENANCE_PRIORITY = 10
 
+# Priority for the per-source `ingest_cycle_*` cron tasks. Like the maintenance
+# tasks above, they MUST outrank the bulk auto-scan / popularity fan-out
+# (`scan_capability_repo` + `recompute_one_item`, priority 0 — thousands of jobs
+# during a cold-start crawl). Without a bump, Procrastinate's `fetch_job`
+# (`priority DESC, id ASC`) buries each scheduled cycle inside the fan-out id-band,
+# so the single in-process worker grinds the scan backlog for days and the ingest
+# cycles effectively never get a slot (every source stuck `never_run`). Set just
+# below the maintenance tier so the cheap coherence crons (reconcile / alerts /
+# stalled-retrier) still lead, but a scheduled collection decisively beats the
+# best-effort backlog. Paired with a per-source `queueing_lock` in
+# `tasks._register_periodic` so an hourly/daily cron can't stack a second cycle
+# behind an in-flight one (the npm-pileup / mcp_registry-zombie-stacking bug).
+INGEST_CYCLE_PRIORITY = 5
+
 # Queues the worker listens on. Per-source ingest queues + a periodic queue
 # (Phase C tasks) + the durable `scan` queue (auto-scan jobs) + default.
 # Aggregator queue is declared now for Phase B.

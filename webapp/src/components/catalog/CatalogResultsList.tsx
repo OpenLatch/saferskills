@@ -1,7 +1,9 @@
 import DotStrip from '@ui/components/atoms/DotStrip'
+import Sparkline from '@ui/components/atoms/Sparkline'
 import type { CSSProperties } from 'react'
 
 import type { CatalogItemSummary, CatalogSort } from '@/lib/api/items'
+import { resolveActivity } from '@/lib/catalog-activity'
 import CatalogPagination from './CatalogPagination'
 import { bandFromTier, bandOf, kindTag, relativeAge } from './constants'
 
@@ -20,18 +22,20 @@ interface Props {
 }
 
 /**
- * A sortable column header. Owns a primary (desc) sort key and, optionally, a
- * secondary (asc) key it toggles to. The caret is hidden until hover unless the
- * column is the active sort, where it shows the live direction (▼ desc / ▲ asc).
+ * A sortable column header. Each column owns up to two sort STATES — the natural
+ * first-click direction and its toggle — each with its own caret glyph + a11y
+ * hint, so the caret always reads the live direction (▼ desc value / ▲ asc value)
+ * regardless of which direction is "first" for that column. The caret is hidden
+ * until hover unless the column is the active sort.
  */
+interface SortStateDef {
+  key: CatalogSort
+  caret: '▲' | '▼'
+  hint: string
+}
 interface SortColumn {
   label: string
-  descKey: CatalogSort
-  ascKey?: CatalogSort
-  /** Human phrase for the desc direction, e.g. "highest first". */
-  descHint: string
-  /** Human phrase for the asc direction (only when `ascKey` is set). */
-  ascHint?: string
+  states: [SortStateDef, SortStateDef]
 }
 
 function SortHeader({
@@ -43,14 +47,14 @@ function SortHeader({
   sort: CatalogSort
   onSortChange: (sort: CatalogSort) => void
 }) {
-  const { label, descKey, ascKey, descHint, ascHint } = column
-  const isAsc = ascKey != null && sort === ascKey
-  const isDesc = sort === descKey
-  const active = isAsc || isDesc
-  // Clicking a two-way column toggles desc⇄asc; a one-way column always sorts desc.
-  const next: CatalogSort = ascKey != null && isDesc ? ascKey : descKey
+  const { label, states } = column
+  const activeIdx = states.findIndex((s) => s.key === sort)
+  const active = activeIdx !== -1
+  // Toggle to the other state when active; otherwise start at the first state.
+  const next = active ? states[(activeIdx + 1) % states.length].key : states[0].key
+  const shown = active ? states[activeIdx] : states[0]
   const ariaLabel = active
-    ? `Sorted by ${label.toLowerCase()}, ${isAsc ? ascHint : descHint}`
+    ? `Sorted by ${label.toLowerCase()}, ${shown.hint}`
     : `Sort by ${label.toLowerCase()}`
   return (
     <button
@@ -62,28 +66,54 @@ function SortHeader({
     >
       <span>{label}</span>
       <span className="sort-caret" aria-hidden="true">
-        {isAsc ? '▲' : '▼'}
+        {shown.caret}
       </span>
     </button>
   )
 }
 
+// ▼ = descending value (most/highest/newest first), ▲ = ascending value.
 const TREND_COL: SortColumn = {
   label: 'Trend',
-  descKey: 'most_installed',
-  descHint: 'trending first',
+  states: [
+    { key: 'most_installed', caret: '▼', hint: 'most installed first' },
+    { key: 'least_installed', caret: '▲', hint: 'least installed first' },
+  ],
+}
+const CAPABILITY_COL: SortColumn = {
+  label: 'Capability',
+  states: [
+    { key: 'name_asc', caret: '▲', hint: 'A to Z' },
+    { key: 'name_desc', caret: '▼', hint: 'Z to A' },
+  ],
 }
 const SCORE_COL: SortColumn = {
   label: 'Score',
-  descKey: 'highest_score',
-  ascKey: 'lowest_score',
-  descHint: 'highest first',
-  ascHint: 'lowest first',
+  states: [
+    { key: 'highest_score', caret: '▼', hint: 'highest first' },
+    { key: 'lowest_score', caret: '▲', hint: 'lowest first' },
+  ],
 }
 const UPDATED_COL: SortColumn = {
   label: 'Updated',
-  descKey: 'recent',
-  descHint: 'most recent first',
+  states: [
+    { key: 'recent', caret: '▼', hint: 'newest first' },
+    { key: 'oldest', caret: '▲', hint: 'oldest first' },
+  ],
+}
+const ACTIVITY_COL: SortColumn = {
+  label: 'Activity',
+  states: [
+    { key: 'most_active', caret: '▼', hint: 'most active first' },
+    { key: 'least_active', caret: '▲', hint: 'least active first' },
+  ],
+}
+const DESCRIPTION_COL: SortColumn = {
+  label: 'Description',
+  states: [
+    { key: 'description_asc', caret: '▲', hint: 'A to Z' },
+    { key: 'description_desc', caret: '▼', hint: 'Z to A' },
+  ],
 }
 
 export default function CatalogResultsList({
@@ -103,10 +133,11 @@ export default function CatalogResultsList({
     <div className="cat-results" aria-busy={loading}>
       <div className="col-head">
         <SortHeader column={TREND_COL} sort={sort} onSortChange={onSortChange} />
-        <div>Capability</div>
+        <SortHeader column={CAPABILITY_COL} sort={sort} onSortChange={onSortChange} />
         <SortHeader column={SCORE_COL} sort={sort} onSortChange={onSortChange} />
         <SortHeader column={UPDATED_COL} sort={sort} onSortChange={onSortChange} />
-        <div>Description</div>
+        <SortHeader column={ACTIVITY_COL} sort={sort} onSortChange={onSortChange} />
+        <SortHeader column={DESCRIPTION_COL} sort={sort} onSortChange={onSortChange} />
         <div />
       </div>
 
@@ -135,6 +166,7 @@ export default function CatalogResultsList({
           const featured = sort === 'most_installed' && page === 1 && idx === 0
           const registries = item.registries.length ? item.registries.join(' · ') : '—'
           const description = item.description?.trim() ? item.description : '—'
+          const activity = resolveActivity(item.install_sparkline, item.popularity_score, item.slug)
           return (
             <a
               key={item.id}
@@ -171,6 +203,17 @@ export default function CatalogResultsList({
                   {relativeAge(item.latest_scan_at ?? item.updated_at)}
                 </span>
                 <span>{registries}</span>
+              </div>
+              <div className="activity">
+                <Sparkline
+                  values={activity.values}
+                  placeholder={activity.placeholder}
+                  width={84}
+                  height={24}
+                  ariaLabel={
+                    activity.placeholder ? 'Install activity: none reported yet' : undefined
+                  }
+                />
               </div>
               <div className="desc">{description}</div>
               <span className="install-hex">Install</span>

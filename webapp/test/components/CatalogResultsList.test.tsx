@@ -88,16 +88,72 @@ describe('CatalogResultsList', () => {
     expect(screen.getByText('—').classList.contains('desc')).toBe(true)
   })
 
-  it('Trend header sorts by most_installed (the trending default)', () => {
-    const { onSortChange } = renderList({ sort: 'recent' })
+  it('Trend header toggles most_installed ⇄ least_installed', () => {
+    const a = renderList({ sort: 'recent' })
     fireEvent.click(screen.getByRole('button', { name: /trend/i }))
-    expect(onSortChange).toHaveBeenCalledWith('most_installed')
+    expect(a.onSortChange).toHaveBeenCalledWith('most_installed')
+    a.unmount()
+
+    const b = renderList({ sort: 'most_installed' })
+    fireEvent.click(screen.getByRole('button', { name: /trend/i }))
+    expect(b.onSortChange).toHaveBeenCalledWith('least_installed')
   })
 
-  it('Updated header sorts by recent', () => {
-    const { onSortChange } = renderList({ sort: 'most_installed' })
+  it('Capability header sorts by name A→Z then Z→A', () => {
+    const a = renderList({ sort: 'most_installed' })
+    fireEvent.click(screen.getByRole('button', { name: /capability/i }))
+    expect(a.onSortChange).toHaveBeenCalledWith('name_asc')
+    a.unmount()
+
+    const b = renderList({ sort: 'name_asc' })
+    fireEvent.click(screen.getByRole('button', { name: /capability/i }))
+    expect(b.onSortChange).toHaveBeenCalledWith('name_desc')
+  })
+
+  it('Updated header toggles recent ⇄ oldest', () => {
+    const a = renderList({ sort: 'most_installed' })
     fireEvent.click(screen.getByRole('button', { name: /updated/i }))
-    expect(onSortChange).toHaveBeenCalledWith('recent')
+    expect(a.onSortChange).toHaveBeenCalledWith('recent')
+    a.unmount()
+
+    const b = renderList({ sort: 'recent' })
+    fireEvent.click(screen.getByRole('button', { name: /updated/i }))
+    expect(b.onSortChange).toHaveBeenCalledWith('oldest')
+  })
+
+  it('Activity header toggles most_active ⇄ least_active', () => {
+    const a = renderList({ sort: 'most_installed' })
+    fireEvent.click(screen.getByRole('button', { name: /activity/i }))
+    expect(a.onSortChange).toHaveBeenCalledWith('most_active')
+    a.unmount()
+
+    const b = renderList({ sort: 'most_active' })
+    fireEvent.click(screen.getByRole('button', { name: /activity/i }))
+    expect(b.onSortChange).toHaveBeenCalledWith('least_active')
+  })
+
+  it('Description header sorts A→Z then Z→A', () => {
+    const a = renderList({ sort: 'most_installed' })
+    fireEvent.click(screen.getByRole('button', { name: /description/i }))
+    expect(a.onSortChange).toHaveBeenCalledWith('description_asc')
+    a.unmount()
+
+    const b = renderList({ sort: 'description_asc' })
+    fireEvent.click(screen.getByRole('button', { name: /description/i }))
+    expect(b.onSortChange).toHaveBeenCalledWith('description_desc')
+  })
+
+  it('renders the Activity sparkline (real data vs popularity-seeded placeholder)', () => {
+    const real = renderList({
+      items: [summary({ install_sparkline: [0, 0, 2, 0, 1, 0, 0, 3, 0, 0, 1, 0, 4] })],
+    })
+    // real installs → honest count in the label
+    expect(screen.getByRole('img', { name: /11 in the last quarter/i })).toBeTruthy()
+    real.unmount()
+
+    // all-zero (or absent) → placeholder, labelled as none-reported (never a fake count)
+    renderList({ items: [summary({ install_sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] })] })
+    expect(screen.getByRole('img', { name: /none reported yet/i })).toBeTruthy()
   })
 
   it('Score header toggles highest ⇄ lowest', () => {

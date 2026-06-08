@@ -104,7 +104,7 @@ A scan targets a **GitHub repo**, and one repo can host several capabilities (a 
 
 See `.claude/rules/database.md` § Per-capability scans for the `scan_runs` storage contract.
 
-## Sub-scores and aggregate (locked D-01 / D-02 / D-13)
+## Sub-scores and aggregate (locked D-01 / D-02; D-13 superseded by the severity ceiling)
 
 5-axis sub-score taxonomy, with PRD-locked weights:
 
@@ -120,15 +120,17 @@ See `.claude/rules/database.md` § Per-capability scans for the `scan_runs` stor
 
 | Severity | Penalty range | Notes |
 |---|---|---|
-| `critical` | −30 to −40 | Triggers critical-floor: sub_score capped at 40 |
-| `high` | −20 to −30 | |
+| `critical` | −30 to −40 | An active critical caps the **whole aggregate** at ≤15 (severity ceiling below) |
+| `high` | −20 to −30 | An active high caps the **whole aggregate** at ≤45 |
 | `medium` | −10 to −20 | |
 | `low` | −5 to −10 | |
 | `info` | 0 | Advisory-only; surfaces in trace, no score impact |
 
-`sub_score = max(0, 100 − Σ penalty_i)`. If any finding in a sub-score has `severity: critical`, the sub-score is capped: `sub_score = min(sub_score, 40)`. Aggregate = `Σ sub_score × weight`.
+`sub_score = max(0, 100 − Σ penalty_i)`. If any finding in a sub-score has `severity: critical`, the sub-score is capped: `sub_score = min(sub_score, 20)`. `weighted = round(Σ sub_score × weight)`.
 
-Every public scan report renders the **explicit breakdown**: per-finding penalty, running sub-score, critical-floor application, weighted aggregate, tier-band mapping. See the `score_breakdown` block in `schemas/scan-report.schema.json`.
+**Severity ceiling (supersedes D-13, amends D-01).** A weighted-sum aggregate dilutes a security failure — with security at only 35% weight, a critical security finding amid otherwise-clean axes lands ~72 ("yellow / Watch"), mathematically unable to drop below ~65 from security problems alone. The ceiling fixes this at the aggregate: `_severity_ceiling(findings)` returns the lowest cap implied by the worst **active** finding — `critical → 15`, `high → 45`, else `None` — and `aggregate = min(weighted, ceiling)` when a ceiling applies. `info` and `shadow` findings never trigger it (shadow stays weight-0 / no score impact). The repo rollup (`_score_file_index`) applies the **same** ceiling over the **union** of every capability's findings, so one dangerous capability can't be averaged back up by clean ones. This **supersedes** the per-sub-score critical-floor (D-13, formerly cap-security-sub-score-at-40); that per-sub-score floor is retained only at **20** (down from 40) for breakdown coherence — the aggregate ceiling dominates. Tier bands (`tier_for`) are unchanged. All scoring lives in the single chokepoint `app/scan/engine.py`; **future scans only** — there is no catalog-wide backfill (existing scans keep their scores until content changes or a re-scan, since `engine_version` stays `"unknown"` and the reconcile drainer only re-evaluates on a version mismatch).
+
+Every public scan report renders the **explicit breakdown**: per-finding penalty, running sub-score, critical-floor application, weighted aggregate, severity-ceiling application, tier-band mapping. See the `score_breakdown` block in `schemas/scan-report.schema.json` (`aggregate_math.severity_ceiling`: `{ceiling, weighted_aggregate, applied}`).
 
 ## Rule-RFC workflow
 

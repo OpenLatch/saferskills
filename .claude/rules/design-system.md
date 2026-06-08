@@ -45,7 +45,8 @@ Fonts ship via `@fontsource/*` packages (DM Sans, Space Mono, Onest, Nanum Pen S
 ui/
 ├── components/
 │   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, Chip, Badge, BandPill,
-│   │                 # ScoreNumber, DotStrip, Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
+│   │                 # ScoreNumber, DotStrip, Sparkline (inline trend line — catalog Activity column),
+│   │                 # Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
 │   │                 # RidgeFlow, RidgePixel, ThemeToggle, RotatingHeadline, Toast, CopyButton,
 │   │                 # CopyIconButton (discreet icon-only copy — sha/scan-id, self-contained check flash),
 │   │                 # EmailCaptureForm (retained — reused by I-06 magic-link surface),

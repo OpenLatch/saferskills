@@ -25,6 +25,8 @@ export interface CatalogItemSummary {
   registries: string[]
   agent_compatibility: string[]
   updated_at: string
+  /** 13 weekly install counts over the trailing quarter, oldest→newest. */
+  install_sparkline?: number[]
 }
 
 export interface CatalogItemDetail extends CatalogItemSummary {
@@ -160,10 +162,18 @@ export interface CatalogFacets {
 
 export type CatalogSort =
   | 'most_installed'
+  | 'least_installed'
   | 'recent'
+  | 'oldest'
   | 'highest_score'
   | 'lowest_score'
   | 'most_starred'
+  | 'name_asc'
+  | 'name_desc'
+  | 'description_asc'
+  | 'description_desc'
+  | 'most_active'
+  | 'least_active'
 
 export interface ListItemsParams {
   kind?: string[]

@@ -149,7 +149,24 @@ export function stateToSearchParams(s: CatalogState): URLSearchParams {
   return p
 }
 
-const SORT_VALUES = SORT_OPTIONS.map((o) => o.value)
+// Every sort the clickable column headers can produce — the URL-validation
+// allowlist (`stateFromSearchParams`). Kept explicit (not derived from the
+// legacy SORT_OPTIONS dropdown list) so each bidirectional header sort round-trips.
+const SORT_VALUES: CatalogSort[] = [
+  'most_installed',
+  'least_installed',
+  'recent',
+  'oldest',
+  'highest_score',
+  'lowest_score',
+  'most_starred',
+  'name_asc',
+  'name_desc',
+  'description_asc',
+  'description_desc',
+  'most_active',
+  'least_active',
+]
 
 /** Parse catalog state from URL search params (the SSR + popstate source). */
 export function stateFromSearchParams(params: URLSearchParams): CatalogState {
