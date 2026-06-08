@@ -270,6 +270,13 @@
             "title": "Id",
             "type": "string"
           },
+          "install_sparkline": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Install Sparkline",
+            "type": "array"
+          },
           "item_metadata": {
             "anyOf": [
               {
@@ -457,6 +464,13 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "install_sparkline": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Install Sparkline",
+            "type": "array"
           },
           "kind": {
             "enum": [
@@ -3664,10 +3678,18 @@
               "default": "most_installed",
               "enum": [
                 "most_installed",
+                "least_installed",
                 "recent",
+                "oldest",
                 "highest_score",
                 "lowest_score",
-                "most_starred"
+                "most_starred",
+                "name_asc",
+                "name_desc",
+                "description_asc",
+                "description_desc",
+                "most_active",
+                "least_active"
               ],
               "title": "Sort",
               "type": "string"
