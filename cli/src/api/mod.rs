@@ -46,6 +46,63 @@ pub struct InstallReport<'a> {
     pub cli_version: &'a str,
 }
 
+/// The faceted query for [`Api::list_items`] — the `search` command's filter
+/// state lowered to API query params. Every field maps 1:1 to an existing
+/// `GET /api/v1/items` query parameter; building this is a pure transform
+/// (`to_params`), unit-tested independently of any network call.
+#[derive(Debug, Clone, Default)]
+pub struct CatalogQuery {
+    /// Free-text search (FTS + pg_trgm fuzzy). `None`/empty → trending list.
+    pub q: Option<String>,
+    /// Repeatable `kind` filter (`skill` | `mcp_server` | `hook` | …).
+    pub kinds: Vec<String>,
+    /// Repeatable `agent` compatibility filter (canonical kebab ids).
+    pub agents: Vec<String>,
+    /// Repeatable `scan_tier` filter (`green` | `yellow` | `orange` | `red`).
+    pub scan_tiers: Vec<String>,
+    /// Minimum aggregate score (0–100). `0`/`None` omits the param.
+    pub score_min: Option<u8>,
+    /// Server sort key (e.g. `most_installed`). `None` → server default.
+    pub sort: Option<String>,
+    /// Page size (`limit`, 1–100).
+    pub limit: u32,
+    /// Include low/empty quality_tier items (`showLowQuality`).
+    pub show_low_quality: bool,
+}
+
+impl CatalogQuery {
+    /// Lower the faceted query to repeatable `(key, value)` API params. Keys are
+    /// `'static`; values are owned (the caller borrows them into the request).
+    /// An empty `q`, a zero `score_min`, and `show_low_quality=false` are omitted
+    /// (they are the server defaults).
+    pub fn to_params(&self) -> Vec<(&'static str, String)> {
+        let mut params: Vec<(&'static str, String)> = Vec::new();
+        if let Some(q) = self.q.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            params.push(("q", q.to_string()));
+        }
+        for k in &self.kinds {
+            params.push(("kind", k.clone()));
+        }
+        for a in &self.agents {
+            params.push(("agent", a.clone()));
+        }
+        for t in &self.scan_tiers {
+            params.push(("scan_tier", t.clone()));
+        }
+        if let Some(s) = self.score_min.filter(|s| *s > 0) {
+            params.push(("score_min", s.to_string()));
+        }
+        if let Some(sort) = self.sort.as_deref().filter(|s| !s.is_empty()) {
+            params.push(("sort", sort.to_string()));
+        }
+        params.push(("limit", self.limit.to_string()));
+        if self.show_low_quality {
+            params.push(("showLowQuality", "true".to_string()));
+        }
+        params
+    }
+}
+
 /// jaro_winkler floor for a did-you-mean suggestion (D-05-12).
 const SUGGEST_THRESHOLD: f64 = 0.7;
 /// Max did-you-mean suggestions to show.
@@ -81,6 +138,18 @@ impl Api {
             query.push(("kind", k));
         }
         self.client.get("/api/v1/items", &query).await
+    }
+
+    /// `GET /api/v1/items` with the full faceted-query parameter set — the
+    /// backing fetch for the interactive `search` TUI + its headless `--json`
+    /// path. Repeatable `kind`/`agent`/`scan_tier` are emitted once per value;
+    /// every facet maps to an existing server query param (no backend change).
+    pub async fn list_items(&self, query: &CatalogQuery) -> Result<CatalogListEnvelope, SsError> {
+        // Own the value strings first, then borrow into the `&[(&str, &str)]`
+        // shape `ApiClient::get` expects (keys are 'static; values are owned).
+        let owned = query.to_params();
+        let borrowed: Vec<(&str, &str)> = owned.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        self.client.get("/api/v1/items", &borrowed).await
     }
 
     /// `GET /api/v1/items/{slug}`.
@@ -418,5 +487,54 @@ mod tests {
         let s = err.suggestion.unwrap();
         assert!(!s.contains("Did you mean:"));
         assert!(s.contains("saferskills scan <github-url>"));
+    }
+
+    #[test]
+    fn catalog_query_default_emits_only_limit() {
+        // An all-default trending query: no q, no facets → just `limit`.
+        let q = CatalogQuery {
+            limit: 50,
+            ..CatalogQuery::default()
+        };
+        let p = q.to_params();
+        assert_eq!(p, vec![("limit", "50".to_string())]);
+    }
+
+    #[test]
+    fn catalog_query_repeats_facets_and_omits_defaults() {
+        let q = CatalogQuery {
+            q: Some("  redis  ".into()),
+            kinds: vec!["skill".into(), "mcp_server".into()],
+            agents: vec!["claude-code".into()],
+            scan_tiers: vec!["green".into(), "yellow".into()],
+            score_min: Some(70),
+            sort: Some("most_installed".into()),
+            limit: 25,
+            show_low_quality: true,
+        };
+        let p = q.to_params();
+        // q is trimmed; each repeatable facet appears once per value.
+        assert!(p.contains(&("q", "redis".to_string())));
+        assert_eq!(p.iter().filter(|(k, _)| *k == "kind").count(), 2);
+        assert_eq!(p.iter().filter(|(k, _)| *k == "agent").count(), 1);
+        assert_eq!(p.iter().filter(|(k, _)| *k == "scan_tier").count(), 2);
+        assert!(p.contains(&("score_min", "70".to_string())));
+        assert!(p.contains(&("sort", "most_installed".to_string())));
+        assert!(p.contains(&("limit", "25".to_string())));
+        assert!(p.contains(&("showLowQuality", "true".to_string())));
+    }
+
+    #[test]
+    fn catalog_query_omits_empty_q_and_zero_score_min() {
+        let q = CatalogQuery {
+            q: Some("   ".into()),
+            score_min: Some(0),
+            limit: 50,
+            ..CatalogQuery::default()
+        };
+        let p = q.to_params();
+        assert!(!p.iter().any(|(k, _)| *k == "q"));
+        assert!(!p.iter().any(|(k, _)| *k == "score_min"));
+        assert!(!p.iter().any(|(k, _)| *k == "showLowQuality"));
     }
 }
