@@ -36,7 +36,7 @@ class CatalogItemSummary(OrmBaseModel):
     updated_at: datetime
     # Per-item install-activity sparkline — 13 weekly buckets over the trailing
     # quarter, oldest→newest (opt-in CLI installs; all-zero when none reported).
-    install_sparkline: list[int] = Field(default_factory=list)
+    install_sparkline: list[int] = Field(default_factory=list[int])
 
 
 class CatalogItemDetail(CatalogItemSummary):
