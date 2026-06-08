@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 
-import { fetchScanById } from '@/lib/api/scans'
+import { fetchScanRunById } from '@/lib/api/scans'
 import { TIER_HEX } from '@/lib/tier'
 
 export const prerender = false
@@ -12,10 +12,14 @@ function esc(value: string): string {
 }
 
 /**
- * Permalink-style scan badge (~280×60 SVG). Validates the `score` URL segment
- * against the live scan's aggregate score so a tampered URL (`/99.svg`) can't
- * inflate a badge — a mismatch is a 400 (the URL resolves to a real scan; the
- * score param is the problem). Edge-cached 1h.
+ * Permalink-style scan badge (~280×60 SVG) for a public scan RUN — the `scan_id`
+ * segment is a run id (the same id the `/scans/<id>` report, the public feed, and
+ * the embed-badge box expose; the public `/scans` list returns run ids, not
+ * per-capability scan ids). Validates the `score` URL segment against the run's
+ * repo aggregate score (or one of its capabilities' scores — the per-file upload
+ * badge embeds a capability score) so a tampered URL (`/99.svg`) can't inflate a
+ * badge — a mismatch is a 400. Unlisted runs are never badgeable (404).
+ * Edge-cached 1h.
  */
 export const GET: APIRoute = async ({ params }) => {
   const { scan_id, score } = params
@@ -24,14 +28,18 @@ export const GET: APIRoute = async ({ params }) => {
   const expectedScore = Number.parseInt(score, 10)
   if (Number.isNaN(expectedScore)) return new Response('Invalid score', { status: 400 })
 
-  const scan = await fetchScanById(scan_id).catch(() => null)
-  if (!scan) return new Response('Scan not found', { status: 404 })
-  if (scan.aggregate_score !== expectedScore) {
-    return new Response('Score mismatch', { status: 400 })
+  const run = await fetchScanRunById(scan_id).catch(() => null)
+  if (!run || run.visibility === 'unlisted') {
+    return new Response('Scan not found', { status: 404 })
   }
+  const matchedTier =
+    run.repo_aggregate_score === expectedScore
+      ? run.repo_tier
+      : run.capabilities.find((c) => c.aggregate_score === expectedScore)?.tier
+  if (!matchedTier) return new Response('Score mismatch', { status: 400 })
 
-  const tierColor = TIER_HEX[scan.tier] ?? TIER_HEX.unscoped
-  const tierLabel = esc(scan.tier.toUpperCase())
+  const tierColor = TIER_HEX[matchedTier] ?? TIER_HEX.unscoped
+  const tierLabel = esc(matchedTier.toUpperCase())
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="60" viewBox="0 0 280 60" role="img" aria-label="SaferSkills score ${expectedScore} of 100, ${tierLabel} tier">
   <title>SaferSkills score ${expectedScore} / 100 — ${tierLabel}</title>
