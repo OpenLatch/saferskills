@@ -71,13 +71,30 @@ writer's key/format resolution so the read agrees with the write:
 
 - MCP key shape: `writer::openclaw_key` (probed `mcpServers` ∨ `mcp.servers`),
   Copilot's `servers` (VS Code) vs `mcpServers` (CLI), and `writer::toml_to_json`
-  for Codex `[mcp_servers.*]`. JSONC configs parse via `jsonc_parser`.
-- Skills: each `<skill_dir>/<name>/` containing `SKILL.md`.
-- Hooks (Claude Code only, v1): `~/.claude/settings.json` with a `hooks` key +
-  `~/.claude/hooks/*.json`.
+  for Codex `[mcp_servers.*]`. JSONC configs parse via `jsonc_parser`. Plugin
+  `.mcp.json` reuses the same `scan_mcp_file` reader (key `mcpServers`).
+- Skills: each `<skill_dir>/<name>/` containing `SKILL.md` (the root-relative
+  `scan_skills_dir`, reused inside each plugin's `skills/`).
+- Hooks (Claude Code + plugins): `~/.claude/settings.json` with a `hooks` key +
+  `~/.claude/hooks/*.json` (the root-relative `scan_hooks_dir`, reused inside each
+  plugin's `hooks/`).
 - Rules (Cursor, v1): `~/.cursor/rules/*.mdc` + `.cursorrules`/`.windsurfrules`.
+- **Slash commands + subagents (→ skill)**: Claude `commands/*.md` + `agents/*.md`,
+  Codex `prompts/*.md`, and Gemini `commands/*.toml` (the `prompt` field) are each
+  synthesized as a `SKILL.md` anchor (the backend has no `command`/`agent` kind;
+  Claude treats commands + skills as one mechanism). A namespaced command
+  (`commands/lde/x.md`) keeps its `lde:x` name via a `name:` frontmatter prepend
+  when the source has none.
+- **Plugin cache (Claude only)**: `~/.claude/plugins/cache/<mp>/<plugin>/<ver>/` —
+  only the active version (per `installed_plugins.json`, else the
+  lexically-greatest version dir) is read, and its `skills/` / `.mcp.json` /
+  `hooks/` / `commands/` / `agents/` / `.claude-plugin/plugin.json` each become a
+  capability mounted under `<agent>/plugins/<mp>__<plugin>/`. Lock/vendor/binary
+  dirs (`.in_use`, `bin/`, `node_modules`, …) are excluded.
 
 The writers expose **no read accessor**, so the JSON/TOML reads in
 `enumerate.rs` are new read-only code; the synthetic bundle paths
-(`<agent>/skills/<name>/…`, `<agent>/mcp/<server>/mcp.json`, …) match the backend
-`discovery.py` anchor layout so one upload scans like a repo.
+(`<agent>/skills/<name>/…`, `<agent>/mcp/<server>/mcp.json`,
+`<agent>/commands/<name>/SKILL.md`, `<agent>/plugins/<mp>__<plugin>/…`, …) match
+the backend `discovery.py` anchor layout so one upload scans like a repo (the
+backend fan-out further splits a bundled plugin tree into per-capability scans).

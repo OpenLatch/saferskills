@@ -5,10 +5,27 @@
 //! different question from the CLI's own install ledger (`core::registry`, which
 //! only knows what *saferskills* installed). This module reads each detected
 //! agent's *own* config dirs/files — `agent.skill_dir`, `agent.mcp_config_path`,
-//! and the hook/rules roots derived from them — and emits one [`LocalCapability`]
-//! per skill / MCP server / hook / rules file found, regardless of how it was
+//! and the command / subagent / hook / rules / plugin-cache roots derived from
+//! them — and emits one [`LocalCapability`] per skill / MCP server / hook / rules
+//! file / command / subagent / installed-plugin found, regardless of how it was
 //! installed. The result is bundled into one structured `.zip` (paths matching
 //! the backend `discovery.py` anchor layout) and uploaded once.
+//!
+//! **Slash commands + subagents map to the `skill` kind.** The backend kind set
+//! is closed (`skill, mcp_server, hook, plugin, rules` — no `command`/`agent`),
+//! and Claude's own docs treat commands and skills as the same mechanism, so each
+//! `commands/*.md` / `agents/*.md` (and Codex `prompts/*.md`, Gemini
+//! `commands/*.toml`) is synthesized as a `SKILL.md` anchor and scored by the 25
+//! `SS-SKILL-*` rules. A namespaced command (`commands/lde/x.md`) keeps its
+//! `lde:x` name via a `name:` frontmatter prepend (only when the source has no
+//! frontmatter of its own).
+//!
+//! **The Claude plugin cache** (`~/.claude/plugins/cache/<mp>/<plugin>/<ver>/`)
+//! is decomposed: each active-version plugin's bundled `skills/`, `.mcp.json`,
+//! `hooks/`, `commands/`, `agents/`, and `.claude-plugin/plugin.json` become
+//! their own scored capabilities (one bundle → many caps). Only the
+//! installed-active version is read (per `installed_plugins.json`); lock/vendor/
+//! binary dirs are excluded.
 //!
 //! **Testable seam.** [`enumerate_local`] resolves the detected agents (which
 //! reads `dirs::home_dir()` — not a fake-HOME-friendly env var, see `detect.rs`
@@ -29,7 +46,8 @@ use super::writer;
 use super::{detect_all, AgentId, DetectedAgent, Scope};
 
 /// The capability kinds a local audit enumerates. `as_str()` → the snake_case
-/// backend kind. `Plugin` is carried for forward-compat (not discovered in v1).
+/// backend kind. Commands + subagents are emitted as `Skill`; an installed
+/// plugin's manifest is emitted as `Plugin` (its nested caps by their real kind).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CapKind {
     Skill,
@@ -161,9 +179,18 @@ pub mod budget {
     pub const MAX_FILE_BYTES: usize = 1024 * 1024; // 1 MiB
     pub const MAX_CAPABILITY_BYTES: usize = 4 * 1024 * 1024; // 4 MiB
     pub const MAX_TOTAL_BYTES: usize = 32 * 1024 * 1024; // 32 MiB
-    pub const MAX_ENTRIES: usize = 900;
+    /// The binding ceiling on the local-audit `.zip` is the BACKEND's per-upload
+    /// entry cap (`upload_extract_max_entries`, default 1000) — a bundle over it
+    /// is rejected whole with `422 archive_rejected (entries)`. We mirror that
+    /// exact value (not the byte budget, which a deep plugin cache reaches far
+    /// later) so the priority loop trims lowest-priority caps first and reports
+    /// `BudgetFull` skips, rather than building a zip the server refuses. Raise
+    /// both ends together if the backend cap ever moves. (The CLI dedups + drops
+    /// `.git` identically to the backend, so the two entry counts agree.)
+    pub const MAX_ENTRIES: usize = 1000;
 
-    /// Directories never bundled (VCS / build / dependency vendor trees).
+    /// Directories never bundled (VCS / build / dependency vendor trees, and
+    /// plugin runtime lock dirs — `.in_use` holds hundreds of transient PID files).
     pub const EXCLUDED_DIRS: &[&str] = &[
         ".git",
         "node_modules",
@@ -182,6 +209,7 @@ pub mod budget {
         ".idea",
         "coverage",
         ".gradle",
+        ".in_use",
     ];
 
     /// Nested-archive extensions — bundling one would trip the backend's
@@ -253,6 +281,9 @@ pub fn enumerate_from(agents: &[DetectedAgent]) -> Enumeration {
         discover_mcp(agent, &mut capabilities, &mut skips);
         discover_hooks(agent, &mut capabilities, &mut skips);
         discover_rules(agent, &mut capabilities, &mut skips);
+        discover_commands(agent, &mut capabilities, &mut skips);
+        discover_subagents(agent, &mut capabilities, &mut skips);
+        discover_plugins(agent, &mut capabilities, &mut skips);
     }
     Enumeration {
         capabilities,
@@ -270,22 +301,36 @@ fn discover_skills(
     let Some(skill_dir) = agent.skill_dir.as_ref() else {
         return;
     };
-    if !skill_dir.is_dir() {
-        return; // no skills installed for this agent
+    let mount = format!("{}/skills", agent.id.as_str());
+    scan_skills_dir(skill_dir, &mount, agent.id, out, skips);
+}
+
+/// Walk a skills directory: each child dir containing a `SKILL.md` becomes one
+/// [`CapKind::Skill`] capability mounted at `<mount>/<name>`. Root-relative +
+/// reusable — used both at the agent's `skill_dir` and inside a plugin's
+/// `skills/` payload.
+fn scan_skills_dir(
+    skills_dir: &Path,
+    mount: &str,
+    agent: AgentId,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if !skills_dir.is_dir() {
+        return; // no skills installed here
     }
-    let mut children: Vec<PathBuf> = match std::fs::read_dir(skill_dir) {
+    let mut children: Vec<PathBuf> = match std::fs::read_dir(skills_dir) {
         Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
         Err(_) => {
             skips.push(SkipNote::at(
-                agent.id,
-                skill_dir.to_string_lossy(),
+                agent,
+                skills_dir.to_string_lossy(),
                 SkipReason::Unreadable,
             ));
             return;
         }
     };
     children.sort();
-    let agent_seg = agent.id.as_str();
     for child in children {
         if !child.is_dir() {
             continue;
@@ -298,14 +343,14 @@ fn discover_skills(
             .and_then(|n| n.to_str())
             .unwrap_or("skill")
             .to_string();
-        let mount = format!("{agent_seg}/skills/{name}");
-        let anchor = format!("{mount}/{anchor_name}");
+        let cap_mount = format!("{mount}/{name}");
+        let anchor = format!("{cap_mount}/{anchor_name}");
         if let Some(cap) = collect_dir_capability(
-            agent.id,
+            agent,
             CapKind::Skill,
             &name,
             &child,
-            &mount,
+            &cap_mount,
             &anchor,
             skips,
         ) {
@@ -338,15 +383,35 @@ fn discover_mcp(agent: &DetectedAgent, out: &mut Vec<LocalCapability>, skips: &m
     if !path.is_file() {
         return; // no MCP config installed
     }
+    let mount = format!("{}/mcp", agent.id.as_str());
     if agent.id == AgentId::Codex {
-        discover_mcp_toml(agent, out, skips);
+        discover_mcp_toml(agent, &mount, out, skips);
+        return;
+    }
+    let key = mcp_key_path(agent);
+    let key_refs: Vec<&str> = key.iter().map(String::as_str).collect();
+    scan_mcp_file(path, &key_refs, &mount, agent.id, out, skips);
+}
+
+/// Extract every MCP server from a JSON/JSONC config under `key_path`, mounting
+/// each at `<mount>/<server>/mcp.json`. Root-relative + reusable — used both for
+/// an agent's own MCP config and a plugin's bundled `.mcp.json`.
+fn scan_mcp_file(
+    path: &Path,
+    key_path: &[&str],
+    mount: &str,
+    agent: AgentId,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if !path.is_file() {
         return;
     }
     let text = match std::fs::read_to_string(path) {
         Ok(t) => t,
         Err(_) => {
             skips.push(SkipNote::at(
-                agent.id,
+                agent,
                 path.to_string_lossy(),
                 SkipReason::Unreadable,
             ));
@@ -357,25 +422,24 @@ fn discover_mcp(agent: &DetectedAgent, out: &mut Vec<LocalCapability>, skips: &m
         Some(v) => v,
         None => {
             skips.push(SkipNote::at(
-                agent.id,
+                agent,
                 path.to_string_lossy(),
                 SkipReason::MalformedConfig,
             ));
             return;
         }
     };
-    let key = mcp_key_path(agent);
-    let key_refs: Vec<&str> = key.iter().map(String::as_str).collect();
-    let Some(map) = navigate_object(&value, &key_refs) else {
+    let Some(map) = navigate_object(&value, key_path) else {
         return; // no server map under the expected key — nothing installed
     };
     for (name, entry) in map {
-        out.push(make_mcp_cap(agent.id, path, name, entry));
+        out.push(make_mcp_cap(agent, path, name, entry, mount));
     }
 }
 
 fn discover_mcp_toml(
     agent: &DetectedAgent,
+    mount: &str,
     out: &mut Vec<LocalCapability>,
     skips: &mut Vec<SkipNote>,
 ) {
@@ -407,7 +471,7 @@ fn discover_mcp_toml(
     };
     for (name, item) in servers.iter() {
         let entry = writer::toml_to_json(item);
-        out.push(make_mcp_cap(agent.id, path, name, &entry));
+        out.push(make_mcp_cap(agent.id, path, name, &entry, mount));
     }
 }
 
@@ -437,9 +501,17 @@ fn mcp_key_path(agent: &DetectedAgent) -> Vec<String> {
 
 /// One synthetic `mcp.json` per server: `{"name": <server>, "server": <entry>}`
 /// — the backend reads `name` for the capability name + the dir as the anchor.
-fn make_mcp_cap(agent: AgentId, origin: &Path, name: &str, entry: &Value) -> LocalCapability {
+/// `mount` is the parent path the server dir hangs under (`<agent>/mcp` or a
+/// plugin's `<…>/plugins/<mp>__<plugin>/mcp`).
+fn make_mcp_cap(
+    agent: AgentId,
+    origin: &Path,
+    name: &str,
+    entry: &Value,
+    mount: &str,
+) -> LocalCapability {
     let seg = sanitize_segment(name);
-    let mount = format!("{}/mcp/{}", agent.as_str(), seg);
+    let mount = format!("{mount}/{seg}");
     let anchor = format!("{mount}/mcp.json");
     let body = serde_json::json!({ "name": name, "server": entry });
     let bytes = serde_json::to_vec_pretty(&body).unwrap_or_default();
@@ -504,39 +576,54 @@ fn discover_hooks(
 
     // hooks/*.json — each json under a `hooks/` dir is a hook anchor.
     let hooks_dir = claude_root.join("hooks");
-    if hooks_dir.is_dir() {
-        let mut files: Vec<PathBuf> = match std::fs::read_dir(&hooks_dir) {
-            Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
-            Err(_) => vec![],
-        };
-        files.sort();
-        for path in files {
-            if !path.is_file() {
-                continue;
+    let hooks_mount = format!("{agent_seg}/hooks");
+    scan_hooks_dir(&hooks_dir, &hooks_mount, agent.id, out, skips);
+}
+
+/// Walk a `hooks/` directory: each `*.json` is a hook anchor mounted at
+/// `<mount>/<file>.json`. Root-relative + reusable — used both at
+/// `~/.claude/hooks` and inside a plugin's `hooks/` payload.
+fn scan_hooks_dir(
+    hooks_dir: &Path,
+    mount: &str,
+    agent: AgentId,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if !hooks_dir.is_dir() {
+        return;
+    }
+    let mut files: Vec<PathBuf> = match std::fs::read_dir(hooks_dir) {
+        Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
+        Err(_) => vec![],
+    };
+    files.sort();
+    for path in files {
+        if !path.is_file() {
+            continue;
+        }
+        let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !fname.to_ascii_lowercase().ends_with(".json") {
+            continue;
+        }
+        let stem = fname.rsplit_once('.').map(|(s, _)| s).unwrap_or(fname);
+        match std::fs::read(&path) {
+            Ok(bytes) => {
+                let synth = format!("{mount}/{fname}");
+                out.push(single_file_cap(
+                    agent,
+                    CapKind::Hook,
+                    stem,
+                    &path,
+                    synth,
+                    bytes,
+                ));
             }
-            let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if !fname.to_ascii_lowercase().ends_with(".json") {
-                continue;
-            }
-            let stem = fname.rsplit_once('.').map(|(s, _)| s).unwrap_or(fname);
-            match std::fs::read(&path) {
-                Ok(bytes) => {
-                    let synth = format!("{agent_seg}/hooks/{fname}");
-                    out.push(single_file_cap(
-                        agent.id,
-                        CapKind::Hook,
-                        stem,
-                        &path,
-                        synth,
-                        bytes,
-                    ));
-                }
-                Err(_) => skips.push(SkipNote::at(
-                    agent.id,
-                    path.to_string_lossy(),
-                    SkipReason::Unreadable,
-                )),
-            }
+            Err(_) => skips.push(SkipNote::at(
+                agent,
+                path.to_string_lossy(),
+                SkipReason::Unreadable,
+            )),
         }
     }
 }
@@ -608,6 +695,431 @@ fn discover_rules(
             }
         }
     }
+}
+
+// ─── discovery: slash commands (→ skill) ─────────────────────────────────────
+
+/// Slash commands map to the `skill` kind (the backend has no `command` kind, and
+/// Claude treats commands + skills as the same mechanism). Claude `commands/*.md`
+/// and Codex `prompts/*.md` synthesize a verbatim `SKILL.md`; Gemini
+/// `commands/*.toml` extracts the `prompt` field into one.
+fn discover_commands(
+    agent: &DetectedAgent,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    let Some(root) = agent.skill_dir.as_ref().and_then(|d| d.parent()) else {
+        return;
+    };
+    let agent_seg = agent.id.as_str();
+    match agent.id {
+        AgentId::ClaudeCode => {
+            scan_markdown_dir(
+                &root.join("commands"),
+                &format!("{agent_seg}/commands"),
+                agent.id,
+                out,
+                skips,
+            );
+        }
+        AgentId::Codex => {
+            scan_markdown_dir(
+                &root.join("prompts"),
+                &format!("{agent_seg}/prompts"),
+                agent.id,
+                out,
+                skips,
+            );
+        }
+        AgentId::Gemini => {
+            scan_toml_commands(
+                &root.join("commands"),
+                &format!("{agent_seg}/commands"),
+                agent.id,
+                out,
+                skips,
+            );
+        }
+        _ => {}
+    }
+}
+
+// ─── discovery: subagents (Claude Code only, → skill) ────────────────────────
+
+/// Claude subagents (`~/.claude/agents/*.md`) map to the `skill` kind — the
+/// subagent markdown already carries `name:`/`description:` frontmatter the
+/// backend reads, so it bundles verbatim.
+fn discover_subagents(
+    agent: &DetectedAgent,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if agent.id != AgentId::ClaudeCode {
+        return;
+    }
+    let Some(root) = agent.skill_dir.as_ref().and_then(|d| d.parent()) else {
+        return;
+    };
+    scan_markdown_dir(
+        &root.join("agents"),
+        &format!("{}/agents", agent.id.as_str()),
+        agent.id,
+        out,
+        skips,
+    );
+}
+
+/// Walk a directory of markdown prompt files (recursing namespaced subdirs); each
+/// `*.md` becomes a synthetic [`CapKind::Skill`] whose `SKILL.md` body is the
+/// markdown verbatim. A namespaced subpath (`lde/x.md`) maps to the colon-name
+/// `lde:x`, injected as a `name:` frontmatter ONLY when the source carries no
+/// `---` frontmatter of its own. Shared by Claude `commands/` + `agents/`, Codex
+/// `prompts/`, and a plugin's bundled `commands/` + `agents/`.
+fn scan_markdown_dir(
+    dir: &Path,
+    mount: &str,
+    agent: AgentId,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if !dir.is_dir() {
+        return;
+    }
+    let mut files: Vec<(String, PathBuf)> = Vec::new();
+    collect_files_with_ext(dir, dir, "md", &mut files);
+    files.sort();
+    for (rel, path) in files {
+        // rel like "lde/brainstorming.md" → stem path "lde/brainstorming".
+        let stem = rel.strip_suffix(".md").unwrap_or(&rel);
+        let name = stem.replace('/', ":");
+        let cap_mount = format!("{mount}/{stem}");
+        let anchor = format!("{cap_mount}/SKILL.md");
+        let Some(raw) = read_capability_file(&path, &anchor, agent, skips) else {
+            continue;
+        };
+        let body = synthesize_skill_md(&name, &raw);
+        out.push(single_file_cap(
+            agent,
+            CapKind::Skill,
+            &name,
+            &path,
+            anchor,
+            body,
+        ));
+    }
+}
+
+/// Gemini `commands/*.toml`: parse with the `toml` crate, extract the `prompt`
+/// field, and synthesize a `SKILL.md` whose body is that prose. Malformed TOML →
+/// a [`SkipReason::MalformedConfig`]; a file with no `prompt` is silently ignored.
+fn scan_toml_commands(
+    dir: &Path,
+    mount: &str,
+    agent: AgentId,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if !dir.is_dir() {
+        return;
+    }
+    let mut files: Vec<(String, PathBuf)> = Vec::new();
+    collect_files_with_ext(dir, dir, "toml", &mut files);
+    files.sort();
+    for (rel, path) in files {
+        let stem = rel.strip_suffix(".toml").unwrap_or(&rel);
+        let name = stem.replace('/', ":");
+        let cap_mount = format!("{mount}/{stem}");
+        let anchor = format!("{cap_mount}/SKILL.md");
+        let text = match std::fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(_) => {
+                skips.push(SkipNote::at(agent, anchor, SkipReason::Unreadable));
+                continue;
+            }
+        };
+        let value: toml::Value = match toml::from_str(&text) {
+            Ok(v) => v,
+            Err(_) => {
+                skips.push(SkipNote::at(agent, anchor, SkipReason::MalformedConfig));
+                continue;
+            }
+        };
+        let Some(prompt) = value.get("prompt").and_then(|p| p.as_str()) else {
+            continue; // a TOML command without a prompt is not a scannable prompt
+        };
+        let body = format!("---\nname: {name}\n---\n{prompt}\n").into_bytes();
+        out.push(single_file_cap(
+            agent,
+            CapKind::Skill,
+            &name,
+            &path,
+            anchor,
+            body,
+        ));
+    }
+}
+
+// ─── discovery: plugin cache (Claude Code only) ──────────────────────────────
+
+/// Decompose the Claude plugin cache (`~/.claude/plugins/cache/<mp>/<plugin>/
+/// <ver>/`). Only the installed-active version (per `installed_plugins.json`,
+/// else the lexically-greatest version dir) is read; its bundled `skills/`,
+/// `.mcp.json`, `hooks/`, `commands/`, `agents/`, and `.claude-plugin/plugin.json`
+/// each become their own scored capability, mounted under
+/// `claude-code/plugins/<mp>__<plugin>/`. Everything outside those capability
+/// subdirs (`bin/`, `lib/`, `src/`, …) is ignored.
+fn discover_plugins(
+    agent: &DetectedAgent,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    if agent.id != AgentId::ClaudeCode {
+        return;
+    }
+    let Some(claude_root) = agent.skill_dir.as_ref().and_then(|d| d.parent()) else {
+        return;
+    };
+    let plugins_root = claude_root.join("plugins");
+    let cache = plugins_root.join("cache");
+    if !cache.is_dir() {
+        return;
+    }
+    let versions = active_plugin_versions(&plugins_root);
+
+    let mut marketplaces: Vec<PathBuf> = match std::fs::read_dir(&cache) {
+        Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
+        Err(_) => return,
+    };
+    marketplaces.sort();
+    for mp_dir in marketplaces {
+        if !mp_dir.is_dir() {
+            continue;
+        }
+        let mp = mp_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+        let mut plugin_dirs: Vec<PathBuf> = match std::fs::read_dir(&mp_dir) {
+            Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
+            Err(_) => continue,
+        };
+        plugin_dirs.sort();
+        for plugin_dir in plugin_dirs {
+            if !plugin_dir.is_dir() {
+                continue;
+            }
+            let plugin = plugin_dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+            let Some(version) = versions
+                .get(&(mp.clone(), plugin.clone()))
+                .filter(|v| plugin_dir.join(v).is_dir())
+                .cloned()
+                .or_else(|| greatest_version_dir(&plugin_dir))
+            else {
+                continue; // no resolvable version dir
+            };
+            let pdir = plugin_dir.join(&version);
+            let mount = format!(
+                "{}/plugins/{}__{}",
+                agent.id.as_str(),
+                sanitize_segment(&mp),
+                sanitize_segment(&plugin)
+            );
+            scan_skills_dir(
+                &pdir.join("skills"),
+                &format!("{mount}/skills"),
+                agent.id,
+                out,
+                skips,
+            );
+            scan_markdown_dir(
+                &pdir.join("commands"),
+                &format!("{mount}/commands"),
+                agent.id,
+                out,
+                skips,
+            );
+            scan_markdown_dir(
+                &pdir.join("agents"),
+                &format!("{mount}/agents"),
+                agent.id,
+                out,
+                skips,
+            );
+            scan_hooks_dir(
+                &pdir.join("hooks"),
+                &format!("{mount}/hooks"),
+                agent.id,
+                out,
+                skips,
+            );
+            scan_mcp_file(
+                &pdir.join(".mcp.json"),
+                &["mcpServers"],
+                &format!("{mount}/mcp"),
+                agent.id,
+                out,
+                skips,
+            );
+            scan_plugin_manifest(&pdir, &mount, agent.id, out, skips);
+        }
+    }
+}
+
+/// Map `(marketplace, plugin) → active-version dir name` from
+/// `plugins/installed_plugins.json` (key `<plugin>@<marketplace>` → installs[]).
+/// Prefers the `user`-scope install (a global audit), else the first entry. An
+/// unreadable/absent ledger yields an empty map (the caller falls back to the
+/// greatest version dir).
+fn active_plugin_versions(
+    plugins_root: &Path,
+) -> std::collections::HashMap<(String, String), String> {
+    let mut map = std::collections::HashMap::new();
+    let file = plugins_root.join("installed_plugins.json");
+    let Ok(text) = std::fs::read_to_string(&file) else {
+        return map;
+    };
+    let Some(value) = parse_jsonc(&text) else {
+        return map;
+    };
+    let Some(plugins) = value.get("plugins").and_then(|p| p.as_object()) else {
+        return map;
+    };
+    for (key, installs) in plugins {
+        let Some((plugin, mp)) = key.rsplit_once('@') else {
+            continue;
+        };
+        let Some(arr) = installs.as_array() else {
+            continue;
+        };
+        let chosen = arr
+            .iter()
+            .find(|e| e.get("scope").and_then(|s| s.as_str()) == Some("user"))
+            .or_else(|| arr.first());
+        if let Some(version) = chosen
+            .and_then(|e| e.get("version"))
+            .and_then(|v| v.as_str())
+        {
+            map.insert((mp.to_string(), plugin.to_string()), version.to_string());
+        }
+    }
+    map
+}
+
+/// The lexically-greatest immediate child directory name of `dir`, if any — the
+/// version-selection fallback when `installed_plugins.json` has no entry.
+fn greatest_version_dir(dir: &Path) -> Option<String> {
+    let mut best: Option<String> = None;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        if entry.path().is_dir() {
+            if let Some(name) = entry.file_name().to_str() {
+                if best.as_deref().is_none_or(|b| name > b) {
+                    best = Some(name.to_string());
+                }
+            }
+        }
+    }
+    best
+}
+
+/// Emit one [`CapKind::Plugin`] capability for a plugin's `.claude-plugin/
+/// plugin.json` manifest (the 5 `SS-PLUGIN-*` rules fire on it). Entries are the
+/// `.claude-plugin/**` tree (the anchor) plus top-level loose text files
+/// (`README.md`, `LICENSE`, …) — capability subdirs (`skills/`, `bin/`, `lib/`,
+/// …) are scanned separately or ignored, keeping mega-plugins tight.
+fn scan_plugin_manifest(
+    plugin_dir: &Path,
+    mount: &str,
+    agent: AgentId,
+    out: &mut Vec<LocalCapability>,
+    skips: &mut Vec<SkipNote>,
+) {
+    let manifest_dir = plugin_dir.join(".claude-plugin");
+    if !manifest_dir.join("plugin.json").is_file() {
+        return; // not a plugin manifest tree
+    }
+    let anchor = format!("{mount}/.claude-plugin/plugin.json");
+    let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
+    // The manifest tree (`.claude-plugin/**`) — `plugin.json` is the anchor.
+    walk_dir(
+        &manifest_dir,
+        &manifest_dir,
+        &format!("{mount}/.claude-plugin"),
+        "plugin.json",
+        agent,
+        &mut entries,
+        skips,
+    );
+    // Top-level loose text files (README / LICENSE / …) — non-recursive, so the
+    // capability subdirs are left to their own scanners.
+    if let Ok(rd) = std::fs::read_dir(plugin_dir) {
+        let mut files: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path())).collect();
+        files.sort();
+        for path in files {
+            if !path.is_file() {
+                continue;
+            }
+            let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            let synth = format!("{mount}/{fname}");
+            if let Some(bytes) = read_capability_file(&path, &synth, agent, skips) {
+                entries.push((synth, bytes));
+            }
+        }
+    }
+    if entries.iter().all(|(p, _)| p != &anchor) {
+        return; // the manifest itself was unreadable → can't be detected
+    }
+    let name = plugin_dir
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("plugin")
+        .to_string();
+    let (entries, bytes) = apply_cap_budget(agent, &anchor, entries, skips);
+    out.push(LocalCapability {
+        agent,
+        kind: CapKind::Plugin,
+        name,
+        origin: plugin_dir.to_path_buf(),
+        anchor,
+        entries,
+        bytes,
+    });
+}
+
+/// Recursively collect `(rel_posix, abs_path)` for every file with extension
+/// `ext` under `dir`, skipping excluded (vendor/build/lock) directories.
+fn collect_files_with_ext(root: &Path, dir: &Path, ext: &str, out: &mut Vec<(String, PathBuf)>) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut paths: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path())).collect();
+    paths.sort();
+    for path in paths {
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if path.is_dir() {
+            if !is_excluded_dir(name) {
+                collect_files_with_ext(root, &path, ext, out);
+            }
+        } else if path.is_file() && ext_of(name).as_deref() == Some(ext) {
+            out.push((rel_posix(root, &path), path));
+        }
+    }
+}
+
+/// Wrap a markdown body in a `name:` frontmatter when it carries none of its own;
+/// a body that already starts with `---` frontmatter is returned verbatim.
+fn synthesize_skill_md(name: &str, raw: &[u8]) -> Vec<u8> {
+    if String::from_utf8_lossy(raw).trim_start().starts_with("---") {
+        return raw.to_vec();
+    }
+    let mut body = format!("---\nname: {name}\n---\n").into_bytes();
+    body.extend_from_slice(raw);
+    body
 }
 
 // ─── capability builders ─────────────────────────────────────────────────────
@@ -708,33 +1220,59 @@ fn walk_dir(
         } else if path.is_file() {
             let rel = rel_posix(root, &path);
             let synth = format!("{mount}/{rel}");
-            let is_anchor = rel == anchor_rel;
-            if !is_anchor {
-                if let Some(reason) = excluded_ext_reason(&rel) {
-                    skips.push(SkipNote::at(agent, synth, reason));
-                    continue;
+            if rel == anchor_rel {
+                // The anchor is always kept, unfiltered (it is what the backend
+                // needs to detect the capability).
+                match std::fs::read(&path) {
+                    Ok(bytes) => entries.push((synth, bytes)),
+                    Err(_) => skips.push(SkipNote::at(agent, synth, SkipReason::Unreadable)),
                 }
-                if let Ok(meta) = std::fs::metadata(&path) {
-                    if meta.len() as usize > budget::MAX_FILE_BYTES {
-                        skips.push(SkipNote::at(agent, synth, SkipReason::TooLargeFile));
-                        continue;
-                    }
-                }
+            } else if let Some(bytes) = read_capability_file(&path, &synth, agent, skips) {
+                entries.push((synth, bytes));
             }
-            let bytes = match std::fs::read(&path) {
-                Ok(b) => b,
-                Err(_) => {
-                    skips.push(SkipNote::at(agent, synth, SkipReason::Unreadable));
-                    continue;
-                }
-            };
-            if !is_anchor && looks_binary(&bytes) {
-                skips.push(SkipNote::at(agent, synth, SkipReason::Binary));
-                continue;
-            }
-            entries.push((synth, bytes));
         }
     }
+}
+
+/// Read a non-anchor capability file, applying the per-file ext / size / binary
+/// filters. Returns the bytes to bundle, or `None` (with a [`SkipNote`] recorded)
+/// when the file is excluded.
+fn read_capability_file(
+    path: &Path,
+    synth: &str,
+    agent: AgentId,
+    skips: &mut Vec<SkipNote>,
+) -> Option<Vec<u8>> {
+    if let Some(reason) = excluded_ext_reason(synth) {
+        skips.push(SkipNote::at(agent, synth.to_string(), reason));
+        return None;
+    }
+    if let Ok(meta) = std::fs::metadata(path) {
+        if meta.len() as usize > budget::MAX_FILE_BYTES {
+            skips.push(SkipNote::at(
+                agent,
+                synth.to_string(),
+                SkipReason::TooLargeFile,
+            ));
+            return None;
+        }
+    }
+    let bytes = match std::fs::read(path) {
+        Ok(b) => b,
+        Err(_) => {
+            skips.push(SkipNote::at(
+                agent,
+                synth.to_string(),
+                SkipReason::Unreadable,
+            ));
+            return None;
+        }
+    };
+    if looks_binary(&bytes) {
+        skips.push(SkipNote::at(agent, synth.to_string(), SkipReason::Binary));
+        return None;
+    }
+    Some(bytes)
 }
 
 /// Trim a capability to `MAX_CAPABILITY_BYTES`, always keeping the anchor and
@@ -1214,5 +1752,258 @@ mod tests {
         ]);
         assert_eq!(kept.len(), 2);
         assert_eq!(dropped, vec!["a/x.md".to_string()]);
+    }
+
+    /// A Claude agent rooted at `<tmp>/.claude` (skills dir parent = the config
+    /// root the command/subagent/plugin discoverers derive their dirs from).
+    fn claude_agent(tmp: &Path) -> DetectedAgent {
+        agent(
+            AgentId::ClaudeCode,
+            tmp.join(".claude.json"),
+            Some(tmp.join(".claude").join("skills")),
+        )
+    }
+
+    #[test]
+    fn commands_mapped_to_skill() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cmds = tmp.path().join(".claude").join("commands").join("lde");
+        fs::create_dir_all(&cmds).unwrap();
+        fs::write(
+            cmds.join("brainstorming.md"),
+            b"# Brainstorm\nDo the thing.\n",
+        )
+        .unwrap();
+
+        let enm = enumerate_from(&[claude_agent(tmp.path())]);
+        let cap = enm
+            .capabilities
+            .iter()
+            .find(|c| c.anchor == "claude-code/commands/lde/brainstorming/SKILL.md")
+            .expect("namespaced command mapped to a skill anchor");
+        assert_eq!(cap.kind, CapKind::Skill);
+        assert_eq!(cap.name, "lde:brainstorming");
+        // Body carries the command markdown (with a synthesized name frontmatter,
+        // since the source had none).
+        let body = String::from_utf8_lossy(&cap.entries[0].1);
+        assert!(body.contains("Do the thing."));
+        assert!(body.contains("name: lde:brainstorming"));
+    }
+
+    #[test]
+    fn subagents_mapped_to_skill() {
+        let tmp = tempfile::tempdir().unwrap();
+        let agents = tmp.path().join(".claude").join("agents");
+        fs::create_dir_all(&agents).unwrap();
+        fs::write(
+            agents.join("senior-qa-tester.md"),
+            b"---\nname: senior-qa-tester\ndescription: QA\n---\nBody.\n",
+        )
+        .unwrap();
+
+        let enm = enumerate_from(&[claude_agent(tmp.path())]);
+        let cap = enm
+            .capabilities
+            .iter()
+            .find(|c| c.anchor == "claude-code/agents/senior-qa-tester/SKILL.md")
+            .expect("subagent mapped to a skill anchor");
+        assert_eq!(cap.kind, CapKind::Skill);
+        // The source frontmatter `name:` is preserved verbatim (not re-synthesized).
+        let body = String::from_utf8_lossy(&cap.entries[0].1);
+        assert!(body.starts_with("---\nname: senior-qa-tester"));
+        assert!(body.contains("Body."));
+    }
+
+    #[test]
+    fn codex_prompts_mapped_to_skill() {
+        let tmp = tempfile::tempdir().unwrap();
+        let prompts = tmp.path().join(".codex").join("prompts");
+        fs::create_dir_all(&prompts).unwrap();
+        fs::write(prompts.join("refactor.md"), b"Refactor it.\n").unwrap();
+
+        let a = agent(
+            AgentId::Codex,
+            tmp.path().join(".codex").join("config.toml"),
+            Some(tmp.path().join(".codex").join("skills")),
+        );
+        let enm = enumerate_from(&[a]);
+        assert!(enm
+            .capabilities
+            .iter()
+            .any(|c| c.kind == CapKind::Skill && c.anchor == "codex/prompts/refactor/SKILL.md"));
+    }
+
+    #[test]
+    fn gemini_toml_command_prompt_extracted() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cmds = tmp.path().join(".gemini").join("commands");
+        fs::create_dir_all(&cmds).unwrap();
+        fs::write(
+            cmds.join("commit.toml"),
+            b"description = \"git commit\"\nprompt = \"Write a commit message.\"\n",
+        )
+        .unwrap();
+        fs::write(cmds.join("broken.toml"), b"this is = not [valid toml").unwrap();
+
+        let a = agent(
+            AgentId::Gemini,
+            tmp.path().join(".gemini").join("settings.json"),
+            Some(tmp.path().join(".gemini").join("skills")),
+        );
+        let enm = enumerate_from(&[a]);
+        let cap = enm
+            .capabilities
+            .iter()
+            .find(|c| c.anchor == "gemini/commands/commit/SKILL.md")
+            .expect("toml command prompt extracted to a skill");
+        assert_eq!(cap.kind, CapKind::Skill);
+        let body = String::from_utf8_lossy(&cap.entries[0].1);
+        assert!(body.contains("Write a commit message."));
+        // The malformed TOML is a skip, never a hard error.
+        assert!(enm
+            .skips
+            .iter()
+            .any(|s| s.reason == SkipReason::MalformedConfig));
+    }
+
+    /// Build a Claude plugin-cache version dir at
+    /// `<tmp>/.claude/plugins/cache/<mp>/<plugin>/<ver>/` and return it.
+    fn plugin_version_dir(tmp: &Path, mp: &str, plugin: &str, ver: &str) -> PathBuf {
+        let dir = tmp
+            .join(".claude")
+            .join("plugins")
+            .join("cache")
+            .join(mp)
+            .join(plugin)
+            .join(ver);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn plugin_cache_decomposes_nested_caps() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = plugin_version_dir(tmp.path(), "mp", "p", "1.0.0");
+        // skills/a/SKILL.md
+        fs::create_dir_all(p.join("skills").join("a")).unwrap();
+        fs::write(
+            p.join("skills").join("a").join("SKILL.md"),
+            b"---\nname: a\n---\n",
+        )
+        .unwrap();
+        // .mcp.json
+        fs::write(
+            p.join(".mcp.json"),
+            br#"{ "mcpServers": { "srv": { "command": "npx" } } }"#,
+        )
+        .unwrap();
+        // hooks/h.json
+        fs::create_dir_all(p.join("hooks")).unwrap();
+        fs::write(p.join("hooks").join("h.json"), br#"{ "command": "x" }"#).unwrap();
+        // .claude-plugin/plugin.json
+        fs::create_dir_all(p.join(".claude-plugin")).unwrap();
+        fs::write(
+            p.join(".claude-plugin").join("plugin.json"),
+            br#"{ "name": "p" }"#,
+        )
+        .unwrap();
+
+        let enm = enumerate_from(&[claude_agent(tmp.path())]);
+        let anchors: Vec<&str> = enm.capabilities.iter().map(|c| c.anchor.as_str()).collect();
+        assert!(anchors.contains(&"claude-code/plugins/mp__p/skills/a/SKILL.md"));
+        assert!(anchors.contains(&"claude-code/plugins/mp__p/mcp/srv/mcp.json"));
+        assert!(anchors.contains(&"claude-code/plugins/mp__p/hooks/h.json"));
+        assert!(anchors.contains(&"claude-code/plugins/mp__p/.claude-plugin/plugin.json"));
+        // One of each kind from the single bundle.
+        assert_eq!(
+            enm.capabilities
+                .iter()
+                .filter(|c| c.kind == CapKind::Skill)
+                .count(),
+            1
+        );
+        assert!(enm
+            .capabilities
+            .iter()
+            .any(|c| c.kind == CapKind::McpServer));
+        assert!(enm.capabilities.iter().any(|c| c.kind == CapKind::Hook));
+        let plugin_cap = enm
+            .capabilities
+            .iter()
+            .find(|c| c.kind == CapKind::Plugin)
+            .expect("plugin manifest cap");
+        assert_eq!(plugin_cap.name, "p");
+    }
+
+    #[test]
+    fn plugin_active_version_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Two versions on disk, no installed_plugins.json → the lexically-greatest
+        // (2.0.1) is the active one; 2.0.0 is never scanned.
+        let old = plugin_version_dir(tmp.path(), "mp", "p", "2.0.0");
+        fs::create_dir_all(old.join("skills").join("old")).unwrap();
+        fs::write(
+            old.join("skills").join("old").join("SKILL.md"),
+            b"---\nname: old\n---\n",
+        )
+        .unwrap();
+        let new = plugin_version_dir(tmp.path(), "mp", "p", "2.0.1");
+        fs::create_dir_all(new.join("skills").join("new")).unwrap();
+        fs::write(
+            new.join("skills").join("new").join("SKILL.md"),
+            b"---\nname: new\n---\n",
+        )
+        .unwrap();
+
+        let enm = enumerate_from(&[claude_agent(tmp.path())]);
+        assert!(enm.capabilities.iter().any(|c| c.name == "new"));
+        assert!(
+            !enm.capabilities.iter().any(|c| c.name == "old"),
+            "the inactive 2.0.0 version must not be scanned"
+        );
+    }
+
+    #[test]
+    fn plugin_installed_json_selects_non_greatest_version() {
+        let tmp = tempfile::tempdir().unwrap();
+        // 'aaa' < 'zzz' lexically, but installed_plugins.json pins 'aaa' as active.
+        let active = plugin_version_dir(tmp.path(), "mp", "p", "aaa");
+        fs::create_dir_all(active.join("skills").join("chosen")).unwrap();
+        fs::write(
+            active.join("skills").join("chosen").join("SKILL.md"),
+            b"---\nname: chosen\n---\n",
+        )
+        .unwrap();
+        let other = plugin_version_dir(tmp.path(), "mp", "p", "zzz");
+        fs::create_dir_all(other.join("skills").join("stale")).unwrap();
+        fs::write(
+            other.join("skills").join("stale").join("SKILL.md"),
+            b"---\nname: stale\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            tmp.path().join(".claude").join("plugins").join("installed_plugins.json"),
+            br#"{ "version": 2, "plugins": { "p@mp": [ { "scope": "user", "version": "aaa" } ] } }"#,
+        )
+        .unwrap();
+
+        let enm = enumerate_from(&[claude_agent(tmp.path())]);
+        assert!(enm.capabilities.iter().any(|c| c.name == "chosen"));
+        assert!(!enm.capabilities.iter().any(|c| c.name == "stale"));
+    }
+
+    #[test]
+    fn in_use_lock_dir_excluded() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill = tmp.path().join(".claude").join("skills").join("s");
+        fs::create_dir_all(skill.join(".in_use")).unwrap();
+        fs::write(skill.join("SKILL.md"), b"---\nname: s\n---\n").unwrap();
+        fs::write(skill.join(".in_use").join("pid-1234"), b"1234").unwrap();
+        fs::write(skill.join(".in_use").join("pid-5678"), b"5678").unwrap();
+
+        let enm = enumerate_from(&[claude_agent(tmp.path())]);
+        let cap = enm.capabilities.iter().find(|c| c.name == "s").unwrap();
+        assert!(!cap.entries.iter().any(|(p, _)| p.contains(".in_use")));
+        assert!(enm.skips.iter().any(|s| s.reason == SkipReason::VendorDir));
     }
 }

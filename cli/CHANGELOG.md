@@ -17,7 +17,17 @@
   `SAFERSKILLS_MIN_SCORE` env override (precedence env > config > 90). `install
   --json` additionally emits `sub_scores`, `min_score`, the resolved target
   `agents`, and the `gate` decision (D-05-19).
-* **cli:** `scan --local` now audits every capability **actually installed across
+* **cli:** `scan --local` now also audits **slash commands, subagents, and the
+  full Claude plugin cache** — closing a major coverage gap (a real install jumps
+  from ~12 audited capabilities to 100+). Claude `commands/*.md` + `agents/*.md`,
+  Codex `prompts/*.md`, and Gemini `commands/*.toml` are scored as Skills (a
+  namespaced command keeps its `lde:x` name); each installed plugin's
+  active-version bundle is decomposed into its nested skills, MCP servers, hooks,
+  commands, agents, and manifest as separate capabilities. The pre-flight shows a
+  `· N from plugins` hint. CLI-only — no backend/schema change. (Bundle entry
+  budget is pinned to the backend's per-upload entry cap so a deep plugin cache
+  trims gracefully instead of being rejected.)
+* **cli:** `scan --local` audits every capability **actually installed across
   your detected agents** (skills, MCP servers, hooks, rules) instead of the CLI's
   own install ledger — discovered from each agent's own config, bundled into one
   size-controlled `.zip`, scanned in a single run, and rendered as a rich

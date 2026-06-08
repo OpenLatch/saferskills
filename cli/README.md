@@ -6,7 +6,7 @@
 npx saferskills info mcp-server-github        # see an item's score + findings
 npx saferskills install mcp-server-github     # install to your detected agents
 npx saferskills scan ./my-skill        # scan a local capability
-npx saferskills scan --local           # audit every capability installed across your agents
+npx saferskills scan --local           # audit every capability installed across your agents (incl. commands, subagents & plugins)
 ```
 
 No install required — `npx saferskills <command>` runs the prebuilt native binary. Or install it permanently:
@@ -30,7 +30,7 @@ SaferSkills scans Skills, MCP servers, hooks, and plugins for security, supply-c
 | `update [--all]` | ✅ | Refresh installed capabilities; re-verify scores. |
 | `list` | ✅ | Show installed capabilities with current scores. |
 | `doctor` | ✅ | Diagnose registry-vs-filesystem drift. |
-| `scan [path\|url]` | ✅ | Scan a local path or GitHub URL. With `--local` (or no target), **audit every capability installed across your detected agents** — skills, MCP servers, hooks, and rules are discovered from each agent's own config, bundled into one upload, scanned in one run, and rendered as a single per-capability audit report. `--private` keeps the run unlisted; `--detailed` expands per-capability axis bars + inline findings. |
+| `scan [path\|url]` | ✅ | Scan a local path or GitHub URL. With `--local` (or no target), **audit every capability installed across your detected agents** — skills, MCP servers, hooks, rules, **slash commands, subagents, and installed plugins** are discovered from each agent's own config (Claude `commands/`+`agents/`+`plugins/cache/`, Codex `prompts/`, Gemini `commands/`), bundled into one upload, scanned in one run, and rendered as a single per-capability audit report. Commands + subagents are scored as Skills; each plugin's active version is decomposed into its nested capabilities. `--private` keeps the run unlisted; `--detailed` expands per-capability axis bars + inline findings. |
 | `completion <shell>` | ✅ | Print a shell completion script. |
 
 ## Global flags
@@ -54,7 +54,7 @@ The badge links to the full [public report at `saferskills.ai/items/<slug>`](htt
 State lives under `~/.saferskills/` (override with `SAFERSKILLS_DIR`):
 
 - `config.toml` — `api_url`, `min_score`, `telemetry`.
-- `installs.json` — the install registry, used by `list` / `uninstall` / `update`. **`scan --local` does not read it** — it audits whatever is installed across your agents' own config dirs, regardless of how it got there, so you need no prior saferskills installs to audit your setup.
+- `installs.json` — the install registry, used by `list` / `uninstall` / `update`. **`scan --local` does not read it** — it audits whatever is installed across your agents' own config dirs (skills, MCP servers, hooks, rules, slash commands, subagents, and the active version of each installed plugin), regardless of how it got there, so you need no prior saferskills installs to audit your setup.
 
 The API origin resolves as `SAFERSKILLS_API_URL` env → `config.toml` `api_url` → `https://saferskills.ai`.
 

@@ -190,6 +190,9 @@ struct BundleSummary {
     capabilities: usize,
     /// Agents that contributed at least one capability (the verdict's "N agents").
     agents: usize,
+    /// How many of `capabilities` came from decomposing the Claude plugin cache —
+    /// surfaced as a pre-flight hint so the (now much larger) count is explained.
+    from_plugins: usize,
     files: usize,
     bytes: usize,
     kinds: BTreeMap<String, usize>,
@@ -221,9 +224,14 @@ fn build_local_bundle(
     let mut agent_counts: HashMap<AgentId, usize> = HashMap::new();
     let mut kinds: BTreeMap<String, usize> = BTreeMap::new();
     let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut from_plugins = 0usize;
     for cap in &kept {
         *agent_counts.entry(cap.agent).or_default() += 1;
         *kinds.entry(cap.kind.as_str().to_string()).or_default() += 1;
+        // Caps decomposed from the plugin cache mount under `<agent>/plugins/…`.
+        if cap.anchor.contains("/plugins/") {
+            from_plugins += 1;
+        }
         for (p, b) in &cap.entries {
             entries.push((p.clone(), b.clone()));
         }
@@ -264,6 +272,7 @@ fn build_local_bundle(
     let summary = BundleSummary {
         capabilities: kept.len(),
         agents: agents_with_capabilities,
+        from_plugins,
         files,
         bytes,
         kinds,
@@ -298,10 +307,16 @@ fn contract_home(p: &Path) -> String {
 
 /// The discovery summary printed before the upload submits.
 fn print_preflight(output: &OutputConfig, summary: &BundleSummary, skips: &[SkipNote]) {
+    let plugins_hint = if summary.from_plugins > 0 {
+        format!(" · {} from plugins", summary.from_plugins)
+    } else {
+        String::new()
+    };
     output.print_step(&format!(
-        "Found {} capabilities across {} agents · {} · bundle {}",
+        "Found {} capabilities across {} agents{} · {} · bundle {}",
         summary.capabilities,
         summary.agents,
+        plugins_hint,
         kinds_str(&summary.kinds),
         human_bytes(summary.bytes)
     ));
@@ -925,6 +940,7 @@ fn bundle_json(s: &BundleSummary) -> Value {
     json!({
         "capabilities": s.capabilities,
         "agents": s.agents,
+        "from_plugins": s.from_plugins,
         "files": s.files,
         "bytes": s.bytes,
         "kinds": s.kinds,
@@ -1243,6 +1259,7 @@ mod tests {
         let summary = BundleSummary {
             capabilities: 3,
             agents: 2,
+            from_plugins: 1,
             files: 12,
             bytes: 2048,
             kinds: BTreeMap::new(),
