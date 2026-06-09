@@ -16,10 +16,12 @@
  *      pack: detection rules + prompt templates (placeholders intact) + mock-tool
  *      schemas + honeytoken fixtures.
  *
- * `packVersion` is a date-version stamped from `git log -n1 -- rubric/AGENT/` so
- * the generated files only diff-flip when the pack actually changes (drift-gate
- * friendly). The component methodology generator (step 7) EXCLUDES `rubric/AGENT/`
- * — the two taxonomies never cross.
+ * `packVersion` is a manually-bumped constant; `packSha` is the CONTENT tree hash
+ * of `rubric/AGENT/` (`git rev-parse HEAD:rubric/AGENT`), so the generated files
+ * only diff-flip when the pack content actually changes — and stay byte-stable in
+ * a PR's synthetic merge-commit checkout (where a `git log` sha would not). The
+ * component methodology generator (step 7) EXCLUDES `rubric/AGENT/` — the two
+ * taxonomies never cross.
  */
 'use strict'
 
@@ -36,6 +38,10 @@ const BACKEND_OUT = path.join(ROOT, 'services', 'api', 'app', 'generated', 'agen
 
 const PRACTICE_PACK_ID = 'saferskills-agent-practice'
 const BACKEND_PACK_ID = 'saferskills-agent-baseline'
+// Human-readable pack version — bump manually on a pack release. NOT git-derived:
+// a `git log` date/sha is the synthetic MERGE-commit's in a PR's `pull_request`
+// checkout (`refs/pull/N/merge`), so it differs from the local stamp → drift gate.
+const PACK_VERSION = '2026.06.09'
 
 let yaml
 try {
@@ -262,11 +268,12 @@ function main() {
 
   tests.sort((a, b) => a.frontmatter.testId.localeCompare(b.frontmatter.testId))
 
-  const packVersion = gitStamp(
-    ['log', '-n1', '--format=%cd', '--date=format:%Y.%m.%d', '--', 'rubric/AGENT/'],
-    '0000.00.00'
-  )
-  const packSha = gitStamp(['log', '-n1', '--format=%h', '--', 'rubric/AGENT/'], '0000000')
+  const packVersion = PACK_VERSION
+  // Content fingerprint of the pack tree (NOT a commit sha) — `git rev-parse
+  // HEAD:rubric/AGENT` is the tree object hash, identical whether HEAD is the
+  // branch tip or a PR's synthetic merge commit, so the drift gate stays green.
+  // Mirrors how generate-methodology.cjs stamps rubricSha. Empty until committed.
+  const packSha = gitStamp(['rev-parse', 'HEAD:rubric/AGENT'], '0'.repeat(40))
 
   // The two packs share every field EXCEPT the detection delta (which sits in the
   // middle of the key order): backend carries the raw detection contract +

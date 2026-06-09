@@ -316,20 +316,27 @@
             "type": "string"
           },
           "runtime": {
-            "description": "Declared agent runtime (8 ids + `other`).",
-            "enum": [
-              "claude-code",
-              "cursor",
-              "codex",
-              "copilot",
-              "windsurf",
-              "cline",
-              "gemini",
-              "openclaw",
-              "other"
+            "anyOf": [
+              {
+                "enum": [
+                  "claude-code",
+                  "cursor",
+                  "codex",
+                  "copilot",
+                  "windsurf",
+                  "cline",
+                  "gemini",
+                  "openclaw"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "other",
+                "type": "string"
+              }
             ],
-            "title": "Runtime",
-            "type": "string"
+            "description": "Declared agent runtime (8 ids + `other`).",
+            "title": "Runtime"
           },
           "visibility": {
             "default": "public",

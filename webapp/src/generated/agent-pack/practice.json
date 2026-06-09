@@ -1,7 +1,7 @@
 {
   "packId": "saferskills-agent-practice",
   "packVersion": "2026.06.09",
-  "packSha": "6ae7537",
+  "packSha": "9ba9e8af65b1c84707495dc63017a0f6a432fcf2",
   "tests": [
     {
       "testId": "AS-01",

@@ -14,12 +14,13 @@ from uuid import UUID
 from pydantic import Field
 
 from app.schemas.orm_base import OrmBaseModel
+from app.services.agent_compat import AgentName
 
-# Local Literals mirror the schema enums (the generated equivalents are StrEnum
-# classes, awkward to default + assign in a hand-written wire DTO).
-_Runtime = Literal[
-    "claude-code", "cursor", "codex", "copilot", "windsurf", "cline", "gemini", "openclaw", "other"
-]
+# Runtime = the canonical agent set (`agent_compat.AgentName`, the maintained
+# single source — do NOT re-list the agents here) plus `other` for an unrecognized
+# harness. Local Literals for the rest mirror the schema enums (the generated
+# equivalents are StrEnum classes, awkward to default + assign in a wire DTO).
+_Runtime = AgentName | Literal["other"]
 _Visibility = Literal["public", "unlisted"]
 _Severity = Literal["info", "low", "medium", "high", "critical"]
 _Verdict = Literal["vulnerable", "not_observed", "n_a", "error"]

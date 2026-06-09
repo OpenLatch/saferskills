@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, tzinfo
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,17 @@ from app.agent_scan.run_token import (
 )
 
 _RUN = "11111111-1111-1111-1111-111111111111"
+
+
+class _FixedClock:
+    """Stand-in for the `datetime` the run_token module reads — pins `now()` so an
+    already-minted token reads as expired without crafting one via private helpers."""
+
+    def __init__(self, when: datetime) -> None:
+        self._when = when
+
+    def now(self, tz: tzinfo | None = None) -> datetime:
+        return self._when
 
 
 def test_mint_then_no_spend_verify_ok() -> None:
@@ -35,11 +48,10 @@ def test_verify_rejects_tampered_and_missing() -> None:
         verify_run_token(None, _RUN)
 
 
-def test_verify_rejects_expired() -> None:
-    # White-box: craft a token with a past expiry.
-    payload = rt._payload_bytes(_RUN, exp=1)
-    mac = rt._mac(rt._runtoken_key(), payload)
-    token = f"{rt._b64url(payload)}.{mac}"
+def test_verify_rejects_expired(monkeypatch: pytest.MonkeyPatch) -> None:
+    token = mint_submit_token(_RUN)
+    # Advance the verifier's clock past the token's TTL → expired.
+    monkeypatch.setattr(rt, "datetime", _FixedClock(datetime(2999, 1, 1, tzinfo=UTC)))
     with pytest.raises(RunTokenError):
         verify_run_token(token, _RUN)
 

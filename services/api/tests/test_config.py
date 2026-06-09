@@ -215,25 +215,28 @@ def test_cli_pow_secret_required_in_prod(env: EnvTier) -> None:
         Settings(env=env, turnstile_secret_key="1x000...AA", saferskills_cli_pow_secret=None)
 
 
-@pytest.mark.parametrize(
-    ("missing", "match"),
-    [
-        ("saferskills_agent_master_key", "SAFERSKILLS_AGENT_MASTER_KEY"),
-        ("saferskills_pack_signing_key", "SAFERSKILLS_PACK_SIGNING_KEY"),
-    ],
-)
-def test_agent_scan_secrets_required_in_prod(missing: str, match: str) -> None:
-    """Boot MUST hard-fail when an agent-scan crypto anchor is unset in prod (I-5.5)."""
-    kwargs = {
-        "env": "production",
-        "turnstile_secret_key": "1x000...AA",
-        "saferskills_cli_pow_secret": "prod-pow-secret",
-        "saferskills_agent_master_key": "k",
-        "saferskills_pack_signing_key": "k",
-        missing: None,
-    }
-    with pytest.raises(ValueError, match=match):
-        Settings(**kwargs)
+def test_agent_master_key_required_in_prod() -> None:
+    """Boot MUST hard-fail when the canary/run-token master key is unset in prod (I-5.5)."""
+    with pytest.raises(ValueError, match="SAFERSKILLS_AGENT_MASTER_KEY"):
+        Settings(
+            env="production",
+            turnstile_secret_key="1x000...AA",
+            saferskills_cli_pow_secret="prod-pow-secret",
+            saferskills_agent_master_key=None,
+            saferskills_pack_signing_key="k",
+        )
+
+
+def test_pack_signing_key_required_in_prod() -> None:
+    """Boot MUST hard-fail when the Ed25519 pack-signing key is unset in prod (I-5.5)."""
+    with pytest.raises(ValueError, match="SAFERSKILLS_PACK_SIGNING_KEY"):
+        Settings(
+            env="production",
+            turnstile_secret_key="1x000...AA",
+            saferskills_cli_pow_secret="prod-pow-secret",
+            saferskills_agent_master_key="k",
+            saferskills_pack_signing_key=None,
+        )
 
 
 def test_agent_scan_secrets_optional_in_dev() -> None:
