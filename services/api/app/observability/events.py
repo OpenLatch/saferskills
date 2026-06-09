@@ -1,6 +1,6 @@
 """Typed emit-helpers for the scan-engine + ingestion observability allowlists.
 
-Locked decision D-30 + `.claude/rules/telemetry.md` § Event allowlist — scan
+Locked decision D-30 + `.claude/rules/telemetry.md` § Event allowlist - scan
 engine + D-04-22 ingestion events. This module is the ONLY sanctioned emission
 path for scan-engine and ingestion events. Raw `posthog.capture()` /
 `sentry_sdk.set_tag()` calls outside this module are a regression.
@@ -23,9 +23,11 @@ from typing import Any, Literal, cast
 
 import structlog
 
+from app.services.agent_compat import ALL_AGENTS, AgentName
+
 logger = structlog.get_logger("saferskills.observability")
 
-# ─── Closed-enum types (PEP 695 syntax — Python 3.12+) ───────────────────────
+# ─── Closed-enum types (PEP 695 syntax - Python 3.12+) ───────────────────────
 
 type ScanSource = Literal["submission", "ingestion", "rescan_drift", "rescan_appeal"]
 type ScanStage = Literal["fetch", "extract", "detect", "aggregate"]
@@ -45,7 +47,7 @@ type BodyLengthBucket = Literal["<500", "500-1000", "1000-2000"]
 type FpRateBucket = Literal["0", "<5%", "5-10%", ">10%"]
 
 # I-3.5 upload / visibility (D-UP-22). `artifact_source` is a SEPARATE property
-# from `scan_submitted.source` (the trigger enum) — never overload the trigger.
+# from `scan_submitted.source` (the trigger enum) - never overload the trigger.
 type ArtifactSource = Literal["github", "upload"]
 type Visibility = Literal["public", "unlisted"]
 type UploadSizeBucket = Literal["<100KB", "100KB-1MB", "1-5MB", "5-10MB"]
@@ -61,11 +63,10 @@ type IngestionFailureReason = Literal[
 ]
 type CatalogItemArchivedReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
-# I-05 install telemetry (D-05-31). agent ∈ the 8 canonical ids; kind ∈ the
-# 5-kind taxonomy. Both closed-enum — no slug, no IP, no PII.
-type InstallAgent = Literal[
-    "claude-code", "cursor", "codex", "copilot", "windsurf", "cline", "gemini", "openclaw"
-]
+# I-05 install telemetry (D-05-31). agent ∈ the canonical agent ids — sourced from
+# the single source of truth `app.services.agent_compat.AgentName`, NEVER re-listed
+# here (naming-conventions.md § Agent identifiers). kind ∈ the 5-kind taxonomy.
+type InstallAgent = AgentName
 type InstallKind = Literal["skill", "mcp_server", "hook", "plugin", "rules"]
 
 
@@ -182,17 +183,17 @@ def ingestion_304_ratio_bucket(ratio: float) -> Ingestion304RatioBucket:
 # Every emit_* helper keeps its structlog line (always) AND, when a PostHog
 # client is configured, mirrors the event to the shared OpenLatch-portfolio
 # PostHog project tagged `product = "saferskills"` (the discriminator that keeps
-# SaferSkills data filterable apart — `.claude/rules/telemetry.md` § Purpose).
+# SaferSkills data filterable apart - `.claude/rules/telemetry.md` § Purpose).
 #
 # The client is held here (not in `app.core.observability`) so the capture call
-# lives next to `_emit`, and `app.core.observability` → `app.observability.events`
+# lives next to `_emit`, and `app.core.observability` -> `app.observability.events`
 # stays a one-way import (no cycle). `init_posthog` is called from
 # `init_observability`; `app.core.feature_flags` reuses `get_posthog_client()`.
 
-# Backend events are not user-tied — one stable distinct_id, person profiles off.
+# Backend events are not user-tied - one stable distinct_id, person profiles off.
 _BACKEND_DISTINCT_ID = "saferskills-backend"
 
-# `posthog` ships no type stubs — hold the client as `Any` so the few member
+# `posthog` ships no type stubs - hold the client as `Any` so the few member
 # calls (capture/shutdown/feature_enabled) don't trip strict unknown-type checks.
 _posthog_client: Any = None
 
@@ -206,10 +207,10 @@ def init_posthog(
 ) -> None:
     """Initialise the module-level PostHog client (idempotent, degrading).
 
-    No-op when `project_key` is unset (dev/test/CI) — every `emit_*` then stays
+    No-op when `project_key` is unset (dev/test/CI) - every `emit_*` then stays
     structlog-only. `server_key` (a PostHog personal API key) enables LOCAL
     feature-flag evaluation in `app.core.feature_flags`; absent, flags fall back
-    to remote `/decide`. Observability must never break the app — any failure
+    to remote `/decide`. Observability must never break the app - any failure
     here is swallowed and leaves the client unset.
     """
     global _posthog_client
@@ -407,7 +408,7 @@ def emit_rescan_triggered_drift(*, catalog_item_id: object, hash_delta_files_cou
 
 
 def emit_ingestion_cycle_started(*, source: str, cadence: str) -> None:
-    """`ingestion_cycle_started` — fired at the beginning of each adapter cycle.
+    """`ingestion_cycle_started` - fired at the beginning of each adapter cycle.
 
     `source` is a closed-enum value from the 14-source YAML config (e.g.
     'github_skills', 'npm', 'mcp_so'). `cadence` is the cron string from the
@@ -424,7 +425,7 @@ def emit_ingestion_cycle_completed(
     duration_ms: int,
     http_304_ratio: float,
 ) -> None:
-    """`ingestion_cycle_completed` — fired at the end of a successful adapter cycle.
+    """`ingestion_cycle_completed` - fired at the end of a successful adapter cycle.
 
     All numerics are bucketed before emission. `http_304_ratio` is a float in
     [0.0, 1.0] representing the fraction of requests served from Hishel cache
@@ -441,9 +442,9 @@ def emit_ingestion_cycle_completed(
 
 
 def emit_ingestion_cycle_failed(*, source: str, reason: IngestionFailureReason) -> None:
-    """`ingestion_cycle_failed` — fired when an adapter cycle ends in a terminal error.
+    """`ingestion_cycle_failed` - fired when an adapter cycle ends in a terminal error.
 
-    `reason` is a closed enum; transient retries do NOT emit this event — only
+    `reason` is a closed enum; transient retries do NOT emit this event - only
     the final dead-letter failure does.
     """
     _emit("ingestion_cycle_failed", source=source, reason_enum=reason)
@@ -453,7 +454,7 @@ type ArchiveReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
 
 def emit_ingestion_cycle_archived(*, source: str, reason: ArchiveReason) -> None:
-    """`catalog_item_archived` (D-04-22 #20) — one per item flipped to archived.
+    """`catalog_item_archived` (D-04-22 #20) - one per item flipped to archived.
 
     `source` is the trigger (e.g. 'archive_check'); `reason` is a closed enum.
     No item ID, no slug, no URL.
@@ -462,7 +463,7 @@ def emit_ingestion_cycle_archived(*, source: str, reason: ArchiveReason) -> None
 
 
 def emit_popularity_recompute_completed(*, top500_changed_count: int) -> None:
-    """`popularity_recompute_completed` (D-04-22 #21) — fired once per nightly
+    """`popularity_recompute_completed` (D-04-22 #21) - fired once per nightly
     recompute. The top-500 churn count is bucketed before emission (no raw count).
     """
     _emit(
@@ -475,11 +476,35 @@ def emit_popularity_recompute_completed(*, top500_changed_count: int) -> None:
 
 
 def emit_install_reported(*, agent: InstallAgent, kind: InstallKind) -> None:
-    """`install_reported` — fired when an opt-in install is reported by the CLI.
+    """`install_reported` - fired when an opt-in install is reported by the CLI.
 
-    Closed-enum `agent` + `kind` only — no slug, no IP, no version string, no PII.
+    Closed-enum `agent` + `kind` only - no slug, no IP, no version string, no PII.
     """
     _emit("install_reported", agent=agent, kind=kind)
+
+
+# ─── Agent-scan emitter (I-5.5, D-5.5-08) ─────────────────────────────────────
+
+type AgentRuntime = AgentName | Literal["other"]
+# Runtime guard for the PostHog enum — derived from the canonical `ALL_AGENTS`
+# (the single source of truth) + `other`, so it can never drift from the agent set.
+_RUNTIME_VALUES = frozenset(ALL_AGENTS) | {"other"}
+
+
+def emit_agent_scan_completed(*, tier: TierBucket, findings_count: int, runtime: str) -> None:
+    """`agent_scan_completed` - fired when a behavioral Agent Scan finishes grading.
+
+    Closed-enum `tier` (band) + `runtime` (8 agents + `other`) + bucketed
+    `findings_count` only - NO raw IP / slug / token / agent output (telemetry.md).
+    An unrecognized runtime falls back to `other` (keeps the enum closed).
+    """
+    safe_runtime = runtime if runtime in _RUNTIME_VALUES else "other"
+    _emit(
+        "agent_scan_completed",
+        tier=tier,
+        findings_count_bucket=count_bucket(findings_count),
+        runtime=safe_runtime,
+    )
 
 
 # ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────
@@ -488,9 +513,9 @@ _CAP_TOKEN_RE = re.compile(r"(/scans/r/)[^/?#\s]+")
 
 
 def redact_capability_token(text: str) -> str:
-    """Rewrite `/scans/r/<token>[...]` → `/scans/r/<redacted>` in any string.
+    """Rewrite `/scans/r/<token>[...]` -> `/scans/r/<redacted>` in any string.
 
-    The capability token is possession-is-authorization — it must never land in
+    The capability token is possession-is-authorization - it must never land in
     an access log, an OTel span name, or a Sentry payload."""
     return _CAP_TOKEN_RE.sub(r"\1<redacted>", text)
 
@@ -498,7 +523,7 @@ def redact_capability_token(text: str) -> str:
 def scrub_sentry_event(
     event: dict[str, object], _hint: dict[str, object] | None = None
 ) -> dict[str, object] | None:
-    """Sentry `before_send` callback — redact the capability token from the event
+    """Sentry `before_send` callback - redact the capability token from the event
     request URL + any breadcrumb URL (D-UP-32(b))."""
     request = event.get("request")
     if isinstance(request, dict):
@@ -535,7 +560,7 @@ def scrub_sentry_breadcrumb(
 ) -> dict[str, object] | None:
     """Sentry `before_breadcrumb` callback. Drop any breadcrumb whose data
     references a path under rubric/, schemas/, tools/fp-audit/fixtures/, or
-    any GitHub URL — these may contain scanned-artifact bytes or vendor names
+    any GitHub URL - these may contain scanned-artifact bytes or vendor names
     we should not leak to Sentry. Returning None drops the breadcrumb.
     """
     data = crumb.get("data")

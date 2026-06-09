@@ -82,6 +82,20 @@ info | low | medium | high | critical
 
 `info` carries weight 0 — advisory only; surfaces in the scan trace but does not affect the score. See `.claude/rules/methodology.md` § Sub-scores and aggregate for the per-tier penalty ranges and critical-floor application.
 
+## Agent identifiers (single source of truth)
+
+The closed set of coding-agent ids (`claude-code`, `cursor`, `codex`, `copilot`, `windsurf`, `cline`, `gemini`, `openclaw`) has **exactly one Python source of truth: `app/services/agent_compat.py`** — the `AgentName` Literal (for static typing) and `ALL_AGENTS = get_args(AgentName)` (the runtime tuple, derived so the two can never drift). The `other` runtime fallback (telemetry/agent-scan) is `AgentName | Literal["other"]` / `frozenset(ALL_AGENTS) | {"other"}`.
+
+**Hard rule: never re-declare the agent-id list in Python.** Any module needing the set — a Pydantic DTO, a closed-enum type, a PostHog event guard, a membership check — MUST import `AgentName` / `ALL_AGENTS` from `app.services.agent_compat`. A hand-typed `Literal["claude-code", "cursor", …]` or a `frozenset({...})` of agent ids anywhere else is a guardrail violation (it silently drifts when an agent is added). Current correct consumers: `app/observability/events.py` (`InstallAgent`/`AgentRuntime`/`_RUNTIME_VALUES`), `app/schemas/agent_scan.py`, `app/schemas/installs.py`, `app/ingestion/framework/classifier.py`.
+
+**The only permitted duplicates are cross-language / cross-boundary mirrors**, which cannot import the Python module and so re-declare the set explicitly — each MUST carry a `# Mirrors app/services/agent_compat.py::AgentName / ALL_AGENTS` comment and stay in lockstep:
+- `schemas/catalog-item.schema.json::agentCompatibility` (JSON Schema → drives the generated Pydantic/Zod/TS).
+- `app/models/install_event.py::AGENT_VALUES` (the native PG `agent` enum values).
+- Alembic migrations that `CREATE TYPE`/backfill the enum (immutable snapshots — never edited after merge).
+- `cli/src/agents/detect.rs` (the Rust install CLI).
+
+Adding/renaming an agent = update `agent_compat.AgentName` **first**, then propagate to each mirror above (+ a migration for the PG enum) in the same PR.
+
 ## When to update this rule
 
 | Change | Updates here |
@@ -91,6 +105,7 @@ info | low | medium | high | critical
 | New `<CATEGORY>` for scan rules | "Rule IDs" regex + `methodology.md` + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | Agent-pack test-ID grammar change | "Agent-pack test IDs" + `schemas/agent-pack-test.schema.json` + `scripts/generate-agent-pack.cjs` |
 | New severity tier | "Severity tiers" + `methodology.md` § Sub-scores and aggregate + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
+| New / renamed coding agent | "Agent identifiers" — `app/services/agent_compat.py::AgentName` FIRST, then every documented mirror (catalog-item schema, `install_event.AGENT_VALUES`, migration `CREATE TYPE`, `cli/src/agents/detect.rs`) + a PG-enum migration |
 | New DB-naming exception | "Database" |
 | Catalog slug grammar change | "Catalog slugs" + `schemas/catalog-item.schema.json` regex + `app/scan/persistence.py::capability_slug` |
 | New slug variant (e.g. upload / unlisted) | "Catalog slugs" + the builder in `app/scan/persistence.py` — confirm it satisfies the existing widened grammar |

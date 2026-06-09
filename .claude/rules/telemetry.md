@@ -104,9 +104,26 @@ Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycl
 
 Fired by `app/observability/events.py::emit_install_reported` when the install CLI reports an **opt-in** install to `POST /api/v1/installs`. Never carries the slug, IP, or `cli_version` (those land only in the redacted `install_events` row). The CLI's own opt-out PostHog leg stays the single `command_invoked` event (`cli/src/core/telemetry.rs`) — `install_reported` is the **server-side** event.
 
-## Agent-scan event (I-5.5) — reserved, lands Phase 2
+## Agent-scan event (I-5.5)
 
-I-5.5 will add **one** closed-enum backend PostHog event when grading lands: `agent_scan_completed` with `tier` (closed enum, the band) + `findings_count_bucket` + `runtime` (closed enum), tagged `product: "saferskills"`, **no raw IP / slug / token / agent output**. The event helper is **not yet written in Phase 1** (Phase 1 ships the schemas/stores/router; grading + this `emit_*` helper land in Phase 2). It is reserved here in the allowlist narrative so the bucketed/closed-enum contract is fixed before the emitter exists.
+1 backend event, **live as of Phase 2** (grading). Closed-enum + bucketed, no PII.
+
+| # | Event | Properties |
+|---|---|---|
+| 24 | `agent_scan_completed` | `tier` ∈ {`green`,`yellow`,`orange`,`red`,`unscoped`} (the band); `findings_count_bucket` ∈ {`0`,`1`,`2-5`,`6-20`,`21+`}; `runtime` ∈ the 8 agent ids + `other` |
+
+Fired by `app/observability/events.py::emit_agent_scan_completed` from the
+`POST /agent-scans/{run_id}/submit` path after grading completes — best-effort
+(wrapped in try/except so it never fails the scan). **No raw IP / slug / token /
+agent output / transcript**, tagged `product: "saferskills"`; an unrecognized
+`runtime` falls back to `other` (keeps the enum closed). The company-level
+ASN/fingerprint signal is the separate write-only `agent_scan_telemetry` store
+(`privacy.md` § agent_scan_telemetry), NOT this PostHog event.
+
+> **Agent ids are single-sourced.** Both `install_reported.agent` and
+> `agent_scan_completed.runtime` derive their closed agent-id set from
+> `app/services/agent_compat.py` (`AgentName` / `ALL_AGENTS`) — `events.py` MUST
+> NOT re-declare the list (`naming-conventions.md` § Agent identifiers).
 
 ## Sentry
 
@@ -156,7 +173,7 @@ Server-side flags are a thin wrapper over the PostHog client (`app/core/feature_
 | Change | Updates here |
 |---|---|
 | New install-telemetry property | "Install-telemetry event" table + `app/observability/events.py::emit_install_reported` |
-| Agent-scan event lands (I-5.5 Phase 2) | "Agent-scan event" — replace "reserved, lands Phase 2" with the `emit_agent_scan_completed` helper + properties |
+| Agent-scan event property/runtime-enum change | "Agent-scan event" table + `app/observability/events.py::emit_agent_scan_completed` (`_RUNTIME_VALUES`) |
 | New event prefix added | "Closed-enum event names" table + `webapp/src/lib/analytics.ts` |
 | New scan-engine event | "Event allowlist — scan engine" table (bump the event count) + `services/api/app/observability/events.py` typed helper |
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |

@@ -44,6 +44,7 @@ dependencies = [
   "beautifulsoup4~=4.12",        # listing/item-page DOM parsing (bs4 selectors)
   "lxml>=6.0.1,<7",              # fast parser backend for bs4 + trafilatura (6.0.1+ ships cp314 wheels)
   "defusedxml~=0.7",             # XXE/billion-laughs-safe XML parse for untrusted aggregator sitemaps
+  "maxminddb~=2.6",              # reads the IPinfo Lite .mmdb for agent-scan IP->ASN telemetry (I-5.5)
 ]
 
 [dependency-groups]
@@ -69,6 +70,12 @@ ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 # FastAPI mandates Depends() / Query() / Body() / Path() in argument defaults.
 "app/routers/**" = ["B008"]
+# The homoglyph fold table legitimately contains Cyrillic/Greek look-alikes —
+# that IS its purpose (fold script-swaps to ASCII before canary matching).
+"app/agent_scan/normalize.py" = ["RUF001"]
+# The normalize test feeds homoglyph + zero-width chars on purpose (it asserts the
+# ladder folds them); the ambiguous-character lint is the behaviour under test.
+"tests/agent_scan/test_normalize.py" = ["RUF001", "RUF003"]
 
 [tool.pyright]
 include = ["app", "tests"]

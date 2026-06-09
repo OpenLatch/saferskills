@@ -32,11 +32,13 @@ import hashlib
 import secrets
 import time
 from typing import Any, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent_scan.persistence import delete_agent_run_cascade
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.ingestion.config.loader import load_source_configs
@@ -44,6 +46,7 @@ from app.ingestion.framework import health
 from app.ingestion.framework.classifier import CLASSIFIER_VERSION, classify_all
 from app.ingestion.framework.halt import get_source_status, set_source_status
 from app.models import AdminAuditLog, CatalogItem
+from app.models.generated.agent_run import AgentRun
 from app.models.generated.merge_candidate import MergeCandidate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -751,3 +754,38 @@ async def admin_popularity_top_n(
             for r in rows
         ]
     }
+
+
+# ─── Agent scan (I-5.5) ───────────────────────────────────────────────────────
+
+
+@router.delete("/agent-scans/{run_id}")
+async def admin_delete_agent_run(
+    run_id: UUID,
+    actor_fp: str = Depends(require_admin_key),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Admin-only delete of an Agent Report (public reports are user-irreversible;
+    D-5.5-20). Cascades findings/telemetry/evidence, writes one audit row. 404 if
+    absent. Never touches `artifact_blobs`; the token ledger is reaped by sweep."""
+    run = await session.get(AgentRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="not found")
+    before = {
+        "id": str(run.id),
+        "visibility": run.visibility,
+        "status": run.status,
+        "band": run.band,
+        "score": run.score,
+    }
+    await delete_agent_run_cascade(session, run_id, allow_public=True)
+    await _audit(
+        session,
+        action="agent_scan_delete",
+        actor_fp=actor_fp,
+        target=str(run_id),
+        before=before,
+        after=None,
+        note="admin delete",
+    )
+    return {"deleted": True}
