@@ -6,6 +6,7 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Bidirectional-override characters that make the text read differently than the agent sees it
 categoryLabel: >-

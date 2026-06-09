@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [skill, mcp, rules, hooks, plugin]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Long hex-encoded blob hidden in the skill documentation
 categoryLabel: >-

@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:78"]
 title: >-
   Hook decodes a Base64 blob and runs it as shell
 categoryLabel: >-

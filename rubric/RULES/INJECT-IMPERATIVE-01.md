@@ -6,6 +6,7 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [rules]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Rules file commands the agent to hide or withhold information
 categoryLabel: >-

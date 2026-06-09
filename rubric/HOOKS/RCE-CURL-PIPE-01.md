@@ -6,6 +6,7 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:78"]
 title: >-
   Hook pipes a remote script straight into a shell
 categoryLabel: >-

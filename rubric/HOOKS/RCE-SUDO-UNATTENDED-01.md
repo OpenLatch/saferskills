@@ -6,6 +6,7 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:250"]
 title: >-
   Hook escalates to root without prompting you
 categoryLabel: >-

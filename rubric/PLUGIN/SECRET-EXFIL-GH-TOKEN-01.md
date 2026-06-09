@@ -6,6 +6,7 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [plugin]
+frameworks: ["owasp-llm:llm02", "mitre-atlas:AML.T0025", "cwe:798"]
 title: >-
   Contains a committed GitHub token
 categoryLabel: >-

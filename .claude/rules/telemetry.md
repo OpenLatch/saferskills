@@ -41,7 +41,7 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 | `item_detail_*` | Item-detail page interactions (chart hover/click) — lands Phase C |
 | `unlisted_*` | Unlisted (capability-URL) manage-bar actions — `unlisted_manage_action` `{action: copy_link\|promote\|delete}` (I-3.5). **Never** carries the `share_token`, slug, filename, or any path content. |
 | `artifact_*` | Artifact detail page interactions |
-| `rule_*` | Rubric / methodology page interactions |
+| `rule_*` | Rubric / methodology page interactions — incl. the methodology CSV export (`rule_csv_exported` `{count_bucket}`, the visible-rule count bucketed `0`/`1`/`2-5`/`6-20`/`21+`; never a rule_id list) |
 | `appeal_*` | Vendor-appeal form interactions (W5+ when the web form ships) |
 
 ### Property allowlist

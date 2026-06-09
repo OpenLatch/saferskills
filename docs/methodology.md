@@ -128,12 +128,17 @@ trigger:
   ...                          # primitive-specific params
 limitations:
   - "Cannot detect ..."
+frameworks:                      # optional; external AI-risk taxonomy refs
+  - owasp-llm:llm01
+  - mitre-atlas:AML.T0051
 prior_art:
   - https://...
 ---
 ```
 
 CATEGORY is one of `{MCP, SKILL, RULES, HOOKS, PLUGIN}`. The 6 primitive trigger types are a closed enum extended only by RFC. **Every rule MUST carry the explainable-finding fields** `title`, `explanation`, and `remediation` (and SHOULD carry `severityRationale` unless `info`-tier): they make each published finding self-explanatory — a plain-English title, why it matters, and how to fix it — instead of a bare `rule_id`. The schema (`schemas/rubric-rule.schema.json`) marks them required, so a rule missing them fails `pnpm run generate` (the `validate` CI lane). They flow through codegen into `webapp/src/generated/rules/content.ts`, which the report surfaces render alongside the matched-line excerpt.
+
+**Framework references (`frameworks`, optional).** A rule may map to the external AI-risk taxonomies — OWASP LLM Top 10 (`owasp-llm:<id>`), MITRE ATLAS (`mitre-atlas:<id>`), and CWE (`cwe:<id>`) — via short codes that resolve through a central catalog into clickable badges on the methodology card and on every scan-report finding. Where no honest AI-framework mapping exists (most maintenance / transparency / community rules) the field is omitted. The codes are a closed set: an unknown code hard-fails `pnpm run generate`, and the badged-vs-unbadged split is locked by a generator assertion so a new rule can't silently ship unmapped.
 
 ## Reproducibility
 
@@ -206,7 +211,7 @@ See [`../.github/ISSUE_TEMPLATE/04-vendor-appeal.yml`](../.github/ISSUE_TEMPLATE
 
 ## Live methodology page
 
-The auto-rendered rubric ships at [`https://saferskills.ai/methodology`](https://saferskills.ai/methodology) — every rule's frontmatter is surfaced as a RuleCard with severity, sub-score, status, trigger summary, limitations, and a permalink to the rule source at the current `rubric_version`.
+The auto-rendered rubric ships at [`https://saferskills.ai/methodology`](https://saferskills.ai/methodology) — every rule's frontmatter is surfaced as a RuleCard with its plain-English name + description, the severity pill (the same one used on scan-report findings), sub-score, status, OWASP / MITRE ATLAS / CWE framework badges, the raw trigger collapsed behind a "Detection logic" fold, limitations, and a permalink to the rule source at the current `rubric_version`. Search matches name, description, category, and framework refs; the toolbar exports the currently-visible rules to CSV (name as the first column).
 
 ## Methodology changelog
 

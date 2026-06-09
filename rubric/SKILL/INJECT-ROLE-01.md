@@ -6,6 +6,7 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Role-override jailbreak persona in the skill text
 categoryLabel: >-

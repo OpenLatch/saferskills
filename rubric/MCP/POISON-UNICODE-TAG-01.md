@@ -6,6 +6,7 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Invisible Unicode tag characters hidden in an MCP tool description
 categoryLabel: >-

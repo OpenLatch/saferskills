@@ -6,6 +6,7 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [plugin]
+frameworks: ["owasp-llm:llm02", "mitre-atlas:AML.T0025", "cwe:200"]
 title: >-
   Sends data to a hardcoded chat or capture webhook
 categoryLabel: >-

@@ -6,6 +6,7 @@ weight: 35
 status: active
 shadowUntil: null
 appliesTo: [rules]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Rules file hides instructions in invisible Unicode tag characters
 categoryLabel: >-

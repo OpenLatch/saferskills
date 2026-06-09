@@ -6,6 +6,7 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [skill, mcp, rules, hooks, plugin]
+frameworks: ["owasp-llm:llm07", "mitre-atlas:AML.T0051"]
 title: >-
   Request for the agent to reveal its system prompt
 categoryLabel: >-

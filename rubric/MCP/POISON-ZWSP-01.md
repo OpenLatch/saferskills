@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
   Zero-width characters hidden in an MCP tool manifest
 categoryLabel: >-

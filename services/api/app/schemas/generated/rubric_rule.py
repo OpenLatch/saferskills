@@ -291,6 +291,12 @@ class RubricRule(OrmBaseModel):
         description="What the rule cannot catch. MANDATORY — no rule ships without limitations.",
         min_length=1,
     )
+    frameworks: (
+        list[constr(pattern=r"^(owasp-llm|mitre-atlas|cwe):[A-Za-z0-9.\-]+$")] | None
+    ) = Field(
+        None,
+        description="Optional short framework-reference codes mapping the rule to an external AI-risk taxonomy (`owasp-llm:<id>`, `mitre-atlas:<id>`, `cwe:<id>`, e.g. `owasp-llm:llm01`, `mitre-atlas:AML.T0051`, `cwe:78`). Each code is resolved by the central FRAMEWORK_CATALOG in scripts/generate-methodology.cjs into a clickable {family,id,label,url} badge on the methodology card + scan-report findings; an unknown code hard-fails the generator. Omit where no honest AI-framework mapping exists (most maintenance/transparency/community rules). x-postgresql-skip already holds — no DB/Pydantic/Zod impact.",
+    )
     prior_art: list[AnyUrl] = Field(
         ...,
         alias="priorArt",
