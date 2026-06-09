@@ -12,6 +12,11 @@ PORT = "8000"
 VERSION = "0.0.0-foundation"
 ENV = "staging"
 LOG_LEVEL = "INFO"
+# Hishel ingestion HTTP cache path. The API machine mounts no Fly volume, so the
+# config default (/data/.hishel.db) is unwritable (non-root `app` user → Permission
+# denied) and every adapter cycle fails before fetching. Point it at the app-owned
+# home dir — an ephemeral per-machine HTTP cache is fine (warms again after deploy).
+HISHEL_DB_PATH = "/home/app/.hishel.db"
 # OpenTelemetry traces → the shared Grafana Vector over 6PN internal DNS (same
 # Fly org). Logs already flow via the Fly NATS drain; only traces need this
 # endpoint. Metrics are deferred (no metric exporter wired yet). See telemetry.md.
