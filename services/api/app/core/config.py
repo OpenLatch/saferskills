@@ -478,6 +478,66 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Agent Scan (I-5.5) ─────────────────────────────────────────────────
+    # The behavioral agent scan signs each per-run pack (Ed25519) and derives
+    # per-run rotating canaries from a master key. Both secrets are the trust
+    # anchors of the lean crypto posture (D-5.5-13) — they MUST be stable
+    # configured values (identical across canary machines), never per-process
+    # random. Unset → packs serve unsigned (`manual-bootstrap`) + canaries fall
+    # back to a dev key; the `model_validator` below hard-fails boot in
+    # staging/production when either is missing (mirrors the Turnstile/PoW guard).
+    saferskills_agent_master_key: str | None = Field(
+        default=None,
+        description=(
+            "Base64 master key (≥32 bytes) — the HKDF source for per-run canary "
+            "seeds AND the one-time run/submit token HMAC key (env "
+            "`SAFERSKILLS_AGENT_MASTER_KEY`). Server-only, never shipped. Required "
+            "in staging/production (boot hard-fails otherwise)."
+        ),
+    )
+    saferskills_pack_signing_key: str | None = Field(
+        default=None,
+        description=(
+            "Base64 32-byte Ed25519 seed signing each served agent pack (env "
+            "`SAFERSKILLS_PACK_SIGNING_KEY`). The single launch key; its public "
+            "half is served at `GET /api/v1/agent-pack/keys` + baked into the CLI. "
+            "Unset → packs serve unsigned (dev/test). Required in "
+            "staging/production (boot hard-fails otherwise)."
+        ),
+    )
+    agent_scan_submit_daily_limit: int = Field(
+        default=20,
+        ge=1,
+        description=(
+            "Max agent-scan submissions per IP per 24h (bucket `agent_scan_submit`, "
+            "distinct from the URL/CLI scan buckets). Loopback exempt (D-5.5-15)."
+        ),
+    )
+    agent_run_token_ttl_seconds: int = Field(
+        default=1800,
+        ge=60,
+        description=(
+            "TTL of the one-time agent run/submit token (30 min — covers a ~2-3 "
+            "min scan + slack). Bounds the single-use ledger window."
+        ),
+    )
+    unlisted_agent_retention_days: int = Field(
+        default=90,
+        ge=1,
+        description=(
+            "TTL (days) for an unlisted Agent Report — sets `agent_runs.expires_at`; "
+            "swept by `app/core/sweeps.py` (the sweep tick lands in Phase 2; D-5.5-19)."
+        ),
+    )
+    ipinfo_lite_db_path: str = Field(
+        default="/app/data/ipinfo-lite.mmdb",
+        description=(
+            "Baked-image path of the IPinfo Lite `.mmdb` for company-level IP→ASN "
+            "telemetry (Phase 2 reads it; D-5.5-16). Static asset, single-store rule "
+            "intact."
+        ),
+    )
+
     # ── Ingestion (I-04 Phase A) ───────────────────────────────────────────
     ingestion_worker_enabled: bool = Field(
         default=True,
@@ -641,6 +701,18 @@ class Settings(BaseSettings):
                 "SAFERSKILLS_CLI_POW_SECRET is required in staging/production — it is "
                 "the only trust anchor of the stateless CLI Proof-of-Work gate (must "
                 "be a stable Fly secret, identical across canary machines)."
+            )
+        if self.env in ("staging", "production") and self.saferskills_agent_master_key is None:
+            raise ValueError(
+                "SAFERSKILLS_AGENT_MASTER_KEY is required in staging/production — it "
+                "is the HKDF trust anchor for per-run agent-scan canaries + run "
+                "tokens (must be a stable Fly secret, identical across canary machines)."
+            )
+        if self.env in ("staging", "production") and self.saferskills_pack_signing_key is None:
+            raise ValueError(
+                "SAFERSKILLS_PACK_SIGNING_KEY is required in staging/production — it "
+                "signs every served agent pack; unset would serve unsigned packs the "
+                "baked CLI pubkey cannot verify (must be a stable Fly secret)."
             )
         return self
 

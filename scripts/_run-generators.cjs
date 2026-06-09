@@ -2,7 +2,7 @@
 /**
  * _run-generators.cjs — orchestrator for `pnpm run generate`.
  *
- * Runs the 8 codegen steps in dependency order. Aborts on the first failure.
+ * Runs the 9 codegen steps in dependency order. Aborts on the first failure.
  * Each step is itself a CommonJS script under scripts/ — keep them small +
  * single-responsibility per .claude/rules/schema-driven-development.md.
  *
@@ -27,6 +27,7 @@ const STEPS = [
   ['ts-types', 'generate-ts-types.cjs'],
   ['zod', 'generate-zod.cjs'],
   ['methodology', 'generate-methodology.cjs'],
+  ['agent-pack', 'generate-agent-pack.cjs'],
 ]
 
 for (const [label, file] of STEPS) {

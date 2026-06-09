@@ -243,6 +243,20 @@ async def _enforce_private_lookup_limit(request: Request, session: AsyncSession)
         )
 
 
+# ── Public re-exports for sibling routers (I-5.5 `agent_scans`) ───────────────
+# These request-gate + unlisted helpers are the SINGLE SOURCE OF TRUTH for the
+# trusted-proxy client-IP, the generic-404 contract, and the anti-leakage headers.
+# Exposed under public names so `agent_scans.py` reuses the exact same behaviour
+# without a private cross-module import (the internal `_`-prefixed call sites here
+# stay unchanged). A change to the security contract updates both surfaces at once.
+enforce_captcha = _enforce_captcha
+is_loopback = _is_loopback
+peer_host = _peer_host
+rate_limit_ip = _rate_limit_ip
+enforce_private_lookup_limit = _enforce_private_lookup_limit
+set_unlisted_headers = _set_unlisted_headers
+
+
 def _run_summary_row(run: ScanRun, findings_count: int) -> ScanReportSummary:
     """Project a repo scan run → the slim feed/catalog row. slug/author/title are
     derived from the repo URL (github) or the artifact (upload) — a run groups

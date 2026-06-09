@@ -31,6 +31,7 @@ from app.core.startup import run_startup
 from app.core.startup_state import startup_state
 from app.routers import (
     admin,
+    agent_scans,
     health,
     installs,
     items,
@@ -200,6 +201,9 @@ app.add_middleware(
 
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(scans.router, prefix="/api/v1")
+# Agent Scan (I-5.5) — run-lifecycle + token-gated signed pack + flat pubkey map.
+app.include_router(agent_scans.router, prefix="/api/v1")
+app.include_router(agent_scans.pack_keys_router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(vendor.router, prefix="/api/v1")

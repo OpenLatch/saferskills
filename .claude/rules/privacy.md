@@ -82,6 +82,42 @@ optimization, not required. See `security.md` § Vendor-data isolation.
 Row-level `install_events` are internal; only bucketed aggregates (counts per agent
 per window) surface on the public item page.
 
+## agent_scan_telemetry table (I-5.5)
+
+The `agent_scan_telemetry` table records **anonymous, company-level** signals about
+who runs an Agent Scan, for the I-06 B2B intelligence feature. It is a **write-only**
+store at I-5.5 (the reader ships in I-06), distinct from `install_events`.
+
+### What is stored
+
+Company-level **ASN** + `as_org` + `country` + a **server-derived closed-key
+fingerprint** only — plus the `agent_run_id` (FK). **No raw IP, no slug-in-clear, no
+URL, no PII.** The ASN/as_org/country are derived from the submitter IP at write time
+via the IPinfo Lite MMDB (`IPINFO_LITE_DB_PATH`).
+
+### IP redaction (mandatory)
+
+Same contract as `access_log` / `install_events`: the submitter IP is **redacted at
+write time** — the writer **redacts-then-derives** the ASN (redaction precedes ASN
+lookup), so a raw IP is never stored. No downstream code ever sees a precise IP.
+
+### Automatic (no consent), legitimate interest
+
+Write-only company-level aggregate signal on the legitimate-interest basis
+(Art. 6(1)(f) — security research / service improvement), justified by the anonymity
+(closed-key fingerprint + ASN/org/country, redacted IP, no PII, no slug-in-clear).
+
+### Retention
+
+**Retained** (anonymous, no PII) so the aggregate survives — and the `agent_run_id`
+FK is **`ON DELETE SET NULL`**, so deleting an agent run keeps the anonymous
+telemetry row (the company-level aggregate is not coupled to run lifetime).
+
+### No export
+
+Row-level `agent_scan_telemetry` is internal; only bucketed aggregates surface in the
+I-06 B2B intelligence surface. No raw ASN/IP export to third parties.
+
 ## First-launch audit (I-05, D-05-26)
 
 On the install CLI's first interactive run it offers a **one-time, opt-in** security
@@ -109,6 +145,7 @@ Link to `security.md` § Vendor-data isolation for the full retention-tier break
 | Change | Updates here |
 |---|---|
 | `install_events` column / retention / enum change | "install_events table" + `app/models/install_event.py` + `app/routers/installs.py` + migration 0014 + `security.md` |
+| `agent_scan_telemetry` column / retention / fingerprint change | "agent_scan_telemetry table" + `app/models/agent_scan_telemetry.py` + `app/agent_scan/` + migration 0019 + `security.md` |
 | New `action` enum value added | "What is stored" + `app/core/access_log_middleware.py` enum + `privacy.astro` |
 | IP redaction granularity changed | "IP redaction" + `app/core/access_log_middleware.py` + `privacy.astro` |
 | `access_log` reader ships (I-06) | "access_log table" — remove "write-only at I-04" note; document the read surface |

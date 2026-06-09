@@ -187,6 +187,8 @@ jobs:
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
+          SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
+          SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
@@ -234,6 +236,17 @@ jobs:
           # hard-fails boot since ENV=staging — set the GH secret before first deploy.
           if [ -n "$SAFERSKILLS_CLI_POW_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
+          fi
+          # SAFERSKILLS_AGENT_MASTER_KEY + SAFERSKILLS_PACK_SIGNING_KEY anchor the lean
+          # agent-scan crypto (I-5.5 — per-run canaries + Ed25519 pack signing). The
+          # API startup guard hard-fails boot when either is unset since ENV=staging,
+          # so set both GH secrets before the first deploy. Repo-level (identical
+          # across staging+prod so the single baked CLI pubkey verifies everywhere).
+          if [ -n "$SAFERSKILLS_AGENT_MASTER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_AGENT_MASTER_KEY="$SAFERSKILLS_AGENT_MASTER_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
@@ -337,6 +350,8 @@ jobs:
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
+          SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
+          SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
@@ -383,6 +398,17 @@ jobs:
           # set the GH secret before the first prod deploy.
           if [ -n "$SAFERSKILLS_CLI_POW_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
+          fi
+          # SAFERSKILLS_AGENT_MASTER_KEY + SAFERSKILLS_PACK_SIGNING_KEY anchor the lean
+          # agent-scan crypto (I-5.5). The API startup guard hard-fails boot when either
+          # is unset since ENV=production, so set both GH secrets before the first prod
+          # deploy. Repo-level (identical across staging+prod so the single baked CLI
+          # pubkey verifies everywhere).
+          if [ -n "$SAFERSKILLS_AGENT_MASTER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api SAFERSKILLS_AGENT_MASTER_KEY="$SAFERSKILLS_AGENT_MASTER_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-api SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do

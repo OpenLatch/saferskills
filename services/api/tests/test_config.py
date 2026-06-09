@@ -188,10 +188,15 @@ def test_turnstile_secret_required_in_prod(env: EnvTier) -> None:
 
 @pytest.mark.parametrize("env", ["staging", "production"])
 def test_turnstile_secret_present_passes_in_prod(env: EnvTier) -> None:
-    # Both prod-required secrets must be present for boot to pass (Turnstile +
-    # the CLI Proof-of-Work secret — see config.py model_validator).
+    # ALL prod-required secrets must be present for boot to pass (Turnstile + the
+    # CLI Proof-of-Work secret + the two agent-scan crypto anchors — see config.py
+    # model_validator).
     settings = Settings(
-        env=env, turnstile_secret_key="1x000...AA", saferskills_cli_pow_secret="prod-pow-secret"
+        env=env,
+        turnstile_secret_key="1x000...AA",
+        saferskills_cli_pow_secret="prod-pow-secret",
+        saferskills_agent_master_key="prod-agent-master-key",
+        saferskills_pack_signing_key="prod-pack-signing-key",
     )
     assert settings.turnstile_secret_key == "1x000...AA"
     assert settings.saferskills_cli_pow_secret == "prod-pow-secret"
@@ -208,3 +213,34 @@ def test_cli_pow_secret_required_in_prod(env: EnvTier) -> None:
     """Boot MUST hard-fail when the stateless PoW gate has no trust anchor in prod."""
     with pytest.raises(ValueError, match="SAFERSKILLS_CLI_POW_SECRET"):
         Settings(env=env, turnstile_secret_key="1x000...AA", saferskills_cli_pow_secret=None)
+
+
+def test_agent_master_key_required_in_prod() -> None:
+    """Boot MUST hard-fail when the canary/run-token master key is unset in prod (I-5.5)."""
+    with pytest.raises(ValueError, match="SAFERSKILLS_AGENT_MASTER_KEY"):
+        Settings(
+            env="production",
+            turnstile_secret_key="1x000...AA",
+            saferskills_cli_pow_secret="prod-pow-secret",
+            saferskills_agent_master_key=None,
+            saferskills_pack_signing_key="k",
+        )
+
+
+def test_pack_signing_key_required_in_prod() -> None:
+    """Boot MUST hard-fail when the Ed25519 pack-signing key is unset in prod (I-5.5)."""
+    with pytest.raises(ValueError, match="SAFERSKILLS_PACK_SIGNING_KEY"):
+        Settings(
+            env="production",
+            turnstile_secret_key="1x000...AA",
+            saferskills_cli_pow_secret="prod-pow-secret",
+            saferskills_agent_master_key="k",
+            saferskills_pack_signing_key=None,
+        )
+
+
+def test_agent_scan_secrets_optional_in_dev() -> None:
+    """Dev/test tolerate missing agent-scan secrets — packs serve unsigned + a dev key."""
+    settings = Settings(env="development")
+    assert settings.saferskills_agent_master_key is None
+    assert settings.saferskills_pack_signing_key is None

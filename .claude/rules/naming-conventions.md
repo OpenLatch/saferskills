@@ -59,6 +59,10 @@ The regex (validated in `schemas/rubric-rule.schema.json` + `schemas/finding.sch
 ^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$
 ```
 
+### Agent-pack test IDs (`AS-NN`) — a separate taxonomy
+
+`rubric/AGENT/` (I-5.5) is a **separate pack tree** from the component rules above, with its own id grammar: `AS-NN` (regex `^AS-\d{2}$`, e.g. `AS-01` … `AS-22`). These are behavioral-test ids validated against `schemas/agent-pack-test.schema.json`, **not** rubric-rule ids — the `SS-<CATEGORY>-<NAME>-NN` grammar does **not** apply to them, and `generate-methodology.cjs` excludes `rubric/AGENT/` from the component rule walk. The agent-pack generator (step 9) is the only consumer.
+
 ## Catalog slugs
 
 One catalog_item = one capability (Skill/MCP/Hook/Plugin/Rules); several capabilities can share one GitHub repo. The slug is the `/items/<slug>` permalink key and stays UNIQUE.
@@ -85,6 +89,7 @@ info | low | medium | high | critical
 | New generator step that produces a serialized key | "API JSON Body Keys" table |
 | New paginated list envelope shape | "Hard rules" — never break the `data` key contract |
 | New `<CATEGORY>` for scan rules | "Rule IDs" regex + `methodology.md` + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
+| Agent-pack test-ID grammar change | "Agent-pack test IDs" + `schemas/agent-pack-test.schema.json` + `scripts/generate-agent-pack.cjs` |
 | New severity tier | "Severity tiers" + `methodology.md` § Sub-scores and aggregate + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | New DB-naming exception | "Database" |
 | Catalog slug grammar change | "Catalog slugs" + `schemas/catalog-item.schema.json` regex + `app/scan/persistence.py::capability_slug` |

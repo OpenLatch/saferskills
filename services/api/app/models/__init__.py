@@ -1,13 +1,14 @@
 """Production ORM model registry — `Base.metadata` sees only these imports.
 
-The eight **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
+The ten **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
 VendorVerification, VendorResponse (the original six) plus IngestionEvent and
-MergeCandidate (I-04) — are GENERATED from `schemas/*.schema.json` via the codegen
-pipeline (`app/models/generated/`, native PG enum columns). The fourteen **internal**
-models — ItemSource, RateLimit, UploadFile, ArtifactBlob, ScanEvent, Author,
-CrawlerCursor, PopularityFormula, AccessLog, AdminAuditLog, IngestionRun,
-RepoFetchState, InstallEvent, CliPowSpent — have no JSON-Schema source and no wire DTO (never
-serialized over the API), so they stay hand-written
+MergeCandidate (I-04) plus AgentRun and AgentFinding (I-5.5) — are GENERATED from
+`schemas/*.schema.json` via the codegen pipeline (`app/models/generated/`, native
+PG enum columns). The seventeen **internal** models — ItemSource, RateLimit,
+UploadFile, ArtifactBlob, ScanEvent, Author, CrawlerCursor, PopularityFormula,
+AccessLog, AdminAuditLog, IngestionRun, RepoFetchState, InstallEvent, CliPowSpent,
+AgentEvidence, AgentRunTokenSpent, AgentScanTelemetry — have no JSON-Schema source
+and no wire DTO (never serialized over the API), so they stay hand-written
 under `app/models/*.py`. (A table that IS serialized over the API must be
 schema-driven/generated — see `.claude/rules/database.md` + `schema-driven-development.md`.)
 Both sets share the one `Base` (`app/models/base.py`), re-exported by the generated
@@ -25,12 +26,17 @@ generator emits FK columns only). Importing this module registers all tables on
 from app.models import _relationships as _relationships
 from app.models.access_log import AccessLog
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.agent_evidence import AgentEvidence
+from app.models.agent_run_token_spent import AgentRunTokenSpent
+from app.models.agent_scan_telemetry import AgentScanTelemetry
 from app.models.artifact_blob import ArtifactBlob
 from app.models.author import Author
 from app.models.base import Base
 from app.models.cli_pow_spent import CliPowSpent
 from app.models.crawler_cursor import CrawlerCursor
 from app.models.generated import (
+    AgentFinding,
+    AgentRun,
     CatalogItem,
     Finding,
     IngestionEvent,
@@ -52,6 +58,11 @@ from app.models.upload_file import UploadFile
 __all__ = [
     "AccessLog",
     "AdminAuditLog",
+    "AgentEvidence",
+    "AgentFinding",
+    "AgentRun",
+    "AgentRunTokenSpent",
+    "AgentScanTelemetry",
     "ArtifactBlob",
     "Author",
     "Base",

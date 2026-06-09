@@ -17,6 +17,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import relationship
 
+from app.models.agent_evidence import AgentEvidence
+from app.models.agent_scan_telemetry import AgentScanTelemetry
+from app.models.generated.agent_finding import AgentFinding
+from app.models.generated.agent_run import AgentRun
 from app.models.generated.catalog_item import CatalogItem
 from app.models.generated.finding import Finding
 from app.models.generated.scan import Scan
@@ -76,3 +80,32 @@ VendorVerification.responses = relationship(
     passive_deletes=True,
 )
 VendorResponse.verification = relationship("VendorVerification", back_populates="responses")
+
+# ── agent_runs ↔ agent_findings (I-5.5) ───────────────────────────────────────
+AgentRun.findings = relationship(
+    "AgentFinding",
+    back_populates="agent_run",
+    cascade="all, delete-orphan",
+    passive_deletes=True,
+)
+AgentFinding.agent_run = relationship("AgentRun", back_populates="findings")
+
+# ── agent_runs ↔ agent_evidence (1:1, CASCADE) ────────────────────────────────
+AgentRun.evidence = relationship(
+    "AgentEvidence",
+    back_populates="agent_run",
+    uselist=False,
+    cascade="all, delete-orphan",
+    passive_deletes=True,
+)
+AgentEvidence.agent_run = relationship("AgentRun", back_populates="evidence")
+
+# ── agent_runs ↔ agent_scan_telemetry (SET NULL — anonymous aggregate survives) ─
+# The FK is `ON DELETE SET NULL`, so the telemetry row is NOT deleted with the
+# run (no delete-orphan cascade); the DB nulls `agent_run_id`.
+AgentRun.telemetry = relationship(
+    "AgentScanTelemetry",
+    back_populates="agent_run",
+    passive_deletes=True,
+)
+AgentScanTelemetry.agent_run = relationship("AgentRun", back_populates="telemetry")

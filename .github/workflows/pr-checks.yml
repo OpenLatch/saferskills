@@ -85,14 +85,15 @@ jobs:
         # Scoped strictly to those dirs so legitimate English uses elsewhere
         # ("data integrity", "behavior test", etc.) do not false-positive.
         # The generated rule-PROSE outputs (content.ts / methodology index.mdx /
-        # methodology rules-table.ts) are excluded: they carry human rule
-        # explanations where these are plain English words ("changes the agent's
-        # behavior", "behavior- or license-changing update"), not sub-score axis
-        # tokens (the structured `subScore` values there are schema-enum-constrained
-        # to the 5 axes regardless).
+        # methodology rules-table.ts / the I-5.5 agent-pack practice.json) are
+        # excluded: they carry human rule explanations where these are plain
+        # English words ("the agent disclosed its identity", "changes the agent's
+        # behavior"), not sub-score axis tokens (the structured `subScore` values
+        # there are schema-enum-constrained to the 5 axes regardless).
         run: |
           if grep -RnE '\b(identity|integrity|behavior|provenance)\b' \
                 --exclude=content.ts --exclude=index.mdx --exclude=rules-table.ts \
+                --exclude=practice.json \
                 schemas/ \
                 services/api/app/schemas/generated/ \
                 services/api/app/models/generated/ \

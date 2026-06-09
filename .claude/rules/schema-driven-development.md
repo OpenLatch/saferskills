@@ -21,7 +21,7 @@ Two sources of truth feed every wire / DB / type contract:
 
 Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod schemas, the Hey-API client — is **generated**. Generated code lives under any `generated/` directory and is **never edited manually**.
 
-## The 8 generators (ordered)
+## The 9 generators (ordered)
 
 `pnpm run generate` runs them in dependency order. Skipping a step risks drift; the CI `validate` lane catches a missed run.
 
@@ -34,7 +34,8 @@ Everything downstream — Pydantic models, SQLAlchemy models, TS DTO types, Zod 
 | 4 | **openapi.json** | FastAPI app | `services/api/openapi.json` | `scripts/generate-openapi.cjs` (runs `app.openapi()`) |
 | 5 | **ts-types** | `services/api/openapi.json` + `schemas/*.schema.json` | `webapp/src/generated/openapi/types.gen.ts` + `webapp/src/generated/schemas/*.ts` | `scripts/generate-ts-types.cjs` (snake_case conversion baked in) |
 | 6 | **zod** | `schemas/*.schema.json` | `webapp/src/generated/zod/*.ts` | `scripts/generate-zod.cjs` (snake_case conversion baked in) |
-| 7 | **methodology** | `rubric/<CATEGORY>/<NAME>-NN.md` (YAML frontmatter) | `webapp/src/generated/methodology/index.mdx` + `webapp/src/generated/methodology/rule-count.ts` + `webapp/src/generated/methodology/rules-table.ts` (the full per-rule table backing the methodology CSV export) + `webapp/src/generated/rules/content.ts` (the `RULE_CONTENT` explainable-finding map, now incl. resolved `frameworks` badges) **+ `services/api/app/generated/rule_content.json`** (snake_case backend mirror — the **server-side prose-join source**: `app/services/rule_prose.py` loads it and `app/scan/report_builder.py` inlines each fired rule's prose onto the report finding, D-05-32 reversed — there is no `/rubric/content` endpoint and the CLI carries no rule corpus; emitted from the SAME rule walk so the two never drift) | `scripts/generate-methodology.cjs` (validates frontmatter against `schemas/rubric-rule.schema.json`; stamps rubricSha via `git log -n 1 -- rubric/`) |
+| 7 | **methodology** | `rubric/<CATEGORY>/<NAME>-NN.md` (YAML frontmatter; **excludes `rubric/AGENT/`** — `walkRubric()` skips the Agent pack so the component badge-count assertion never sees AS files) | `webapp/src/generated/methodology/index.mdx` + `webapp/src/generated/methodology/rule-count.ts` + `webapp/src/generated/methodology/rules-table.ts` (the full per-rule table backing the methodology CSV export) + `webapp/src/generated/rules/content.ts` (the `RULE_CONTENT` explainable-finding map, now incl. resolved `frameworks` badges) **+ `services/api/app/generated/rule_content.json`** (snake_case backend mirror — the **server-side prose-join source**: `app/services/rule_prose.py` loads it and `app/scan/report_builder.py` inlines each fired rule's prose onto the report finding, D-05-32 reversed — there is no `/rubric/content` endpoint and the CLI carries no rule corpus; emitted from the SAME rule walk so the two never drift) | `scripts/generate-methodology.cjs` (validates frontmatter against `schemas/rubric-rule.schema.json`; stamps rubricSha via `git log -n 1 -- rubric/`) |
+| 9 | **agent-pack** | `rubric/AGENT/*.md` (AS-NN behavioral-test frontmatter, validated against `schemas/agent-pack-test.schema.json`) | `webapp/src/generated/agent-pack/practice.json` (public, canaries scrubbed) + `services/api/app/generated/agent_pack.json` (full backend source) | `scripts/generate-agent-pack.cjs` (registered in `scripts/_run-generators.cjs` AFTER `methodology`). The Agent pack (I-5.5) is a SEPARATE `AS-NN` taxonomy from the `SS-<CATEGORY>` component rules — see `naming-conventions.md` |
 
 ## SQLAlchemy generation (`x-postgresql-*` + `KNOWN_ENUMS`)
 
@@ -107,7 +108,9 @@ rewrites them in place from `config/sources/*.yaml`. Edit the YAMLs, then
 
 | Change | Updates here |
 |---|---|
-| New generator added / removed | "The 8 generators" table + `pnpm run generate` script + `scripts/_run-generators.cjs` |
+| New generator added / removed | "The 9 generators" table + `pnpm run generate` script + `scripts/_run-generators.cjs` |
+| New entity schema serialized over the API (e.g. `agent-scan-report` / `agent-finding`) | "Adding a new schema" — generates Pydantic/SQLAlchemy/TS/Zod together |
+| New file-format-spec schema (wire-only, `x-postgresql-skip`, e.g. `agent-pack-test`) | "Adding a new schema" #4 — top-level `x-postgresql-skip: true` |
 | Ingestion provider YAML/enum/host generator change | "Two generator-managed enum arrays" + `scripts/generate-ingestion-sources.cjs` + `ingestion.md` |
 | New schema convention (e.g. another `x-postgresql-skip`-style extension) | "Adding a new schema" |
 | Generator output path changed | The table + `generated-code.md` |
