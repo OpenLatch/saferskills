@@ -1,6 +1,709 @@
 {
   "components": {
     "schemas": {
+      "AgentCheckRow": {
+        "properties": {
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "test_id": {
+            "title": "Test Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "vulnerable",
+              "not_observed",
+              "n_a",
+              "error"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "test_id",
+          "family",
+          "title",
+          "verdict",
+          "severity"
+        ],
+        "title": "AgentCheckRow",
+        "type": "object"
+      },
+      "AgentComponentScoreRow": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "skill",
+              "mcp_server",
+              "hook",
+              "plugin",
+              "rules"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "tier": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "score",
+          "tier",
+          "slug"
+        ],
+        "title": "AgentComponentScoreRow",
+        "type": "object"
+      },
+      "AgentFindingRow": {
+        "properties": {
+          "atlas_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Atlas Refs",
+            "type": "array"
+          },
+          "category_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Label"
+          },
+          "detection_rule": {
+            "enum": [
+              "substring",
+              "normalized_substring",
+              "transform",
+              "tool_arg",
+              "forbidden_tool_presence"
+            ],
+            "title": "Detection Rule",
+            "type": "string"
+          },
+          "evidence_excerpt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Excerpt"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "leaked_canary_slot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leaked Canary Slot"
+          },
+          "nist_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Nist Refs",
+            "type": "array"
+          },
+          "owasp_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Owasp Refs",
+            "type": "array"
+          },
+          "remediation": {
+            "$ref": "#/components/schemas/AgentRemediation"
+          },
+          "score_delta": {
+            "maximum": 0.0,
+            "title": "Score Delta",
+            "type": "integer"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "severity_rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity Rationale"
+          },
+          "test_id": {
+            "title": "Test Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "vulnerable",
+              "not_observed",
+              "n_a",
+              "error"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "test_id",
+          "severity",
+          "verdict",
+          "family",
+          "score_delta",
+          "detection_rule",
+          "title",
+          "explanation",
+          "remediation"
+        ],
+        "title": "AgentFindingRow",
+        "type": "object"
+      },
+      "AgentRemediation": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "safer_pattern": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentSaferPattern"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "AgentRemediation",
+        "type": "object"
+      },
+      "AgentSaferPattern": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "title": "AgentSaferPattern",
+        "type": "object"
+      },
+      "AgentScanCreateRequest": {
+        "description": "`POST /api/v1/agent-scans` body \u2014 mint a run + one-time submit token.",
+        "properties": {
+          "agent_name": {
+            "description": "Display name for the scanned agent.",
+            "maxLength": 200,
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "runtime": {
+            "description": "Declared agent runtime (8 ids + `other`).",
+            "enum": [
+              "claude-code",
+              "cursor",
+              "codex",
+              "copilot",
+              "windsurf",
+              "cline",
+              "gemini",
+              "openclaw",
+              "other"
+            ],
+            "title": "Runtime",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "public",
+            "description": "public (default) | unlisted.",
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_name",
+          "runtime"
+        ],
+        "title": "AgentScanCreateRequest",
+        "type": "object"
+      },
+      "AgentScanCreateResponse": {
+        "description": "`POST /api/v1/agent-scans` 201 response.",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unlisted-run TTL; null for public.",
+            "title": "Expires At"
+          },
+          "pack_url": {
+            "description": "Relative URL of the token-gated signed pack.",
+            "title": "Pack Url",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "share_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unlisted capability-URL token; null for public.",
+            "title": "Share Token"
+          },
+          "submit_token": {
+            "description": "One-time token gating pack-fetch + submit.",
+            "title": "Submit Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "submit_token",
+          "pack_url"
+        ],
+        "title": "AgentScanCreateResponse",
+        "type": "object"
+      },
+      "AgentScanReportDetail": {
+        "description": "`GET /agent-scans/{run_id}` + `\u2026/r/{token}` wire report (snake_case).",
+        "properties": {
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "band": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "cap_callout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Callout"
+          },
+          "capabilities_absent": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities Absent",
+            "type": "array"
+          },
+          "capabilities_present": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities Present",
+            "type": "array"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCheckRow"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "component_scores": {
+            "items": {
+              "$ref": "#/components/schemas/AgentComponentScoreRow"
+            },
+            "title": "Component Scores",
+            "type": "array"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "family_tally": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Family Tally",
+            "type": "object"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/AgentFindingRow"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "pack_signature_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Signature Verified"
+          },
+          "pack_version": {
+            "title": "Pack Version",
+            "type": "string"
+          },
+          "report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Url"
+          },
+          "rubric_version": {
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "runtime": {
+            "title": "Runtime",
+            "type": "string"
+          },
+          "scanned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned At"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "score_breakdown": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Breakdown"
+          },
+          "share_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Url"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "trust_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trust Labels",
+            "type": "array"
+          },
+          "verdict_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Label"
+          },
+          "visibility": {
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "agent_name",
+          "runtime",
+          "band",
+          "pack_id",
+          "pack_version",
+          "checks",
+          "findings",
+          "component_scores",
+          "visibility",
+          "rubric_version",
+          "engine_version",
+          "latency_ms"
+        ],
+        "title": "AgentScanReportDetail",
+        "type": "object"
+      },
+      "AgentScanStatusResponse": {
+        "description": "`GET /api/v1/agent-scans/{run_id}/status` token-authed lightweight poll.",
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Url"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "share_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Url"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AgentScanStatusResponse",
+        "type": "object"
+      },
       "AgentShare": {
         "description": "One slice of the install agent-distribution row.\n\n`agent` is the canonical agent id (the 8-agent closed enum, D-05-14) \u2014 no\nlonger a free string now that real install telemetry (D-05-31) populates it.",
         "properties": {
@@ -3479,6 +4182,356 @@
         "summary": "Admin Unpause Source",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/agent-pack/keys": {
+      "get": {
+        "description": "Flat `{key_id: base64-pubkey}` map (config-sourced, no DB).",
+        "operationId": "get_pack_keys_api_v1_agent_pack_keys_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Pack Keys Api V1 Agent Pack Keys Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Pack Keys",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans": {
+      "post": {
+        "description": "Mint a run + one-time submit token; return the token-gated pack URL.",
+        "operationId": "create_run_api_v1_agent_scans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentScanCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/r/{token}": {
+      "delete": {
+        "description": "Eager self-delete of an unlisted run (Phase 1: the run row + its FK-CASCADE\nchildren; the full `delete_agent_run_cascade` lands in Phase 2). Public \u2192 404.",
+        "operationId": "delete_unlisted_run_api_v1_agent_scans_r__token__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Unlisted Run",
+        "tags": [
+          "agent-scans"
+        ]
+      },
+      "get": {
+        "description": "View an unlisted Agent Report via its share token (private projection).\n\nInvalid / expired / deleted / not-unlisted ALL \u2192 generic 404 (no oracle). A\npromoted (now-public) run 307-redirects to the public report route.",
+        "operationId": "get_unlisted_run_api_v1_agent_scans_r__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Unlisted Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/r/{token}/promote": {
+      "post": {
+        "description": "Promote an unlisted run to public (one-way): clear the token + expiry.",
+        "operationId": "promote_unlisted_run_api_v1_agent_scans_r__token__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Unlisted Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/{run_id}": {
+      "get": {
+        "description": "Public projection of a run. 404 for unlisted runs (served only via the token\nroute). NEVER loads `agent_evidence` \u2014 the public report carries no transcript.",
+        "operationId": "get_run_api_v1_agent_scans__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/{run_id}/pack": {
+      "get": {
+        "description": "Serve the per-run Ed25519-signed pack (token-gated, 410 after submit).\n\nToken verify is NO-spend (the agent + CLI each pre-flight a fetch). Refuses to\nre-serve once the run is past `fetched` (the canaries are spent \u2192 410). Archives\nthe exact served bytes + signature for reproducibility and advances to\n`fetched`.",
+        "operationId": "get_pack_api_v1_agent_scans__run_id__pack_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-agent-run-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Agent-Run-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pack",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/{run_id}/status": {
+      "get": {
+        "description": "Token-authed lightweight poll \u2014 the poll target for BOTH public + unlisted\nruns (the `private_lookup` cap is too low for ~120 polls a 3-min scan needs).",
+        "operationId": "get_run_status_api_v1_agent_scans__run_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-agent-run-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Agent-Run-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Status",
+        "tags": [
+          "agent-scans"
         ]
       }
     },

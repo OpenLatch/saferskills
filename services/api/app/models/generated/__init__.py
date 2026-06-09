@@ -2,6 +2,8 @@
 """Generated SQLAlchemy models + shared enum types."""
 
 from app.models.generated._base import (
+    AGENT_RUN_STATUS_VALUES,
+    AGENT_TEST_VERDICT_VALUES,
     AVAILABILITY_VALUES,
     KIND_VALUES,
     POPULARITY_RANK_TIER_VALUES,
@@ -17,6 +19,8 @@ from app.models.generated._base import (
     VENDOR_VERIFICATION_STATE_VALUES,
     VISIBILITY_VALUES,
     Base,
+    agent_run_status_enum,
+    agent_test_verdict_enum,
     availability_enum,
     kind_enum,
     popularity_rank_tier_enum,
@@ -32,6 +36,8 @@ from app.models.generated._base import (
     vendor_verification_state_enum,
     visibility_enum,
 )
+from app.models.generated.agent_finding import AgentFinding
+from app.models.generated.agent_run import AgentRun
 from app.models.generated.catalog_item import CatalogItem
 from app.models.generated.finding import Finding
 from app.models.generated.ingestion_event import IngestionEvent
@@ -42,6 +48,8 @@ from app.models.generated.vendor_response import VendorResponse
 from app.models.generated.vendor_verification import VendorVerification
 
 __all__ = [
+    "AGENT_RUN_STATUS_VALUES",
+    "AGENT_TEST_VERDICT_VALUES",
     "AVAILABILITY_VALUES",
     "KIND_VALUES",
     "POPULARITY_RANK_TIER_VALUES",
@@ -56,6 +64,8 @@ __all__ = [
     "TIER_VALUES",
     "VENDOR_VERIFICATION_STATE_VALUES",
     "VISIBILITY_VALUES",
+    "AgentFinding",
+    "AgentRun",
     "Base",
     "CatalogItem",
     "Finding",
@@ -65,6 +75,8 @@ __all__ = [
     "ScanRun",
     "VendorResponse",
     "VendorVerification",
+    "agent_run_status_enum",
+    "agent_test_verdict_enum",
     "availability_enum",
     "kind_enum",
     "popularity_rank_tier_enum",

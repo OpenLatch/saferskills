@@ -3,6 +3,18 @@
 
 import { z } from 'zod';
 
+// agent-finding.schema.json
+export const AgentFindingSchema = z.unknown();
+export type AgentFinding = z.infer<typeof AgentFindingSchema>;
+
+// agent-pack-test.schema.json
+export const AgentPackTestSchema = z.unknown();
+export type AgentPackTest = z.infer<typeof AgentPackTestSchema>;
+
+// agent-scan-report.schema.json
+export const AgentScanReportSchema = z.unknown();
+export type AgentScanReport = z.infer<typeof AgentScanReportSchema>;
+
 // catalog-item.schema.json
 export const CatalogItemSchema = z.unknown();
 export type CatalogItem = z.infer<typeof CatalogItemSchema>;

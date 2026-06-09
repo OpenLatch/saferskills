@@ -16,6 +16,8 @@ import sqlalchemy as sa
 from app.models.base import Base
 
 __all__ = [
+    "AGENT_RUN_STATUS_VALUES",
+    "AGENT_TEST_VERDICT_VALUES",
     "AVAILABILITY_VALUES",
     "KIND_VALUES",
     "POPULARITY_RANK_TIER_VALUES",
@@ -31,6 +33,8 @@ __all__ = [
     "VENDOR_VERIFICATION_STATE_VALUES",
     "VISIBILITY_VALUES",
     "Base",
+    "agent_run_status_enum",
+    "agent_test_verdict_enum",
     "availability_enum",
     "kind_enum",
     "popularity_rank_tier_enum",
@@ -47,6 +51,36 @@ __all__ = [
     "visibility_enum",
 ]
 
+# PostgreSQL native enum `agent_run_status`: Agent-scan run lifecycle status (I-5.5).
+AGENT_RUN_STATUS_VALUES = (
+    "created",
+    "fetched",
+    "submitted",
+    "graded",
+    "published",
+    "aborted",
+)
+agent_run_status_enum = sa.Enum(
+    *AGENT_RUN_STATUS_VALUES,
+    name="agent_run_status",
+    native_enum=True,
+    create_type=False,
+    create_constraint=False,
+)
+# PostgreSQL native enum `agent_test_verdict`: Per-test outcome of a behavioral agent test (I-5.5).
+AGENT_TEST_VERDICT_VALUES = (
+    "vulnerable",
+    "not_observed",
+    "n_a",
+    "error",
+)
+agent_test_verdict_enum = sa.Enum(
+    *AGENT_TEST_VERDICT_VALUES,
+    name="agent_test_verdict",
+    native_enum=True,
+    create_type=False,
+    create_constraint=False,
+)
 # PostgreSQL native enum `availability`: Three-state catalog availability (I-04 D-04-17).
 AVAILABILITY_VALUES = (
     "available",
