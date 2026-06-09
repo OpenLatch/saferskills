@@ -386,6 +386,152 @@ pub struct ScanUploadResponse {
     pub share_url: Option<String>,
 }
 
+// ─── Agent Scan (I-5.5 Phase 3) ──────────────────────────────────────────────
+
+/// `POST|GET /api/v1/agent-scans/bootstrap` — the minted run + the rendered
+/// bootstrap prompt the user pastes into their agent (canaries are NOT in it).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct BootstrapResponse {
+    pub run_id: String,
+    pub prompt: String,
+    pub consent_notice: String,
+    pub pack_url: String,
+    pub submit_token: String,
+    pub poll_url: String,
+    /// Present (non-null) only for an `unlisted` run.
+    #[serde(default)]
+    pub share_token: Option<String>,
+}
+
+/// `GET /api/v1/agent-scans/{run_id}/status` — the token-authed lightweight poll.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentStatusResponse {
+    /// `created` | `fetched` | `submitted` | `graded` | `published` | `aborted`.
+    pub status: String,
+    #[serde(default)]
+    pub score: Option<i64>,
+    #[serde(default)]
+    pub band: Option<String>,
+    #[serde(default)]
+    pub report_url: Option<String>,
+    #[serde(default)]
+    pub share_url: Option<String>,
+}
+
+/// An Avoid → Safer before/after pair on an agent-finding remediation.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentSaferPattern {
+    pub before: String,
+    pub after: String,
+}
+
+/// How to fix an agent finding (pack-sourced prose).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentRemediation {
+    pub action: String,
+    #[serde(default)]
+    pub steps: Option<Vec<String>>,
+    #[serde(default)]
+    pub safer_pattern: Option<AgentSaferPattern>,
+}
+
+/// One proof-of-tests row — every executed test, not just the vulnerable ones.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentCheckRow {
+    pub test_id: String,
+    pub family: String,
+    pub title: String,
+    /// `vulnerable` | `not_observed` | `n_a` | `error` (free-form for forward-compat).
+    pub verdict: String,
+    pub severity: Severity,
+}
+
+/// One observed-vulnerable agent finding (report DTO, snake_case).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentFindingDto {
+    pub id: String,
+    pub test_id: String,
+    pub severity: Severity,
+    pub verdict: String,
+    pub family: String,
+    #[serde(default)]
+    pub owasp_refs: Vec<String>,
+    #[serde(default)]
+    pub atlas_refs: Vec<String>,
+    #[serde(default)]
+    pub nist_refs: Vec<String>,
+    pub score_delta: i64,
+    /// `substring` | `normalized_substring` | `transform` | `tool_arg` | `forbidden_tool_presence`.
+    pub detection_rule: String,
+    #[serde(default)]
+    pub leaked_canary_slot: Option<String>,
+    pub title: String,
+    pub explanation: String,
+    #[serde(default)]
+    pub severity_rationale: Option<String>,
+    #[serde(default)]
+    pub category_label: Option<String>,
+    pub remediation: AgentRemediation,
+    /// Report-DTO-only redacted transcript window — present only on the private
+    /// (unlisted token-route) projection; `None` on the public report.
+    #[serde(default)]
+    pub evidence_excerpt: Option<EvidenceExcerpt>,
+}
+
+/// The full agent-scan report (`GET /agent-scans/{id}` and `.../r/{token}`). Mirrors
+/// the backend `AgentScanReportDetail` snake_case wire shape. Every field
+/// `#[serde(default)]` where the schema allows, for forward-compat.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentScanReport {
+    pub id: String,
+    pub status: String,
+    pub agent_name: String,
+    pub runtime: String,
+    #[serde(default)]
+    pub score: Option<u8>,
+    pub band: Tier,
+    #[serde(default)]
+    pub verdict_label: Option<String>,
+    #[serde(default)]
+    pub cap_callout: Option<String>,
+    #[serde(default)]
+    pub confidence: Option<String>,
+    #[serde(default)]
+    pub score_breakdown: Option<serde_json::Value>,
+    #[serde(default)]
+    pub trust_labels: Vec<String>,
+    pub pack_id: String,
+    pub pack_version: String,
+    #[serde(default)]
+    pub pack_signature_verified: Option<bool>,
+    #[serde(default)]
+    pub capabilities_present: Vec<String>,
+    #[serde(default)]
+    pub capabilities_absent: Vec<String>,
+    #[serde(default)]
+    pub family_tally: BTreeMap<String, i64>,
+    #[serde(default)]
+    pub checks: Vec<AgentCheckRow>,
+    #[serde(default)]
+    pub findings: Vec<AgentFindingDto>,
+    /// Contributing component scores — context only, never rendered by the CLI.
+    #[serde(default)]
+    pub component_scores: Vec<serde_json::Value>,
+    pub visibility: String,
+    #[serde(default)]
+    pub expires_at: Option<String>,
+    #[serde(default)]
+    pub share_url: Option<String>,
+    #[serde(default)]
+    pub report_url: Option<String>,
+    pub rubric_version: String,
+    pub engine_version: String,
+    #[serde(default)]
+    pub latency_ms: i64,
+    #[serde(default)]
+    pub scanned_at: Option<String>,
+}
+
 /// `GET /health`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct HealthResponse {

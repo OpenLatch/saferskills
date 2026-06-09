@@ -21,6 +21,9 @@ from app.services.agent_compat import AgentName
 # harness. Local Literals for the rest mirror the schema enums (the generated
 # equivalents are StrEnum classes, awkward to default + assign in a wire DTO).
 _Runtime = AgentName | Literal["other"]
+# Bootstrap target platform = the 8 canonical agent ids (`agent_compat.AgentName`)
+# plus `universal` (the platform-agnostic fallback template). NOT re-listed here.
+_Platform = AgentName | Literal["universal"]
 _Visibility = Literal["public", "unlisted"]
 _Severity = Literal["info", "low", "medium", "high", "critical"]
 _Verdict = Literal["vulnerable", "not_observed", "n_a", "error"]
@@ -58,6 +61,39 @@ class AgentScanStatusResponse(OrmBaseModel):
     band: str | None = None
     report_url: str | None = None
     share_url: str | None = None
+
+
+class AgentScanBootstrapRequest(OrmBaseModel):
+    """`POST|GET /api/v1/agent-scans/bootstrap` input - mint a run + return the
+    platform-picked bootstrap prompt (Phase 3). The web picker page is I-5.7."""
+
+    platform: _Platform = Field(
+        ..., description="Target platform template (8 agent ids + `universal` fallback)."
+    )
+    agent_name: str = Field(
+        default="my-agent", max_length=200, description="Display name for the scanned agent."
+    )
+    runtime: _Runtime = Field(
+        default="other", description="Declared agent runtime (8 ids + `other`)."
+    )
+    visibility: _Visibility = Field(default="public", description="public (default) | unlisted.")
+
+
+class AgentScanBootstrapResponse(OrmBaseModel):
+    """`POST|GET /api/v1/agent-scans/bootstrap` response - the minted run + the
+    rendered bootstrap prompt the agent runs (canaries are NOT in it)."""
+
+    run_id: UUID
+    prompt: str = Field(..., description="The rendered platform bootstrap prompt (no canaries).")
+    consent_notice: str = Field(..., description="Company-level telemetry notice + opt-out.")
+    pack_url: str = Field(..., description="Absolute URL of the token-gated signed pack.")
+    submit_token: str = Field(..., description="One-time token gating pack-fetch + submit.")
+    poll_url: str = Field(
+        ..., description="Absolute token-authed status-poll URL (public + unlisted)."
+    )
+    share_token: str | None = Field(
+        None, description="Unlisted capability-URL token; null for public."
+    )
 
 
 # ── Submission contract (`agent_scan_result.v1`) ────────────────────────────────

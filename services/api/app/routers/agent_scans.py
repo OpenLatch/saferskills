@@ -29,6 +29,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent_scan import bootstrap as bootstrap_mod
 from app.agent_scan import pack as pack_mod
 from app.agent_scan import signing
 from app.agent_scan import telemetry as telemetry_mod
@@ -65,6 +66,8 @@ from app.routers.scans import (
 )
 from app.scan.upload import UploadRejected
 from app.schemas.agent_scan import (
+    AgentScanBootstrapRequest,
+    AgentScanBootstrapResponse,
     AgentScanCreateRequest,
     AgentScanCreateResponse,
     AgentScanReportDetail,
@@ -193,6 +196,94 @@ async def create_run(
         expires_at=run.expires_at,
         share_token=run.share_token,
     )
+
+
+async def _bootstrap(
+    body: AgentScanBootstrapRequest, request: Request, session: AsyncSession
+) -> AgentScanBootstrapResponse:
+    """Mint a run + one-time token and render the platform bootstrap prompt.
+
+    Loopback-exempt gate (mirrors `create_run`). The prompt + structured URLs are
+    built **absolute** from `public_base_url` (the webapp proxies `/api/*`) so the
+    copy/paste agent reaches the API same-origin - `request.base_url` would be the
+    internal proxied origin behind Fly. The CLI ignores the structured URLs and
+    rebuilds its own from `run_id` + its `api_base`.
+    """
+    settings = get_settings()
+    if body.platform not in bootstrap_mod.PLATFORMS:
+        raise HTTPException(status_code=422, detail={"error": "unknown_platform"})
+    if not is_loopback(peer_host(request)):
+        await _gate_agent_submission(request, session, settings=settings)
+
+    run = await create_agent_run(
+        session,
+        agent_name=body.agent_name,
+        runtime=body.runtime,
+        visibility=body.visibility,
+    )
+    token = mint_submit_token(str(run.id))
+    await session.commit()
+
+    base = settings.public_base_url.rstrip("/")
+    pack_url = f"{base}/api/v1/agent-scans/{run.id}/pack"
+    submit_url = f"{base}/api/v1/agent-scans/{run.id}/submit"
+    poll_url = f"{base}/api/v1/agent-scans/{run.id}/status"
+    try:
+        prompt = bootstrap_mod.render(
+            body.platform,
+            run_id=str(run.id),
+            pack_url=pack_url,
+            submit_url=submit_url,
+            poll_url=poll_url,
+            submit_token=token,
+            consent=pack_mod.TELEMETRY_NOTICE,
+        )
+    except bootstrap_mod.UnknownPlatform as exc:  # defence-in-depth (validated above)
+        raise HTTPException(status_code=422, detail={"error": "unknown_platform"}) from exc
+
+    return AgentScanBootstrapResponse(
+        run_id=run.id,
+        prompt=prompt,
+        consent_notice=pack_mod.TELEMETRY_NOTICE,
+        pack_url=pack_url,
+        submit_token=token,
+        poll_url=poll_url,
+        share_token=run.share_token,
+    )
+
+
+@router.post(
+    "/bootstrap", status_code=status.HTTP_201_CREATED, response_model=AgentScanBootstrapResponse
+)
+async def bootstrap_run(
+    body: AgentScanBootstrapRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> AgentScanBootstrapResponse:
+    """Mint a run + return the platform-picked bootstrap prompt (Phase 3)."""
+    return await _bootstrap(body, request, session)
+
+
+@router.get("/bootstrap", response_model=AgentScanBootstrapResponse)
+async def bootstrap_run_get(
+    request: Request,
+    platform: str,
+    agent_name: str = "my-agent",
+    runtime: str = "other",
+    visibility: str = "public",
+    session: AsyncSession = Depends(get_session),
+) -> AgentScanBootstrapResponse:
+    """GET convenience for the I-5.7 web picker (same handler as POST)."""
+    try:
+        body = AgentScanBootstrapRequest(
+            platform=platform,  # type: ignore[arg-type]
+            agent_name=agent_name,
+            runtime=runtime,  # type: ignore[arg-type]
+            visibility=visibility,  # type: ignore[arg-type]
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={"error": "invalid_bootstrap_request"}) from exc
+    return await _bootstrap(body, request, session)
 
 
 @router.get("/{run_id}/pack")

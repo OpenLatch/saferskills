@@ -95,6 +95,12 @@ async fn try_first_run_audit(inter: Interaction, output: &OutputConfig) -> Resul
                         local: true,
                         private,
                         detailed: false,
+                        agent: None,
+                        fail_on: None,
+                        baseline: None,
+                        no_telemetry: false,
+                        print_skill: false,
+                        submit_blob: None,
                     },
                     output,
                 )

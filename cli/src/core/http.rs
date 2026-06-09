@@ -95,6 +95,67 @@ impl ApiClient {
         })
     }
 
+    /// `GET {base}{path}` with request headers → raw body bytes + the requested
+    /// response-header values (in `want` order; `None` when a header is absent).
+    /// The agent-scan pack fetch needs the body PLUS `X-Pack-Key-Id` /
+    /// `X-Pack-Signature` headers. 403 → gate/token error; 410 → pack-gone.
+    pub async fn get_bytes_with_headers(
+        &self,
+        path: &str,
+        headers: &[(&str, &str)],
+        want: &[&str],
+    ) -> Result<(Vec<u8>, Vec<Option<String>>), SsError> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self.http.get(&url);
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().await.map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.agent_status_error(status));
+        }
+        let picked: Vec<Option<String>> = want
+            .iter()
+            .map(|h| {
+                resp.headers()
+                    .get(*h)
+                    .and_then(|v| v.to_str().ok())
+                    .map(String::from)
+            })
+            .collect();
+        let body = resp
+            .bytes()
+            .await
+            .map(|b| b.to_vec())
+            .map_err(|e| self.decode_error(e))?;
+        Ok((body, picked))
+    }
+
+    /// `POST {base}{path}` with a raw text body + `content_type` + extra headers →
+    /// deserialize the 2xx body into `T`. Same 403 gate-error mapping as
+    /// [`post_json_for`]. Used by `--submit-blob` (a `text/plain` paste-back body the
+    /// server decodes).
+    pub async fn post_text_for<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: String,
+        content_type: &str,
+        headers: &[(&str, &str)],
+    ) -> Result<T, SsError> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self
+            .http
+            .post(&url)
+            .header("content-type", content_type)
+            .body(body);
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().await.map_err(|e| self.transport_error(e))?;
+        self.read_submit_body(resp).await
+    }
+
     /// `POST {base}{path}` with a JSON body; treats any 2xx (incl. 204) as ok.
     /// Used by anonymous install telemetry (the caller swallows errors — fail-open).
     pub async fn post_json<B: Serialize>(&self, path: &str, body: &B) -> Result<(), SsError> {
@@ -109,6 +170,26 @@ impl ApiClient {
         let status = resp.status();
         if !status.is_success() {
             return Err(self.status_error(status));
+        }
+        Ok(())
+    }
+
+    /// `POST {base}{path}` with extra headers + no body; treats any 2xx (incl. 204)
+    /// as ok. Used by the token-authed agent-scan abort (best-effort cancel).
+    pub async fn post_for_status(
+        &self,
+        path: &str,
+        headers: &[(&str, &str)],
+    ) -> Result<(), SsError> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self.http.post(&url);
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().await.map_err(|e| self.transport_error(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(self.agent_status_error(status));
         }
         Ok(())
     }
@@ -224,6 +305,25 @@ impl ApiClient {
     fn status_error(&self, status: reqwest::StatusCode) -> SsError {
         match status.as_u16() {
             404 => SsError::new(ERR_ITEM_NOT_FOUND, "Not found in the catalog."),
+            429 => SsError::new(ERR_RATE_LIMITED, "Rate limited by the API — retry shortly."),
+            code => SsError::new(ERR_API_STATUS, format!("API returned HTTP {code}.")),
+        }
+    }
+
+    /// Status mapping for the agent-scan surface, where 403 (bad/expired run token)
+    /// and 410 (pack already spent) are meaningful and must not collapse into a
+    /// generic network error.
+    fn agent_status_error(&self, status: reqwest::StatusCode) -> SsError {
+        match status.as_u16() {
+            403 => SsError::new(
+                ERR_SCAN_SUBMIT,
+                "The agent-scan run token was rejected (bad, expired, or already spent).",
+            ),
+            404 => SsError::new(ERR_ITEM_NOT_FOUND, "Agent-scan run not found."),
+            410 => SsError::new(
+                ERR_API_STATUS,
+                "The assessment pack is no longer available (the run already submitted).",
+            ),
             429 => SsError::new(ERR_RATE_LIMITED, "Rate limited by the API — retry shortly."),
             code => SsError::new(ERR_API_STATUS, format!("API returned HTTP {code}.")),
         }

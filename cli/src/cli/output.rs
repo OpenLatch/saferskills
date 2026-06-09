@@ -21,6 +21,10 @@ pub enum OutputFormat {
     Human,
     /// Pure JSON — one object per logical result, to stdout.
     Json,
+    /// Markdown block to stdout (e.g. a PR-comment / README agent-scan verdict).
+    /// Only `scan agent` emits Markdown; other commands treat it like Human.
+    #[value(name = "md")]
+    Md,
 }
 
 /// Resolved output configuration for one CLI invocation. Built once at startup
@@ -82,7 +86,7 @@ impl OutputConfig {
     /// which a failed command never produced).
     pub fn print_error(&self, error: &SsError) {
         match self.format {
-            OutputFormat::Human => {
+            OutputFormat::Human | OutputFormat::Md => {
                 let prefix = color::red("Error:", self.color);
                 eprintln!(
                     "{} {prefix} {} ({})",
@@ -129,6 +133,11 @@ impl OutputConfig {
     /// True when `--json` is active.
     pub fn is_json(&self) -> bool {
         self.format == OutputFormat::Json
+    }
+
+    /// True when `--format md` is active (Markdown output).
+    pub fn is_md(&self) -> bool {
+        self.format == OutputFormat::Md
     }
 
     /// True when `--quiet` is active.
