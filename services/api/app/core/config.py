@@ -526,7 +526,7 @@ class Settings(BaseSettings):
         ge=1,
         description=(
             "TTL (days) for an unlisted Agent Report — sets `agent_runs.expires_at`; "
-            "swept by `app/core/sweeps.py` (D-5.5-19)."
+            "swept by `app/core/sweeps.py` (the sweep tick lands in Phase 2; D-5.5-19)."
         ),
     )
     ipinfo_lite_db_path: str = Field(

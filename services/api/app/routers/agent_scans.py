@@ -255,7 +255,7 @@ async def delete_unlisted_run(
     assert run is not None
     # FK CASCADE removes agent_findings + agent_evidence; agent_scan_telemetry is
     # SET NULL (the anonymous aggregate survives). The token ledger is keyed by
-    # hash and reaped by the expiry sweep, not run-cascaded.
+    # hash and reaped by the expiry sweep (Phase 2), not run-cascaded.
     await session.execute(delete(AgentRun).where(AgentRun.id == run.id))
     await session.commit()
     set_unlisted_headers(response)
@@ -297,6 +297,6 @@ async def get_run_status(
         status=run.status,
         score=run.score,
         band=run.band if run.score is not None else None,
-        report_url=str(report.report_url) if report.report_url is not None else None,
-        share_url=str(report.share_url) if report.share_url is not None else None,
+        report_url=report.report_url,
+        share_url=report.share_url,
     )

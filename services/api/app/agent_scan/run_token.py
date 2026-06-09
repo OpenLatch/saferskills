@@ -92,9 +92,10 @@ def mint_submit_token(run_id: str) -> str:
     return f"{_b64url(payload)}.{mac}"
 
 
-def _verify_signature_and_binding(token: str | None, run_id: str) -> str:
-    """Shared no-spend checks: HMAC + expiry + run_id binding. Returns the
-    sha256(token) hex for the optional single-use claim. Raises RunTokenError."""
+def _verify_signature_and_binding(token: str | None, run_id: str) -> tuple[str, int]:
+    """Shared no-spend checks: HMAC + expiry + run_id binding. Returns
+    `(sha256(token) hex, exp)` — the hash keys the optional single-use claim, the
+    exp drives the ledger TTL (so the caller need not re-decode). Raises RunTokenError."""
     if not token:
         raise RunTokenError("missing run token")
     payload_b64, sep, mac = token.rpartition(".")
@@ -116,7 +117,7 @@ def _verify_signature_and_binding(token: str | None, run_id: str) -> str:
         raise RunTokenError("run token bound to a different run")
     if exp < int(datetime.now(UTC).timestamp()):
         raise RunTokenError("expired run token")
-    return hashlib.sha256(token.encode("ascii")).hexdigest()
+    return hashlib.sha256(token.encode("ascii")).hexdigest(), exp
 
 
 def verify_run_token(token: str | None, run_id: str) -> None:
@@ -128,10 +129,8 @@ def verify_run_token(token: str | None, run_id: str) -> None:
 async def verify_submit_token(token: str | None, run_id: str, session: AsyncSession) -> None:
     """Full verify for SUBMIT: the no-spend checks PLUS a single-use claim. A
     replay inserts 0 rows → reject (silent, no duplicate-key ERROR log)."""
-    token_sha256 = _verify_signature_and_binding(token, run_id)
-    # exp lives in the (already-verified) payload — re-decode for the ledger TTL.
-    payload = json.loads(_b64url_decode(token.rpartition(".")[0]))  # type: ignore[union-attr]
-    expires_at = datetime.fromtimestamp(int(payload["exp"]), tz=UTC)
+    token_sha256, exp = _verify_signature_and_binding(token, run_id)
+    expires_at = datetime.fromtimestamp(exp, tz=UTC)
     stmt = (
         pg_insert(AgentRunTokenSpent)
         .values(token_sha256=token_sha256, expires_at=expires_at)

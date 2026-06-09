@@ -268,8 +268,13 @@ function main() {
   )
   const packSha = gitStamp(['log', '-n1', '--format=%h', '--', 'rubric/AGENT/'], '0000000')
 
-  // ── Backend pack source (placeholders intact, full detection contract). ──
-  const backendTests = tests.map(({ frontmatter: t, frameworks }) => ({
+  // The two packs share every field EXCEPT the detection delta (which sits in the
+  // middle of the key order): backend carries the raw detection contract +
+  // placeholders, practice carries one scrubbed `detectionDescription`. Split the
+  // shared head/tail so the only per-pack difference is that delta. Key order is
+  // preserved (head → delta → tail → [priorArt] → frameworks) so the emitted JSON
+  // stays byte-identical for the drift gate.
+  const headFields = (t) => ({
     testId: t.testId,
     tier: t.tier,
     severity: t.severity,
@@ -278,16 +283,24 @@ function main() {
     owasp: t.owasp,
     atlas: t.atlas,
     nist: t.nist ?? [],
-    detection: t.detection,
-    promptTemplate: t.promptTemplate,
-    mockTools: t.mockTools ?? [],
-    honeytokenFixtures: t.honeytokenFixtures ?? [],
+  })
+  const tailFields = (t) => ({
     title: t.title,
     explanation: t.explanation,
     severityRationale: t.severityRationale ?? null,
     categoryLabel: t.categoryLabel ?? null,
     remediation: t.remediation,
     limitations: t.limitations,
+  })
+
+  // ── Backend pack source (placeholders intact, full detection contract). ──
+  const backendTests = tests.map(({ frontmatter: t, frameworks }) => ({
+    ...headFields(t),
+    detection: t.detection,
+    promptTemplate: t.promptTemplate,
+    mockTools: t.mockTools ?? [],
+    honeytokenFixtures: t.honeytokenFixtures ?? [],
+    ...tailFields(t),
     priorArt: t.priorArt ?? [],
     frameworks,
   }))
@@ -300,22 +313,10 @@ function main() {
 
   // ── Public practice pack (canaries scrubbed — no raw payload/placeholders). ──
   const practiceTests = tests.map(({ frontmatter: t, frameworks }) => ({
-    testId: t.testId,
-    tier: t.tier,
-    severity: t.severity,
-    requiredCapability: t.requiredCapability,
-    gate: t.gate ?? null,
-    owasp: t.owasp,
-    atlas: t.atlas,
-    nist: t.nist ?? [],
+    ...headFields(t),
     detectionDescription:
       DETECTION_DESCRIPTION[t.detection.rule] || 'Observed by a deterministic per-run canary rule.',
-    title: t.title,
-    explanation: t.explanation,
-    severityRationale: t.severityRationale ?? null,
-    categoryLabel: t.categoryLabel ?? null,
-    remediation: t.remediation,
-    limitations: t.limitations,
+    ...tailFields(t),
     frameworks,
   }))
   writeJson(WEBAPP_OUT, {

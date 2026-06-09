@@ -37,9 +37,8 @@ def build_agent_report(
     projection must never touch `agent_evidence`, Codex#7).
     """
     share_url = _share_url(settings, run.share_token) if private else None
-    report_url = (
-        share_url if (private and share_url is not None) else _public_report_url(settings, run)
-    )
+    # share_url is None unless private + tokened, so `or` selects the public URL.
+    report_url = share_url or _public_report_url(settings, run)
 
     # model_validate(dict) so Pydantic validates the ORM `str` columns against the
     # DTO's closed Literals at runtime (a static ctor call would mismatch str↔Literal).
