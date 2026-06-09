@@ -53,7 +53,11 @@ ui/
 │   │                 # SegmentedTabs, Toggle (I-3.5), Select (DS listbox — replaces native <select>),
 │   │                 # Checkbox (DS checkbox/radio — token-driven, dark-correct),
 │   │                 # Dialog (native <dialog> modal — was webapp ConfirmDialog),
-│   │                 # RangeSlider (dual-thumb — was catalog ScoreRangeSlider)
+│   │                 # RangeSlider (dual-thumb — was catalog ScoreRangeSlider),
+│   │                 # SeverityPill (the 5-tier `.sev`/`.sw` severity chip — shared by
+│   │                 #   FindingDetail + the /methodology RuleCard; defines its own Severity union),
+│   │                 # FrameworkBadges (the OWASP/MITRE/CWE `.fw-badge` reference row — shared by
+│   │                 #   FindingDetail + RuleCard; owns the family-label maps + FrameworkRef shape)
 │   ├── molecules/    # NavBar, CtaBand, AgentMarquee, WhyRow, InstallTabs, ActionCard,
 │   │                 # RecentScanCard, TrendScanCard (Phase A1)
 │   │                 # CatalogToolbar, CatalogFilterSide, CatalogResultsRow, ScanSplit,
@@ -148,11 +152,11 @@ The v3 mockups (`SaferSkills-Scan-Results-{Private,File}-v3`) ratified **consoli
 
 **Dedup**: one card per `(rule_id, file_path)` — occurrences collapse to a count + locations list (`groupFindings`).
 
-**Severity pill deviation**: `FindingDetail` renders the `.sev` pill inline rather than reusing `BandPill`. `BandPill` is **tier**-colored (4 bands g/y/o/r) and cannot express the v3 5-tier **severity** palette — notably `info`=blue and `high`=solid fill. The `.sev` pill is part of the ported `.find-card` vocabulary, so it lives with the card, not as a separate atom.
+**Severity pill deviation**: the 5-tier `.sev`/`.sw` pill is **not** `BandPill`. `BandPill` is **tier**-colored (4 bands g/y/o/r) and cannot express the 5-tier **severity** palette — notably `info`=blue and `high`=solid fill. It is now extracted into the `SeverityPill` atom (`ui/components/atoms/SeverityPill.tsx`, defining its own `Severity` union), rendered by **both** `FindingDetail` and the public `/methodology` RuleCard (Astro renders it to static HTML — no `client:` directive). The `.sev`/`.sw` CSS stays with the `.find-card` vocabulary in `components.css` (byte-identical output).
 
 ### `.fc-*` / `.ex` / `.ic` / `.sp` CSS vocabulary (DS-owned)
 
-All `FindingDetail` CSS lives in `ui/styles/components.css` (the one-way CSS-ownership rule): `.find-cards` (container) + `.find-card`/`.fc-*` (card chrome), `.sev`/`.sw` (severity pill), `.ex`/`.ex-line`/`.ln`/`.code`/`.ex-elide` (the always-dark code excerpt — a terminal surface, token + intentional `#fff`, per the components.css terminal-palette exemption to rule (a)), `.ic.{zw,bidi,homo,space}` (revealed invisible-char chips), `.fc-occ-*` (occurrences), `.fc-fix`/`.fc-safer`/`.sp` (remediation + Avoid→Safer), `.fc-trace*` (footer). The native `<details>` collapse + the chevron rotation are the only motion — **reduced-motion guarded** (`@media (prefers-reduced-motion: reduce)`). `ui/lib/reveal-invisible.ts` (pure) classifies codepoints into the four `.ic` buckets; the component renders each segment as escaped React text / a labelled chip — **never innerHTML**, so verbatim scanned bytes (incl. a `{match}` placeholder value) cannot inject markup.
+All `FindingDetail` CSS lives in `ui/styles/components.css` (the one-way CSS-ownership rule): `.find-cards` (container) + `.find-card`/`.fc-*` (card chrome), `.sev`/`.sw` (severity pill), `.ex`/`.ex-line`/`.ln`/`.code`/`.ex-elide` (the always-dark code excerpt — a terminal surface, token + intentional `#fff`, per the components.css terminal-palette exemption to rule (a)), `.ic.{zw,bidi,homo,space}` (revealed invisible-char chips), `.fc-occ-*` (occurrences), `.fc-fix`/`.fc-safer`/`.sp` (remediation + Avoid→Safer), `.fc-trace*` (footer). **Framework reference badges** (`.fw-badges`/`.fw-badge` + the `.owasp-llm`/`.mitre-atlas`/`.cwe` family tints) are also DS-owned in `components.css`, rendered through the shared `FrameworkBadges` atom by **both** `FindingDetail` (the `.fc-frameworks` block) and the `/methodology` RuleCard — so the markup + family-label maps live once and the one-way CSS rule keeps them out of any page stylesheet. The native `<details>` collapse + the chevron rotation are the only motion — **reduced-motion guarded** (`@media (prefers-reduced-motion: reduce)`). `ui/lib/reveal-invisible.ts` (pure) classifies codepoints into the four `.ic` buckets; the component renders each segment as escaped React text / a labelled chip — **never innerHTML**, so verbatim scanned bytes (incl. a `{match}` placeholder value) cannot inject markup.
 
 ### `.cap-filter` is a filter group, NOT `SegmentedTabs`
 

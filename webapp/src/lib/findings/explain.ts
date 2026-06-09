@@ -182,6 +182,7 @@ export function resolveFindingDetail(
     categoryLabel: content.categoryLabel,
     severityRationale: content.severityRationale,
     explanation: content.explanation,
+    frameworks: content.frameworks,
     remediation: content.remediation,
   }
 }

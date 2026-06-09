@@ -6,6 +6,7 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:732"]
 title: >-
   Hook makes files world-writable
 explanation: >-

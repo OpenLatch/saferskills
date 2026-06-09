@@ -77,7 +77,185 @@ const SUB_SCORE_TITLES = {
 }
 const SEVERITY_RANK = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
 
+// ─── Framework catalog (OWASP LLM Top 10 / MITRE ATLAS / CWE) ──────────────────
+
+// Single source of truth for the framework-badge labels + canonical URLs. A rule's
+// `frameworks:` codes (schema-validated `^(owasp-llm|mitre-atlas|cwe):…$`) resolve
+// here into clickable {family,id,label,url} badges on the methodology card + the
+// scan-report findings. `resolveFrameworks` hard-fails on an unknown code (mirrors
+// the KNOWN_ENUMS discipline) so a rule can never ship an unresolvable reference.
+// OWASP slug quirk: LLM01 is `llm01-prompt-injection`; the rest are `llmNN2025-…`.
+const FRAMEWORK_CATALOG = {
+  'owasp-llm:llm01': {
+    family: 'owasp-llm',
+    id: 'LLM01',
+    label: 'Prompt Injection',
+    url: 'https://genai.owasp.org/llmrisk/llm01-prompt-injection/',
+  },
+  'owasp-llm:llm02': {
+    family: 'owasp-llm',
+    id: 'LLM02',
+    label: 'Sensitive Information Disclosure',
+    url: 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/',
+  },
+  'owasp-llm:llm03': {
+    family: 'owasp-llm',
+    id: 'LLM03',
+    label: 'Supply Chain',
+    url: 'https://genai.owasp.org/llmrisk/llm032025-supply-chain/',
+  },
+  'owasp-llm:llm06': {
+    family: 'owasp-llm',
+    id: 'LLM06',
+    label: 'Excessive Agency',
+    url: 'https://genai.owasp.org/llmrisk/llm062025-excessive-agency/',
+  },
+  'owasp-llm:llm07': {
+    family: 'owasp-llm',
+    id: 'LLM07',
+    label: 'System Prompt Leakage',
+    url: 'https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/',
+  },
+  'mitre-atlas:AML.T0051': {
+    family: 'mitre-atlas',
+    id: 'AML.T0051',
+    label: 'LLM Prompt Injection',
+    url: 'https://atlas.mitre.org/techniques/AML.T0051',
+  },
+  'mitre-atlas:AML.T0050': {
+    family: 'mitre-atlas',
+    id: 'AML.T0050',
+    label: 'Command and Scripting Interpreter',
+    url: 'https://atlas.mitre.org/techniques/AML.T0050',
+  },
+  'mitre-atlas:AML.T0053': {
+    family: 'mitre-atlas',
+    id: 'AML.T0053',
+    label: 'AI Agent Tool Invocation',
+    url: 'https://atlas.mitre.org/techniques/AML.T0053',
+  },
+  'mitre-atlas:AML.T0010': {
+    family: 'mitre-atlas',
+    id: 'AML.T0010',
+    label: 'AI Supply Chain Compromise',
+    url: 'https://atlas.mitre.org/techniques/AML.T0010',
+  },
+  'mitre-atlas:AML.T0025': {
+    family: 'mitre-atlas',
+    id: 'AML.T0025',
+    label: 'Exfiltration via Cyber Means',
+    url: 'https://atlas.mitre.org/techniques/AML.T0025',
+  },
+  'cwe:78': {
+    family: 'cwe',
+    id: 'CWE-78',
+    label: 'OS Command Injection',
+    url: 'https://cwe.mitre.org/data/definitions/78.html',
+  },
+  'cwe:94': {
+    family: 'cwe',
+    id: 'CWE-94',
+    label: 'Code Injection',
+    url: 'https://cwe.mitre.org/data/definitions/94.html',
+  },
+  'cwe:95': {
+    family: 'cwe',
+    id: 'CWE-95',
+    label: 'Eval Injection',
+    url: 'https://cwe.mitre.org/data/definitions/95.html',
+  },
+  'cwe:200': {
+    family: 'cwe',
+    id: 'CWE-200',
+    label: 'Exposure of Sensitive Information',
+    url: 'https://cwe.mitre.org/data/definitions/200.html',
+  },
+  'cwe:250': {
+    family: 'cwe',
+    id: 'CWE-250',
+    label: 'Execution with Unnecessary Privileges',
+    url: 'https://cwe.mitre.org/data/definitions/250.html',
+  },
+  'cwe:732': {
+    family: 'cwe',
+    id: 'CWE-732',
+    label: 'Incorrect Permission Assignment',
+    url: 'https://cwe.mitre.org/data/definitions/732.html',
+  },
+  'cwe:798': {
+    family: 'cwe',
+    id: 'CWE-798',
+    label: 'Use of Hard-coded Credentials',
+    url: 'https://cwe.mitre.org/data/definitions/798.html',
+  },
+}
+
+// Lock the badged/unbadged split so a NEW rule cannot silently ship unmapped: a
+// new mappable rule bumps EXPECTED_BADGED, a new maintenance/transparency/community
+// rule bumps EXPECTED_UNBADGED — either way an author makes a conscious choice.
+const EXPECTED_BADGED = 39
+const EXPECTED_UNBADGED = 16
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function resolveFrameworks(codes, sourcePath) {
+  if (!Array.isArray(codes) || codes.length === 0) return []
+  return codes.map((code) => {
+    const entry = FRAMEWORK_CATALOG[code]
+    if (!entry) {
+      console.error(
+        `[methodology] ${sourcePath}: unknown framework code '${code}' — add it to FRAMEWORK_CATALOG in scripts/generate-methodology.cjs.`
+      )
+      process.exit(1)
+    }
+    return { family: entry.family, id: entry.id, label: entry.label, url: entry.url }
+  })
+}
+
+// Neutralize the {match}/{path}/{line}/{count} evidence placeholders for the static
+// methodology surface (no per-finding evidence to interpolate). The report surfaces
+// keep the raw, evidence-interpolated `explanation`.
+function staticDescription(explanation) {
+  return String(explanation)
+    .replace(/\{match\}/g, 'the flagged value')
+    .replace(/\{path\}/g, 'the file')
+    .replace(/\{line\}/g, 'that line')
+    .replace(/\{count\}/g, 'the matches')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+}
+
+// Lowercased haystack consumed by BOTH the card's data-search and the CSV row, so
+// the two never drift. Strips our own inline <code> tags from the searchable text.
+function buildSearchIndex(fm, frameworks, description, trigger, categoryLabel) {
+  const fw = frameworks.flatMap((f) => [f.id, f.label]).join(' ')
+  return [fm.ruleId, fm.title, description, categoryLabel, fw, trigger]
+    .join(' ')
+    .replace(/<\/?code>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+// One derived view per rule, computed once and consumed by emitMdx + emitRuleContent
+// + emitRulesTable so the framework data / neutralized description / search index
+// never drift across the three generated surfaces.
+function deriveRule(rule) {
+  const fm = rule.frontmatter
+  const frameworks = resolveFrameworks(fm.frameworks, rule.sourcePath)
+  const categoryLabel = fm.categoryLabel || SUB_SCORE_TITLES[fm.subScore]
+  const description = staticDescription(fm.explanation)
+  const trigger = triggerSummary(fm.trigger)
+  const sourceUrl = `https://github.com/OpenLatch/saferskills/blob/main/${rule.sourcePath}`
+  return {
+    frameworks,
+    categoryLabel,
+    description,
+    triggerSummary: trigger,
+    sourceUrl,
+    searchIndex: buildSearchIndex(fm, frameworks, description, trigger, categoryLabel),
+  }
+}
 
 function parseFrontmatter(rawContent, sourcePath) {
   if (!rawContent.startsWith('---\n') && !rawContent.startsWith('---\r\n')) {
@@ -217,16 +395,21 @@ function emitMdx(rules, rubricShaValue) {
     const list = bySub.get(sub) || []
     if (list.length === 0) continue
     out += `<RuleGroup category=${jsxString(sub)} title=${jsxString(SUB_SCORE_TITLES[sub])} weight={${SUB_SCORE_WEIGHTS[sub]}} count={${list.length}}>\n`
-    for (const { frontmatter: fm, sourcePath } of list) {
+    for (const { frontmatter: fm, sourcePath, derived } of list) {
       out += `  <RuleCard\n`
       out += `    ruleId=${jsxString(fm.ruleId)}\n`
+      out += `    title=${jsxString(fm.title)}\n`
+      out += `    categoryLabel=${jsxString(derived.categoryLabel)}\n`
+      out += `    description=${jsxString(derived.description)}\n`
       out += `    severity=${jsxString(fm.severity)}\n`
       out += `    subScore=${jsxString(fm.subScore)}\n`
       out += `    status=${jsxString(fm.status)}\n`
       out += `    weight={${fm.weight}}\n`
       out += `    appliesTo=${jsxArray(fm.appliesTo)}\n`
-      out += `    triggerSummary=${jsxString(triggerSummary(fm.trigger))}\n`
+      out += `    frameworks=${jsxArray(derived.frameworks)}\n`
+      out += `    triggerSummary=${jsxString(derived.triggerSummary)}\n`
       out += `    limitations=${jsxLimitations(fm.limitations)}\n`
+      out += `    searchIndex=${jsxString(derived.searchIndex)}\n`
       out += `    sourcePath=${jsxString(sourcePath)}\n`
       out += `    rubricSha=${jsxString(rubricShaValue)}\n`
       out += `  />\n`
@@ -263,7 +446,7 @@ function buildStats(rules) {
 function emitRuleContent(rules) {
   const sorted = [...rules].sort((a, b) => a.frontmatter.ruleId.localeCompare(b.frontmatter.ruleId))
   const map = {}
-  for (const { frontmatter: fm } of sorted) {
+  for (const { frontmatter: fm, derived } of sorted) {
     const remediation = { action: fm.remediation.action }
     if (Array.isArray(fm.remediation.steps) && fm.remediation.steps.length > 0) {
       remediation.steps = fm.remediation.steps
@@ -284,6 +467,9 @@ function emitRuleContent(rules) {
     }
     if (fm.severityRationale) entry.severityRationale = fm.severityRationale
     entry.remediation = remediation
+    // Resolved framework badges — read by the web FindingDetail (scan-report
+    // surface) straight off RULE_CONTENT; omitted entirely for unmapped rules.
+    if (derived.frameworks.length > 0) entry.frameworks = derived.frameworks
     map[fm.ruleId] = entry
   }
 
@@ -293,6 +479,12 @@ function emitRuleContent(rules) {
     `export type RuleSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical'\n` +
     `export type RuleSubScore =\n` +
     `  | 'security'\n  | 'supply_chain'\n  | 'maintenance'\n  | 'transparency'\n  | 'community'\n\n` +
+    `export type FrameworkFamily = 'owasp-llm' | 'mitre-atlas' | 'cwe'\n\n` +
+    `export interface FrameworkRef {\n` +
+    `  /** Taxonomy family — drives the badge tint. */\n  family: FrameworkFamily\n` +
+    `  /** Canonical short code, e.g. 'LLM01' / 'AML.T0051' / 'CWE-78'. */\n  id: string\n` +
+    `  /** Human risk name, e.g. 'Prompt Injection'. */\n  label: string\n` +
+    `  /** Canonical reference URL. */\n  url: string\n}\n\n` +
     `export interface RuleSaferPattern {\n  before: string\n  after: string\n}\n\n` +
     `export interface RuleRemediation {\n` +
     `  /** Imperative one-line action naming the user's construct. */\n  action: string\n` +
@@ -304,6 +496,7 @@ function emitRuleContent(rules) {
     `  /** Plain-English headline (no rule_id). */\n  title: string\n` +
     `  /** 'Why it matters' paragraph; may use {match} {path} {line} {count} + inline <code>. */\n  explanation: string\n` +
     `  /** Optional severity→outcome clause rendered after the severity word. */\n  severityRationale?: string\n` +
+    `  /** Optional resolved framework-reference badges (OWASP LLM / MITRE ATLAS / CWE). */\n  frameworks?: FrameworkRef[]\n` +
     `  remediation: RuleRemediation\n}\n\n`
 
   const body = `export const RULE_CONTENT: Record<string, RuleContent> = ${JSON.stringify(
@@ -351,6 +544,62 @@ function emitRuleContentJson(rules, rubricShaValue) {
   return `${JSON.stringify({ rubric_version: rubricShaValue, rules: map }, null, 2)}\n`
 }
 
+// ─── Emit methodology/rules-table.ts ─────────────────────────────────────────
+
+// The full per-rule data the methodology CSV export needs (name = first column),
+// keyed by ruleId. The RuleFilter island joins the currently-visible cards (read
+// from the DOM) to these rows — one filter authority, no second predicate. Carries
+// the SAME neutralized description / resolved frameworks / searchIndex as the cards
+// (via `derived`) so the CSV and the on-page cards can never drift.
+function emitRulesTable(rules) {
+  const sorted = [...rules].sort((a, b) => a.frontmatter.ruleId.localeCompare(b.frontmatter.ruleId))
+  const rows = sorted.map(({ frontmatter: fm, derived }) => ({
+    ruleId: fm.ruleId,
+    name: fm.title,
+    category: fm.subScore,
+    categoryLabel: derived.categoryLabel,
+    severity: fm.severity,
+    // Effective weight — shadow rules contribute 0, matching the card display.
+    weight: fm.status === 'shadow' ? 0 : fm.weight,
+    status: fm.status,
+    appliesTo: fm.appliesTo,
+    description: derived.description,
+    ...(fm.severityRationale ? { severityRationale: fm.severityRationale } : {}),
+    remediationAction: fm.remediation.action,
+    frameworks: derived.frameworks,
+    detection: derived.triggerSummary,
+    limitations: fm.limitations,
+    sourceUrl: derived.sourceUrl,
+    searchIndex: derived.searchIndex,
+  }))
+
+  const header =
+    `// AUTO-GENERATED by scripts/generate-methodology.cjs from rubric/. DO NOT EDIT.\n` +
+    `// Full per-rule table backing the /methodology CSV export (joined to the\n` +
+    `// visible cards by ruleId in RuleFilter — the DOM is the single filter authority).\n\n` +
+    `import type { FrameworkRef } from '@/generated/rules/content'\n\n` +
+    `export interface RuleRow {\n` +
+    `  ruleId: string\n` +
+    `  /** Plain-English headline — the CSV's first column. */\n  name: string\n` +
+    `  category: 'security' | 'supply_chain' | 'maintenance' | 'transparency' | 'community'\n` +
+    `  categoryLabel: string\n` +
+    `  severity: 'info' | 'low' | 'medium' | 'high' | 'critical'\n` +
+    `  /** Effective max penalty (shadow → 0). */\n  weight: number\n` +
+    `  status: 'shadow' | 'active' | 'deprecated'\n` +
+    `  appliesTo: string[]\n` +
+    `  description: string\n` +
+    `  severityRationale?: string\n` +
+    `  remediationAction: string\n` +
+    `  frameworks: FrameworkRef[]\n` +
+    `  /** Human trigger summary (the card's "Detection logic"). */\n  detection: string\n` +
+    `  limitations: string[]\n` +
+    `  sourceUrl: string\n` +
+    `  searchIndex: string\n` +
+    `}\n\n`
+
+  return `${header}export const ruleRows: RuleRow[] = ${JSON.stringify(rows, null, 2)}\n`
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 function main() {
@@ -388,6 +637,23 @@ function main() {
     }
   }
 
+  // Derive the shared per-rule view (frameworks / neutralized description /
+  // search index) ONCE; emitMdx + emitRuleContent + emitRulesTable all read it.
+  for (const rule of rules) rule.derived = deriveRule(rule)
+
+  // Lock the badged/unbadged split — a new rule cannot silently ship unmapped.
+  const badged = rules.filter((r) => r.derived.frameworks.length > 0).length
+  const unbadged = rules.length - badged
+  if (rules.length > 0 && (badged !== EXPECTED_BADGED || unbadged !== EXPECTED_UNBADGED)) {
+    console.error(
+      `[methodology] framework-badge count drift: badged=${badged} (expected ${EXPECTED_BADGED}), unbadged=${unbadged} (expected ${EXPECTED_UNBADGED}).`
+    )
+    console.error(
+      `[methodology] Map the new rule's frameworks (or leave it intentionally unbadged), then update EXPECTED_BADGED / EXPECTED_UNBADGED in scripts/generate-methodology.cjs.`
+    )
+    process.exit(1)
+  }
+
   const sha = rubricSha()
   const mdx = emitMdx(rules, sha)
   const outPath = path.join(OUT_DIR, 'index.mdx')
@@ -421,6 +687,12 @@ function main() {
   const contentPath = path.join(RULES_OUT_DIR, 'content.ts')
   fs.writeFileSync(contentPath, emitRuleContent(rules))
   console.log(`[methodology] Wrote ${path.relative(ROOT, contentPath)} (${rules.length} rule(s)).`)
+
+  // Full per-rule table for the methodology CSV export (joined to visible cards
+  // by ruleId in RuleFilter).
+  const tablePath = path.join(OUT_DIR, 'rules-table.ts')
+  fs.writeFileSync(tablePath, emitRulesTable(rules))
+  console.log(`[methodology] Wrote ${path.relative(ROOT, tablePath)} (${rules.length} rule(s)).`)
 
   // Backend mirror for the CLI offline finding prose (D-05-32).
   fs.mkdirSync(path.dirname(BACKEND_RULES_OUT), { recursive: true })

@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [plugin]
+frameworks: ["owasp-llm:llm02", "mitre-atlas:AML.T0025", "cwe:200"]
 title: >-
   Reads your SSH private key
 categoryLabel: >-

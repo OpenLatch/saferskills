@@ -6,6 +6,7 @@ weight: 15
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm03", "mitre-atlas:AML.T0010"]
 title: >-
   Hook published by a brand-new account
 categoryLabel: >-

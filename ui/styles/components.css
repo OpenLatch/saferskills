@@ -7380,6 +7380,77 @@ html.dark .sev.low {
   background: rgba(255, 255, 255, 0.04);
 }
 
+/* ── Framework reference badges (OWASP LLM / MITRE ATLAS / CWE) ──────────────
+   DS-owned because BOTH the public methodology RuleCard and the scan-report
+   FindingDetail render them (the one-way CSS-ownership rule). Family-tinted,
+   token-driven, dark-correct. */
+.fw-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.fw-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-paper-deep);
+  color: var(--fg-2);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    border-color var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std);
+}
+.fw-badge .fw-fam {
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.fw-badge .fw-id {
+  color: inherit;
+}
+.fw-badge .fw-ext {
+  font-size: 9px;
+  color: var(--fg-3);
+}
+.fw-badge:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.fw-badge.owasp-llm {
+  border-color: rgba(13, 148, 136, 0.4);
+}
+.fw-badge.owasp-llm:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+.fw-badge.mitre-atlas {
+  border-color: rgba(249, 115, 22, 0.4);
+}
+.fw-badge.mitre-atlas:hover {
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+}
+.fw-badge.cwe:hover {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+html.dark .fw-badge {
+  background: var(--bg-surface-mute);
+}
+html.dark .fw-badge.cwe:hover {
+  border-color: var(--fg-1);
+  color: var(--fg-1);
+}
+
 /* occurrence-count badge + chevron */
 .find-card .fc-right {
   display: inline-flex;
@@ -7458,6 +7529,11 @@ html.dark .fc-count {
   text-transform: uppercase;
   color: var(--fg-3);
   margin-bottom: 9px;
+}
+
+/* framework references (OWASP LLM / MITRE ATLAS / CWE) on a finding */
+.find-card .fc-frameworks {
+  margin-top: 2px;
 }
 
 /* 3 — why it matters */

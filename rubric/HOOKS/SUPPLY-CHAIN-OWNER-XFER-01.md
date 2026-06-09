@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm03", "mitre-atlas:AML.T0010"]
 title: >-
   Hook repo is maintained by a very small group
 categoryLabel: >-

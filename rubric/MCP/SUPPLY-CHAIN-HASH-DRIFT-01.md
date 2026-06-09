@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [mcp]
+frameworks: ["owasp-llm:llm03", "mitre-atlas:AML.T0010"]
 title: >-
   MCP server content changed since the last scan (possible rug-pull)
 categoryLabel: >-

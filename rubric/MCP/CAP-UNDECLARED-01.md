@@ -6,6 +6,7 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [mcp]
+frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0053"]
 title: >-
   MCP server spawns subprocesses without declaring the capability
 categoryLabel: >-

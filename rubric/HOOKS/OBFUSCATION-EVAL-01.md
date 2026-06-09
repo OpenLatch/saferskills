@@ -6,6 +6,7 @@ weight: 25
 status: active
 shadowUntil: null
 appliesTo: [hooks]
+frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:95"]
 title: >-
   Hook builds and runs commands at runtime with eval
 categoryLabel: >-

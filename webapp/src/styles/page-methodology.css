@@ -397,20 +397,22 @@ html.dark .rf-sev[aria-pressed="true"] {
   display: inline-block;
   background: var(--fg-3);
 }
+/* Dots mirror the SeverityPill (`.sev`) tier colors: critical=red, high=orange,
+   medium=yellow, low=grey, info=blue — keep these in sync with components.css `.sev`. */
 .rf-sev--critical .rf-sev-dot {
-  background: var(--color-ink);
-}
-.rf-sev--high .rf-sev-dot {
   background: var(--score-red);
 }
-.rf-sev--medium .rf-sev-dot {
+.rf-sev--high .rf-sev-dot {
   background: var(--score-orange);
 }
-.rf-sev--low .rf-sev-dot {
+.rf-sev--medium .rf-sev-dot {
   background: var(--score-yellow);
 }
-.rf-sev--info .rf-sev-dot {
+.rf-sev--low .rf-sev-dot {
   background: var(--fg-3);
+}
+.rf-sev--info .rf-sev-dot {
+  background: var(--status-info);
 }
 
 /* Search box — sits top-right, aligned with the category-pill row. */
@@ -479,6 +481,37 @@ html.dark .rf-search-input {
 }
 .rf-clear:hover {
   color: var(--brand-primary-dark);
+}
+.rf-export {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std);
+}
+.rf-export:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary-dark);
+}
+.rf-export:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.rf-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+html.dark .rf-export {
+  background: var(--bg-surface-mute);
 }
 .rf-empty {
   font-family: var(--font-sans);

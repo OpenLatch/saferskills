@@ -6,6 +6,7 @@ weight: 25
 status: shadow
 shadowUntil: 2026-W3-end
 appliesTo: [mcp]
+frameworks: ["owasp-llm:llm03", "mitre-atlas:AML.T0010"]
 title: >-
   Name is one character off an established MCP server
 categoryLabel: >-

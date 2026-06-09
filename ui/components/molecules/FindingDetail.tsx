@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 
 import CopyIconButton from '../atoms/CopyIconButton'
+import FrameworkBadges, { type FrameworkRef } from '../atoms/FrameworkBadges'
+import SeverityPill, { type Severity } from '../atoms/SeverityPill'
 import { revealInvisible } from '../../lib/reveal-invisible'
 
-export type FindingSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical'
+export type FindingSeverity = Severity
 
 /** One line of the matched-line window (mirrors the report `evidence_excerpt`). */
 export interface EvidenceLine {
@@ -30,6 +32,10 @@ export interface FindingSaferPattern {
   before: string
   after: string
 }
+
+/** Resolved framework-reference badge — re-exported from the shared atom so the
+ *  rendering (family-label maps + markup) lives in exactly one place. */
+export type FindingFrameworkRef = FrameworkRef
 
 /** Closed set of placeholder values interpolated into the explanation/steps. */
 export interface FindingPlaceholders {
@@ -59,6 +65,8 @@ export interface FindingDetailProps {
   /** De-duplicated occurrences of this (rule, file) group. */
   occurrences: FindingOccurrence[]
   remediation: { action: string; steps?: string[]; saferPattern?: FindingSaferPattern }
+  /** Optional resolved framework-reference badges (OWASP LLM / MITRE ATLAS / CWE). */
+  frameworks?: FindingFrameworkRef[]
   /** matched_content_sha256 of the representative occurrence (trace footer copy). */
   sha?: string | null
   /** Permalink to the rule in the methodology (finding.remediation_link). */
@@ -228,6 +236,7 @@ export default function FindingDetail({
   evidence,
   occurrences,
   remediation,
+  frameworks,
   sha,
   methodologyHref,
   githubHref,
@@ -247,10 +256,7 @@ export default function FindingDetail({
       }}
     >
       <summary>
-        <span className={`sev ${severity}`}>
-          <span className="sw" aria-hidden="true" />
-          {sevLabel}
-        </span>
+        <SeverityPill severity={severity} label={sevLabel} />
         <span className="fc-titlewrap">
           <span className="fc-title">{title}</span>
           <span className="fc-rule">
@@ -341,6 +347,13 @@ export default function FindingDetail({
             </div>
           ) : null}
         </div>
+
+        {frameworks && frameworks.length > 0 ? (
+          <div className="fc-frameworks">
+            <div className="fc-lbl">Framework references</div>
+            <FrameworkBadges frameworks={frameworks} />
+          </div>
+        ) : null}
 
         <details className="fc-trace">
           <summary>

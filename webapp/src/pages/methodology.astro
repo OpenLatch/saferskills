@@ -13,6 +13,7 @@ import Footer from '@ui/components/atoms/Footer.astro'
 
 import MethodologyIndex from '@/generated/methodology/index.mdx'
 import { ruleCount, ruleStats } from '@/generated/methodology/rule-count'
+import { ruleRows } from '@/generated/methodology/rules-table'
 import FormulaPanel from '@/components/methodology/FormulaPanel.astro'
 import RuleFilter from '@/components/methodology/RuleFilter.tsx'
 
@@ -51,15 +52,13 @@ import '@/styles/page-methodology.css'
         <Eyebrow withRule>RULES · 02</Eyebrow>
         <h2 class="prose-h2">The rules.</h2>
         <p>
-          Each card is rendered from the rule's YAML frontmatter under
-          <code>rubric/&lt;CATEGORY&gt;/&lt;NAME&gt;-NN.md</code>; the
-          <code>rule_id</code> links to its source at the current
-          <code>rubricSha</code>. Filter by category, severity, or text — every
-          rule stays in the page (and the filter degrades to the full list
-          without JS).
+          Every check we run is spelled out here — what it looks for, why it
+          matters, how serious it is, and how to fix it, with each rule mapped to
+          the OWASP LLM Top 10, MITRE ATLAS, and CWE where it applies. Search by
+          name, severity, or framework, then export the list as CSV.
         </p>
       </article>
-      <RuleFilter client:idle groups={ruleStats} total={ruleCount} targetId="rules-index" />
+      <RuleFilter client:idle groups={ruleStats} total={ruleCount} rows={ruleRows} targetId="rules-index" />
       <div class="rules-index" id="rules-index">
         <MethodologyIndex />
       </div>
@@ -75,16 +74,15 @@ import '@/styles/page-methodology.css'
         <Eyebrow withRule>REPRODUCIBILITY · 03</Eyebrow>
         <h2 class="prose-h2">Reproducibility.</h2>
         <p>
-          Every scan report records the rubric version (a git SHA of
-          <code>rubric/</code>) and the engine version. A vendor can re-derive any
-          verdict by checking out those versions and running the rule against the
-          artifact at <code>ref_sha</code>. No model, no random seed, no API key
-          required.
+          Run the same code through SaferSkills twice and you get the same result —
+          every time. Scores come from fixed, published rules, never from an AI model
+          making a judgment call, so anyone can re-check a verdict for themselves and
+          reach the identical answer. No account, no API key, nothing to take on faith.
         </p>
         <p>
-          <strong>No black-box findings.</strong> If a rule fires, the rule_id plus
-          the exact file path and line range is in the public report — reproducible
-          from the rule's documented trigger.
+          <strong>No black-box findings.</strong> When a check flags something, the
+          report shows exactly what was found, where, and which rule caught it — so you
+          can see the reasoning, confirm it yourself, and fix the issue.
         </p>
       </article>
     </div>

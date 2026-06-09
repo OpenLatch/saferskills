@@ -52,6 +52,10 @@ const base: FindingDetailProps = {
       after: 'See INSTALL.md — review scripts/bootstrap.sh (sha-pinned) first.',
     },
   },
+  frameworks: [
+    { family: 'owasp-llm', id: 'LLM01', label: 'Prompt Injection', url: 'https://genai.owasp.org/llmrisk/llm01-prompt-injection/' },
+    { family: 'mitre-atlas', id: 'AML.T0051', label: 'LLM Prompt Injection', url: 'https://atlas.mitre.org/techniques/AML.T0051' },
+  ],
   sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
   methodologyHref: 'https://saferskills.ai/methodology#fenced-run',
   githubHref: 'https://github.com/acme/demo/blob/abc1234/SKILL.md#L13',

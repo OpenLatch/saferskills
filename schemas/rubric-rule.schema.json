@@ -125,6 +125,14 @@
       "items": {"type": "string", "minLength": 1},
       "description": "What the rule cannot catch. MANDATORY — no rule ships without limitations."
     },
+    "frameworks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(owasp-llm|mitre-atlas|cwe):[A-Za-z0-9.\\-]+$"
+      },
+      "description": "Optional short framework-reference codes mapping the rule to an external AI-risk taxonomy (`owasp-llm:<id>`, `mitre-atlas:<id>`, `cwe:<id>`, e.g. `owasp-llm:llm01`, `mitre-atlas:AML.T0051`, `cwe:78`). Each code is resolved by the central FRAMEWORK_CATALOG in scripts/generate-methodology.cjs into a clickable {family,id,label,url} badge on the methodology card + scan-report findings; an unknown code hard-fails the generator. Omit where no honest AI-framework mapping exists (most maintenance/transparency/community rules). x-postgresql-skip already holds — no DB/Pydantic/Zod impact."
+    },
     "priorArt": {
       "type": "array",
       "items": {"type": "string", "format": "uri"},
@@ -295,6 +303,7 @@
         "Cannot detect tag-channel characters re-encoded as numeric entities (`&#xE0001;`); rule operates on decoded text only.",
         "Cannot detect tag-channel chars hidden inside compressed payloads — those are scanned only post-decompression."
       ],
+      "frameworks": ["owasp-llm:llm01", "mitre-atlas:AML.T0051"],
       "priorArt": [
         "https://aws.amazon.com/blogs/security/defending-llm-applications-against-unicode-character-smuggling/",
         "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
