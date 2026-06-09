@@ -2,7 +2,7 @@
 
 Non-generated wrappers around the generated `AgentScanReport` entity shape
 (allowed at this layer per `schema-driven-development.md`). All inherit
-`OrmBaseModel` → snake_case wire keys.
+`OrmBaseModel` -> snake_case wire keys.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from app.schemas.orm_base import OrmBaseModel
 from app.services.agent_compat import AgentName
 
 # Runtime = the canonical agent set (`agent_compat.AgentName`, the maintained
-# single source — do NOT re-list the agents here) plus `other` for an unrecognized
+# single source - do NOT re-list the agents here) plus `other` for an unrecognized
 # harness. Local Literals for the rest mirror the schema enums (the generated
 # equivalents are StrEnum classes, awkward to default + assign in a wire DTO).
 _Runtime = AgentName | Literal["other"]
@@ -31,7 +31,7 @@ _Tier = Literal["green", "yellow", "orange", "red", "unscoped"]
 
 
 class AgentScanCreateRequest(OrmBaseModel):
-    """`POST /api/v1/agent-scans` body — mint a run + one-time submit token."""
+    """`POST /api/v1/agent-scans` body - mint a run + one-time submit token."""
 
     agent_name: str = Field(..., max_length=200, description="Display name for the scanned agent.")
     runtime: _Runtime = Field(..., description="Declared agent runtime (8 ids + `other`).")
@@ -58,6 +58,61 @@ class AgentScanStatusResponse(OrmBaseModel):
     band: str | None = None
     report_url: str | None = None
     share_url: str | None = None
+
+
+# ── Submission contract (`agent_scan_result.v1`) ────────────────────────────────
+# Transient request input (stored raw in `agent_evidence`, NOT a generated entity).
+# Version-literal-gated so a v2 lands as a new discriminated variant later. NO
+# verdict/score field - the cloud decides (prime invariant #1). OrmBaseModel accepts
+# both snake_case and camelCase input (`populate_by_name=True`).
+
+
+class AgentScanTurn(OrmBaseModel):
+    """One transcript turn. `untrusted_input` carries the planted canary by
+    construction - the grader matches ONLY against `agent` (+ `tool`) turns so the
+    injection payload itself never counts as a leak."""
+
+    role: Literal["untrusted_input", "agent", "tool"]
+    raw_response: str
+
+
+class AgentScanToolCall(OrmBaseModel):
+    """A structured mock-tool call the agent made (name + args), recorded verbatim."""
+
+    name: str
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentScanTestResult(OrmBaseModel):
+    """The per-test evidence the client submits. `executed` is graded; the two
+    non-executed states map to `n_a`/`error` (confidence-, never a penalty)."""
+
+    test_id: str = Field(..., pattern=r"^AS-\d{2}$")
+    status: Literal["executed", "skipped_capability_absent", "error"]
+    turns: list[AgentScanTurn] = Field(default_factory=list[AgentScanTurn])
+    tool_calls: list[AgentScanToolCall] = Field(default_factory=list[AgentScanToolCall])
+
+
+class AgentScanResultV1(OrmBaseModel):
+    """`POST /agent-scans/{run_id}/submit` JSON body - the raw evidence bundle."""
+
+    schema_version: Literal["agent_scan_result.v1"]
+    run_id: str
+    pack_id: str
+    pack_version: str
+    pack_signature_verified: bool = False
+    install_path: str | None = None
+    capabilities_present: list[str] = Field(default_factory=list)
+    capabilities_absent: list[str] = Field(default_factory=list)
+    decoy_canaries_observed: list[str] = Field(default_factory=list)
+    tests: list[AgentScanTestResult]
+
+
+class AgentScanPasteBackRequest(OrmBaseModel):
+    """Alternate submit body: a single `paste_back` blob = `base64url(gzip(json))`
+    (D-5.5-17). Decoded + ratio-guarded server-side, then parsed as `AgentScanResultV1`."""
+
+    paste_back: str = Field(..., description="base64url(gzip(agent_scan_result.v1 JSON)).")
 
 
 # ── Report wire DTO (hand-written snake_case, mirrors agent-scan-report.schema) ──
@@ -118,7 +173,7 @@ class AgentFindingRow(OrmBaseModel):
 
 
 class AgentScanReportDetail(OrmBaseModel):
-    """`GET /agent-scans/{run_id}` + `…/r/{token}` wire report (snake_case)."""
+    """`GET /agent-scans/{run_id}` + `.../r/{token}` wire report (snake_case)."""
 
     id: str
     status: str
@@ -137,7 +192,7 @@ class AgentScanReportDetail(OrmBaseModel):
     capabilities_present: list[str] = Field(default_factory=list)
     capabilities_absent: list[str] = Field(default_factory=list)
     family_tally: dict[str, int] = Field(default_factory=dict)
-    # Always supplied by the report builder (empty in Phase 1 — no grading yet).
+    # Always supplied by the report builder (empty in Phase 1 - no grading yet).
     checks: list[AgentCheckRow]
     findings: list[AgentFindingRow]
     component_scores: list[AgentComponentScoreRow]

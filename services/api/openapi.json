@@ -307,7 +307,7 @@
         "type": "object"
       },
       "AgentScanCreateRequest": {
-        "description": "`POST /api/v1/agent-scans` body \u2014 mint a run + one-time submit token.",
+        "description": "`POST /api/v1/agent-scans` body - mint a run + one-time submit token.",
         "properties": {
           "agent_name": {
             "description": "Display name for the scanned agent.",
@@ -409,7 +409,7 @@
         "type": "object"
       },
       "AgentScanReportDetail": {
-        "description": "`GET /agent-scans/{run_id}` + `\u2026/r/{token}` wire report (snake_case).",
+        "description": "`GET /agent-scans/{run_id}` + `.../r/{token}` wire report (snake_case).",
         "properties": {
           "agent_name": {
             "title": "Agent Name",
@@ -3317,6 +3317,68 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/agent-scans/{run_id}": {
+      "delete": {
+        "description": "Admin-only delete of an Agent Report (public reports are user-irreversible;\nD-5.5-20). Cascades findings/telemetry/evidence, writes one audit row. 404 if\nabsent. Never touches `artifact_blobs`; the token ledger is reaped by sweep.",
+        "operationId": "admin_delete_agent_run_api_v1_admin_agent_scans__run_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Admin Delete Agent Run Api V1 Admin Agent Scans  Run Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Delete Agent Run",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/catalog/{slug}/archive": {
       "post": {
         "operationId": "admin_archive_item_api_v1_admin_catalog__slug__archive_post",
@@ -4262,7 +4324,7 @@
     },
     "/api/v1/agent-scans/r/{token}": {
       "delete": {
-        "description": "Eager self-delete of an unlisted run (Phase 1: the run row + its FK-CASCADE\nchildren; the full `delete_agent_run_cascade` lands in Phase 2). Public \u2192 404.",
+        "description": "Eager self-delete of an unlisted run (Phase 1: the run row + its FK-CASCADE\nchildren; the full `delete_agent_run_cascade` lands in Phase 2). Public -> 404.",
         "operationId": "delete_unlisted_run_api_v1_agent_scans_r__token__delete",
         "parameters": [
           {
@@ -4296,7 +4358,7 @@
         ]
       },
       "get": {
-        "description": "View an unlisted Agent Report via its share token (private projection).\n\nInvalid / expired / deleted / not-unlisted ALL \u2192 generic 404 (no oracle). A\npromoted (now-public) run 307-redirects to the public report route.",
+        "description": "View an unlisted Agent Report via its share token (private projection).\n\nInvalid / expired / deleted / not-unlisted ALL -> generic 404 (no oracle). A\npromoted (now-public) run 307-redirects to the public report route.",
         "operationId": "get_unlisted_run_api_v1_agent_scans_r__token__get",
         "parameters": [
           {
@@ -4382,7 +4444,7 @@
     },
     "/api/v1/agent-scans/{run_id}": {
       "get": {
-        "description": "Public projection of a run. 404 for unlisted runs (served only via the token\nroute). NEVER loads `agent_evidence` \u2014 the public report carries no transcript.",
+        "description": "Public projection of a run. 404 for unlisted runs (served only via the token\nroute). NEVER loads `agent_evidence` - the public report carries no transcript.",
         "operationId": "get_run_api_v1_agent_scans__run_id__get",
         "parameters": [
           {
@@ -4424,9 +4486,62 @@
         ]
       }
     },
+    "/api/v1/agent-scans/{run_id}/abort": {
+      "post": {
+        "description": "Explicit cancel: mark the run `aborted` + drop any partial evidence (204).\n\nToken-authed (no spend) - only the submitter holds the run token. A run already\ngraded/published is not abortable (409).",
+        "operationId": "abort_run_api_v1_agent_scans__run_id__abort_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-agent-run-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Agent-Run-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Abort Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
     "/api/v1/agent-scans/{run_id}/pack": {
       "get": {
-        "description": "Serve the per-run Ed25519-signed pack (token-gated, 410 after submit).\n\nToken verify is NO-spend (the agent + CLI each pre-flight a fetch). Refuses to\nre-serve once the run is past `fetched` (the canaries are spent \u2192 410). Archives\nthe exact served bytes + signature for reproducibility and advances to\n`fetched`.",
+        "description": "Serve the per-run Ed25519-signed pack (token-gated, 410 after submit).\n\nToken verify is NO-spend (the agent + CLI each pre-flight a fetch). Refuses to\nre-serve once the run is past `fetched` (the canaries are spent -> 410). Archives\nthe exact served bytes + signature for reproducibility and advances to\n`fetched`.",
         "operationId": "get_pack_api_v1_agent_scans__run_id__pack_get",
         "parameters": [
           {
@@ -4484,7 +4599,7 @@
     },
     "/api/v1/agent-scans/{run_id}/status": {
       "get": {
-        "description": "Token-authed lightweight poll \u2014 the poll target for BOTH public + unlisted\nruns (the `private_lookup` cap is too low for ~120 polls a 3-min scan needs).",
+        "description": "Token-authed lightweight poll - the poll target for BOTH public + unlisted\nruns (the `private_lookup` cap is too low for ~120 polls a 3-min scan needs).",
         "operationId": "get_run_status_api_v1_agent_scans__run_id__status_get",
         "parameters": [
           {
@@ -4537,6 +4652,50 @@
           }
         },
         "summary": "Get Run Status",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/{run_id}/submit": {
+      "post": {
+        "description": "Submit `agent_scan_result.v1`, grade it synchronously, return the report.\n\nOrdered: gate -> idempotent-replay (already graded -> stored report, BEFORE the\ntoken spend so a network-retry never 403s on a spent token) -> single-use token\nspend -> state check -> decode/validate -> store raw -> grade off the event loop\n-> persist -> best-effort telemetry -> public projection (+ share_url if unlisted).",
+        "operationId": "submit_run_api_v1_agent_scans__run_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Run",
         "tags": [
           "agent-scans"
         ]
