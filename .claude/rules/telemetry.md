@@ -120,6 +120,11 @@ agent output / transcript**, tagged `product: "saferskills"`; an unrecognized
 ASN/fingerprint signal is the separate write-only `agent_scan_telemetry` store
 (`privacy.md` § agent_scan_telemetry), NOT this PostHog event.
 
+> **Agent ids are single-sourced.** Both `install_reported.agent` and
+> `agent_scan_completed.runtime` derive their closed agent-id set from
+> `app/services/agent_compat.py` (`AgentName` / `ALL_AGENTS`) — `events.py` MUST
+> NOT re-declare the list (`naming-conventions.md` § Agent identifiers).
+
 ## Sentry
 
 Separate Sentry projects from OpenLatch (brand-independence D-19), all under the org `openlatch` on the **DE region** (`https://de.sentry.io`). **Four surfaces, three projects:**

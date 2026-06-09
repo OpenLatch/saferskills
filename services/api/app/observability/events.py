@@ -23,6 +23,8 @@ from typing import Any, Literal, cast
 
 import structlog
 
+from app.services.agent_compat import ALL_AGENTS, AgentName
+
 logger = structlog.get_logger("saferskills.observability")
 
 # ─── Closed-enum types (PEP 695 syntax - Python 3.12+) ───────────────────────
@@ -61,11 +63,10 @@ type IngestionFailureReason = Literal[
 ]
 type CatalogItemArchivedReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
-# I-05 install telemetry (D-05-31). agent ∈ the 8 canonical ids; kind ∈ the
-# 5-kind taxonomy. Both closed-enum - no slug, no IP, no PII.
-type InstallAgent = Literal[
-    "claude-code", "cursor", "codex", "copilot", "windsurf", "cline", "gemini", "openclaw"
-]
+# I-05 install telemetry (D-05-31). agent ∈ the canonical agent ids — sourced from
+# the single source of truth `app.services.agent_compat.AgentName`, NEVER re-listed
+# here (naming-conventions.md § Agent identifiers). kind ∈ the 5-kind taxonomy.
+type InstallAgent = AgentName
 type InstallKind = Literal["skill", "mcp_server", "hook", "plugin", "rules"]
 
 
@@ -484,21 +485,10 @@ def emit_install_reported(*, agent: InstallAgent, kind: InstallKind) -> None:
 
 # ─── Agent-scan emitter (I-5.5, D-5.5-08) ─────────────────────────────────────
 
-type AgentRuntime = InstallAgent | Literal["other"]
-# The closed agent-runtime value set (the 8 ids + `other`) - guards the PostHog enum.
-_RUNTIME_VALUES = frozenset(
-    {
-        "claude-code",
-        "cursor",
-        "codex",
-        "copilot",
-        "windsurf",
-        "cline",
-        "gemini",
-        "openclaw",
-        "other",
-    }
-)
+type AgentRuntime = AgentName | Literal["other"]
+# Runtime guard for the PostHog enum — derived from the canonical `ALL_AGENTS`
+# (the single source of truth) + `other`, so it can never drift from the agent set.
+_RUNTIME_VALUES = frozenset(ALL_AGENTS) | {"other"}
 
 
 def emit_agent_scan_completed(*, tier: TierBucket, findings_count: int, runtime: str) -> None:
