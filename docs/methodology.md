@@ -158,6 +158,16 @@ The catalog's value is the scan, not the index. **Every public-github capability
 
 When the rubric or engine version advances, the whole already-scanned corpus is **re-evaluated from the stored artifact bytes** — no GitHub re-crawl — so every published verdict stays consistent with the active methodology while respecting upstream rate limits.
 
+## Agent Scan — the behavioral pack
+
+Alongside the static **component** scan above, SaferSkills runs a behavioral **Agent Scan** — a pack of behavioral tests (`rubric/AGENT/`, ids `AS-01` … `AS-22`) that probe how an agent *behaves*, not just what its files contain. The pack is a separate taxonomy from the `SS-<CATEGORY>` component rules: each AS-NN test is a documented behavioral probe with its own frontmatter contract.
+
+Each test maps to the external AI-risk taxonomies — OWASP LLM Top 10, MITRE ATLAS, NIST, and CWE — so a finding is anchored to a recognised threat, never an opaque opinion.
+
+**The behavioral score reuses the exact same model as the component scan** — the same per-finding severity penalties, the same severity ceiling, and the same green/yellow/orange/red band mapping. A practitioner reads an Agent Scan report identically to a component report: same severity pills, same bands, same math.
+
+Verdicts use **observation language, never assurance language**: a test reports "observed vulnerable" or "not observed under pack v<version>" — never "secure", "safe", or "certified". A clean run means the pack did not observe the behavior at that version, not a guarantee of safety. (The full grading flow lands in a later phase; this section introduces the pack + its scoring contract.)
+
 ## Scan-trace transparency
 
 Every finding carries: `rule_id`, `severity`, `file_path`, `line_start`/`line_end`, `matched_content_sha256` (hash only — the raw matched content is never published per [`../.claude/rules/security.md`](../.claude/rules/security.md) § Scan-trace transparency), `remediation_link` to the rule source at the recorded `rubric_version`. The per-finding payload is capped at 4 KiB; the per-scan trace at 256 KiB.

@@ -29,6 +29,7 @@ Bucket = Literal[
     "item_list",
     "artifact_download",
     "private_lookup",
+    "agent_scan_submit",
 ]
 
 

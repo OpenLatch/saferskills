@@ -191,6 +191,14 @@ KNOWN_ENUMS: dict[str, dict[str, Any]] = {
         "values": ("top500", "top5k", "long_tail"),
         "description": "Rank-based popularity bucket, distinct from the scan-tier (I-04 D-04-13).",
     },
+    "agent_run_status": {
+        "values": ("created", "fetched", "submitted", "graded", "published", "aborted"),
+        "description": "Agent-scan run lifecycle status (I-5.5).",
+    },
+    "agent_test_verdict": {
+        "values": ("vulnerable", "not_observed", "n_a", "error"),
+        "description": "Per-test outcome of a behavioral agent test (I-5.5).",
+    },
 }
 
 

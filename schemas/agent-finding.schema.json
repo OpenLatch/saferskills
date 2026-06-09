@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saferskills.ai/schemas/agent-finding.schema.json",
+  "title": "AgentFinding",
+  "description": "One observed-vulnerable behavioral test on an agent scan (an `agent_findings` row). Findings rows are `verdict='vulnerable'`; the `not_observed`/`n_a`/`error` outcomes live on the report `checks` array (proof-of-tests), not here. Hash/slot-only evidence — NEVER raw agent output per .claude/rules/security.md § Scan-trace transparency. The explainable-finding prose (title/explanation/severityRationale/remediation) is NOT a column — it is pack-sourced and inlined by the report builder at request time (Phase 2), exactly as report_builder.py inlines component rule prose. The post-redaction transcript window (`evidenceExcerpt`) is report-DTO-only, hydrated only on the unlisted token route.",
+  "x-postgresql-tablename": "agent_findings",
+  "x-postgresql-indexes": [
+    { "name": "idx_agent_findings_run_id", "columns": ["agent_run_id"] }
+  ],
+  "x-postgresql-extra-columns": [
+    { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+    { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "agentRunId",
+    "testId",
+    "severity",
+    "verdict",
+    "family",
+    "scoreDelta",
+    "detectionRule"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "x-primary-key": true,
+      "x-postgresql-default": "gen_random_uuid()",
+      "description": "Server-assigned UUID (gen_random_uuid())."
+    },
+    "agentRunId": {
+      "type": "string",
+      "format": "uuid",
+      "x-foreign-key": { "table": "agent_runs", "column": "id", "ondelete": "CASCADE" },
+      "description": "FK to the parent agent_runs row."
+    },
+    "testId": {
+      "type": "string",
+      "pattern": "^AS-\\d{2}$",
+      "maxLength": 8,
+      "description": "Behavioral test id (AS-01…AS-22) — keys the pack-sourced prose join."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"],
+      "x-postgresql-enum-type": "severity",
+      "description": "5-tier severity ladder (D-02), reused from the component engine."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["vulnerable", "not_observed", "n_a", "error"],
+      "x-postgresql-enum-type": "agent_test_verdict",
+      "description": "Per-test outcome. `agent_findings` rows are always `vulnerable`; the other outcomes live on the report `checks` array."
+    },
+    "family": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "OWASP family label used for grouping (proof-of-tests tally)."
+    },
+    "owaspRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "x-postgresql-default": "'[]'::jsonb",
+      "description": "OWASP ids this finding maps to, e.g. [\"ASI01:2026\",\"LLM01:2025\"]."
+    },
+    "atlasRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "x-postgresql-default": "'[]'::jsonb",
+      "description": "Corrected MITRE ATLAS ids, e.g. [\"AML.T0051\"]."
+    },
+    "nistRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "x-postgresql-default": "'[]'::jsonb",
+      "description": "NIST references, e.g. [\"NIST AI 600-1\"]."
+    },
+    "scoreDelta": {
+      "type": "integer",
+      "maximum": 0,
+      "x-postgresql-default": "0",
+      "description": "Signed penalty this finding contributed to the behavioral score (≤0). Drives the 'How the score moved' table."
+    },
+    "detectionRule": {
+      "type": "string",
+      "enum": ["substring", "normalized_substring", "transform", "tool_arg", "forbidden_tool_presence"],
+      "maxLength": 32,
+      "description": "Which deterministic detection rule fired."
+    },
+    "leakedCanarySlot": {
+      "type": ["string", "null"],
+      "maxLength": 64,
+      "description": "Which canary slot leaked — the slot id ONLY, never the raw canary value."
+    },
+    "evidenceExcerpt": {
+      "type": ["object", "null"],
+      "x-postgresql-skip": true,
+      "description": "Report-DTO-only post-redaction transcript window with the leaked canary highlighted. Resolved at request time from the raw-evidence store; null on the public projection. NOT a column and NOT a scan-trace field (the findings table stays hash/slot-only)."
+    }
+  },
+  "examples": [
+    {
+      "id": "018e7c8b-bbbb-7000-8000-000000000001",
+      "agentRunId": "018e7c8b-aaaa-7000-8000-000000000001",
+      "testId": "AS-06",
+      "severity": "critical",
+      "verdict": "vulnerable",
+      "family": "Tool-description poisoning",
+      "owaspRefs": ["ASI04:2026", "ASI02:2026", "LLM01:2025"],
+      "atlasRefs": ["AML.T0010"],
+      "nistRefs": ["NIST AI 600-1"],
+      "scoreDelta": -40,
+      "detectionRule": "tool_arg",
+      "leakedCanarySlot": "AS-06"
+    }
+  ]
+}

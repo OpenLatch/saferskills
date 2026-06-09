@@ -338,6 +338,12 @@ function walkRubric() {
   }
   for (const category of fs.readdirSync(RUBRIC_DIR, { withFileTypes: true })) {
     if (!category.isDirectory()) continue
+    // `rubric/AGENT/` is the I-5.5 behavioral-pack tree — a DIFFERENT taxonomy +
+    // schema (AS-NN tests, agent-pack-test.schema.json) owned by the step-9
+    // `generate-agent-pack.cjs` generator. The component methodology generator
+    // must NOT parse/count it (its frontmatter is not a `rubric-rule`, and the
+    // badge-count assertion below would `process.exit(1)`). See D-5.5-14 / Codex#4.
+    if (category.name === 'AGENT') continue
     const catDir = path.join(RUBRIC_DIR, category.name)
     for (const file of fs.readdirSync(catDir)) {
       if (!file.endsWith('.md') || file === 'README.md') continue
