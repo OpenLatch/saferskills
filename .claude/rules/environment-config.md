@@ -73,7 +73,7 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `GITHUB_APP_PRIVATE_KEY` | no | unset | GitHub App PEM private key (RS256, multi-line). Store base64-encoded in a Fly secret. |
 | `GITHUB_APP_INSTALLATION_ID` | no | unset | GitHub App installation ID (numeric). |
 | `GITHUB_WEBHOOK_SECRET` | no | unset | HMAC-SHA256 secret for `X-Hub-Signature-256` verification on `POST /webhooks/github`. |
-| `HISHEL_DB_PATH` | no | `/data/.hishel.db` | Hishel RFC-9111 SQLite cache path (Fly volume mount). |
+| `HISHEL_DB_PATH` | no | `/data/.hishel.db` | Hishel RFC-9111 SQLite cache path. **The deployed API mounts no Fly volume**, so the `/data` default is unwritable under the non-root `app` user — staging/production `fly.*.toml [env]` override it to `/home/app/.hishel.db` (an ephemeral per-machine HTTP cache; warms again after each deploy). Set a writable path in any new deploy target. |
 | `HISHEL_MAX_SIZE_BYTES` | no | `524288000` | Hishel cache LRU size cap (500 MiB). |
 | `HISHEL_GITHUB_TTL_SECONDS` | no | `86400` | Hishel cache TTL for `api.github.com` / `raw.githubusercontent.com` (24h). |
 | `HISHEL_AGGREGATOR_TTL_SECONDS` | no | `3600` | Hishel cache TTL for scraped aggregator hosts (1h). |
