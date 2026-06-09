@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/agent-scan-report.schema.json",
   "title": "AgentScanReport",
-  "description": "Full report for one agent scan (an `agent_runs` row): the run state machine + the behavioral-score wire shape (mirrors how `scan-run-report.schema.json` is both the `scan_runs` table AND the report). The cloud re-derives per-run canaries, applies a deterministic rule library (no LLM judge), and returns a 0–100 behavioral score using the SAME severity-ceiling model as the component scan. The public projection omits the private transcript (`findings[].evidenceExcerpt`); only the unlisted token route hydrates it. Scalar fields below are the `agent_runs` columns; `checks`/`findings`/`componentScores` are x-postgresql-skip (wire-only — finding rows live in `agent_findings`). Per-run integrity material (`nonce`, `decoy`, served-pack hash/signature) lives in x-postgresql-extra-columns and is NEVER serialized.",
+  "description": "Full report for one agent scan (an `agent_runs` row): the run state machine + the behavioral-score wire shape (mirrors how `scan-run-report.schema.json` is both the `scan_runs` table AND the report). The cloud re-derives per-run canaries, applies a deterministic rule library (no LLM judge), and returns a 0–100 behavioral score using the SAME severity-ceiling model as the component scan. The public projection omits the private transcript (`findings[].evidenceExcerpt`); only the unlisted token route hydrates it. Scalar fields below are the `agent_runs` columns; `checks`/`findings`/`componentScores` are x-postgresql-skip (wire-only — finding rows live in `agent_findings`). Per-run anti-tamper material (`nonce`, `decoy`, served-pack hash/signature) lives in x-postgresql-extra-columns and is NEVER serialized.",
   "x-postgresql-classname": "AgentRun",
   "x-postgresql-tablename": "agent_runs",
   "x-postgresql-indexes": [
@@ -105,7 +105,7 @@
     "packId": {
       "type": "string",
       "maxLength": 64,
-      "description": "Pack identity, e.g. `saferskills-agent-baseline`."
+      "description": "Pack id, e.g. `saferskills-agent-baseline`."
     },
     "packVersion": {
       "type": "string",

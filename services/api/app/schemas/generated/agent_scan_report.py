@@ -202,7 +202,7 @@ class AgentFinding(OrmBaseModel):
 
 class AgentScanReport(OrmBaseModel):
     """
-    Full report for one agent scan (an `agent_runs` row): the run state machine + the behavioral-score wire shape (mirrors how `scan-run-report.schema.json` is both the `scan_runs` table AND the report). The cloud re-derives per-run canaries, applies a deterministic rule library (no LLM judge), and returns a 0–100 behavioral score using the SAME severity-ceiling model as the component scan. The public projection omits the private transcript (`findings[].evidenceExcerpt`); only the unlisted token route hydrates it. Scalar fields below are the `agent_runs` columns; `checks`/`findings`/`componentScores` are x-postgresql-skip (wire-only — finding rows live in `agent_findings`). Per-run integrity material (`nonce`, `decoy`, served-pack hash/signature) lives in x-postgresql-extra-columns and is NEVER serialized.
+    Full report for one agent scan (an `agent_runs` row): the run state machine + the behavioral-score wire shape (mirrors how `scan-run-report.schema.json` is both the `scan_runs` table AND the report). The cloud re-derives per-run canaries, applies a deterministic rule library (no LLM judge), and returns a 0–100 behavioral score using the SAME severity-ceiling model as the component scan. The public projection omits the private transcript (`findings[].evidenceExcerpt`); only the unlisted token route hydrates it. Scalar fields below are the `agent_runs` columns; `checks`/`findings`/`componentScores` are x-postgresql-skip (wire-only — finding rows live in `agent_findings`). Per-run anti-tamper material (`nonce`, `decoy`, served-pack hash/signature) lives in x-postgresql-extra-columns and is NEVER serialized.
     """
 
     model_config = ConfigDict(
@@ -257,9 +257,7 @@ class AgentScanReport(OrmBaseModel):
         description="Closed-enum trust labels (JSONB set, validated in Pydantic). The labels ARE the honest signal — `client-administered`, `cloud-validated`, etc.",
     )
     pack_id: constr(max_length=64) = Field(
-        ...,
-        alias="packId",
-        description="Pack identity, e.g. `saferskills-agent-baseline`.",
+        ..., alias="packId", description="Pack id, e.g. `saferskills-agent-baseline`."
     )
     pack_version: constr(max_length=32) = Field(
         ...,
