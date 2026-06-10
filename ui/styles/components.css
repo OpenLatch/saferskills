@@ -8313,3 +8313,347 @@ html.dark .ror-field textarea { color: var(--fg-1); background: var(--bg-surface
   color: var(--brand-primary);
 }
 .ror-existing p { margin: 6px 0 0; font-family: var(--font-sans); font-size: 13.5px; line-height: 1.55; color: var(--fg-2); }
+
+/* ============================================================
+   AGENT REPORT — Phase B (I-5.6): findings / evidence / score-math /
+   remediation / component scores / badge provenance. DS-owned CSS for
+   the ui/ molecules; ported from the locked mockup (body.va.dark →
+   html.dark), tokens only, reduced-motion guards on every transition.
+   ============================================================ */
+
+/* ---- OwaspFindingGroup (group head wrapping the finding cards) ---- */
+.owasp-group { margin-bottom: 30px; }
+.owasp-group:last-child { margin-bottom: 0; }
+.owasp-group-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border: 1px solid var(--color-line);
+  border-bottom: 0;
+  background: var(--bg-page-alt);
+}
+html.dark .owasp-group-head { border-color: var(--color-line); background: rgba(255, 255, 255, 0.03); }
+.owasp-group-head .og-ix {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.owasp-group-head .og-title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+html.dark .owasp-group-head .og-title { color: var(--fg-1); }
+.owasp-group-head .og-refs { display: inline-flex; gap: 7px; flex-wrap: wrap; margin-left: auto; }
+.owasp-group .find-card { border-top: 0; }
+.owasp-group .find-card:first-of-type { border-top: 1px solid var(--color-line); }
+
+/* ---- RefChip (deep-linked OWASP / MITRE / NIST reference) ---- */
+.ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border: 1px solid var(--color-line);
+  color: var(--fg-2);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--dur-xs), color var(--dur-xs);
+}
+html.dark .ref-chip { color: var(--fg-2); }
+.ref-chip .k { font-weight: 700; }
+.ref-chip.owasp .k { color: var(--brand-primary); }
+.ref-chip.mitre .k { color: var(--brand-accent); }
+.ref-chip.nist .k { color: var(--status-info); }
+.ref-chip:hover { border-color: currentColor; color: var(--color-ink); }
+html.dark .ref-chip:hover { color: var(--fg-1); }
+.ref-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ref-chip svg { width: 9px; height: 9px; opacity: 0.5; }
+@media (prefers-reduced-motion: reduce) { .ref-chip { transition: none; } }
+
+/* refs row under a finding title (rendered by the report card composition) */
+.fc-refs { display: inline-flex; gap: 7px; flex-wrap: wrap; margin-top: 7px; }
+
+/* ---- ScoreMathTable (signed-modifier ledger) ---- */
+.score-math {
+  border: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+.score-math .sm-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+html.dark .score-math .sm-row { border-color: var(--color-line); }
+.score-math .sm-row:last-child { border-bottom: 0; }
+.score-math .sm-row .sm-f b { color: var(--color-ink); font-weight: 700; }
+html.dark .score-math .sm-row .sm-f b { color: var(--fg-1); }
+.score-math .sm-row .sm-f span { color: var(--fg-3); }
+.score-math .sm-row .d { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.score-math .sm-row .d.neg { color: var(--score-red); }
+.score-math .sm-row .d.pos { color: var(--score-green); }
+.score-math .sm-row.base { background: var(--bg-page-alt); }
+html.dark .score-math .sm-row.base { background: rgba(255, 255, 255, 0.03); }
+.score-math .sm-row.base .sm-f b,
+.score-math .sm-row.base .d { color: var(--fg-2); }
+/* the finding whose card this table sits in */
+.score-math .sm-row.me { box-shadow: inset 3px 0 0 0 var(--brand-primary); }
+.score-math .sm-row.me .sm-f b { color: var(--brand-primary); }
+.score-math .sm-row.cap {
+  background: rgba(239, 68, 68, 0.07);
+  border-top: 1px solid var(--score-red);
+}
+.score-math .sm-row.cap .sm-f b,
+.score-math .sm-row.cap .d { color: var(--score-red); }
+.score-math .sm-row.total { background: var(--color-ink); }
+.score-math .sm-row.total .sm-f b,
+.score-math .sm-row.total .d { color: var(--color-paper); font-size: 13px; }
+html.dark .score-math .sm-row.total { background: var(--ol-slate-800); }
+
+/* ---- RemediationTerminal (diff-colored fix snippet) ---- */
+.ar-remediation { margin-top: 2px; }
+.ar-rem-action {
+  margin: 6px 0 0;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+.ar-rem-steps {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+.ar-rem-steps li { margin: 2px 0; }
+.ar-fix-snippet { margin-top: 14px; }
+.ar-rem-exlbl {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 8px;
+}
+.ar-term { border: 1px solid var(--color-ink); background: var(--ol-slate-900); }
+html.dark .ar-term { border-color: var(--color-line); }
+.ar-term .at-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+.ar-term .at-head .lights { display: flex; gap: 6px; }
+.ar-term .at-head .lights span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px solid var(--color-slate-soft);
+}
+.ar-term .at-head .who {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ar-term .at-head .copy-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  transition: background var(--dur-xs), color var(--dur-xs), border-color var(--dur-xs);
+}
+.ar-term .at-head .copy-btn svg { width: 12px; height: 12px; }
+.ar-term .at-head .copy-btn:hover { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; }
+.ar-term .at-head .copy-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ar-term .at-head .copy-btn.copied { background: var(--score-green); border-color: var(--score-green); color: #fff; }
+.ar-term .at-body {
+  padding: 15px 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: pre;
+  overflow-x: auto;
+}
+.ar-term .at-body .del { color: #fca5a5; }
+.ar-term .at-body .add { color: var(--color-mint); }
+@media (prefers-reduced-motion: reduce) { .ar-term .at-head .copy-btn { transition: none; } }
+
+/* ---- RedactedTranscript (unlisted-route evidence; always-dark surface) ---- */
+.transcript { border: 1px solid var(--color-ink); background: var(--ol-slate-900); margin-top: 2px; }
+html.dark .transcript { border-color: var(--color-line); }
+.transcript .ts-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.transcript .ts-meta .lock { color: var(--brand-primary-light); display: inline-flex; align-items: center; gap: 6px; }
+.transcript .ts-meta .lock svg { width: 11px; height: 11px; }
+.transcript .ts-meta .ts-file { color: var(--brand-primary-light); }
+.transcript .ts-lines { overflow-x: auto; padding: 6px 0; }
+.transcript .ex-line.canary { background: rgba(239, 68, 68, 0.16); }
+.transcript .ex-line.canary .ln {
+  background: rgba(239, 68, 68, 0.18);
+  color: var(--score-red);
+  border-right-color: rgba(239, 68, 68, 0.4);
+}
+.transcript .ex-line.canary .code { color: #fff; font-weight: 700; }
+.transcript .ts-flag {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.14);
+  border-top: 1px solid rgba(239, 68, 68, 0.4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #fca5a5;
+}
+.transcript .ts-flag svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.transcript .ts-flag b { color: #fff; }
+
+/* ---- ComponentScoresTable (contributing-context grid) ---- */
+.ar-components-tab .cs-note {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  letter-spacing: 0.01em;
+}
+.ar-components-tab .cs-note b { color: var(--brand-primary); }
+.cs-empty {
+  padding: 32px 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+.cs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  border-top: 1px solid var(--color-line);
+}
+.cs-grid.cs-grid-boxed { border: 1px solid var(--color-ink); }
+html.dark .cs-grid,
+html.dark .cs-grid.cs-grid-boxed { border-color: var(--color-line); }
+.cs-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  text-decoration: none;
+  transition: background var(--dur-xs);
+}
+html.dark .cs-cell { border-color: var(--color-line); }
+.cs-cell:hover { background: rgba(15, 23, 42, 0.025); }
+html.dark .cs-cell:hover { background: rgba(255, 255, 255, 0.035); }
+.cs-cell:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cs-cell .cs-mk { flex: 0 0 auto; width: 9px; height: 9px; }
+.cs-cell .cs-mk.skill { background: var(--brand-primary); }
+.cs-cell .cs-mk.hook { width: 10px; height: 10px; background: var(--brand-accent); transform: rotate(45deg); }
+.cs-cell .cs-mk.mcp { border-radius: 50%; background: var(--status-info); }
+.cs-cell .cs-id { min-width: 0; flex: 1; }
+.cs-cell .cs-id .nm {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html.dark .cs-cell .cs-id .nm { color: var(--fg-1); }
+.cs-cell .cs-id .ty {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.cs-cell .cs-chip {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+}
+.cs-cell .cs-chip.clear { color: var(--score-green); }
+.cs-cell .cs-chip.review { color: var(--score-orange); }
+.cs-cell .cs-num {
+  flex: 0 0 auto;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+}
+.cs-cell.g .cs-num { color: var(--score-green); }
+.cs-cell.y .cs-num { color: var(--score-yellow); }
+.cs-cell.o .cs-num { color: var(--score-orange); }
+.cs-cell.r .cs-num { color: var(--score-red); }
+.cs-cell .cs-go { flex: 0 0 auto; font-family: var(--font-mono); font-size: 13px; color: var(--fg-3); }
+.cs-cell:hover .cs-go { color: var(--brand-primary); }
+@media (prefers-reduced-motion: reduce) { .cs-cell { transition: none; } }
+
+/* ---- ProvenanceChips (badge-band) ---- */
+.ar-prov-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+.prov-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 4px 9px;
+  border: 1px solid var(--color-line);
+  color: var(--fg-2);
+}
+.prov-chip.tier { border-style: dashed; border-color: var(--brand-primary); color: var(--brand-primary); }
+.prov-chip.pack { border-color: var(--brand-accent); color: var(--brand-accent); }
