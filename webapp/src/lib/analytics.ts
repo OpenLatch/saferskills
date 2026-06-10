@@ -51,6 +51,13 @@ type EventMap = {
   // I-3.5 — unlisted (capability-URL) manage-bar actions. Closed-enum action
   // only; NEVER the share_token, slug, filename, or any path content (telemetry.md).
   unlisted_manage_action: { action: 'copy_link' | 'promote' | 'delete' }
+  // I-5.6 — Agent Report surface interactions. Closed-enum only; NEVER the
+  // share_token, agent name, runtime, or any transcript content (telemetry.md).
+  agent_report_tab_selected: { tab: 'report' | 'findings' | 'component' }
+  agent_report_shared: Record<string, never>
+  agent_report_exported: Record<string, never>
+  agent_report_verify_requested: Record<string, never>
+  agent_report_reply_submitted: Record<string, never>
 }
 
 export type AnalyticsEvent = keyof EventMap

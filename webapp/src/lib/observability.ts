@@ -12,14 +12,16 @@
 let initialized = false
 
 /**
- * Redact the unlisted capability token from any `/scans/r/<token>` URL so it
- * never reaches Sentry (pairs with the backend access-log + Sentry scrub;
- * D-UP-32 / security.md § Capability-URL anti-leakage). Possession of the token
- * is full authorization — it must not leak into an error payload.
+ * Redact the unlisted capability / agent-run token from any `/{scans,agents,
+ * agent-scans}/r/<token>` URL so it never reaches Sentry (pairs with the backend
+ * access-log + Sentry scrub; D-UP-32 / I-5.6 Codex P0-2 / security.md
+ * § Capability-URL anti-leakage). Possession of the token is full authorization —
+ * it must not leak into an error payload. The leading `/` anchors each alternative,
+ * so `/agent-scans/r/` never mis-matches the bare `scans` branch.
  */
 export function redactCapabilityToken(url: string | undefined): string | undefined {
   if (!url) return url
-  return url.replace(/(\/scans\/r\/)[^/?#]+/g, '$1<redacted>')
+  return url.replace(/(\/(?:scans|agent-scans|agents)\/r\/)[^/?#]+/g, '$1<redacted>')
 }
 
 /**

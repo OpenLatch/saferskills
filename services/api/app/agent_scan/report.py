@@ -59,14 +59,15 @@ def _family_of(test_def: dict[str, Any]) -> str:
     return family
 
 
+# The WEB page routes are /agents/{id} + /agents/r/{token} (I-5.6 D-5.6-01/D-5.6-17).
+# The API prefix stays /api/v1/agent-scans/* - these build the shareable PAGE url,
+# not the API url. A mismatch here 404s every share link + badge reproducibility line.
 def _public_report_url(settings: Settings, run: AgentRun) -> str:
-    return f"{settings.public_base_url.rstrip('/')}/agent-scans/{run.id}"
+    return f"{settings.public_base_url.rstrip('/')}/agents/{run.id}"
 
 
 def _share_url(settings: Settings, token: str | None) -> str | None:
-    return (
-        None if token is None else f"{settings.public_base_url.rstrip('/')}/agent-scans/r/{token}"
-    )
+    return None if token is None else f"{settings.public_base_url.rstrip('/')}/agents/r/{token}"
 
 
 def report_urls(run: AgentRun, settings: Settings, *, private: bool) -> tuple[str, str | None]:

@@ -93,6 +93,9 @@
 
   --brand-primary: var(--ol-brand-primary);
   --brand-primary-dark: var(--ol-brand-primary-dark);
+  /* Semantic alias the scan-report / finding-detail / agent-report CSS all
+     reference; tokens only define the --ol- prefixed original (I-5.6 D-5.6-16). */
+  --brand-primary-light: var(--ol-brand-primary-light);
   --brand-cta: var(--ol-brand-primary);
   --brand-cta-fg: #FFFFFF;
   --brand-accent: var(--ol-brand-accent);

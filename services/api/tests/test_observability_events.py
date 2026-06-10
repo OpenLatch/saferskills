@@ -41,3 +41,37 @@ def test_emit_is_a_noop_when_client_unset(monkeypatch: pytest.MonkeyPatch) -> No
     """No PostHog client → structlog-only, never an attribute error."""
     monkeypatch.setattr(events, "_posthog_client", None)
     events.emit_scan_started(scan_id="abc-123")  # must not raise
+
+
+# ─── Capability / agent-run share-token redaction (I-5.6 Codex P0-2, matrix-22) ───
+
+_TOK = "Hh3y6Qk2pN8fT0aZ1cV9bWx"
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["/scans/r/", "/agents/r/", "/api/v1/agent-scans/r/"],
+)
+def test_redact_capability_token_covers_every_unlisted_route(prefix: str) -> None:
+    """The possession-is-auth token must be redacted for the scan capability URL,
+    the I-5.6 Agent Report PAGE URL (/agents/r/), AND the API (/agent-scans/r/)."""
+    url = f"https://saferskills.ai{prefix}{_TOK}?ref=x"
+    redacted = events.redact_capability_token(url)
+    assert _TOK not in redacted
+    assert f"{prefix}<redacted>" in redacted
+
+
+def test_redact_does_not_touch_the_public_agent_report_url() -> None:
+    """A public `/agents/{id}` page URL carries no secret — it must NOT be rewritten."""
+    url = "https://saferskills.ai/agents/018e7c8b-aaaa-7000-8000-000000000001"
+    assert events.redact_capability_token(url) == url
+
+
+def test_scrub_sentry_event_redacts_agent_token_in_request_and_breadcrumbs() -> None:
+    event: dict[str, object] = {
+        "request": {"url": f"https://saferskills.ai/agents/r/{_TOK}"},
+        "breadcrumbs": {"values": [{"category": "navigation", "data": f"GET /agents/r/{_TOK}"}]},
+    }
+    scrubbed = events.scrub_sentry_event(event)
+    assert scrubbed is not None
+    assert _TOK not in str(scrubbed)

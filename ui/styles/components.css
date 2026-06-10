@@ -7957,3 +7957,359 @@ html.dark .fc-trace > summary:hover {
     transition: none;
   }
 }
+
+/* ============================================================
+   AGENT REPORT (I-5.6) — DS-owned CSS for the agent-report
+   components: AgentVerb / TrustTierPill / CapCallout /
+   ProofOfTestsTable / EvidenceWithheldNote / StalePackBanner /
+   VerifyWaitlistTile / RightOfReplyForm. Page-composition glue
+   (.ar-scoreline / .ar-panel / .ar-panel-lead) lives in
+   webapp/src/styles/page-agent-report.css. Ported from the locked
+   mockup (body.va.dark -> html.dark); tokens only.
+   ============================================================ */
+
+/* ---- AgentVerb (band verb in the score hero; color from .score-cell ancestor) ---- */
+.ar-verb {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.score-cell.g .ar-verb { color: var(--score-green); }
+.score-cell.y .ar-verb { color: var(--score-yellow); }
+.score-cell.o .ar-verb { color: var(--score-orange); }
+.score-cell.r .ar-verb { color: var(--score-red); }
+.ar-verb .vb-sep { color: var(--fg-3); font-stretch: normal; font-weight: 400; margin: 0 2px 0 0; }
+
+/* ---- TrustTierPill (pill + honesty tooltip) ---- */
+.trust-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 1px dashed var(--brand-primary);
+  color: var(--brand-primary);
+  background: rgba(13, 148, 136, 0.06);
+  cursor: help;
+}
+.trust-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.trust-pill .ti {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  display: inline-grid;
+  place-items: center;
+  font-size: 8px;
+  font-style: normal;
+  letter-spacing: 0;
+}
+.trust-pill .tip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 0;
+  z-index: 30;
+  width: 280px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 11px 13px;
+  border: 1px solid var(--color-ink);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity var(--dur-xs) var(--ease-std), transform var(--dur-xs) var(--ease-std);
+}
+.trust-pill .tip b { color: var(--brand-primary-light); font-weight: 700; }
+.trust-pill .tip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 18px;
+  border: 6px solid transparent;
+  border-top-color: var(--color-ink);
+}
+.trust-pill:hover .tip,
+.trust-pill:focus-visible .tip { opacity: 1; transform: translateY(0); pointer-events: auto; }
+html.dark .trust-pill .tip { background: var(--ol-slate-800); border-color: var(--color-line); }
+html.dark .trust-pill .tip::after { border-top-color: var(--ol-slate-800); }
+@media (prefers-reduced-motion: reduce) { .trust-pill .tip { transition: none; } }
+
+/* ---- CapCallout (cap-reason callout; tint from .score-cell ancestor) ---- */
+.cap-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-top: 14px;
+  border: 1px solid var(--color-line);
+  border-left: 4px solid var(--score-red);
+  background: rgba(239, 68, 68, 0.05);
+  padding: 12px 14px;
+  max-width: 42ch;
+}
+.score-cell.g .cap-reason { border-left-color: var(--score-green); background: rgba(16, 185, 129, 0.06); }
+.score-cell.y .cap-reason { border-left-color: var(--score-yellow); background: rgba(245, 158, 11, 0.06); }
+.score-cell.o .cap-reason { border-left-color: var(--score-orange); background: rgba(249, 115, 22, 0.06); }
+.cap-reason .cr-ic { flex: 0 0 auto; width: 16px; height: 16px; color: var(--score-red); margin-top: 1px; }
+.score-cell.g .cap-reason .cr-ic { color: var(--score-green); }
+.score-cell.y .cap-reason .cr-ic { color: var(--score-yellow); }
+.score-cell.o .cap-reason .cr-ic { color: var(--score-orange); }
+.cap-reason p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+.cap-reason p b { color: var(--color-ink); font-weight: 700; }
+html.dark .cap-reason p b { color: var(--fg-1); }
+
+/* ---- ProofOfTestsTable (Report tab) — header + the .chk-* additions ---- */
+.ar-tests { background: var(--color-paper); padding: 8px 0 0; }
+html.dark .ar-tests { background: transparent; }
+.ar-tests-inner { border: 1px solid var(--color-ink); border-top: 0; }
+html.dark .ar-tests-inner { border-color: var(--color-line); }
+.ar-tests-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-ink);
+  background-image: var(--bg-plus-grid);
+  background-size: 40px 40px;
+}
+html.dark .ar-tests-head { border-color: var(--color-line); background-image: none; }
+.ar-tests-head .tt-l { display: flex; align-items: center; gap: 14px; }
+.ar-tests-head .tt-badge {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--color-ink);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+}
+html.dark .ar-tests-head .tt-badge { border-color: var(--color-line); color: var(--fg-1); }
+.ar-tests.pass .ar-tests-head .tt-badge {
+  border-color: var(--score-green);
+  color: var(--score-green);
+  background: rgba(16, 185, 129, 0.08);
+}
+.ar-tests-head .tt-txt h3 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+html.dark .ar-tests-head .tt-txt h3 { color: var(--fg-1); }
+.ar-tests.pass .ar-tests-head .tt-txt h3 { color: var(--score-green); }
+.ar-tests-head .tt-txt p {
+  margin: 3px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+.ar-tests-head .tt-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  text-align: right;
+}
+.ar-tests-head .tt-meta b { color: var(--color-ink); }
+html.dark .ar-tests-head .tt-meta b { color: var(--fg-1); }
+/* The proof table reuses the DS .chk-group/.chk-row grammar; these additions are
+   scoped under .ar-tests so the shared scan-report CheckGroupList is untouched. */
+.ar-tests .chk-group { border: 0; margin-bottom: 0; }
+.ar-tests .chk-group .chk-head .cg-meta b { color: var(--score-red); }
+.ar-tests .chk-row.fail { background: rgba(239, 68, 68, 0.03); }
+html.dark .ar-tests .chk-row.fail { background: rgba(239, 68, 68, 0.07); }
+.ar-tests .chk-row.warn .chk-res { color: var(--score-yellow); }
+.chk-gobtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  border: 1px solid var(--score-red);
+  background: rgba(239, 68, 68, 0.06);
+  color: var(--score-red);
+  white-space: nowrap;
+  transition: background var(--dur-xs), color var(--dur-xs);
+}
+.chk-gobtn:hover { background: var(--score-red); color: var(--brand-cta-fg); }
+.chk-gobtn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.chk-gobtn .sev-dot { width: 7px; height: 7px; background: currentColor; flex: 0 0 auto; }
+@media (prefers-reduced-motion: reduce) { .chk-gobtn { transition: none; } }
+
+/* ---- EvidenceWithheldNote ---- */
+.evidence-public-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  margin: 0;
+}
+
+/* ---- StalePackBanner ---- */
+.ar-stale-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--score-yellow);
+  background: rgba(245, 158, 11, 0.07);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--fg-2);
+  margin-top: 16px;
+}
+.ar-stale-banner svg { flex: 0 0 auto; color: var(--score-orange); }
+.ar-stale-cta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ar-stale-cta:hover { text-decoration: underline; }
+
+/* ---- VerifyWaitlistTile ---- */
+.vw-tile {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  border: 1px solid var(--color-ink);
+  background: var(--bg-page-alt);
+}
+html.dark .vw-tile { border-color: var(--color-line); }
+.vw-tile .vw-txt { flex: 1 1 280px; min-width: 0; }
+.vw-tile .vw-txt h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+html.dark .vw-tile .vw-txt h3 { color: var(--fg-1); }
+.vw-tile .vw-txt p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+.vw-done {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--score-green);
+}
+.vw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.vw-field .vw-opt { color: var(--fg-3); }
+.vw-field input,
+.ror-field textarea {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  padding: 9px 11px;
+  width: 100%;
+}
+html.dark .vw-field input,
+html.dark .ror-field textarea { color: var(--fg-1); background: var(--bg-surface); border-color: var(--color-line); }
+.vw-field input:focus-visible,
+.ror-field textarea:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--brand-primary); }
+
+/* ---- RightOfReplyForm ---- */
+.ror { display: inline-flex; }
+.ror-done {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--score-green);
+}
+.ror-field { display: flex; flex-direction: column; gap: 6px; }
+.ror-field label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
+.ror-field textarea { resize: vertical; line-height: 1.5; }
+.ror-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  text-align: right;
+}
+.ror-existing {
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--brand-primary);
+  background: var(--bg-page-alt);
+  padding: 12px 14px;
+}
+.ror-existing .ror-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+.ror-existing p { margin: 6px 0 0; font-family: var(--font-sans); font-size: 13.5px; line-height: 1.55; color: var(--fg-2); }
