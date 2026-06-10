@@ -88,7 +88,25 @@ def assert_worker_concurrency_budget() -> None:
 
 
 async def ingestion_worker_supervisor() -> None:
-    """Run the worker with an auto-restart backoff loop. Cancellation propagates."""
+    """Run the worker, restarting it on any unexpected stop. ONLY cancellation exits.
+
+    The only intended exit is the FastAPI lifespan cancelling this task on shutdown,
+    which surfaces as ``CancelledError`` (re-raised below). Every other outcome means
+    the worker stopped when it shouldn't have, and we restart it with backoff:
+
+    - **A normal return is NOT a graceful shutdown.** Procrastinate self-stops the
+      worker — ``run_worker_async`` returns *normally*, it does not raise — when a
+      side task (notably the DB heartbeat) fails on a transient connection drop, e.g.
+      a Postgres machine restart or a Fly-proxy connection recycle (see
+      ``procrastinate/worker.py::_monitor_side_tasks``). We run with
+      ``install_signal_handlers=False`` and ``wait=True``, so there is no other path
+      to a clean return. Treating it as graceful shutdown (the old ``return``) left a
+      routine PG blip permanently killing ingestion AND the bulk-scan queue — and
+      because the reaper / scheduler / alert-evaluator are themselves Procrastinate
+      tasks, every safety net died with the worker, invisibly to Fly's HTTP-only
+      health check. So a return restarts, it never exits.
+    - **An exception** (a real crash) restarts the same way.
+    """
     assert_worker_concurrency_budget()
     backoff_s = 5.0
     while True:
@@ -102,10 +120,12 @@ async def ingestion_worker_supervisor() -> None:
                 # long then ABORTS running jobs (Procrastinate re-queues them).
                 shutdown_graceful_timeout=get_settings().ingestion_worker_shutdown_timeout_s,
             )
-            return  # graceful shutdown
+            # Reached only when Procrastinate self-stopped (side-task failure) — an
+            # unexpected stop, not a shutdown. Restart with backoff.
+            logger.warning("ingestion.worker_self_stopped_restarting", backoff_s=backoff_s)
         except asyncio.CancelledError:
-            raise
+            raise  # lifespan teardown — the one intended exit
         except Exception:
             logger.exception("ingestion.worker_crashed_restarting", backoff_s=backoff_s)
-            await asyncio.sleep(backoff_s)
-            backoff_s = min(backoff_s * 2, 60.0)
+        await asyncio.sleep(backoff_s)
+        backoff_s = min(backoff_s * 2, 60.0)
