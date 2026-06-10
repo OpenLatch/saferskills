@@ -86,8 +86,12 @@ pub enum Commands {
     #[command(visible_alias = "find")]
     Search(SearchArgs),
 
-    /// Scan a local path or GitHub URL — with no target, audit everything installed.
-    Scan(ScanArgs),
+    /// Scan a capability — an artifact (Skill/Hook/MCP/Plugin/Rules) by path or
+    /// GitHub URL; with no target, audit everything installed across your agents.
+    Capability(CapabilityArgs),
+
+    /// Behaviorally scan a running agent against the SaferSkills assessment pack.
+    Agent(AgentArgs),
 
     /// Diagnose the local install state.
     Doctor(DoctorArgs),
@@ -277,17 +281,19 @@ pub struct SearchArgs {
     pub show_low_quality: bool,
 }
 
-/// `scan [target]`.
+/// `capability [TARGET]` — scan one artifact, or (no target) audit everything
+/// installed across the detected agents.
 #[derive(Debug, clap::Args)]
-pub struct ScanArgs {
-    /// A local path or a GitHub URL. Omit to audit every installed capability.
-    /// The literal `agent` selects the behavioral Agent Scan (`scan agent`).
+pub struct CapabilityArgs {
+    /// A local path or a GitHub URL. Omit to audit every installed capability
+    /// across your detected agents. Conflicts with `--to`.
+    #[arg(conflicts_with = "to")]
     pub target: Option<String>,
 
-    /// Scan every installed capability across detected agents (the default when
-    /// no target is given).
-    #[arg(long)]
-    pub local: bool,
+    /// Scope the all-installed audit to these detected agents (repeatable;
+    /// canonical ids). Conflicts with a positional TARGET.
+    #[arg(long = "to", value_name = "AGENT", conflicts_with = "target")]
+    pub to: Vec<String>,
 
     /// Keep the scan unlisted (token URL + expiry).
     #[arg(long)]
@@ -297,13 +303,20 @@ pub struct ScanArgs {
     /// findings (the default report stays concise).
     #[arg(long)]
     pub detailed: bool,
+}
 
-    // ─── Agent Scan (`scan agent`, I-5.5 Phase 3) ───────────────────────────
-    /// Run the behavioral Agent Scan. Optional value is the platform id
-    /// (`claude-code` … `openclaw`) or `auto` (detect); presence also selects the
-    /// agent-scan branch (equivalent to the positional `agent`).
-    #[arg(long, value_name = "PLATFORM")]
-    pub agent: Option<String>,
+/// `agent [--to <id>…]` — the behavioral Agent Scan (I-5.5 Phase 3). With no
+/// `--to`, multi-select which detected agents to scan; each is scanned in turn.
+#[derive(Debug, clap::Args)]
+pub struct AgentArgs {
+    /// Scan these agents (repeatable). Accepts any of the 8 known ids even when
+    /// not detected. Omit to multi-select from the detected agents.
+    #[arg(long = "to", value_name = "AGENT")]
+    pub to: Vec<String>,
+
+    /// Keep the report unlisted (token URL + expiry).
+    #[arg(long)]
+    pub private: bool,
 
     /// Fail (exit 1) when the graded verdict crosses a threshold:
     /// `<severity>` | `score:<n>` | `band:<green|yellow|orange|red>`.
@@ -326,18 +339,12 @@ pub struct ScanArgs {
     /// Submit a paste-back blob your agent printed (text file) and render the report.
     #[arg(long = "submit-blob", value_name = "FILE")]
     pub submit_blob: Option<PathBuf>,
-}
 
-impl ScanArgs {
-    /// Whether this invocation selects the behavioral Agent Scan branch — the
-    /// positional `agent` target, an `--agent` value, `--print-skill`, or
-    /// `--submit-blob`.
-    pub fn is_agent_scan(&self) -> bool {
-        self.agent.is_some()
-            || self.print_skill
-            || self.submit_blob.is_some()
-            || self.target.as_deref() == Some("agent")
-    }
+    /// Minutes to wait for each agent to submit results before giving up. A real
+    /// run (a human pasting the prompt + an LLM running ~20 tests) routinely takes
+    /// 10–40 min; raise it for a slow agent. Ctrl-C bails early.
+    #[arg(long, value_name = "MINUTES", default_value_t = 45, value_parser = clap::value_parser!(u64).range(1..=1440))]
+    pub timeout: u64,
 }
 
 /// `doctor`.
@@ -401,10 +408,8 @@ pub fn command_label(cmd: &Commands) -> (&'static str, Option<&'static str>) {
         Commands::Update(_) => ("update", None),
         Commands::List(_) => ("list", None),
         Commands::Search(_) => ("search", None),
-        // The agent-scan branch is a flag/target on `scan`, not its own grammar
-        // node, so refine the telemetry sub-label here (D-05-13 stays closed-enum).
-        Commands::Scan(args) if args.is_agent_scan() => ("scan", Some("agent")),
-        Commands::Scan(_) => ("scan", None),
+        Commands::Capability(_) => ("capability", None),
+        Commands::Agent(_) => ("agent", None),
         Commands::Doctor(_) => ("doctor", None),
         Commands::Completion { .. } => ("completion", None),
         Commands::Man => ("man", None),
@@ -421,7 +426,8 @@ pub const KNOWN_SUBCOMMANDS: &[&str] = &[
     "list",
     "search",
     "find",
-    "scan",
+    "capability",
+    "agent",
     "doctor",
     "completion",
 ];

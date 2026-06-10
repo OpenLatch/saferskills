@@ -275,11 +275,11 @@ mod tests {
     #[test]
     fn display_full_format() {
         let err = SsError::new(ERR_ITEM_NOT_FOUND, "Item not found in catalog: \"x\"")
-            .with_suggestion("Try: saferskills scan <github-url>")
+            .with_suggestion("Try: saferskills capability <github-url>")
             .with_docs("https://saferskills.ai/docs/errors/SS-E-1200");
         let out = format!("{err}");
         assert!(out.starts_with("Item not found in catalog: \"x\" (SS-E-1200)"));
-        assert!(out.contains("Suggestion: Try: saferskills scan"));
+        assert!(out.contains("Suggestion: Try: saferskills capability"));
         assert!(out.contains("Docs: https://saferskills.ai"));
     }
 

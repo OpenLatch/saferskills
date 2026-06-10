@@ -310,7 +310,7 @@ pub struct CapabilityRow {
     pub findings: Vec<FindingResponse>,
 }
 
-/// A repo scan run — the roll-up the CLI's `scan` / `scan --local` report (the
+/// A repo scan run — the roll-up the CLI's `capability` scan / audit reports (the
 /// run report IS the roll-up).
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScanRunReportDetail {

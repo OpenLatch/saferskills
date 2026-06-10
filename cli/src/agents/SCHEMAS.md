@@ -136,9 +136,9 @@ Out-of-scope surfaces (NOT written by this CLI — no live-verify needed here):
 Gemini skill dir, Codex `openai.yaml`. (Windsurf hooks remain MCP-only here — the
 hook shape is wired for claude-code + openclaw only.)
 
-## Read-only enumeration reuse (`scan --local`, D-05-27)
+## Read-only enumeration reuse (the no-target `capability` audit, D-05-27)
 
-`agents/enumerate.rs` (the `scan --local` audit) **reads** these same config
+`agents/enumerate.rs` (the no-target `capability` audit) **reads** these same config
 shapes to enumerate what's already installed — it never writes. It reuses the
 writer's key/format resolution so the read agrees with the write:
 

@@ -1,17 +1,17 @@
-//! `saferskills scan [target]` / `scan --local`.
+//! `saferskills capability [TARGET]`.
 //!
-//! With a target it scans a single artifact; with no target (or `--local`) it
-//! audits everything installed across detected agents.
+//! With a TARGET it scans a single artifact; with no target it audits everything
+//! installed across detected agents (optionally scoped by `--to <agent>`).
 //!
-//! **`scan --local` (D-05-27)** enumerates every capability *already installed*
+//! **The no-target audit (D-05-27)** enumerates every capability *already installed*
 //! across the user's detected agents — reading each agent's own config dirs/files
 //! ([`crate::agents::enumerate`]), not the CLI's install ledger — bundles them
 //! into one structured `.zip` (paths matching the backend `discovery.py` anchor
 //! layout, so the server runs the same directory-based discovery a GitHub repo
 //! gets), uploads it **once**, and renders a single per-capability audit report.
-//! Because `scan <url>` / `scan <path>` / `scan --local` all resolve to the same
-//! [`ScanRunReportDetail`], the rich [`print_run_report`] renderer upgrades every
-//! scan surface.
+//! Because `capability <url>` / `capability <path>` / the no-target audit all
+//! resolve to the same [`ScanRunReportDetail`], the rich [`print_run_report`]
+//! renderer upgrades every scan surface.
 //!
 //! Local content (or a GitHub URL) is sent to the API, which scans it server-side
 //! and returns a public-by-default run report (`--private` → unlisted + a share
@@ -33,7 +33,7 @@ use crate::api::dto::{CapabilityRow, FindingResponse, ScanRunReportDetail, Sever
 use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::OutputConfig;
-use crate::cli::ScanArgs;
+use crate::cli::CapabilityArgs;
 use crate::core::config::{contract_home, Config};
 use crate::core::error::{SsError, ERR_POW_FAILED, ERR_RATE_LIMITED, ERR_SCAN_TARGET};
 use crate::core::pow;
@@ -47,34 +47,26 @@ const SPINNER_DIFFICULTY: u32 = 16;
 /// stay under it.
 const UPLOAD_MAX_BYTES: usize = 10 * 1024 * 1024;
 
-/// Entry point. A GitHub URL or a local path is scanned directly; with neither a
-/// target nor `--local`, defaults to a local audit of everything installed.
-pub async fn run_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsError> {
-    // The behavioral Agent Scan (`scan agent` / `--agent` / `--print-skill` /
-    // `--submit-blob`) is a distinct flow — branch before the path/url/local logic
-    // so the positional `agent` is consumed, not scanned as a literal path.
-    if args.is_agent_scan() {
-        return super::agent_scan::run_agent_scan(args, output).await;
-    }
+/// Entry point. A GitHub URL or a local path is scanned directly; with no target,
+/// defaults to a local audit of everything installed (optionally scoped by `--to`).
+pub async fn run_capability(args: &CapabilityArgs, output: &OutputConfig) -> Result<(), SsError> {
     let config = Config::load()?;
     let api = Api::new(config.api_base(None))?;
     let visibility = if args.private { "unlisted" } else { "public" };
 
-    // An explicit target (and no `--local`) scans that single artifact.
-    if !args.local {
-        if let Some(t) = args.target.as_deref() {
-            return if is_github_url(t) {
-                scan_url(&api, output, t, visibility, args.detailed).await
-            } else {
-                scan_path(&api, output, Path::new(t), visibility, args.detailed).await
-            };
-        }
-        // No target given → audit everything installed, like `scan --local`.
-        output.print_info(
-            "No target given — auditing installed capabilities (same as `scan --local`).",
-        );
+    // An explicit target scans that single artifact (clap rejects `--to` here).
+    if let Some(t) = args.target.as_deref() {
+        return if is_github_url(t) {
+            scan_url(&api, output, t, visibility, args.detailed).await
+        } else {
+            scan_path(&api, output, Path::new(t), visibility, args.detailed).await
+        };
     }
-    run_local_audit(&api, output, visibility, args.detailed).await
+    // No target → audit everything installed (optionally scoped by `--to`).
+    if args.to.is_empty() {
+        output.print_info("No target given — auditing installed capabilities.");
+    }
+    run_local_audit(&api, output, visibility, args.detailed, &args.to).await
 }
 
 // ─── single-target paths ─────────────────────────────────────────────────────
@@ -134,25 +126,29 @@ async fn scan_path(
     Ok(())
 }
 
-// ─── scan --local: audit everything installed (D-05-27) ──────────────────────
+// ─── no-target audit: audit everything installed (D-05-27) ───────────────────
 
-/// Audit everything installed across detected agents. Shared by `scan --local`
-/// and `list`'s inline "scan the unscanned now" invitation — the latter calls it
-/// (`visibility="public"`) then re-renders from the freshly populated scan cache.
+/// Audit everything installed across detected agents (optionally scoped by
+/// `--to`). Shared by `capability` (no target) and `list`'s inline "scan the
+/// unscanned now" invitation — the latter calls it (`visibility="public"`, no
+/// `--to`) then re-renders from the freshly populated scan cache.
 pub(crate) async fn run_local_audit(
     api: &Api,
     output: &OutputConfig,
     visibility: &str,
     detailed: bool,
+    to: &[String],
 ) -> Result<(), SsError> {
-    // Resolve the detected agents once, then enumerate from them — keeping the
-    // agent list (with its on-disk locations) for the "Agents audited" section.
+    // Resolve the detected agents once, scope them to `--to` (a pure client-side
+    // filter), then enumerate from them — keeping the agent list (with its
+    // on-disk locations) for the "Agents audited" section.
     let agents = detect_all(Scope::Global);
+    let agents = filter_agents_by_to(agents, to, output)?;
     let enm = enumerate::enumerate_from(&agents);
     if enm.capabilities.is_empty() {
         output.print_info("No installed capabilities found across your agents — nothing to audit.");
         output.print_substep(
-            "Install one with `saferskills install <name>`, or scan a path: `saferskills scan <path>`.",
+            "Install one with `saferskills install <name>`, or scan a path: `saferskills capability <path>`.",
         );
         if output.is_json() {
             output.print_json(&json!({
@@ -196,6 +192,46 @@ pub(crate) async fn run_local_audit(
         Some(&local),
     );
     Ok(())
+}
+
+/// Scope the detected agents to the `--to` filter (a pure client-side filter — no
+/// backend change). Empty `to` keeps every detected agent. Otherwise each token is
+/// parsed (canonical id, or a legacy alias that warns; an unknown token is
+/// `SS-E-1401` exit 2), a known-but-undetected id **warns and is dropped** (vs the
+/// agent-scan path which accepts it), and only the detected agents whose id was
+/// requested are kept (detection order preserved). A filter that retains nothing
+/// falls through to the existing empty-result branch.
+fn filter_agents_by_to(
+    agents: Vec<DetectedAgent>,
+    to: &[String],
+    output: &OutputConfig,
+) -> Result<Vec<DetectedAgent>, SsError> {
+    if to.is_empty() {
+        return Ok(agents);
+    }
+    let mut requested: Vec<AgentId> = Vec::new();
+    for token in to {
+        let (id, warn) = AgentId::parse_cli(token)?;
+        if let Some(w) = warn {
+            output.print_warn(&w);
+        }
+        if !requested.contains(&id) {
+            requested.push(id);
+        }
+    }
+    let detected: std::collections::HashSet<AgentId> = agents.iter().map(|a| a.id).collect();
+    for id in &requested {
+        if !detected.contains(id) {
+            output.print_warn(&format!(
+                "`{}` is not detected on this machine — skipping it.",
+                id.as_str()
+            ));
+        }
+    }
+    Ok(agents
+        .into_iter()
+        .filter(|a| requested.contains(&a.id))
+        .collect())
 }
 
 /// CLI-side identity of one bundled capability, used to correlate a server
@@ -370,7 +406,7 @@ fn build_local_bundle(enm: Enumeration, agents: &[DetectedAgent]) -> Result<Buil
             ),
         )
         .with_suggestion(
-            "Too many large capabilities to audit at once; scan a single path with `saferskills scan <path>`.",
+            "Too many large capabilities to audit at once; scan a single path with `saferskills capability <path>`.",
         ));
     }
 
@@ -550,7 +586,7 @@ pub(crate) fn deterministic_zip(root: &Path) -> Result<(Vec<u8>, usize), SsError
 /// Pack `(rel_path, bytes)` entries into a byte-stable `.zip`: entries sorted,
 /// `/`-separators, a fixed mtime + `0o644` perms, fixed compression. Identical
 /// inputs → byte-identical archives. The shared zip core for both the
-/// single-target pack and the `scan --local` bundle.
+/// single-target pack and the no-target audit bundle.
 pub(crate) fn zip_from_entries(mut files: Vec<(String, Vec<u8>)>) -> Result<Vec<u8>, SsError> {
     files.sort_by(|a, b| a.0.cmp(&b.0));
     let mut buf: Vec<u8> = Vec::new();

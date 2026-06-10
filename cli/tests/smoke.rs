@@ -2,7 +2,7 @@
 //!
 //! Covers the CLI acceptance surface: `--version` / `--help`, the `info`
 //! read path (human + `--json`), did-you-mean on a typo, color stripping,
-//! `completion` / `man`, and the `scan` target-error fast path.
+//! `completion` / `man`, and the `capability` target-error fast path.
 
 use assert_cmd::Command;
 use mockito::{Matcher, Server, ServerGuard};
@@ -113,7 +113,8 @@ fn help_lists_full_command_surface() {
         .success()
         .stdout(predicate::str::contains("info"))
         .stdout(predicate::str::contains("install"))
-        .stdout(predicate::str::contains("scan"))
+        .stdout(predicate::str::contains("capability"))
+        .stdout(predicate::str::contains("agent"))
         .stdout(predicate::str::contains("completion"));
 }
 
@@ -170,7 +171,9 @@ fn info_typo_prints_did_you_mean_and_exits_3() {
         .assert()
         .code(3)
         .stderr(predicate::str::contains("Did you mean"))
-        .stderr(predicate::str::contains("saferskills scan <github-url>"));
+        .stderr(predicate::str::contains(
+            "saferskills capability <github-url>",
+        ));
 }
 
 #[test]
@@ -213,27 +216,27 @@ fn man_emits_troff() {
 }
 
 #[test]
-fn scan_missing_path_is_a_target_error() {
+fn capability_missing_path_is_a_target_error() {
     // A non-existent local target fails fast with a target error (SS-E-1603)
     // BEFORE any network.
     let tmp = tempfile::tempdir().unwrap();
     cli(tmp.path())
-        .args(["scan", "./definitely-not-a-real-path-xyz"])
+        .args(["capability", "./definitely-not-a-real-path-xyz"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("SS-E-1603"));
 }
 
 #[test]
-fn scan_with_no_target_audits_local() {
-    // `scan` with no target routes to a local audit (D-05-27) — it enumerates
+fn capability_with_no_target_audits_local() {
+    // `capability` with no target routes to a local audit (D-05-27) — it enumerates
     // capabilities installed across detected agents (no longer the CLI's install
     // ledger). We assert only the routing preamble: the audit outcome depends on
     // what is actually installed on the host, and the full enumerate → bundle →
-    // upload → report chain is covered against a mock in tests/scan_cli.rs.
+    // upload → report chain is covered against a mock in tests/capability_cli.rs.
     let tmp = tempfile::tempdir().unwrap();
     cli(tmp.path())
-        .arg("scan")
+        .arg("capability")
         .assert()
         .stderr(predicate::str::contains("auditing installed capabilities"));
 }

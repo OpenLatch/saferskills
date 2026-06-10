@@ -1,7 +1,7 @@
 //! Local-install enumeration — audit every capability *already installed* across
 //! detected agents (D-05-27).
 //!
-//! `scan --local` answers "audit everything I have installed", which is a
+//! The no-target `capability` audit answers "audit everything I have installed", which is a
 //! different question from the CLI's own install ledger (`core::registry`, which
 //! only knows what *saferskills* installed). This module reads each detected
 //! agent's *own* config dirs/files — `agent.skill_dir`, `agent.mcp_config_path`,
@@ -106,8 +106,8 @@ impl LocalCapability {
     /// — only used to correlate `list` ↔ the local scan cache, `core::scan_cache`).
     /// sha256 over the sorted `(rel_path, bytes)` entries, length-prefixing each
     /// field so no concatenation ambiguity can collide two distinct trees.
-    /// Determinism only needs to match itself across runs — `list` and
-    /// `scan --local` both call it on the same enumerated entries.
+    /// Determinism only needs to match itself across runs — `list` and the
+    /// no-target `capability` audit both call it on the same enumerated entries.
     pub fn content_hash(&self) -> String {
         use sha2::{Digest, Sha256};
         let mut entries: Vec<&(String, Vec<u8>)> = self.entries.iter().collect();

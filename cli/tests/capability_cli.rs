@@ -1,8 +1,8 @@
-//! Subprocess coverage for the `scan` command (D-05-26/27) through the real
-//! binary against a mock API. Cross-platform: `scan` needs no detected agent, so
-//! unlike the lifecycle test this runs everywhere (and exercises the PoW solve →
-//! submit → poll chain end-to-end via `run_scan`/`scan_url`/`scan_path`/
-//! `run_local`/`obtain_pow`/`print_run_report`).
+//! Subprocess coverage for the `capability` command (D-05-26/27) through the real
+//! binary against a mock API. Cross-platform: `capability` needs no detected agent,
+//! so unlike the lifecycle test this runs everywhere (and exercises the PoW solve →
+//! submit → poll chain end-to-end via `run_capability`/`scan_url`/`scan_path`/
+//! `run_local_audit`/`obtain_pow`/`print_run_report`).
 
 use assert_cmd::Command;
 use mockito::{Matcher, Server, ServerGuard};
@@ -32,7 +32,7 @@ fn run_report(run_id: &str) -> serde_json::Value {
 }
 
 /// Mock the full CLI scan-submit surface: PoW challenge, both submit endpoints,
-/// the run poll, and the catalog reads `scan --local` needs.
+/// the run poll, and the catalog reads the no-target `capability` audit needs.
 fn mock_scan_api() -> ServerGuard {
     let mut server = Server::new();
     // Low difficulty so the CLI solves the PoW near-instantly.
@@ -73,7 +73,7 @@ fn mock_scan_api() -> ServerGuard {
         .with_body(run_report("run-1").to_string())
         .expect_at_least(1)
         .create();
-    // For `scan --local` slug → github_url resolution.
+    // For the no-target `capability` audit slug → github_url resolution.
     server
         .mock("GET", format!("/api/v1/items/{SLUG}").as_str())
         .with_status(200)
@@ -103,11 +103,11 @@ fn cli(ss_dir: &std::path::Path, api: &str) -> Command {
 }
 
 #[test]
-fn scan_github_url_public_reports_run() {
+fn capability_github_url_public_reports_run() {
     let ss = tempfile::tempdir().unwrap();
     let server = mock_scan_api();
     let out = cli(ss.path(), &server.url())
-        .args(["--json", "scan", "https://github.com/acme/widget"])
+        .args(["--json", "capability", "https://github.com/acme/widget"])
         .assert()
         .success()
         .get_output()
@@ -120,13 +120,13 @@ fn scan_github_url_public_reports_run() {
 }
 
 #[test]
-fn scan_local_path_uploads_and_reports() {
+fn capability_local_path_uploads_and_reports() {
     let ss = tempfile::tempdir().unwrap();
     let target = tempfile::tempdir().unwrap();
     std::fs::write(target.path().join("SKILL.md"), b"---\nname: t\n---\n# t\n").unwrap();
     let server = mock_scan_api();
     let out = cli(ss.path(), &server.url())
-        .args(["--json", "scan", target.path().to_str().unwrap()])
+        .args(["--json", "capability", target.path().to_str().unwrap()])
         .assert()
         .success()
         .get_output()
@@ -139,18 +139,18 @@ fn scan_local_path_uploads_and_reports() {
 }
 
 #[test]
-fn scan_missing_target_errors() {
+fn capability_missing_target_errors() {
     let ss = tempfile::tempdir().unwrap();
     let server = mock_scan_api();
     cli(ss.path(), &server.url())
-        .args(["scan", "./definitely-not-here-xyz"])
+        .args(["capability", "./definitely-not-here-xyz"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("SS-E-1603"));
 }
 
-/// `scan --local` now enumerates capabilities installed across detected agents
-/// (D-05-27) instead of the CLI's own install ledger. With an empty HOME no
+/// `capability` (no target) now enumerates capabilities installed across detected
+/// agents (D-05-27) instead of the CLI's own install ledger. With an empty HOME no
 /// agents are detected, so the audit short-circuits to the empty machine shape
 /// `{"run_id":null,"capabilities":[],"skipped":[]}` (exit 0).
 ///
@@ -158,7 +158,7 @@ fn scan_missing_target_errors() {
 /// `agents::enumerate` unit tests — the same fake-HOME limitation as `detect.rs`
 /// prevents driving the real binary against synthetic agents.
 #[test]
-fn scan_local_empty_when_no_agents() {
+fn capability_audit_empty_when_no_agents() {
     let ss = tempfile::tempdir().unwrap();
     let fake_home = tempfile::tempdir().unwrap();
     let server = mock_scan_api();
@@ -167,13 +167,13 @@ fn scan_local_empty_when_no_agents() {
         .env("HOME", fake_home.path())
         .env("USERPROFILE", fake_home.path())
         .env("XDG_CONFIG_HOME", fake_home.path().join(".config"))
-        .args(["--json", "scan", "--local"])
+        .args(["--json", "capability"])
         .assert()
         .success()
         .get_output()
         .stdout
         .clone();
-    let v: serde_json::Value = serde_json::from_slice(&out).expect("scan --local json");
+    let v: serde_json::Value = serde_json::from_slice(&out).expect("capability audit json");
     // The contract keys are always present; an empty HOME yields the empty shape.
     assert!(v.get("run_id").is_some());
     assert!(v["capabilities"].is_array());

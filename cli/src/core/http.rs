@@ -2,7 +2,9 @@
 //!
 //! Reads are unauthenticated + uncapped — no API key, no Turnstile, no rate
 //! limit. The client is rustls-only (the `cli-rustls` CI lane greps the dep
-//! tree to keep openssl-sys / native-tls out) with an explicit 10s timeout.
+//! tree to keep openssl-sys / native-tls out) with an explicit 20s timeout
+//! (generous enough that a momentarily-loaded API still answers a poll instead of
+//! tripping a spurious request timeout).
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -21,11 +23,11 @@ pub struct ApiClient {
 
 impl ApiClient {
     /// Build a client against `base` (already-resolved origin, no trailing
-    /// slash). rustls TLS, 10s timeout, identifying user-agent.
+    /// slash). rustls TLS, 20s timeout, identifying user-agent.
     pub fn new(base: String) -> Result<Self, SsError> {
         let http = reqwest::Client::builder()
             .use_rustls_tls()
-            .timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(20))
             .user_agent(concat!("saferskills/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|e| SsError::new(ERR_NETWORK, format!("Failed to build HTTP client: {e}")))?;

@@ -22,7 +22,7 @@ pub enum OutputFormat {
     /// Pure JSON — one object per logical result, to stdout.
     Json,
     /// Markdown block to stdout (e.g. a PR-comment / README agent-scan verdict).
-    /// Only `scan agent` emits Markdown; other commands treat it like Human.
+    /// Only `agent` emits Markdown; other commands treat it like Human.
     #[value(name = "md")]
     Md,
 }

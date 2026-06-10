@@ -64,6 +64,26 @@ async def test_bootstrap_unlisted_returns_share_token(db_client: AsyncClient) ->
 
 
 @pytest.mark.asyncio
+async def test_every_platform_prompt_specifies_result_enums(db_client: AsyncClient) -> None:
+    """Every platform's bootstrap prompt MUST spell out the closed
+    `agent_scan_result.v1` enum sets. Otherwise an LLM defaults to standard chat
+    roles (`user`/`assistant`/`system`) and a free-form `status`, and the strict
+    submit schema 422s. Regression for the 8 terse agent templates that named only
+    `skipped_capability_absent` and showed `{role, raw_response}` with no values.
+    """
+    from app.agent_scan.bootstrap import PLATFORMS
+
+    for platform in sorted(PLATFORMS):
+        r = await db_client.get("/api/v1/agent-scans/bootstrap", params={"platform": platform})
+        assert r.status_code == 200, platform
+        prompt = r.json()["prompt"]
+        # The distinctive enum values an LLM would never guess on its own:
+        assert "untrusted_input" in prompt, f"{platform}: role enum not specified"
+        assert "executed" in prompt, f"{platform}: `executed` status not specified"
+        assert "skipped_capability_absent" in prompt, platform
+
+
+@pytest.mark.asyncio
 async def test_bootstrap_bad_platform_422(db_client: AsyncClient) -> None:
     r = await db_client.post(
         "/api/v1/agent-scans/bootstrap",

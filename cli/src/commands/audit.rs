@@ -1,9 +1,9 @@
 //! First-launch security audit (D-05-26).
 //!
 //! On the CLI's first interactive run, offer a one-time opt-in audit of
-//! everything already installed across the user's agents. On accept it runs
-//! `scan --local` once (public by default, with a private/unlisted option). The
-//! choice is persisted (`config.toml::audited`) so it never re-prompts.
+//! everything already installed across the user's agents. On accept it runs the
+//! `capability` no-target audit once (public by default, with a private/unlisted
+//! option). The choice is persisted (`config.toml::audited`) so it never re-prompts.
 //!
 //! **Fail-open**: any error here is swallowed — the audit must never change the
 //! exit code of the user's actual command.
@@ -11,8 +11,8 @@
 use std::io::IsTerminal;
 
 use crate::cli::output::OutputConfig;
-use crate::cli::{Interaction, ScanArgs};
-use crate::commands::scan;
+use crate::cli::{CapabilityArgs, Interaction};
+use crate::commands::capability;
 use crate::core::config::{set_audited, Config};
 use crate::core::error::SsError;
 use crate::core::registry;
@@ -89,18 +89,12 @@ async fn try_first_run_audit(inter: Interaction, output: &OutputConfig) -> Resul
             };
             if let Some(private) = private {
                 // Direct call (no dispatch recursion). Fail-open — ignore errors.
-                let _ = scan::run_scan(
-                    &ScanArgs {
+                let _ = capability::run_capability(
+                    &CapabilityArgs {
                         target: None,
-                        local: true,
+                        to: vec![],
                         private,
                         detailed: false,
-                        agent: None,
-                        fail_on: None,
-                        baseline: None,
-                        no_telemetry: false,
-                        print_skill: false,
-                        submit_blob: None,
                     },
                     output,
                 )

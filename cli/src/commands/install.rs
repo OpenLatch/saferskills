@@ -51,7 +51,7 @@ pub async fn run_install(
     let (score, tier) = score_and_tier(&detail);
     let findings = ranked_findings(&detail);
 
-    // 3. Digest: the global score + the 5-axis category breakdown (mirrors `scan`).
+    // 3. Digest: the global score + the 5-axis category breakdown (mirrors `capability`).
     render_digest(output, &detail, score, tier);
 
     // 4. Targeting: detected ∩ item.agent_compatibility ∩ writer-supports(kind).
@@ -257,7 +257,7 @@ fn select_agents(
     Ok(chosen)
 }
 
-// ─── digest: score + 5-axis breakdown (mirrors `scan`) ────────────────────────
+// ─── digest: score + 5-axis breakdown (mirrors `capability`) ──────────────────
 
 /// Print the install digest: the item title + tier dot + `score/100`, then the
 /// 5-axis category breakdown as labelled bar gauges. No-op in JSON/quiet
