@@ -240,3 +240,105 @@ class AgentScanReportDetail(OrmBaseModel):
     engine_version: str
     latency_ms: int
     scanned_at: datetime | None = None
+    # Capability-token holder's public right-of-reply (≤500 chars). Persisted on the
+    # run, rendered read-only on the report; null when no reply was attached (D-5.6-08).
+    vendor_reply: str | None = None
+    vendor_reply_at: datetime | None = None
+
+
+# ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
+# Hand-written summary + envelope + aggregate models for the `/agents` directory.
+# Same OrmBaseModel + `data`-envelope convention as the catalog list. PUBLIC-ONLY:
+# the list query hard-filters `visibility='public' AND status IN (graded,published)
+# AND score IS NOT NULL` (the report carries no transcript here either).
+
+
+class AgentFindingsSummary(OrmBaseModel):
+    """Per-run finding counts for a dossier card (derived from `agent_findings`)."""
+
+    critical: int = Field(default=0, ge=0)
+    high: int = Field(default=0, ge=0)
+    info: int = Field(default=0, ge=0)
+    total: int = Field(default=0, ge=0)
+
+
+class AgentCapabilityTally(OrmBaseModel):
+    """Per-kind capability counts (derived from `component_scores[].kind`)."""
+
+    skill: int = Field(default=0, ge=0)
+    hook: int = Field(default=0, ge=0)
+    mcp: int = Field(default=0, ge=0)
+    plugin: int = Field(default=0, ge=0)
+    rules: int = Field(default=0, ge=0)
+
+
+class AgentScanSummary(OrmBaseModel):
+    """One `/agents` directory dossier row (a public, graded agent run)."""
+
+    id: str
+    agent_name: str
+    runtime: str
+    score: int | None = Field(default=None, ge=0, le=100)
+    band: _Tier
+    visibility: Literal["public"] = "public"
+    report_url: str | None = None
+    scanned_at: datetime | None = None
+    capability_tally: AgentCapabilityTally = Field(default_factory=AgentCapabilityTally)
+    findings_summary: AgentFindingsSummary = Field(default_factory=AgentFindingsSummary)
+    trust_tier: str | None = None
+
+
+class AgentScanListEnvelope(OrmBaseModel):
+    """`GET /api/v1/agent-scans` paginated envelope (`data`, never `items`)."""
+
+    data: list[AgentScanSummary]
+    total_count: int = Field(default=0, ge=0)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=24, ge=1)
+    total_pages: int = Field(default=1, ge=1)
+
+
+class AgentBandShare(OrmBaseModel):
+    """One band's slice of the corpus risk thermometer."""
+
+    pct: float = Field(default=0.0, ge=0)
+    count: int = Field(default=0, ge=0)
+
+
+class AgentBandDistribution(OrmBaseModel):
+    """Risk-distribution thermometer segments (proportions + counts)."""
+
+    red: AgentBandShare = Field(default_factory=AgentBandShare)
+    orange: AgentBandShare = Field(default_factory=AgentBandShare)
+    yellow: AgentBandShare = Field(default_factory=AgentBandShare)
+    green: AgentBandShare = Field(default_factory=AgentBandShare)
+
+
+class AgentAggregateStats(OrmBaseModel):
+    """`GET /api/v1/agent-scans/aggregate-stats` — the corpus risk meter feed."""
+
+    corpus_count: int = Field(default=0, ge=0)
+    gate_target: int = Field(default=500, ge=1)
+    gate_met: bool = False
+    # Null until the corpus reaches the gate — the frontend blanks the stat to "—".
+    pct_with_critical: float | None = None
+    band_distribution: AgentBandDistribution = Field(default_factory=AgentBandDistribution)
+    window_label: str = "Whole corpus · Last 3 months"
+
+
+class AgentVerifyWaitlistRequest(OrmBaseModel):
+    """`POST /api/v1/agent-scans/verify-waitlist` — account-free demand signal."""
+
+    email: str | None = Field(default=None, max_length=320, description="Optional contact email.")
+
+
+class AgentVerifyWaitlistResponse(OrmBaseModel):
+    """`POST /api/v1/agent-scans/verify-waitlist` ack (records demand only)."""
+
+    recorded: bool = True
+
+
+class AgentReplyRequest(OrmBaseModel):
+    """`POST /api/v1/agent-scans/r/{token}/reply` — the ≤500-char public reply."""
+
+    text: str = Field(..., min_length=1, max_length=500)

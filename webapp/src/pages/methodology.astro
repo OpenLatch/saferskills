@@ -16,6 +16,7 @@ import { ruleCount, ruleStats } from '@/generated/methodology/rule-count'
 import { ruleRows } from '@/generated/methodology/rules-table'
 import FormulaPanel from '@/components/methodology/FormulaPanel.astro'
 import RuleFilter from '@/components/methodology/RuleFilter.tsx'
+import AgentPackSection from '@/components/methodology/AgentPackSection.astro'
 
 import '@/styles/page-methodology.css'
 ---
@@ -65,13 +66,18 @@ import '@/styles/page-methodology.css'
     </div>
   </section>
 
-  <RidgeStars label="— REPRODUCIBILITY · 03 —" />
+  <RidgeStars label="— AGENT SCAN PACK · 03 —" />
 
-  {/* ─────────── §03 Reproducibility ─────────── */}
+  {/* ─────────── §03 Agent Scan pack — behavioral AS-NN tests ─────────── */}
+  <AgentPackSection />
+
+  <RidgeStars label="— REPRODUCIBILITY · 04 —" />
+
+  {/* ─────────── §04 Reproducibility ─────────── */}
   <section class="page-section page-section--grid methodology-band" id="reproducibility">
     <div class="container">
       <article class="methodology-prose">
-        <Eyebrow withRule>REPRODUCIBILITY · 03</Eyebrow>
+        <Eyebrow withRule>REPRODUCIBILITY · 04</Eyebrow>
         <h2 class="prose-h2">Reproducibility.</h2>
         <p>
           Run the same code through SaferSkills twice and you get the same result —
@@ -88,13 +94,13 @@ import '@/styles/page-methodology.css'
     </div>
   </section>
 
-  <RidgeStars label="— VENDOR APPEALS · 04 —" />
+  <RidgeStars label="— VENDOR APPEALS · 05 —" />
 
-  {/* ─────────── §04 Vendor right-of-reply ─────────── */}
+  {/* ─────────── §05 Vendor right-of-reply ─────────── */}
   <section class="page-section page-section--flat methodology-band" id="vendor-appeals">
     <div class="container">
       <article class="methodology-prose">
-        <Eyebrow withRule>VENDOR APPEALS · 04</Eyebrow>
+        <Eyebrow withRule>VENDOR APPEALS · 05</Eyebrow>
         <h2 class="prose-h2">Vendor right-of-reply.</h2>
         <p>
           Every public verdict is appealable. Maintainers commit a verification

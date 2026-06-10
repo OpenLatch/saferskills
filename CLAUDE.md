@@ -87,7 +87,7 @@ Mandates, forbidden tools, and package-manager rules: `.claude/rules/tech-stack.
 schemas/           # JSON Schema source-of-truth for all data contracts
 scripts/           # The 6 codegen scripts + validate-schemas.cjs
 services/api/      # FastAPI backend (W1 shell + scan engine from W2)
-webapp/            # Astro 6 + React 19 public catalog (placeholder W1, real W3). Agent Report at /agents/[id] + /agents/r/[token] (I-5.6, mirrors /scans; API stays /api/v1/agent-scans/*)
+webapp/            # Astro 6 + React 19 public catalog (placeholder W1, real W3). Agent Report at /agents/[id] + /agents/r/[token] + the /agents directory (I-5.6 Phase C — corpus risk meter + dossier grid + infinite scroll), the agent badge /badge/agent/[id]/[score].svg, and the /methodology Agent-pack section (mirrors /scans; API stays /api/v1/agent-scans/* incl. GET list + GET aggregate-stats + verify-waitlist + r/{token}/reply)
 ui/                # Design system & shared components (atoms/molecules/organisms)
 rubric/            # Detection rules (W2+ — placeholder dir at W1)
 cli/               # `saferskills` Rust CLI (install + `capability` static scan/audit + `agent` behavioral Agent Scan, I-5.5: mint→signed-pack-verify→bootstrap-prompt→poll→verdict; multi-agent sequential, worst-exit)

@@ -17,6 +17,8 @@
     { "name": "pack_signature", "type": "varchar", "length": 128, "nullable": true },
     { "name": "pack_key_id", "type": "varchar", "length": 64, "nullable": true },
     { "name": "submit_token_sha256", "type": "varchar", "length": 64, "nullable": true },
+    { "name": "vendor_reply", "type": "varchar", "length": 1000, "nullable": true },
+    { "name": "vendor_reply_at", "type": "timestamp", "nullable": true },
     { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
     { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
   ],

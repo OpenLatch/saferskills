@@ -25,11 +25,14 @@ const cols = [
   {
     label: 'AGENTS',
     links: [
-      { label: 'Claude Code', href: '/agents/claude-code' },
-      { label: 'Cursor', href: '/agents/cursor' },
-      { label: 'Codex', href: '/agents/codex' },
-      { label: 'Copilot', href: '/agents/copilot' },
-      { label: 'Windsurf', href: '/agents/windsurf' },
+      // Per-runtime install pages moved to /docs/agent/<runtime> (I-5.6 D-5.6-01/DEV-2)
+      // so the /agents, /agents/[id], /agents/r/[token] namespace is free for the
+      // Agent Report + directory. The /docs/agent/* pages themselves are I-06's concern.
+      { label: 'Claude Code', href: '/docs/agent/claude-code' },
+      { label: 'Cursor', href: '/docs/agent/cursor' },
+      { label: 'Codex', href: '/docs/agent/codex' },
+      { label: 'Copilot', href: '/docs/agent/copilot' },
+      { label: 'Windsurf', href: '/docs/agent/windsurf' },
     ],
   },
   {

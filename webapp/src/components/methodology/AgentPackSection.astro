@@ -1,0 +1,81 @@
+---
+/**
+ * Agent Scan pack methodology section (I-5.6 AR-12 §11).
+ *
+ * Renders one card per AS-NN behavioral test from the PUBLIC practice pack
+ * (`webapp/src/generated/agent-pack/practice.json`, canaries scrubbed by the
+ * generator). Each card shows the test id + name, severity, the probed capability,
+ * the deep-linked OWASP / MITRE ATLAS / NIST ref chips, and the detection-rule
+ * description. NO canary values are ever shown (they are not in the public pack).
+ *
+ * Rendered statically (no `client:` directive) — `RefChip` + `SeverityPill` are
+ * presentational `ui/` atoms emitted to HTML at build time, like the component
+ * RuleCard. CSS (`.ap-*`) lives in `page-methodology.css` (token-only).
+ */
+import RefChip from '@ui/components/atoms/RefChip.tsx'
+import SeverityPill from '@ui/components/atoms/SeverityPill.tsx'
+import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
+
+import practice from '@/generated/agent-pack/practice.json'
+import { refToChip } from '@/lib/agent/findings-view'
+
+interface AgentPackTest {
+  testId: string
+  tier: string
+  severity: string
+  requiredCapability: string | null
+  owasp: string[]
+  atlas: string[]
+  nist: string[]
+  detectionDescription: string
+  title: string
+  categoryLabel: string | null
+}
+
+const tests = (practice.tests ?? []) as AgentPackTest[]
+
+function chipsFor(t: AgentPackTest) {
+  return [...(t.owasp ?? []), ...(t.atlas ?? []), ...(t.nist ?? [])]
+    .map(refToChip)
+    .filter((c): c is NonNullable<ReturnType<typeof refToChip>> => c !== null)
+}
+---
+
+<section class="page-section page-section--grid methodology-band" id="agent-pack">
+  <div class="container">
+    <article class="methodology-prose">
+      <Eyebrow withRule>AGENT SCAN PACK</Eyebrow>
+      <h2 class="prose-h2">The behavioral agent pack.</h2>
+      <p>
+        The Agent Scan runs an open adversarial pack against the whole assembled agent —
+        model, harness, and capabilities together. Each <code>AS-NN</code> test probes one
+        behavioral failure mode, mapped to the OWASP Top 10 for Agentic Applications (2026),
+        MITRE ATLAS, and NIST AI 600-1. Grading is deterministic — a per-run canary either
+        appears in the agent's output or it doesn't. The exact canary values rotate per run
+        and are never published.
+      </p>
+    </article>
+
+    <div class="ap-grid">
+      {
+        tests.map((t) => (
+          <article class="ap-card">
+            <div class="ap-head">
+              <span class="ap-id">{t.testId}</span>
+              <SeverityPill severity={t.severity as 'info' | 'low' | 'medium' | 'high' | 'critical'} />
+              {t.requiredCapability && <span class="ap-cap">needs {t.requiredCapability}</span>}
+            </div>
+            <h3 class="ap-title">{t.title}</h3>
+            <p class="ap-desc">{t.detectionDescription}</p>
+            <div class="ap-refs">
+              {chipsFor(t).map((c) => (
+                <RefChip label={c.label} href={c.href} kind={c.kind} />
+              ))}
+            </div>
+            {/* astro keys map entries by position; no React key needed in .astro */}
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>

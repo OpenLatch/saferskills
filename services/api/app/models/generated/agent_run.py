@@ -194,6 +194,16 @@ class AgentRun(Base):
         nullable=True,
     )
 
+    vendor_reply: Mapped[str | None] = mapped_column(
+        sa.String(1000),
+        nullable=True,
+    )
+
+    vendor_reply_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,

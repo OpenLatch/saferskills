@@ -238,5 +238,7 @@ def build_agent_report(
             "engine_version": run.engine_version,
             "latency_ms": run.latency_ms,
             "scanned_at": run.scanned_at,
+            "vendor_reply": run.vendor_reply,
+            "vendor_reply_at": run.vendor_reply_at,
         }
     )
