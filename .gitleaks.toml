@@ -10,6 +10,11 @@ paths = [
     # Redaction unit tests deliberately use AWS-doc example keys (AKIAIOSFODNN7EXAMPLE)
     # and similar non-secret patterns to verify the redactor scrubs them.
     '''services/api/tests/core/test_redaction_agent_actions\.py$''',
+    # I-5.6 capability/agent-run share-token redaction tests use one synthetic
+    # high-entropy token to assert the redactor scrubs /{scans,agents,agent-scans}/r/.
+    '''services/api/tests/agent_scan/test_report_url\.py$''',
+    '''services/api/tests/test_observability_events\.py$''',
+    '''webapp/test/lib/observability\.test\.ts$''',
     # Extractor + scoring tests use the same canonical test tokens to assert
     # cross-row correlation prefixes match within an org.
     '''services/api/tests/events/extractors/.*\.py$''',

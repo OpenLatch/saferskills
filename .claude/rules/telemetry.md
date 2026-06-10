@@ -42,6 +42,7 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 | `unlisted_*` | Unlisted (capability-URL) manage-bar actions — `unlisted_manage_action` `{action: copy_link\|promote\|delete}` (I-3.5). **Never** carries the `share_token`, slug, filename, or any path content. |
 | `artifact_*` | Artifact detail page interactions |
 | `rule_*` | Rubric / methodology page interactions — incl. the methodology CSV export (`rule_csv_exported` `{count_bucket}`, the visible-rule count bucketed `0`/`1`/`2-5`/`6-20`/`21+`; never a rule_id list) |
+| `agent_report_*` | Agent Report (`/agents/*`) interactions (I-5.6) — `agent_report_tab_selected` `{tab: report\|findings\|component}`, `agent_report_shared`, `agent_report_exported`, `agent_report_verify_requested`, `agent_report_reply_submitted` (the last four carry **no** properties). **Never** the `share_token`, agent name, runtime, or any transcript/finding content. |
 | `appeal_*` | Vendor-appeal form interactions (W5+ when the web form ships) |
 
 ### Property allowlist

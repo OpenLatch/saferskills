@@ -57,7 +57,9 @@ ui/
 │   │                 # SeverityPill (the 5-tier `.sev`/`.sw` severity chip — shared by
 │   │                 #   FindingDetail + the /methodology RuleCard; defines its own Severity union),
 │   │                 # FrameworkBadges (the OWASP/MITRE/CWE `.fw-badge` reference row — shared by
-│   │                 #   FindingDetail + RuleCard; owns the family-label maps + FrameworkRef shape)
+│   │                 #   FindingDetail + RuleCard; owns the family-label maps + FrameworkRef shape),
+│   │                 # AgentVerb, TrustTierPill, CapCallout, EvidenceWithheldNote,
+│   │                 #   StalePackBanner (I-5.6 Agent Report score-hero + lifecycle atoms)
 │   ├── molecules/    # NavBar, CtaBand, AgentMarquee, WhyRow, InstallTabs, ActionCard,
 │   │                 # RecentScanCard, TrendScanCard (Phase A1)
 │   │                 # CatalogToolbar, CatalogFilterSide, CatalogResultsRow, ScanSplit,
@@ -71,6 +73,8 @@ ui/
 │   │                 # ScoreBreakdownTable, MarkdownSourceViewer, CheckGroupList
 │   │                 # (audit extraction — shared by ItemTabs + CapabilityReportTabs)
 │   │                 # TurnstileGate (scan-submit human-verification modal — native <dialog>)
+│   │                 # ProofOfTestsTable (I-5.6 Report-tab proof-of-tests; reuses .chk-* grammar),
+│   │                 #   VerifyWaitlistTile, RightOfReplyForm (I-5.6 Agent Report lifecycle)
 │   └── organisms/    # (composition shells if needed)
 ├── styles/
 │   ├── tokens.css    # Token SSOT + dark-mode block + Tailwind v4 @theme
@@ -165,6 +169,14 @@ The repo scan report's capability type-filter (`.cap-filter`/`.cf`/`.ct` in `Sca
 ### `.mf-*` file-tab strip is a page-specific tablist (I-3.5)
 
 The multi-file upload report's file-tab strip (`.mf-nav`/`.mf-tabs`/`.mf-tab`/`.mf-glyph`/`.mf-dot`/`.mf-score` in `FileTabStrip`) is a genuine `role="tablist"` (one tab per scanned file, each swapping the per-file `tabpanel` body in `UploadReport`). It is **not** `SegmentedTabs` because each tab renders rich, non-label content — a kind glyph + filename + tier dot + tier-colored score — that `SegmentedTabs`' label-only API can't express; it mirrors `SegmentedTabs`' roving-tabindex keyboard model (←/→/↑/↓/Home/End, automatic activation) by hand. Like `.cap-filter`, it is a page-specific composition (rendered by webapp-side `FileTabStrip`/`UploadReport`), so its CSS lives in `webapp/src/styles/page-scan-report.css` (token-only, both themes, reduced-motion guarded) — **not** `components.css`. A future "lift to a DS tablist" pass should extend `SegmentedTabs` with a render-slot before merging, or leave this as-is.
+
+### Agent Report vocabulary (I-5.6)
+
+The Agent Report (`/agents/[id]` + `/agents/r/[token]`) is a **token-only sibling** of the scan report — it introduces zero new design language and reuses `page-scan-report.css`'s `.sr-stat-band`/`.sr-stat-grid`/`.score-cell`/`.sr-facts`/`.sr-head-row`/`.sr-head-meta`/`.sr-big`/`.manage-bar`/`.mbtn` (the public route imports `page-scan-report.css` ahead of `page-agent-report.css`).
+
+- **DS-component CSS lives in `ui/styles/components.css`** (the one-way CSS-ownership rule): every class rendered by a `ui/` agent component — `.ar-verb`/`.vb-sep` (`AgentVerb`), `.trust-pill`/`.ti`/`.tip` (`TrustTierPill`), `.cap-reason`/`.cr-ic` (`CapCallout`), `.ar-tests`/`.ar-tests-head`/`.tt-*` + the `.chk-gobtn`/`.chk-row.fail` **additions scoped under `.ar-tests`** so the shared scan-report `CheckGroupList` is untouched (`ProofOfTestsTable`), `.evidence-public-note` (`EvidenceWithheldNote`), `.ar-stale-banner` (`StalePackBanner`), `.vw-*` (`VerifyWaitlistTile`), `.ror-*` (`RightOfReplyForm`). Ported from the locked mockup with `body.va.dark → html.dark`, tokens only, reduced-motion guards on every transition.
+- **`webapp/src/styles/page-agent-report.css`** owns ONLY page-composition glue (`.ar-scoreline` hero row, `.ar-panel`/`.ar-panel-lead` tab panels, `.ar-tab-placeholder`, `.ar-lifecycle`) — it is a **`check-css` SHELL file** (registered in `scripts/check-css.cjs::SHELL_FILES`; token-only, no raw hex). The `--brand-primary-light` semantic alias the report references is defined once in `tokens.css` (`var(--ol-brand-primary-light)`, D-5.6-16).
+- The report body is the React island `webapp/src/components/agent/AgentReport.tsx` (page-specific composition), mounted `client:load` (SSR'd + hydrated). Telemetry (`agent_report_*`) + the manage/verify/reply fetches live in the island; the `ui/` molecules stay presentational (callback props).
 
 ## Page-head pattern
 

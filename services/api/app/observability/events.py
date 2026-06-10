@@ -509,14 +509,17 @@ def emit_agent_scan_completed(*, tier: TierBucket, findings_count: int, runtime:
 
 # ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────
 
-_CAP_TOKEN_RE = re.compile(r"(/scans/r/)[^/?#\s]+")
+# Covers the scan capability URL (/scans/r/) AND the I-5.6 Agent Report URLs
+# (/agents/r/ public-page + /agent-scans/r/ API). The leading `/` anchors each
+# alternative, so `/agent-scans/r/` never mis-matches the bare `scans` branch.
+_CAP_TOKEN_RE = re.compile(r"(/(?:scans|agent-scans|agents)/r/)[^/?#\s]+")
 
 
 def redact_capability_token(text: str) -> str:
-    """Rewrite `/scans/r/<token>[...]` -> `/scans/r/<redacted>` in any string.
+    """Rewrite `/{scans,agent-scans,agents}/r/<token>[...]` -> `.../r/<redacted>`.
 
-    The capability token is possession-is-authorization - it must never land in
-    an access log, an OTel span name, or a Sentry payload."""
+    The capability / agent-run share token is possession-is-authorization - it must
+    never land in an access log, an OTel span name, or a Sentry payload."""
     return _CAP_TOKEN_RE.sub(r"\1<redacted>", text)
 
 

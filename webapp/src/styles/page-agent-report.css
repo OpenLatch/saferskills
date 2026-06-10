@@ -1,0 +1,65 @@
+/* ============================================================
+   page-agent-report.css — Agent Report (Agent Scan result), I-5.6.
+   Sibling of page-scan-report.css. REUSES its vocabulary
+   (.sr-stat-band / .sr-stat-grid / .score-cell / .sr-facts / .fact /
+   .sr-method / .sr-head-row / .sr-head-meta) — the agent route imports
+   page-scan-report.css ahead of this file so those classes resolve.
+
+   This file owns ONLY page-composition glue. Every class rendered by a
+   ui/ component (AgentVerb .ar-verb / TrustTierPill .trust-pill /
+   CapCallout .cap-reason / ProofOfTestsTable .ar-tests / .chk-gobtn /
+   StalePackBanner / VerifyWaitlistTile / RightOfReplyForm) lives in
+   ui/styles/components.css per the one-way CSS-ownership rule.
+
+   check-css SHELL file — token-only, no raw hex. The
+   --brand-primary-light alias the DS references is defined in tokens.css.
+   ============================================================ */
+
+/* The hero's verb/pill row inside .score-cell (left cell of .sr-stat-grid). */
+.ar-scoreline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* Tab panels swapped by the SegmentedTabs report shell. */
+.ar-panel[hidden] {
+  display: none;
+}
+
+/* A short framing line above the proof-of-tests strip (Report tab). */
+.ar-panel-lead {
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0 0 20px;
+  max-width: 70ch;
+  text-wrap: pretty;
+}
+.ar-panel-lead b {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+html.dark .ar-panel-lead b {
+  color: var(--fg-1);
+}
+
+/* Placeholder body for the Findings / Component Scores tabs (Phase B fills them). */
+.ar-tab-placeholder {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  padding: 32px 4px;
+}
+
+/* The verify-tier waitlist + right-of-reply lifecycle row under the report. */
+.ar-lifecycle {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 32px;
+}

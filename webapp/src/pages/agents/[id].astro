@@ -1,0 +1,110 @@
+---
+export const prerender = false
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import AgentReport from '@/components/agent/AgentReport.tsx'
+import AgentScanPollBoard from '@/components/agent/AgentScanPollBoard.tsx'
+
+import { fetchAgentScanRunById } from '@/lib/api/agent-scans'
+import { isPreGrade, isReportable } from '@/lib/api/agent-scan-types'
+import { fetchPlatformStats } from '@/lib/api/stats'
+import { fetchOrNull, pickCount } from '@/lib/fallback'
+import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
+
+import '@/styles/page-scan-report.css'
+import '@/styles/page-agent-report.css'
+
+const { id } = Astro.params
+if (!id) {
+  return Astro.redirect('/404')
+}
+
+// DEV-only fixture loader (D-5.6-04 — build against the fixture before the live
+// grader is wired). Server-side + behind `import.meta.env.DEV`, which Vite strips
+// to `false` in a prod build, dead-code-eliminating the dynamic import entirely.
+let run = null
+if (import.meta.env.DEV) {
+  const fixtureKey = Astro.url.searchParams.get('fixture')
+  const { isAgentFixtureKey, loadAgentFixture } = await import('@/lib/api/agent-scan-fixture')
+  if (isAgentFixtureKey(fixtureKey)) run = loadAgentFixture(fixtureKey)
+}
+run ??= await fetchAgentScanRunById(id).catch(() => null)
+if (!run) {
+  return Astro.redirect('/404')
+}
+
+// An unlisted run is reachable ONLY via /agents/r/<token> (with the anti-leakage
+// chrome), never the public URL — otherwise it could be indexed (mirrors /scans).
+if (run.visibility === 'unlisted') {
+  return Astro.redirect('/404')
+}
+
+const preGrade = isPreGrade(run.status)
+const reportable = isReportable(run.status)
+// aborted (or any non-reportable, non-pre-grade state) → generic 404.
+if (!preGrade && !reportable) {
+  return Astro.redirect('/404')
+}
+
+const stats = await fetchOrNull(fetchPlatformStats)
+const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
+const capCount = run.capabilities_present.length
+const scoreLabel = run.score === null ? '' : ` ${run.score}/100`
+---
+
+<Base
+  title={
+    preGrade
+      ? `Auditing ${run.agent_name} — SaferSkills`
+      : `${run.agent_name} — agent scan${scoreLabel} — SaferSkills`
+  }
+  description={
+    preGrade
+      ? `Live behavioral agent scan of ${run.agent_name} — an open adversarial pack is running.`
+      : `Behavioral agent scan of ${run.agent_name}: ${run.band} band${scoreLabel}, ${run.findings.length} findings. Independent, methodology-open, free.`
+  }
+>
+  <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath="/agents" />
+
+  <section class="page-head">
+    <div class="container">
+      <Breadcrumb items={[{ label: 'Agents', href: '/agents' }, { label: run.agent_name }]} />
+      <div class="ph-eyebrow">Report · Agent Scan · /agents/{run.id}</div>
+      {preGrade ? (
+        <h1 class="ph-title">Auditing {run.agent_name}<span class="script"> — in progress</span></h1>
+      ) : (
+        <h1 class="ph-title">{run.agent_name}<span class="script"> — agent scan complete</span></h1>
+      )}
+      <p class="ph-lede">
+        we ran an open adversarial pack against the whole assembled agent — model, harness, all {capCount}
+        {' '}capabilities, identity and permissions; security here is emergent, no per-component score
+        {' '}predicts it
+      </p>
+    </div>
+  </section>
+
+  <PageRidge variant="contour" label="— AGENT SCAN —" />
+
+  {preGrade ? (
+    <AgentScanPollBoard client:load runId={run.id} target={run.agent_name} ruleCount={ruleCount} />
+  ) : (
+    <AgentReport client:load run={run} shareUrl={Astro.url.href} ruleCount={ruleCount} />
+  )}
+
+  <CtaBand
+    client:visible
+    title="Scan your agent. Read the report. Decide."
+    lead="An open adversarial pack across the OWASP Agentic + MITRE ATLAS families. Free. Methodology-open."
+    primaryAction={{ label: 'Browse the agent index →', href: '/agents' }}
+    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+  />
+
+  <Footer />
+</Base>
