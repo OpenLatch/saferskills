@@ -23,6 +23,17 @@ fn main() {
         .unwrap_or_else(|_| "https://eu.i.posthog.com".to_string());
     println!("cargo:rustc-env=SAFERSKILLS_POSTHOG_HOST={host}");
 
+    // Agent-scan pack pubkey map (I-5.5 Phase 3). Baked as a comma-separated
+    // `<key_id>=<base64-std-pubkey>` map so the CLI can look the verifying key up by
+    // the served `X-Pack-Key-Id` AND support rotation by adding a second entry.
+    // Production CI sets `SAFERSKILLS_PACK_PUBKEY` from a secret (outbox/01).
+    // Developers / forks: leave it unset — the map is then empty and pack-signature
+    // verification is skipped with a warning (the `manual-bootstrap` posture), the
+    // same "no baked key ⇒ inert" discipline as telemetry.
+    println!("cargo:rerun-if-env-changed=SAFERSKILLS_PACK_PUBKEY");
+    let pubkey = std::env::var("SAFERSKILLS_PACK_PUBKEY").unwrap_or_default();
+    println!("cargo:rustc-env=SAFERSKILLS_PACK_PUBKEY={pubkey}");
+
     // Sentry DSN baking (crash reporting). Mirrors the PostHog key pattern —
     // unset at build time → empty string → the crash_report module
     // short-circuits to a no-op guard (the same "no baked key ⇒ silent no-op"

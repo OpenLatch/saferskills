@@ -5,6 +5,8 @@ pub mod color;
 pub mod header;
 pub mod output;
 
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 use crate::cli::color::ColorChoice;
@@ -279,6 +281,7 @@ pub struct SearchArgs {
 #[derive(Debug, clap::Args)]
 pub struct ScanArgs {
     /// A local path or a GitHub URL. Omit to audit every installed capability.
+    /// The literal `agent` selects the behavioral Agent Scan (`scan agent`).
     pub target: Option<String>,
 
     /// Scan every installed capability across detected agents (the default when
@@ -294,6 +297,47 @@ pub struct ScanArgs {
     /// findings (the default report stays concise).
     #[arg(long)]
     pub detailed: bool,
+
+    // ─── Agent Scan (`scan agent`, I-5.5 Phase 3) ───────────────────────────
+    /// Run the behavioral Agent Scan. Optional value is the platform id
+    /// (`claude-code` … `openclaw`) or `auto` (detect); presence also selects the
+    /// agent-scan branch (equivalent to the positional `agent`).
+    #[arg(long, value_name = "PLATFORM")]
+    pub agent: Option<String>,
+
+    /// Fail (exit 1) when the graded verdict crosses a threshold:
+    /// `<severity>` | `score:<n>` | `band:<green|yellow|orange|red>`.
+    #[arg(long = "fail-on", value_name = "THRESHOLD")]
+    pub fail_on: Option<String>,
+
+    /// A `.agentscanignore` file, or a prior report `.json`, whose findings are
+    /// suppressed (default: `./.agentscanignore` if present).
+    #[arg(long, value_name = "PATH")]
+    pub baseline: Option<PathBuf>,
+
+    /// Opt this run out of anonymous company-level telemetry.
+    #[arg(long = "no-telemetry")]
+    pub no_telemetry: bool,
+
+    /// Print a static SKILL.md bootstrap (with a freshly-minted run + token) and exit.
+    #[arg(long = "print-skill")]
+    pub print_skill: bool,
+
+    /// Submit a paste-back blob your agent printed (text file) and render the report.
+    #[arg(long = "submit-blob", value_name = "FILE")]
+    pub submit_blob: Option<PathBuf>,
+}
+
+impl ScanArgs {
+    /// Whether this invocation selects the behavioral Agent Scan branch — the
+    /// positional `agent` target, an `--agent` value, `--print-skill`, or
+    /// `--submit-blob`.
+    pub fn is_agent_scan(&self) -> bool {
+        self.agent.is_some()
+            || self.print_skill
+            || self.submit_blob.is_some()
+            || self.target.as_deref() == Some("agent")
+    }
 }
 
 /// `doctor`.
@@ -333,7 +377,8 @@ pub fn build_output_config(cli: &Cli) -> OutputConfig {
     } else {
         cli.format
     };
-    let color = if format == OutputFormat::Json {
+    let color = if format == OutputFormat::Json || format == OutputFormat::Md {
+        // Machine / Markdown output is never colorized.
         false
     } else {
         color::is_color_enabled(cli.color, cli.no_color)
@@ -356,6 +401,9 @@ pub fn command_label(cmd: &Commands) -> (&'static str, Option<&'static str>) {
         Commands::Update(_) => ("update", None),
         Commands::List(_) => ("list", None),
         Commands::Search(_) => ("search", None),
+        // The agent-scan branch is a flag/target on `scan`, not its own grammar
+        // node, so refine the telemetry sub-label here (D-05-13 stays closed-enum).
+        Commands::Scan(args) if args.is_agent_scan() => ("scan", Some("agent")),
         Commands::Scan(_) => ("scan", None),
         Commands::Doctor(_) => ("doctor", None),
         Commands::Completion { .. } => ("completion", None),

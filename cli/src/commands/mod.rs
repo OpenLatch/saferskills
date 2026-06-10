@@ -1,6 +1,7 @@
 //! Command handlers. Dispatch is a single `match` in `main.rs` over the clap
 //! enum → one free `run_*` fn per command (no command trait).
 
+pub mod agent_scan;
 pub mod audit;
 pub mod completion;
 pub mod doctor;
@@ -40,6 +41,12 @@ mod tests {
                 local: false,
                 private: false,
                 detailed: false,
+                agent: None,
+                fail_on: None,
+                baseline: None,
+                no_telemetry: false,
+                print_skill: false,
+                submit_blob: None,
             },
             &o,
         )

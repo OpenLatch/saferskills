@@ -9,6 +9,7 @@
 //! 8-generator pipeline.
 
 use saferskills::api::dto::{
+    AgentCheckRow, AgentFindingDto, AgentScanReport, AgentStatusResponse, BootstrapResponse,
     CapabilityRow, CatalogItemSummary, CatalogListEnvelope, ChallengeResponse, EvidenceExcerpt,
     FindingResponse, HealthResponse, ItemDetailResponse, ScanReportDetail, ScanRunReportDetail,
     ScanSubmitResponse, ScanUploadResponse,
@@ -139,6 +140,11 @@ fn component_schemas_exist() {
         "CliChallengeResponse",
         "ScanSubmitResponse",
         "ScanUploadResponse",
+        "AgentScanBootstrapResponse",
+        "AgentScanStatusResponse",
+        "AgentScanReportDetail",
+        "AgentFindingRow",
+        "AgentCheckRow",
     ] {
         assert!(
             defs.contains_key(name),
@@ -262,6 +268,58 @@ fn dto_health_matches() {
         sample_named(&doc, "HealthResponse", &[]),
         "HealthResponse",
     );
+}
+
+// ─── Agent Scan (I-5.5 Phase 3) ──────────────────────────────────────────────
+
+#[test]
+fn dto_agent_bootstrap_matches() {
+    let doc = openapi();
+    assert_deserializes::<BootstrapResponse>(
+        sample_named(&doc, "AgentScanBootstrapResponse", &[("share_token", "")]),
+        "AgentScanBootstrapResponse",
+    );
+}
+
+#[test]
+fn dto_agent_status_matches() {
+    let doc = openapi();
+    assert_deserializes::<AgentStatusResponse>(
+        sample_named(&doc, "AgentScanStatusResponse", &[]),
+        "AgentScanStatusResponse",
+    );
+}
+
+#[test]
+fn dto_agent_report_matches() {
+    let doc = openapi();
+    // Splice the nested findings + checks so AgentFindingDto / AgentCheckRow /
+    // AgentRemediation are all exercised.
+    assert_deserializes::<AgentScanReport>(
+        sample_named(
+            &doc,
+            "AgentScanReportDetail",
+            &[("findings", ""), ("checks", "")],
+        ),
+        "AgentScanReportDetail",
+    );
+}
+
+#[test]
+fn dto_agent_finding_matches() {
+    let doc = openapi();
+    // `evidence_excerpt` is an opaque object in openapi (resolved at request time),
+    // so it is not spliced; `remediation` is a real nested schema we exercise.
+    assert_deserializes::<AgentFindingDto>(
+        sample_named(&doc, "AgentFindingRow", &[("remediation", "")]),
+        "AgentFindingRow",
+    );
+}
+
+#[test]
+fn dto_agent_check_matches() {
+    let doc = openapi();
+    assert_deserializes::<AgentCheckRow>(sample_named(&doc, "AgentCheckRow", &[]), "AgentCheckRow");
 }
 
 #[test]

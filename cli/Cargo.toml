@@ -36,6 +36,8 @@ colorchoice-clap = "1"
 reqwest = { version = "0.12", features = ["json", "stream", "multipart", "rustls-tls"], default-features = false }
 reqwest-eventsource = "0.6"          # SSE (scan progress stream)
 sha2 = "0.10"                        # pure-Rust SHA-256 for the PoW solver (rustls-safe; no openssl)
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }   # verify-only pack-signature check (pure-Rust, rustls-safe — keeps cli-rustls green)
+base64 = "0.22"                      # decode the STANDARD-base64 pack signature + pubkey headers (rustls-safe)
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
 # Interactive `search` TUI (live server search + facet sidebar + multi-select +
 # preview). All TLS-free (the `cli-rustls` CI lane stays green). ratatui draws to

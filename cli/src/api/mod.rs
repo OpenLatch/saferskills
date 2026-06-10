@@ -7,7 +7,8 @@
 pub mod dto;
 
 use dto::{
-    CatalogItemSummary, CatalogListEnvelope, ChallengeResponse, HealthResponse, ItemDetailResponse,
+    AgentScanReport, AgentStatusResponse, BootstrapResponse, CatalogItemSummary,
+    CatalogListEnvelope, ChallengeResponse, HealthResponse, ItemDetailResponse,
     ScanRunReportDetail, ScanSubmitResponse, ScanUploadResponse,
 };
 use serde::Serialize;
@@ -18,6 +19,11 @@ use crate::core::http::ApiClient;
 
 /// The custom header carrying a solved Proof-of-Work for CLI scan-submit.
 const POW_HEADER: &str = "X-SaferSkills-CLI-PoW";
+/// The one-time run/submit token header (agent scan): gates pack-fetch + submit.
+const RUN_TOKEN_HEADER: &str = "X-Agent-Run-Token";
+/// Opt this submission out of company-level telemetry (the server records a minimal
+/// `metadata-opted-out` row instead of the ASN/fingerprint signal).
+const NO_TELEMETRY_HEADER: &str = "X-SaferSkills-No-Telemetry";
 
 /// Build the PoW header list — an empty `pow` sends none (the server's
 /// `_gate_submission` treats a *present* header as a PoW attempt, so an empty
@@ -44,6 +50,15 @@ pub struct InstallReport<'a> {
     pub agent: &'a str,
     pub kind: &'a str,
     pub cli_version: &'a str,
+}
+
+/// Body for `POST /api/v1/agent-scans/bootstrap` (mint a run + render the prompt).
+#[derive(Debug, Serialize)]
+struct BootstrapBody<'a> {
+    platform: &'a str,
+    agent_name: &'a str,
+    runtime: &'a str,
+    visibility: &'a str,
 }
 
 /// The faceted query for [`Api::list_items`] — the `search` command's filter
@@ -266,6 +281,160 @@ impl Api {
         result
     }
 
+    // ─── Agent Scan (I-5.5 Phase 3) ──────────────────────────────────────────
+
+    /// `POST /api/v1/agent-scans/bootstrap` — mint a run + render the bootstrap
+    /// prompt. Carries the solved PoW (empty `pow` ⇒ no header; loopback-exempt).
+    pub async fn bootstrap_agent_scan(
+        &self,
+        platform: &str,
+        agent_name: &str,
+        runtime: &str,
+        visibility: &str,
+        pow: &str,
+    ) -> Result<BootstrapResponse, SsError> {
+        let headers = pow_headers(pow);
+        self.client
+            .post_json_for(
+                "/api/v1/agent-scans/bootstrap",
+                &BootstrapBody {
+                    platform,
+                    agent_name,
+                    runtime,
+                    visibility,
+                },
+                &headers,
+            )
+            .await
+    }
+
+    /// `GET /api/v1/agent-scans/{run_id}/pack` (token-gated) → `(body, key_id, sig)`.
+    /// The signed-pack bytes + the `X-Pack-Key-Id` / `X-Pack-Signature` headers the
+    /// CLI verifies with `verify_strict` before printing the prompt.
+    pub async fn get_pack_bytes(
+        &self,
+        run_id: &str,
+        token: &str,
+    ) -> Result<(Vec<u8>, Option<String>, Option<String>), SsError> {
+        let (body, picked) = self
+            .client
+            .get_bytes_with_headers(
+                &format!("/api/v1/agent-scans/{run_id}/pack"),
+                &[(RUN_TOKEN_HEADER, token)],
+                &["x-pack-key-id", "x-pack-signature"],
+            )
+            .await?;
+        let mut it = picked.into_iter();
+        let key_id = it.next().flatten();
+        let sig = it.next().flatten();
+        Ok((body, key_id, sig))
+    }
+
+    /// `GET /api/v1/agent-scans/{run_id}/status` (token-authed) — the poll target.
+    pub async fn get_agent_status(
+        &self,
+        run_id: &str,
+        token: &str,
+    ) -> Result<AgentStatusResponse, SsError> {
+        self.client
+            .get_with_headers(
+                &format!("/api/v1/agent-scans/{run_id}/status"),
+                &[],
+                &[(RUN_TOKEN_HEADER, token)],
+            )
+            .await
+    }
+
+    /// `GET /api/v1/agent-scans/{run_id}` — the public graded report.
+    pub async fn get_agent_run(&self, run_id: &str) -> Result<AgentScanReport, SsError> {
+        self.client
+            .get(&format!("/api/v1/agent-scans/{run_id}"), &[])
+            .await
+    }
+
+    /// `GET /api/v1/agent-scans/r/{share_token}` — the unlisted (private) report.
+    pub async fn get_agent_run_private(
+        &self,
+        share_token: &str,
+    ) -> Result<AgentScanReport, SsError> {
+        self.client
+            .get(&format!("/api/v1/agent-scans/r/{share_token}"), &[])
+            .await
+    }
+
+    /// `POST /api/v1/agent-scans/{run_id}/abort` (token-authed, 204) — discard a run
+    /// (best-effort cancel, e.g. on a pack-signature mismatch).
+    pub async fn abort_agent_run(&self, run_id: &str, token: &str) -> Result<(), SsError> {
+        self.client
+            .post_for_status(
+                &format!("/api/v1/agent-scans/{run_id}/abort"),
+                &[(RUN_TOKEN_HEADER, token)],
+            )
+            .await
+    }
+
+    /// `POST /api/v1/agent-scans/{run_id}/submit` with a `text/plain` paste-back
+    /// body (the server decodes it). Carries the PoW + one-time run token, and the
+    /// telemetry opt-out header when `no_telemetry` is set.
+    pub async fn submit_agent_blob(
+        &self,
+        run_id: &str,
+        token: &str,
+        body: String,
+        pow: &str,
+        no_telemetry: bool,
+    ) -> Result<AgentScanReport, SsError> {
+        let mut headers = pow_headers(pow);
+        headers.push((RUN_TOKEN_HEADER, token));
+        if no_telemetry {
+            headers.push((NO_TELEMETRY_HEADER, "1"));
+        }
+        self.client
+            .post_text_for(
+                &format!("/api/v1/agent-scans/{run_id}/submit"),
+                body,
+                "text/plain; charset=utf-8",
+                &headers,
+            )
+            .await
+    }
+
+    /// Poll `GET /agent-scans/{run_id}/status` (token-authed) until the run reaches a
+    /// terminal state (`graded` / `published` / `aborted`) or `timeout` elapses.
+    /// Returns the terminal status; the caller then fetches the full report.
+    pub async fn wait_for_agent_run(
+        &self,
+        run_id: &str,
+        token: &str,
+        output: &OutputConfig,
+        timeout: std::time::Duration,
+    ) -> Result<AgentStatusResponse, SsError> {
+        let spinner = output.create_spinner("Waiting for the agent to submit results…");
+        let deadline = std::time::Instant::now() + timeout;
+        let result = loop {
+            match self.get_agent_status(run_id, token).await {
+                Ok(s) if is_agent_terminal(&s.status) => break Ok(s),
+                Ok(_) => {}
+                Err(e) => break Err(e),
+            }
+            if std::time::Instant::now() >= deadline {
+                break Err(SsError::new(
+                    ERR_SCAN_TIMEOUT,
+                    "No results were submitted before the client timeout.",
+                )
+                .with_suggestion(
+                    "If your agent printed a SAFERSKILLS-AGENTSCAN blob, submit it with \
+                     `saferskills scan agent --submit-blob <file>`.",
+                ));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        };
+        if let Some(pb) = spinner {
+            pb.finish_and_clear();
+        }
+        result
+    }
+
     /// `GET /api/v1/items/{slug}/download` — the stored snapshot `.zip` bytes,
     /// the source for a skill folder copy (D-05-16).
     pub async fn download_item_zip(&self, slug: &str) -> Result<Vec<u8>, SsError> {
@@ -341,6 +510,12 @@ impl Api {
 
         Err(not_found_error(name, &suggestions))
     }
+}
+
+/// Whether an agent-scan run status is terminal (`graded`/`published` = done;
+/// `aborted` = cancelled). `created`/`fetched`/`submitted` are still pending.
+fn is_agent_terminal(status: &str) -> bool {
+    matches!(status, "graded" | "published" | "aborted")
 }
 
 /// Whether a polled run has reached a terminal state. Prefers the explicit

@@ -252,6 +252,14 @@ pub const ERR_POW_FAILED: &str = "SS-E-1602";
 /// The scan target is missing / empty / not a readable path or GitHub URL.
 /// Exit `1`.
 pub const ERR_SCAN_TARGET: &str = "SS-E-1603";
+/// The agent-scan pack signature failed `verify_strict` (or a released CLI with a
+/// baked key got no/unknown signature). Hard-stop, no report. Exit `1`.
+pub const ERR_PACK_SIGNATURE: &str = "SS-E-1604";
+/// An agent-scan `--fail-on` threshold was exceeded by the graded verdict. Exit `1`.
+pub const ERR_AGENT_SCAN_FAILED: &str = "SS-E-1605";
+/// A `--fail-on` expression could not be parsed (bad severity / score / band).
+/// Used with `with_exit_code(2)` (usage).
+pub const ERR_FAIL_ON_PARSE: &str = "SS-E-1606";
 
 // ---------------------------------------------------------------------------
 // SS-E-9999 — internal bug

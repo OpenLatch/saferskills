@@ -306,6 +306,137 @@
         "title": "AgentSaferPattern",
         "type": "object"
       },
+      "AgentScanBootstrapRequest": {
+        "description": "`POST|GET /api/v1/agent-scans/bootstrap` input - mint a run + return the\nplatform-picked bootstrap prompt (Phase 3). The web picker page is I-5.7.",
+        "properties": {
+          "agent_name": {
+            "default": "my-agent",
+            "description": "Display name for the scanned agent.",
+            "maxLength": 200,
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "enum": [
+                  "claude-code",
+                  "cursor",
+                  "codex",
+                  "copilot",
+                  "windsurf",
+                  "cline",
+                  "gemini",
+                  "openclaw"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "universal",
+                "type": "string"
+              }
+            ],
+            "description": "Target platform template (8 agent ids + `universal` fallback).",
+            "title": "Platform"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "enum": [
+                  "claude-code",
+                  "cursor",
+                  "codex",
+                  "copilot",
+                  "windsurf",
+                  "cline",
+                  "gemini",
+                  "openclaw"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "other",
+                "type": "string"
+              }
+            ],
+            "default": "other",
+            "description": "Declared agent runtime (8 ids + `other`).",
+            "title": "Runtime"
+          },
+          "visibility": {
+            "default": "public",
+            "description": "public (default) | unlisted.",
+            "enum": [
+              "public",
+              "unlisted"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform"
+        ],
+        "title": "AgentScanBootstrapRequest",
+        "type": "object"
+      },
+      "AgentScanBootstrapResponse": {
+        "description": "`POST|GET /api/v1/agent-scans/bootstrap` response - the minted run + the\nrendered bootstrap prompt the agent runs (canaries are NOT in it).",
+        "properties": {
+          "consent_notice": {
+            "description": "Company-level telemetry notice + opt-out.",
+            "title": "Consent Notice",
+            "type": "string"
+          },
+          "pack_url": {
+            "description": "Absolute URL of the token-gated signed pack.",
+            "title": "Pack Url",
+            "type": "string"
+          },
+          "poll_url": {
+            "description": "Absolute token-authed status-poll URL (public + unlisted).",
+            "title": "Poll Url",
+            "type": "string"
+          },
+          "prompt": {
+            "description": "The rendered platform bootstrap prompt (no canaries).",
+            "title": "Prompt",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "share_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unlisted capability-URL token; null for public.",
+            "title": "Share Token"
+          },
+          "submit_token": {
+            "description": "One-time token gating pack-fetch + submit.",
+            "title": "Submit Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "prompt",
+          "consent_notice",
+          "pack_url",
+          "submit_token",
+          "poll_url"
+        ],
+        "title": "AgentScanBootstrapResponse",
+        "type": "object"
+      },
       "AgentScanCreateRequest": {
         "description": "`POST /api/v1/agent-scans` body - mint a run + one-time submit token.",
         "properties": {
@@ -4317,6 +4448,119 @@
           }
         },
         "summary": "Create Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/bootstrap": {
+      "get": {
+        "description": "GET convenience for the I-5.7 web picker (same handler as POST).",
+        "operationId": "bootstrap_run_get_api_v1_agent_scans_bootstrap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent_name",
+            "required": false,
+            "schema": {
+              "default": "my-agent",
+              "title": "Agent Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "runtime",
+            "required": false,
+            "schema": {
+              "default": "other",
+              "title": "Runtime",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "visibility",
+            "required": false,
+            "schema": {
+              "default": "public",
+              "title": "Visibility",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanBootstrapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bootstrap Run Get",
+        "tags": [
+          "agent-scans"
+        ]
+      },
+      "post": {
+        "description": "Mint a run + return the platform-picked bootstrap prompt (Phase 3).",
+        "operationId": "bootstrap_run_api_v1_agent_scans_bootstrap_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentScanBootstrapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanBootstrapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bootstrap Run",
         "tags": [
           "agent-scans"
         ]

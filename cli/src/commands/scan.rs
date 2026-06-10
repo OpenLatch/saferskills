@@ -50,6 +50,12 @@ const UPLOAD_MAX_BYTES: usize = 10 * 1024 * 1024;
 /// Entry point. A GitHub URL or a local path is scanned directly; with neither a
 /// target nor `--local`, defaults to a local audit of everything installed.
 pub async fn run_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsError> {
+    // The behavioral Agent Scan (`scan agent` / `--agent` / `--print-skill` /
+    // `--submit-blob`) is a distinct flow — branch before the path/url/local logic
+    // so the positional `agent` is consumed, not scanned as a literal path.
+    if args.is_agent_scan() {
+        return super::agent_scan::run_agent_scan(args, output).await;
+    }
     let config = Config::load()?;
     let api = Api::new(config.api_base(None))?;
     let visibility = if args.private { "unlisted" } else { "public" };
@@ -446,7 +452,10 @@ fn print_preflight(output: &OutputConfig, summary: &BundleSummary, skips: &[Skip
 /// #5/#12), so a local dev API needs no PoW — and its `/cli-challenge` returns
 /// 503 when no `SAFERSKILLS_CLI_POW_SECRET` is configured. Returns `""` to send
 /// no PoW header (the submit then rides the server-side loopback exemption).
-async fn obtain_pow_if_needed(api: &Api, output: &OutputConfig) -> Result<String, SsError> {
+pub(crate) async fn obtain_pow_if_needed(
+    api: &Api,
+    output: &OutputConfig,
+) -> Result<String, SsError> {
     if base_is_loopback(api.base()) {
         return Ok(String::new());
     }

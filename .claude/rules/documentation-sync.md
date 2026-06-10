@@ -57,6 +57,8 @@
 | New rule under `rubric/` | `methodology.md` + the new rule doc + the CI lane that runs it. **Every rule ships the explainable-finding fields** (`title` + `explanation` + `remediation`, + `severityRationale` unless `info`) — schema-required, fails `pnpm run generate` otherwise |
 | New generator step / `rubric/AGENT/*.md` change | `schema-driven-development.md` (generators table) + `ci-cd.md` (`validate` lane) + `scripts/_run-generators.cjs` + `naming-conventions.md` (if an id grammar) |
 | Agent-scan store/migration change (I-5.5) | `database.md` § Agent scan + the model under `app/models/` + migration 0019 + `privacy.md` (telemetry) + `security.md` (no-raw-payload trace) |
+| Agent-scan bootstrap / `scan agent` CLI change (I-5.5 Phase 3) | `cli/README.md` (`scan agent` row) + root `CLAUDE.md` (CLI line) + `app/agent_scan/bootstrap/*.md` templates + `security.md` § Scan-trace transparency (pre-flight verify) + `fixtures/agent-scan-report.sample.json` (if the wire DTO shape changes) |
+| `SAFERSKILLS_PACK_PUBKEY` (CLI pack-verify bake) change | `environment-config.md` + `ci-cd.md` § `publish-npm.yml` bake + `cli/build.rs` + `security.md` § Scan-trace transparency |
 | New required deploy secret (e.g. `SAFERSKILLS_AGENT_MASTER_KEY` / `SAFERSKILLS_PACK_SIGNING_KEY`) | `environment-config.md` + `services/api/.env.example` + `ci-cd.md` § Deployment (staged in `deploy.yml`) + `services/api/app/core/config.py` (boot guard) |
 | New explainable-finding rule field | `schemas/rubric-rule.schema.json` + `methodology.md` + `docs/methodology.md` + `generate-methodology.cjs` (emit into `content.ts`) + every rubric doc backfilled in the same PR |
 | New scan trigger / scan-pipeline change | `methodology.md` + `security.md` (scan-trace transparency) |
