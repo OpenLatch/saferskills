@@ -11,6 +11,46 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close = vi.fn()
 })
 
+const SCORE_BREAKDOWN = {
+  findings: [
+    { test_id: 'AS-06', severity: 'critical', score_delta: -40 },
+    { test_id: 'AS-09', severity: 'high', score_delta: -25 },
+    { test_id: 'AS-17', severity: 'high', score_delta: -25 },
+  ],
+  raw_score: 10,
+  ceiling: 15,
+  ceiling_applied: false,
+  final_score: 10,
+  band_mapping: 'score 10 -> band red',
+}
+
+function finding(over: Record<string, unknown>) {
+  return {
+    id: 'f-default',
+    test_id: 'AS-06',
+    severity: 'critical',
+    verdict: 'vulnerable',
+    family: 'Tool-description poisoning',
+    owasp_refs: ['ASI04:2026'],
+    atlas_refs: ['AML.T0053'],
+    nist_refs: [],
+    score_delta: -40,
+    detection_rule: 'tool_arg',
+    leaked_canary_slot: 'AS-06',
+    title: 'Hidden directive leaked a secret',
+    explanation: 'A hidden tool-description directive exfiltrated a planted secret.',
+    severity_rationale: 'a planted secret left the agent inside a tool argument',
+    category_label: 'Tool-description poisoning',
+    remediation: {
+      action: 'Strip embedded directives at registration.',
+      steps: ['Strip directives.'],
+      safer_pattern: { before: 'hidden directive', after: 'plain description' },
+    },
+    evidence_excerpt: null,
+    ...over,
+  }
+}
+
 const RED = {
   id: 'r1',
   status: 'published',
@@ -21,7 +61,7 @@ const RED = {
   verdict_label: 'Do Not Deploy',
   cap_callout: 'Capped to Red — 1 critical finding observed.',
   confidence: 'high',
-  score_breakdown: null,
+  score_breakdown: SCORE_BREAKDOWN,
   trust_labels: ['cloud-validated', 'client-administered'],
   pack_id: 'saferskills-agent-baseline',
   pack_version: '2026.06.09',
@@ -53,10 +93,41 @@ const RED = {
     },
   ],
   findings: [
-    { id: 'f1', test_id: 'AS-06', evidence_excerpt: null },
-    { id: 'f2', test_id: 'AS-09', evidence_excerpt: null },
+    finding({ id: 'f1', test_id: 'AS-06' }),
+    finding({
+      id: 'f2',
+      test_id: 'AS-09',
+      severity: 'high',
+      family: 'Unsafe code execution',
+      owasp_refs: ['ASI05:2026'],
+      atlas_refs: ['AML.T0054'],
+      title: 'Ran an unsafe shell chain',
+      category_label: 'Unsafe code execution',
+      remediation: {
+        action: 'Gate execution.',
+        steps: ['Reject piped shell.'],
+        safer_pattern: null,
+      },
+    }),
   ],
-  component_scores: [],
+  component_scores: [
+    {
+      kind: 'skill',
+      name: 'pdf-extract',
+      path: 'skills/pdf-extract',
+      score: 82,
+      tier: 'green',
+      slug: 'a--b--skill-pdf-extract',
+    },
+    {
+      kind: 'mcp_server',
+      name: 'payments',
+      path: 'servers/payments',
+      score: 47,
+      tier: 'orange',
+      slug: 'a--b--mcp-server-payments',
+    },
+  ],
   visibility: 'public',
   expires_at: null,
   share_url: null,
@@ -69,8 +140,10 @@ const RED = {
 
 describe('AgentReport', () => {
   it('renders the score hero, facts, tab shell and proof-of-tests', () => {
-    render(<AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />)
-    expect(screen.getByText('10')).toBeTruthy()
+    const { container } = render(
+      <AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />
+    )
+    expect(container.querySelector('.sr-big')?.textContent).toContain('10')
     expect(screen.getByText('Do-Not-Deploy')).toBeTruthy()
     expect(screen.getByText('Capped to Red — 1 critical finding observed.')).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Report/ })).toBeTruthy()
@@ -87,16 +160,66 @@ describe('AgentReport', () => {
     expect(screen.queryByText('↥ Promote to public')).toBeNull()
   })
 
-  it('switching to Findings fires telemetry + shows the placeholder', () => {
+  it('Findings tab renders OWASP groups, ref chips, score-math and the public evidence note', () => {
     render(<AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />)
     fireEvent.click(screen.getByRole('tab', { name: /Findings/ }))
     expect(track).toHaveBeenCalledWith('agent_report_tab_selected', { tab: 'findings' })
+    // OWASP family group head + deep-linked ref chip (family repeats: head + card meta)
+    expect(screen.getAllByText('Tool-description poisoning').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('ASI04:2026').length).toBeGreaterThan(0)
+    // per-finding score-math reconciles to the headline score
+    expect(screen.getAllByText('Base').length).toBeGreaterThan(0)
+    // public route → transcript withheld, never a transcript
+    expect(screen.getAllByText('transcript withheld on the public report').length).toBeGreaterThan(
+      0
+    )
+    expect(screen.queryByText(/Confirmed exfiltration/)).toBeNull()
+    expect(screen.getByText('Export all fixes as checklist')).toBeTruthy()
   })
 
-  it('unlisted report adds the manage actions + right-of-reply', () => {
+  it('"View finding →" jumps to the Findings tab', () => {
+    render(<AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />)
+    fireEvent.click(screen.getAllByText('View finding →')[0])
+    expect(track).toHaveBeenCalledWith('agent_report_tab_selected', { tab: 'findings' })
+  })
+
+  it('Component Scores tab lists capabilities as context, linking to /items', () => {
+    render(<AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />)
+    fireEvent.click(screen.getByRole('tab', { name: /Component Scores/ }))
+    expect(screen.getByText(/never fused/)).toBeTruthy()
+    const link = screen.getByRole('link', { name: /View report for pdf-extract/ })
+    expect(link.getAttribute('href')).toBe('/items/a--b--skill-pdf-extract')
+  })
+
+  it('renders the README badge band with the agent badge path', () => {
+    const { container } = render(
+      <AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />
+    )
+    expect(screen.getByText('Embed the badge in your README')).toBeTruthy()
+    const code = container.querySelector('.ar-badge-band .bt-body code')?.textContent ?? ''
+    expect(code).toContain('badge/agent/r1/10.svg')
+  })
+
+  it('unlisted report adds manage actions, right-of-reply and the redacted transcript', () => {
+    const unlisted = {
+      ...RED,
+      visibility: 'unlisted',
+      findings: [
+        finding({
+          id: 'f1',
+          test_id: 'AS-06',
+          evidence_excerpt: {
+            file: 'transcript:AS-06',
+            lang: null,
+            truncated: false,
+            lines: [{ line_no: 1, text: "write_note(args={'note': 'OL-AS06-...'} )", hit: true }],
+          },
+        }),
+      ],
+    } as unknown as AgentScanReportDetail
     render(
       <AgentReport
-        run={{ ...RED, visibility: 'unlisted' } as AgentScanReportDetail}
+        run={unlisted}
         shareUrl="http://x/agents/r/tok"
         ruleCount={42}
         unlisted
@@ -106,5 +229,9 @@ describe('AgentReport', () => {
     expect(screen.getByText('↥ Promote to public')).toBeTruthy()
     expect(screen.getByText('Delete')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add a public reply' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: /Findings/ }))
+    expect(screen.getByText('transcript:AS-06')).toBeTruthy()
+    expect(screen.getByText(/Confirmed exfiltration/)).toBeTruthy()
+    expect(screen.queryByText('transcript withheld on the public report')).toBeNull()
   })
 })

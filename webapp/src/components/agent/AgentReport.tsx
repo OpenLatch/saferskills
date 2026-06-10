@@ -6,11 +6,12 @@ import DotStrip from '@ui/components/atoms/DotStrip'
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import TrustTierPill from '@ui/components/atoms/TrustTierPill'
+import ComponentScoresTable from '@ui/components/molecules/ComponentScoresTable'
 import ProofOfTestsTable from '@ui/components/molecules/ProofOfTestsTable'
 import RightOfReplyForm from '@ui/components/molecules/RightOfReplyForm'
 import VerifyWaitlistTile from '@ui/components/molecules/VerifyWaitlistTile'
 import { useEffect, useId, useRef, useState } from 'react'
-import { downloadReportMarkdown } from '@/lib/agent-report-markdown'
+import { downloadRemediationChecklist, downloadReportMarkdown } from '@/lib/agent-report-markdown'
 import { track } from '@/lib/analytics'
 import type { AgentBand, AgentScanReportDetail } from '@/lib/api/agent-scan-types'
 import {
@@ -19,6 +20,8 @@ import {
   requestVerifyWaitlist,
   submitAgentReply,
 } from '@/lib/api/agent-scans'
+import AgentBadgeBand from './AgentBadgeBand'
+import AgentFindings from './AgentFindings'
 
 type TabId = 'report' | 'findings' | 'component'
 const TABS_ORDER: TabId[] = ['report', 'findings', 'component']
@@ -56,6 +59,10 @@ export default function AgentReport({ run, shareUrl, unlisted = false, token }: 
   const deleteTitle = useId()
   const [busy, setBusy] = useState(false)
   const [manageError, setManageError] = useState<string | null>(null)
+  // Cross-tab "View finding →": the finding id to open + a nonce so a repeat
+  // request on the same finding re-fires the scroll.
+  const [openFindingId, setOpenFindingId] = useState<string | null>(null)
+  const [scrollNonce, setScrollNonce] = useState(0)
 
   // Sync the tab from the URL hash AFTER hydration (SSR always renders #report,
   // so initial markup matches on both sides — no hydration mismatch).
@@ -77,8 +84,16 @@ export default function AgentReport({ run, shareUrl, unlisted = false, token }: 
     if (typeof window !== 'undefined') history.replaceState(null, '', `#${t}`)
   }
 
-  function viewFinding(_testId: string) {
+  function viewFinding(testId: string) {
+    const target = run.findings.find((f) => f.test_id === testId)
+    if (target) setOpenFindingId(target.id)
+    setScrollNonce((n) => n + 1)
     selectTab('findings')
+  }
+
+  function onExportFixes() {
+    downloadRemediationChecklist(run)
+    track('agent_report_exported', {})
   }
 
   async function onShare() {
@@ -260,11 +275,32 @@ export default function AgentReport({ run, shareUrl, unlisted = false, token }: 
         className="ar-panel"
         hidden={tab !== 'findings'}
       >
-        <p className="ar-tab-placeholder">
-          {hasFindings
-            ? `${run.findings.length} finding(s) — OWASP-grouped detail, evidence and remediation land in the next release.`
-            : 'No findings — the full OWASP Agentic + MITRE ATLAS pack passed.'}
-        </p>
+        {hasFindings ? (
+          <>
+            <div className="ar-findings-head">
+              <span className="ev-cap">
+                <b>Evidence split:</b>{' '}
+                {unlisted
+                  ? 'this private report adds the redacted transcript with the leaked canary highlighted.'
+                  : 'the public report shows finding · refs · severity · fix. The private report adds the redacted transcript.'}
+              </span>
+              <button type="button" className="ar-export-fixes" onClick={onExportFixes}>
+                <span aria-hidden="true">↧</span> Export all fixes as checklist
+              </button>
+            </div>
+            <AgentFindings
+              findings={run.findings}
+              scoreBreakdown={run.score_breakdown}
+              unlisted={unlisted}
+              requestOpenId={openFindingId}
+              requestNonce={scrollNonce}
+            />
+          </>
+        ) : (
+          <p className="ar-tab-placeholder">
+            No findings — the full OWASP Agentic + MITRE ATLAS pack passed.
+          </p>
+        )}
       </div>
 
       <div
@@ -274,11 +310,11 @@ export default function AgentReport({ run, shareUrl, unlisted = false, token }: 
         className="ar-panel"
         hidden={tab !== 'component'}
       >
-        <p className="ar-tab-placeholder">
-          Contributing context only — never fused into the behavioral score. Per-capability scores
-          land in the next release.
-        </p>
+        <ComponentScoresTable rows={run.component_scores} />
       </div>
+
+      {/* README badge embed + provenance */}
+      <AgentBadgeBand run={run} />
 
       {/* lifecycle: waitlist (every report) + right-of-reply (token holder) */}
       <div className="ar-lifecycle">

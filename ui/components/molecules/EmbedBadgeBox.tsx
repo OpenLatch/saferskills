@@ -10,6 +10,14 @@ interface Props {
   slug?: string
   /** Base URL of the public site. Defaults to https://saferskills.ai */
   origin?: string
+  /**
+   * Badge family. `scan` (default) → `/badge/{id}/{score}.svg` + `/scans/{id}`
+   * (or `/items/{slug}`). `agent` → `/badge/agent/{id}/{score}.svg` +
+   * `/agents/{id}` (the I-5.6 Agent Report badge — D-5.6-14, Codex P2).
+   */
+  kind?: 'scan' | 'agent'
+  /** Alt-text/preview noun. Defaults to `SaferSkills`. */
+  altPrefix?: string
   /** PostHog callback per D-FE-19. */
   onCopy?: (format: 'markdown' | 'html') => void
 }
@@ -23,14 +31,30 @@ interface Props {
  * pill (no network fetch) so it always renders, including for upload runs whose
  * badge SVG 404s.
  */
-export default function EmbedBadgeBox({ scanId, score, tier, slug, origin, onCopy }: Props) {
+export default function EmbedBadgeBox({
+  scanId,
+  score,
+  tier,
+  slug,
+  origin,
+  kind = 'scan',
+  altPrefix = 'SaferSkills',
+  onCopy,
+}: Props) {
   const resolvedOrigin =
     origin ?? (typeof window !== 'undefined' ? window.location.origin : 'https://saferskills.ai')
-  const badgeUrl = `${resolvedOrigin}/badge/${scanId}/${score}.svg`
-  const linkUrl = slug ? `${resolvedOrigin}/items/${slug}` : `${resolvedOrigin}/scans/${scanId}`
+  const isAgent = kind === 'agent'
+  const badgeUrl = isAgent
+    ? `${resolvedOrigin}/badge/agent/${scanId}/${score}.svg`
+    : `${resolvedOrigin}/badge/${scanId}/${score}.svg`
+  const linkUrl = isAgent
+    ? `${resolvedOrigin}/agents/${scanId}`
+    : slug
+      ? `${resolvedOrigin}/items/${slug}`
+      : `${resolvedOrigin}/scans/${scanId}`
 
-  const markdown = `[![SaferSkills ${score}/100](${badgeUrl})](${linkUrl})`
-  const html = `<a href="${linkUrl}"><img src="${badgeUrl}" alt="SaferSkills ${score}/100"></a>`
+  const markdown = `[![${altPrefix} ${score}/100](${badgeUrl})](${linkUrl})`
+  const html = `<a href="${linkUrl}"><img src="${badgeUrl}" alt="${altPrefix} ${score}/100"></a>`
 
   async function copy(format: 'markdown' | 'html', snippet: string) {
     onCopy?.(format)
@@ -64,7 +88,9 @@ export default function EmbedBadgeBox({ scanId, score, tier, slug, origin, onCop
         <div className="bt-body">
           <code>
             <span className="md-punc">[![</span>
-            <span className="md-alt">SaferSkills {score}/100</span>
+            <span className="md-alt">
+              {altPrefix} {score}/100
+            </span>
             <span className="md-punc">](</span>
             <span className="md-url">{badgeUrl}</span>
             <span className="md-punc">)](</span>

@@ -48,4 +48,15 @@ describe('EmbedBadgeBox', () => {
     const results = await axe(container)
     expect(results.violations).toHaveLength(0)
   })
+
+  it('emits the agent badge + report paths under kind="agent" (I-5.6)', () => {
+    const { container } = render(
+      <EmbedBadgeBox kind="agent" scanId="run9" score={10} tier="red" altPrefix="SaferSkills Agent" />,
+    )
+    const code = container.querySelector('.bt-body code')?.textContent ?? ''
+    expect(code).toContain('badge/agent/run9/10.svg')
+    expect(code).toContain('/agents/run9')
+    expect(code).not.toContain('/scans/')
+    expect(code).toContain('SaferSkills Agent 10/100')
+  })
 })
