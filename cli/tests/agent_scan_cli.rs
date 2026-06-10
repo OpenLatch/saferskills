@@ -1,4 +1,4 @@
-//! `saferskills scan agent` end-to-end exit-code matrix (I-5.5 Phase 3) driven as a
+//! `saferskills agent` end-to-end exit-code matrix (I-5.5 Phase 3) driven as a
 //! subprocess (assert_cmd) against a mock server. Covers `--fail-on`
 //! severity/score/band, `.agentscanignore` suppression, `--format json`, a bad
 //! `--fail-on`, and the offline hard-fail (AE-6 / AE-7). The mock server binds to
@@ -103,9 +103,8 @@ fn fail_on_high_exits_1() {
     cmd(&server.url(), home.path())
         .args([
             "--quiet",
-            "scan",
             "agent",
-            "--agent",
+            "--to",
             "claude-code",
             "--fail-on",
             "high",
@@ -124,9 +123,8 @@ fn fail_on_critical_under_threshold_exits_0() {
     cmd(&server.url(), home.path())
         .args([
             "--quiet",
-            "scan",
             "agent",
-            "--agent",
+            "--to",
             "claude-code",
             "--fail-on",
             "critical",
@@ -147,9 +145,8 @@ fn agentscanignore_suppresses_and_passes() {
     cmd(&server.url(), home.path())
         .args([
             "--quiet",
-            "scan",
             "agent",
-            "--agent",
+            "--to",
             "claude-code",
             "--fail-on",
             "high",
@@ -169,9 +166,8 @@ fn bad_fail_on_exits_2() {
     cmd(&server.url(), home.path())
         .args([
             "--quiet",
-            "scan",
             "agent",
-            "--agent",
+            "--to",
             "claude-code",
             "--fail-on",
             "nonsense",
@@ -188,7 +184,7 @@ fn json_main_flow_emits_bootstrap() {
 
     // JSON main flow emits the actionable bootstrap data (run id + prompt) and exits 0.
     cmd(&server.url(), home.path())
-        .args(["--json", "scan", "agent", "--agent", "claude-code"])
+        .args(["--json", "agent", "--to", "claude-code"])
         .assert()
         .code(0)
         .stdout(predicates::str::contains("run-1"))
@@ -200,7 +196,7 @@ fn offline_hard_fails_nonzero() {
     // A dead API endpoint → bootstrap transport failure → non-zero exit, no report.
     let home = tempfile::tempdir().unwrap();
     cmd("http://127.0.0.1:1", home.path())
-        .args(["--quiet", "scan", "agent", "--agent", "claude-code"])
+        .args(["--quiet", "agent", "--to", "claude-code"])
         .assert()
         .failure();
 }

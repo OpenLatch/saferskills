@@ -59,7 +59,7 @@ pub fn scan_cache_path() -> PathBuf {
 }
 
 /// Replace a leading home-directory prefix with `~` for a compact, PII-light
-/// display path. Shared by `scan`'s agent locations and `list`'s PATH column.
+/// display path. Shared by `capability`'s agent locations and `list`'s PATH column.
 pub fn contract_home(p: &std::path::Path) -> String {
     let s = p.to_string_lossy().into_owned();
     if let Some(home) = dirs::home_dir() {

@@ -1,4 +1,4 @@
-//! `.agentscanignore` baseline filtering for `scan agent` (I-5.5 Phase 3).
+//! `.agentscanignore` baseline filtering for `agent` (I-5.5 Phase 3).
 //!
 //! A gitleaks-style, committed allowlist of known/accepted agent-scan findings.
 //! One fingerprint per line: `<test_id>:<leaked_canary_slot|"*"> # reason`. A `*`

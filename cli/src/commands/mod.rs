@@ -1,24 +1,24 @@
 //! Command handlers. Dispatch is a single `match` in `main.rs` over the clap
 //! enum → one free `run_*` fn per command (no command trait).
 
-pub mod agent_scan;
+pub mod agent;
 pub mod audit;
+pub mod capability;
 pub mod completion;
 pub mod doctor;
 pub mod info;
 pub mod install;
 pub mod list;
 pub(crate) mod report;
-pub mod scan;
 pub mod search;
 pub mod uninstall;
 pub mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::scan;
+    use super::capability;
     use crate::cli::output::{OutputConfig, OutputFormat};
-    use crate::cli::ScanArgs;
+    use crate::cli::CapabilityArgs;
     use crate::core::error::ERR_SCAN_TARGET;
 
     fn out() -> OutputConfig {
@@ -33,20 +33,14 @@ mod tests {
     // A non-existent path target fails fast with a target error before any
     // network. (No target → a local audit instead; covered in tests/smoke.rs.)
     #[tokio::test]
-    async fn scan_nonexistent_path_is_a_target_error() {
+    async fn capability_nonexistent_path_is_a_target_error() {
         let o = out();
-        let err = scan::run_scan(
-            &ScanArgs {
+        let err = capability::run_capability(
+            &CapabilityArgs {
                 target: Some("./definitely-not-a-real-path-xyz".to_string()),
-                local: false,
+                to: vec![],
                 private: false,
                 detailed: false,
-                agent: None,
-                fail_on: None,
-                baseline: None,
-                no_telemetry: false,
-                print_skill: false,
-                submit_blob: None,
             },
             &o,
         )

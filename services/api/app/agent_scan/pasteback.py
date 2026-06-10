@@ -3,7 +3,7 @@
 When the agent has no fetch tool it prints its evidence as a `base64url(gzip(
 agent_scan_result.v1 JSON))` block, optionally fenced + prefixed by a one-line
 header `SAFERSKILLS-AGENTSCAN-v1 sha256=<first16hex> len=<bytes>`. The user pastes
-it at the web submit (I-5.7) or `saferskills scan agent --submit-blob`; the submit
+it at the web submit (I-5.7) or `saferskills agent --submit-blob`; the submit
 endpoint decodes it here.
 
 Bucketed-error contract (reuses `app.scan.upload.UploadRejected` - same

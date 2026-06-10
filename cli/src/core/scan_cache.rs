@@ -1,6 +1,6 @@
 //! The local scan-results cache — `~/.saferskills/scan_cache.json`.
 //!
-//! `scan --local` persists each scored capability here, keyed by a CLI-side
+//! The no-target `capability` audit persists each scored capability here, keyed by a CLI-side
 //! content hash ([`crate::agents::enumerate::LocalCapability::content_hash`]), so
 //! `list` can show a score for a capability that was previously scanned even
 //! though it was never installed via the CLI. It is **drift-aware**: editing a
@@ -76,7 +76,7 @@ fn load_from(path: &Path) -> Result<Vec<CachedScan>, SsError> {
             format!("scan_cache.json is corrupt: {e}"),
         )
         .with_suggestion(
-            "Delete ~/.saferskills/scan_cache.json — it is rebuilt by `saferskills scan --local`.",
+            "Delete ~/.saferskills/scan_cache.json — it is rebuilt by `saferskills capability`.",
         )
     })
 }

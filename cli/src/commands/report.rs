@@ -1,6 +1,6 @@
-//! Shared audit-report renderers + pure helpers used by both `scan` (multi-
+//! Shared audit-report renderers + pure helpers used by both `capability` (multi-
 //! capability run report) and `info` (single-capability report). Lifted out of
-//! `scan.rs` so the two surfaces stay byte-for-byte visually consistent — no
+//! `capability.rs` so the two surfaces stay byte-for-byte visually consistent — no
 //! copy/paste. The multi-capability glue (`category_means`, agents section,
 //! worst-first list, `top_findings`, …) stays in `scan.rs`.
 

@@ -86,7 +86,7 @@ fn render_human(output: &OutputConfig, detail: &ItemDetailResponse, report_url: 
         output.print_info("");
         output.print_info(&color::dim("\u{25cb} Not scanned yet.", c));
         if let Some(url) = detail.item.github_url.as_deref() {
-            output.print_substep(&format!("Scan it now: saferskills scan {url}"));
+            output.print_substep(&format!("Scan it now: saferskills capability {url}"));
         }
         output.print_info("");
         output.print_info(&format!("Report: {report_url}"));

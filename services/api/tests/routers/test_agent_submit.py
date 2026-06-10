@@ -104,6 +104,42 @@ async def test_submit_run_mismatch_422(db_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_submit_invalid_enum_surfaces_failing_field(db_client: AsyncClient) -> None:
+    """A "close" submission with the classic LLM-default enums (`role: assistant`,
+    `status: completed`) returns 422 with a payload-free `errors` list naming each
+    failing field — so the agent/CLI can self-correct instead of flying blind.
+
+    Regression for the swallowed-`ValidationError` detail (the opaque
+    `invalid_submission`) that made a one-char enum mismatch undebuggable.
+    """
+    body = await _create(db_client)
+    run_id, token = body["run_id"], body["submit_token"]
+    bad = _clean_result(str(run_id))
+    bad["tests"] = [
+        {
+            "test_id": "AS-01",
+            "status": "completed",  # not in {executed, skipped_capability_absent, error}
+            "turns": [{"role": "assistant", "raw_response": "x"}],  # not in the closed role set
+        }
+    ]
+    r = await db_client.post(
+        f"/api/v1/agent-scans/{run_id}/submit",
+        json=bad,
+        headers={"X-Agent-Run-Token": str(token)},
+    )
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["error"] == "invalid_submission"
+    fields = {e["field"] for e in detail["errors"]}
+    # Both the bad status and the bad role are named with their dotted paths.
+    assert any("status" in f for f in fields), fields
+    assert any("role" in f for f in fields), fields
+    # The submitted (invalid) VALUES are never echoed back — no-raw-payload invariant.
+    blob = json.dumps(detail)
+    assert "assistant" not in blob and "completed" not in blob
+
+
+@pytest.mark.asyncio
 async def test_idempotent_replay_returns_stored_report(db_client: AsyncClient) -> None:
     body = await _create(db_client)
     run_id, token = body["run_id"], body["submit_token"]

@@ -1,17 +1,27 @@
-//! `saferskills scan agent` — the behavioral Agent Scan (I-5.5 Phase 3, D-5.5-01).
+//! `saferskills agent` — the behavioral Agent Scan (I-5.5 Phase 3, D-5.5-01).
 //!
 //! A **thin prompt-printer + verdict-poller** (the LLM agent does the per-test work,
-//! not the CLI). The flow: mint a run + one-time token via `POST /agent-scans/
-//! bootstrap`, **pre-flight-verify the signed pack** (`verify_strict`, hard-stop on
-//! mismatch → no prompt), print the bootstrap prompt for the user to paste into
-//! their agent, poll the run, then render the graded verdict (`--fail-on` exit code,
-//! `--baseline` suppression, `--format json|md`).
+//! not the CLI). With no `--to` it detects agents and lets the user multi-select
+//! which to scan (non-interactive ⇒ all detected); `--to <id>` (repeatable) scans
+//! named agents, accepting any of the 8 known ids even if not detected. Each chosen
+//! agent is scanned **sequentially** — bootstrap → pack pre-flight → prompt → poll →
+//! verdict — and the overall exit is the worst per-agent verdict.
+//!
+//! Per agent the flow: mint a run + one-time token via `POST /agent-scans/bootstrap`,
+//! **pre-flight-verify the signed pack** (`verify_strict`, hard-stop on mismatch →
+//! no prompt), print the bootstrap prompt for the user to paste into their agent,
+//! poll the run, then render the graded verdict (`--fail-on` exit code, `--baseline`
+//! suppression, `--format json|md`).
 //!
 //! The agent returns its raw evidence either by auto-POSTing (loopback/dev, or where
 //! the gate allows) or by printing a paste-back blob the user submits with
 //! `--submit-blob`. The CLI's own submit (`--submit-blob`) solves the Proof-of-Work
 //! and carries the one-time token from `~/.saferskills/agent-pending.json`.
+//!
+//! `agent-pending.json` is a single global file, so the per-agent loop stays
+//! **sequential** (never parallelized); `--submit-blob` reads the last pending run.
 
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -20,12 +30,13 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use super::report;
 use crate::agents::{detect_all, AgentId, Scope};
 use crate::api::dto::{AgentFindingDto, AgentScanReport, BootstrapResponse, Severity, Tier};
 use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::{OutputConfig, OutputFormat};
-use crate::cli::ScanArgs;
+use crate::cli::{AgentArgs, Interaction};
 use crate::core::baseline::{self, Fingerprint};
 use crate::core::config::{atomic_write, saferskills_dir, Config};
 use crate::core::error::{
@@ -33,19 +44,20 @@ use crate::core::error::{
     ERR_SCAN_TIMEOUT,
 };
 
-/// Agent scans involve a human pasting a prompt + an LLM running ~20 tests, so the
-/// client wait is generous (the run is terminal the moment the cloud grades).
-const AGENT_SCAN_TIMEOUT: Duration = Duration::from_secs(300);
-
 /// The Ed25519 pack pubkey map baked by `build.rs` — `<key_id>=<base64-std>,…`
 /// (empty in dev/fork builds ⇒ verification is skipped with a warning).
 const BAKED_PUBKEY_MAP: &str = env!("SAFERSKILLS_PACK_PUBKEY");
 
-/// Entry point — dispatched from `scan::run_scan` when the agent branch is selected.
-pub async fn run_agent_scan(args: &ScanArgs, output: &OutputConfig) -> Result<(), SsError> {
+/// Entry point — dispatched from `main::dispatch` for the `agent` command.
+pub async fn run_agent(
+    args: &AgentArgs,
+    inter: Interaction,
+    output: &OutputConfig,
+) -> Result<(), SsError> {
     let config = Config::load()?;
     let api = Api::new(config.api_base(None))?;
 
+    // Single-shot short-circuits — before any multi-agent loop.
     if let Some(path) = &args.submit_blob {
         return submit_blob(&api, output, args, path).await;
     }
@@ -53,42 +65,159 @@ pub async fn run_agent_scan(args: &ScanArgs, output: &OutputConfig) -> Result<()
         return print_skill(&api, output).await;
     }
 
-    let visibility = if args.private { "unlisted" } else { "public" };
-    let platform = resolve_platform(args, output)?;
-    let runtime = if platform == "universal" {
-        "other"
-    } else {
-        platform.as_str()
-    };
+    let platforms = resolve_agents_to_scan(args, inter, output)?;
 
-    let pow = super::scan::obtain_pow_if_needed(&api, output).await?;
-    let boot = api
-        .bootstrap_agent_scan(&platform, "my-agent", runtime, visibility, &pow)
-        .await?;
-    write_pending(&boot.run_id, &boot.submit_token)?;
-
-    // One-time company-telemetry consent notice (suppressed by `--no-telemetry`).
-    if !args.no_telemetry {
-        output.print_info(&boot.consent_notice);
-    }
-
-    // Pre-flight signature verify (AE-1) — aborts the run + hard-stops on mismatch.
-    verify_pack(&api, output, &boot).await?;
-
-    // JSON main flow: emit the actionable bootstrap data and let automation drive
-    // submit + poll itself (it needs the prompt BEFORE a report can exist). The
-    // pending file is kept so a later `--submit-blob` finds the token.
+    // JSON main flow: bootstrap + verify each, emit one array of actionable
+    // bootstrap objects, and let automation drive submit + poll itself. The
+    // pending file is kept (last run wins) so a later `--submit-blob` finds a token.
     if output.is_json() {
-        output.print_json(&bootstrap_json(&boot));
-        return Ok(());
+        return run_agent_json(&api, args, output, &platforms).await;
     }
 
-    // Human / Markdown: print the prompt, poll, render the graded verdict.
-    output.print_info("Paste the following prompt into your agent, then run the scan:");
-    print_prompt(output, &boot.prompt);
+    // Human / Markdown: scan each agent sequentially (the global pending file
+    // forbids parallelism), aggregating to the worst exit. Each agent's report
+    // prints inline as it grades.
+    let multi = platforms.len() > 1;
+    let mut summaries: Vec<AgentSummary> = Vec::new();
+    let mut fails: Vec<(String, SsError)> = Vec::new();
+    for (i, platform) in platforms.iter().enumerate() {
+        if multi {
+            output.print_info("");
+            output.print_info(&format!(
+                "  {} {}",
+                color::bold(&format!("▸ {}", platform_display(platform)), output.color),
+                color::dim(&format!("({}/{})", i + 1, platforms.len()), output.color),
+            ));
+        }
+        match scan_one_agent(&api, args, output, platform).await {
+            Ok(summary) => summaries.push(summary),
+            Err(e) => fails.push((platform.clone(), e)),
+        }
+    }
+    if multi {
+        print_combined_summary(output, &summaries, &fails);
+    }
 
+    // Overall exit = the worst per-agent outcome (highest exit code; ties keep the
+    // first). A pack mismatch / timeout / network failure folds in here too.
+    let worst = summaries
+        .iter()
+        .filter_map(|s| s.gate_error.clone())
+        .chain(fails.into_iter().map(|(_, e)| e))
+        .max_by_key(|e| e.exit_code());
+    match worst {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+/// Resolve the platforms to scan. `--to` accepts any of the 8 known ids even if
+/// not detected (dedup, skip multi-select); otherwise detect, and either return
+/// all detected (no agents ⇒ `["universal"]`; non-interactive ⇒ all) or open a
+/// multi-select (all pre-checked).
+fn resolve_agents_to_scan(
+    args: &AgentArgs,
+    inter: Interaction,
+    output: &OutputConfig,
+) -> Result<Vec<String>, SsError> {
+    if !args.to.is_empty() {
+        let mut out: Vec<String> = Vec::new();
+        for token in &args.to {
+            let (id, warn) = AgentId::parse_cli(token)?;
+            if let Some(w) = warn {
+                output.print_warn(&w);
+            }
+            let s = id.as_str().to_string();
+            if !out.contains(&s) {
+                out.push(s);
+            }
+        }
+        return Ok(out);
+    }
+
+    let detected = detect_all(Scope::Global);
+    if detected.is_empty() {
+        return Ok(vec!["universal".to_string()]);
+    }
+
+    let non_interactive = inter.non_interactive
+        || output.is_json()
+        || output.is_quiet()
+        || !std::io::stderr().is_terminal();
+    if non_interactive {
+        return Ok(detected.iter().map(|d| d.id.as_str().to_string()).collect());
+    }
+
+    // Interactive multi-select over an id-carrying wrapper (all pre-checked), so
+    // the result yields ids directly — no display→id reverse lookup.
+    let choices: Vec<AgentChoice> = detected.iter().map(|d| AgentChoice(d.id)).collect();
+    let defaults: Vec<usize> = (0..choices.len()).collect();
+    let picked = inquire::MultiSelect::new("Scan which agents?", choices)
+        .with_default(&defaults)
+        .prompt()
+        .map_err(|_| SsError::new(ERR_AGENT_SCAN_FAILED, "Agent scan cancelled."))?;
+    if picked.is_empty() {
+        return Err(SsError::new(
+            ERR_AGENT_SCAN_FAILED,
+            "No agents selected — nothing to scan.",
+        ));
+    }
+    Ok(picked
+        .into_iter()
+        .map(|c| c.0.as_str().to_string())
+        .collect())
+}
+
+/// A multi-select row that displays an agent's name but yields its [`AgentId`].
+struct AgentChoice(AgentId);
+
+impl std::fmt::Display for AgentChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0.display_name())
+    }
+}
+
+/// The display name for a resolved platform id (`universal` → `Universal`).
+fn platform_display(platform: &str) -> String {
+    if platform == "universal" {
+        return "Universal".to_string();
+    }
+    AgentId::from_canonical(platform)
+        .map(|a| a.display_name().to_string())
+        .unwrap_or_else(|| platform.to_string())
+}
+
+/// The per-agent outcome carried into the combined summary.
+struct AgentSummary {
+    platform: String,
+    score: Option<u8>,
+    band: Tier,
+    kept_findings: usize,
+    /// The `--fail-on` gate error for this agent (carries the exit code), if it
+    /// crossed the threshold — `None` when the verdict passed.
+    gate_error: Option<SsError>,
+}
+
+/// Scan one agent end-to-end: bootstrap → pack pre-flight → prompt → poll →
+/// render + evaluate `--fail-on`. A hard failure (pack mismatch / abort / timeout /
+/// network) returns `Err`; a graded run returns its summary (with the gate result).
+async fn scan_one_agent(
+    api: &Api,
+    args: &AgentArgs,
+    output: &OutputConfig,
+    platform: &str,
+) -> Result<AgentSummary, SsError> {
+    let boot = bootstrap_and_verify(api, args, output, platform).await?;
+
+    // Present the paste-able prompt in a clearly delimited copy block (prompt body
+    // → stdout, all framing/notes → stderr) so the user knows exactly what to copy.
+    present_prompt(output, &boot, platform, args.no_telemetry);
+
+    // Per-run wait budget from `--timeout` (minutes). Generous by default — a real
+    // run (human paste + LLM running ~20 tests) is minutes long; Ctrl-C bails early.
+    let wait = Duration::from_secs(args.timeout.saturating_mul(60));
     let status = api
-        .wait_for_agent_run(&boot.run_id, &boot.submit_token, output, AGENT_SCAN_TIMEOUT)
+        .wait_for_agent_run(&boot.run_id, &boot.submit_token, output, wait)
         .await?;
     if status.status == "aborted" {
         clear_pending();
@@ -96,11 +225,100 @@ pub async fn run_agent_scan(args: &ScanArgs, output: &OutputConfig) -> Result<()
             ERR_SCAN_TIMEOUT,
             "The agent-scan run was aborted before grading (no partial report).",
         )
-        .with_suggestion("Re-run `saferskills scan agent`."));
+        .with_suggestion("Re-run `saferskills agent`."));
     }
-    let report = fetch_report(&api, &boot).await?;
+    let report = fetch_report(api, &boot).await?;
     clear_pending();
-    render_and_gate(output, args, &report)
+    let (kept, gate_error) = render_and_eval(output, args, &report)?;
+    Ok(AgentSummary {
+        platform: platform.to_string(),
+        score: report.score,
+        band: report.band,
+        kept_findings: kept.len(),
+        gate_error,
+    })
+}
+
+/// Mint a run for `platform`, persist the pending token, and pre-flight-verify the
+/// signed pack (AE-1 — hard-stop on a tampered/unknown signature). Returns the
+/// verified bootstrap. The shared prefix of both the per-agent human/MD flow
+/// ([`scan_one_agent`]) and the JSON bootstrap-array flow ([`run_agent_json`]).
+async fn bootstrap_and_verify(
+    api: &Api,
+    args: &AgentArgs,
+    output: &OutputConfig,
+    platform: &str,
+) -> Result<BootstrapResponse, SsError> {
+    let visibility = if args.private { "unlisted" } else { "public" };
+    let runtime = if platform == "universal" {
+        "other"
+    } else {
+        platform
+    };
+    let pow = super::capability::obtain_pow_if_needed(api, output).await?;
+    let boot = api
+        .bootstrap_agent_scan(platform, "my-agent", runtime, visibility, &pow)
+        .await?;
+    write_pending(&boot.run_id, &boot.submit_token)?;
+    verify_pack(api, output, &boot).await?;
+    Ok(boot)
+}
+
+/// JSON main flow — bootstrap + pack-verify each platform and emit one array of
+/// actionable bootstrap objects (jq-clean). Automation drives submit + poll itself.
+async fn run_agent_json(
+    api: &Api,
+    args: &AgentArgs,
+    output: &OutputConfig,
+    platforms: &[String],
+) -> Result<(), SsError> {
+    let mut arr: Vec<Value> = Vec::with_capacity(platforms.len());
+    for platform in platforms {
+        let boot = bootstrap_and_verify(api, args, output, platform).await?;
+        arr.push(bootstrap_json(&boot));
+    }
+    output.print_json(&Value::Array(arr));
+    Ok(())
+}
+
+/// Render the per-agent combined summary (one row per graded agent + a row per
+/// hard-failed agent). Human/Markdown only — JSON has its own array surface.
+fn print_combined_summary(
+    output: &OutputConfig,
+    summaries: &[AgentSummary],
+    fails: &[(String, SsError)],
+) {
+    let c = output.color;
+    let p = |s: &str| output.print_info(s);
+    p("");
+    p(&format!("  {}", color::bold("Agent Scan summary", c)));
+    for s in summaries {
+        let score = s
+            .score
+            .map(|v| format!("{v}/100"))
+            .unwrap_or_else(|| "—".into());
+        let status = if s.gate_error.is_some() {
+            color::bold("FAIL", c)
+        } else {
+            "ok".to_string()
+        };
+        p(&format!(
+            "    {}  {}  {}  {}  {}",
+            color::tier_dot(s.band, c),
+            report::pad(&platform_display(&s.platform), 14),
+            report::pad(&score, 7),
+            report::pad(&status, 5),
+            color::dim(&format!("{} finding(s)", s.kept_findings), c),
+        ));
+    }
+    for (platform, e) in fails {
+        p(&format!(
+            "    {}  {}  {}",
+            color::dim("✗", c),
+            report::pad(&platform_display(platform), 14),
+            color::dim(&format!("failed ({})", e.code), c),
+        ));
+    }
 }
 
 // ─── sub-flows ───────────────────────────────────────────────────────────────
@@ -111,7 +329,7 @@ pub async fn run_agent_scan(args: &ScanArgs, output: &OutputConfig) -> Result<()
 async fn submit_blob(
     api: &Api,
     output: &OutputConfig,
-    args: &ScanArgs,
+    args: &AgentArgs,
     path: &Path,
 ) -> Result<(), SsError> {
     let pending = read_pending()?;
@@ -121,7 +339,7 @@ async fn submit_blob(
             format!("Cannot read blob {}: {e}", path.display()),
         )
     })?;
-    let pow = super::scan::obtain_pow_if_needed(api, output).await?;
+    let pow = super::capability::obtain_pow_if_needed(api, output).await?;
     let report = api
         .submit_agent_blob(
             &pending.run_id,
@@ -138,7 +356,7 @@ async fn submit_blob(
 /// `--print-skill` — mint a run + emit a static `SKILL.md` body whose prompt is
 /// already filled with the fresh run id + token (the manual AE-1 activation path).
 async fn print_skill(api: &Api, output: &OutputConfig) -> Result<(), SsError> {
-    let pow = super::scan::obtain_pow_if_needed(api, output).await?;
+    let pow = super::capability::obtain_pow_if_needed(api, output).await?;
     let boot = api
         .bootstrap_agent_scan("universal", "my-agent", "other", "public", &pow)
         .await?;
@@ -157,28 +375,6 @@ fn skill_md(boot: &BootstrapResponse) -> String {
         "---\nname: saferskills-agent-scan\ndescription: Run the SaferSkills Agent Scan on this agent (run {}).\n---\n\n{}\n",
         boot.run_id, boot.prompt
     )
-}
-
-// ─── platform resolution ─────────────────────────────────────────────────────
-
-/// Resolve the bootstrap platform: an explicit `--agent <id>` (canonical, legacy
-/// alias warns), `--agent auto` or bare `scan agent` → the first detected agent,
-/// else `universal`.
-fn resolve_platform(args: &ScanArgs, output: &OutputConfig) -> Result<String, SsError> {
-    match args.agent.as_deref() {
-        Some("auto") | None => Ok(detect_all(Scope::Global)
-            .into_iter()
-            .next()
-            .map(|d| d.id.as_str().to_string())
-            .unwrap_or_else(|| "universal".to_string())),
-        Some(id) => {
-            let (aid, warn): (AgentId, Option<String>) = AgentId::parse_cli(id)?;
-            if let Some(w) = warn {
-                output.print_warn(&w);
-            }
-            Ok(aid.as_str().to_string())
-        }
-    }
 }
 
 // ─── pack signature pre-flight (AE-1) ────────────────────────────────────────
@@ -302,13 +498,15 @@ async fn fetch_report(api: &Api, boot: &BootstrapResponse) -> Result<AgentScanRe
     }
 }
 
-/// Apply the baseline, render the verdict in the requested format, then map
-/// `--fail-on` to an exit code.
-fn render_and_gate(
+/// Apply the baseline, render the verdict in the requested format, then evaluate
+/// `--fail-on`. Returns the kept findings + the gate error (carrying the exit code)
+/// when the threshold was crossed, else `None`. A malformed `--fail-on` or baseline
+/// is a hard `Err` (usage / read error). Shared by the per-agent loop + `--submit-blob`.
+fn render_and_eval(
     output: &OutputConfig,
-    args: &ScanArgs,
+    args: &AgentArgs,
     report: &AgentScanReport,
-) -> Result<(), SsError> {
+) -> Result<(Vec<AgentFindingDto>, Option<SsError>), SsError> {
     let baseline_set = load_baseline(args)?;
     let (kept, suppressed) = baseline::filter(report.findings.clone(), &baseline_set);
 
@@ -318,21 +516,38 @@ fn render_and_gate(
         OutputFormat::Human => print_human(output, report, &kept, &suppressed),
     }
 
-    if let Some(expr) = &args.fail_on {
-        let fail_on = parse_fail_on(expr)?;
-        if fail_on.exceeded(report, &kept) {
-            return Err(SsError::new(
-                ERR_AGENT_SCAN_FAILED,
-                format!("Agent-scan verdict crossed the --fail-on {expr} threshold."),
-            ));
+    let gate = match &args.fail_on {
+        Some(expr) => {
+            let fail_on = parse_fail_on(expr)?;
+            fail_on.exceeded(report, &kept).then(|| {
+                SsError::new(
+                    ERR_AGENT_SCAN_FAILED,
+                    format!("Agent-scan verdict crossed the --fail-on {expr} threshold."),
+                )
+            })
         }
+        None => None,
+    };
+    Ok((kept, gate))
+}
+
+/// Render the verdict + map `--fail-on` to an exit code (the single-shot
+/// `--submit-blob` surface — one report, no aggregate summary).
+fn render_and_gate(
+    output: &OutputConfig,
+    args: &AgentArgs,
+    report: &AgentScanReport,
+) -> Result<(), SsError> {
+    let (_, gate) = render_and_eval(output, args, report)?;
+    match gate {
+        Some(e) => Err(e),
+        None => Ok(()),
     }
-    Ok(())
 }
 
 /// Resolve the baseline fingerprint set from `--baseline` (a `.agentscanignore` OR a
 /// prior report `.json`) or a default `./.agentscanignore`.
-fn load_baseline(args: &ScanArgs) -> Result<std::collections::BTreeSet<Fingerprint>, SsError> {
+fn load_baseline(args: &AgentArgs) -> Result<std::collections::BTreeSet<Fingerprint>, SsError> {
     if let Some(path) = &args.baseline {
         if path.extension().and_then(|e| e.to_str()) == Some("json") {
             let text = std::fs::read_to_string(path).map_err(|e| {
@@ -467,16 +682,69 @@ fn sorted(findings: &[AgentFindingDto]) -> Vec<&AgentFindingDto> {
 
 // ─── rendering ───────────────────────────────────────────────────────────────
 
-fn print_prompt(output: &OutputConfig, prompt: &str) {
-    if output.is_md() {
-        // Markdown mode reserves stdout for the verdict block → prompt to stderr.
-        eprintln!(
-            "\n----- paste into your agent -----\n{prompt}\n---------------------------------\n"
-        );
-    } else {
-        // Human mode: the prompt is the paste-able artifact → stdout.
-        println!("{prompt}");
+/// Present the paste-able bootstrap prompt for one agent.
+///
+/// Layout discipline: the prompt body is the **only** thing on **stdout**
+/// (verbatim, so `agent > prompt.txt` captures exactly it); the call-to-action,
+/// the telemetry note, and the cut-rules that frame it all go to **stderr**. The
+/// backend templates the consent notice onto the END of the prompt, so we strip
+/// that trailing copy — it is shown once below as a dim note, never inside the
+/// block the user pastes into their agent (it is a note to the human, not an
+/// instruction to the agent).
+fn present_prompt(
+    output: &OutputConfig,
+    boot: &BootstrapResponse,
+    platform: &str,
+    no_telemetry: bool,
+) {
+    let c = output.color;
+    let who = platform_display(platform);
+    let body = prompt_without_consent(&boot.prompt, &boot.consent_notice);
+
+    // Telemetry consent — once, dim, OUTSIDE the copy block.
+    if !no_telemetry {
+        output.print_info("");
+        output.print_info(&color::dim(&boot.consent_notice, c));
     }
+
+    output.print_info("");
+    output.print_info(&format!(
+        "  {} {}",
+        color::bold(&format!("Copy the prompt below into {who}, then run it"), c),
+        color::dim("— I'll wait here for the result.", c),
+    ));
+    output.print_info(&color::dim(&cut_rule("✂ copy from here"), c));
+
+    // The prompt body — verbatim, flush-left. Human → stdout (the paste artifact);
+    // Markdown reserves stdout for the verdict block → prompt to stderr.
+    if output.is_md() {
+        eprintln!("{body}");
+    } else {
+        println!("{body}");
+    }
+
+    output.print_info(&color::dim(&cut_rule("✂ end of prompt"), c));
+    output.print_info("");
+}
+
+/// A labelled, fixed-width "cut here" rule framing the copy block.
+fn cut_rule(label: &str) -> String {
+    format!("  {label} {}", "┄".repeat(44))
+}
+
+/// The prompt with a trailing copy of the consent notice removed. The backend
+/// bootstrap template appends `{{CONSENT}}`, so the served prompt ends with the
+/// notice; we strip it so it neither duplicates the dim note we print nor lands in
+/// the block the user pastes. A no-op if the backend ever stops embedding it.
+fn prompt_without_consent(prompt: &str, consent: &str) -> String {
+    let consent = consent.trim();
+    let trimmed = prompt.trim_end();
+    if !consent.is_empty() {
+        if let Some(head) = trimmed.strip_suffix(consent) {
+            return head.trim_end().to_string();
+        }
+    }
+    trimmed.to_string()
 }
 
 fn bootstrap_json(boot: &BootstrapResponse) -> Value {
@@ -701,7 +969,7 @@ fn read_pending() -> Result<PendingRun, SsError> {
             ERR_SCAN_TARGET,
             "No pending agent-scan run found to submit against.",
         )
-        .with_suggestion("Run `saferskills scan agent` first to mint a run + token.")
+        .with_suggestion("Run `saferskills agent` first to mint a run + token.")
     })?;
     serde_json::from_str(&text)
         .map_err(|e| SsError::new(ERR_SCAN_TARGET, format!("Corrupt pending run file: {e}")))
@@ -887,5 +1155,29 @@ mod tests {
         assert!(s.contains("RID"));
         assert!(s.contains("PROMPT-BODY"));
         assert!(s.starts_with("---"));
+    }
+
+    #[test]
+    fn prompt_without_consent_strips_trailing_notice() {
+        let consent = "SaferSkills records anonymous signals. Opt out with --no-telemetry.";
+        // The backend templates the consent onto the end of the prompt.
+        let prompt = format!("Run the scan.\n\n1. step one\n2. step two\n\n{consent}\n");
+        let stripped = prompt_without_consent(&prompt, consent);
+        assert!(stripped.contains("step one"));
+        assert!(
+            !stripped.contains("anonymous signals"),
+            "trailing consent must be removed from the paste block"
+        );
+        assert!(stripped.ends_with("step two"));
+    }
+
+    #[test]
+    fn prompt_without_consent_is_noop_without_trailing_notice() {
+        // A prompt that does NOT end with the consent is returned (trim-only).
+        let body = "Run the scan.\n1. step one";
+        assert_eq!(
+            prompt_without_consent(&format!("{body}\n\n"), "some consent"),
+            body
+        );
     }
 }

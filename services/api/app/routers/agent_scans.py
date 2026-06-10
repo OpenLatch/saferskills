@@ -122,7 +122,18 @@ async def _parse_submission(request: Request, settings: Settings) -> AgentScanRe
     try:
         return AgentScanResultV1.model_validate(payload)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail={"error": "invalid_submission"}) from exc
+        # Surface a compact, payload-free error list so a "close" submission is
+        # self-correcting (the agent/CLI sees which field + expected shape failed).
+        # Only `loc` + `msg` are exposed — NEVER the submitted value (`input`/`ctx`),
+        # keeping the no-raw-payload trace invariant (security.md).
+        errors = [
+            {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]}
+            for err in exc.errors(include_url=False)
+        ][:20]
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_submission", "errors": errors},
+        ) from exc
 
 
 def _submit_opted_out(request: Request) -> bool:

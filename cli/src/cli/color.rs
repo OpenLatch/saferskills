@@ -12,7 +12,7 @@ use std::io::IsTerminal;
 use crate::api::dto::{Severity, Tier};
 
 /// The 5 scoring axes, in fixed display order, with their report labels. Shared
-/// by the `scan` run report and the `install` digest.
+/// by the `capability` run report and the `install` digest.
 pub const AXES: [(&str, &str); 5] = [
     ("security", "Security"),
     ("supply_chain", "Supply chain"),

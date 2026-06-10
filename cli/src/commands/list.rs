@@ -1,7 +1,7 @@
 //! `saferskills list` — full local inventory + scores + scan invitation.
 //!
 //! `list` shows the **complete local inventory** — the same discovery
-//! `scan --local` performs across every detected agent (skills, MCP servers,
+//! `capability` (no target) performs across every detected agent (skills, MCP servers,
 //! hooks, rules, slash commands, subagents, installed plugins), regardless of how
 //! each capability was installed — annotates each with its security score where
 //! known, and invites the user to scan the ones that have never been scored.
@@ -14,8 +14,9 @@
 //! never-scanned capability has no score until the user scans it.
 //!
 //! On a TTY (not `--json`/`--quiet`/`--non-interactive`) the unscanned capabilities
-//! trigger an inline `scan --local` offer; on accept it scans, then re-renders the
-//! list from the freshly populated cache. Otherwise a command hint is printed.
+//! trigger an inline `capability` (no target) offer; on accept it scans, then
+//! re-renders the list from the freshly populated cache. Otherwise a command hint
+//! is printed.
 
 use std::io::IsTerminal;
 use std::path::PathBuf;
@@ -27,7 +28,7 @@ use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::OutputConfig;
 use crate::cli::{Interaction, ListArgs};
-use crate::commands::{report, scan};
+use crate::commands::{capability, report};
 use crate::core::config::{contract_home, Config};
 use crate::core::error::SsError;
 use crate::core::{registry, scan_cache};
@@ -48,7 +49,7 @@ pub async fn run_list(
             output.print_json(&serde_json::json!({ "data": [], "unscanned": 0 }));
         } else {
             output.print_info("No installed capabilities found across your agents.");
-            output.print_substep("Scan your whole setup with `saferskills scan --local`.");
+            output.print_substep("Scan your whole setup with `saferskills capability`.");
         }
         return Ok(());
     }
@@ -71,7 +72,7 @@ pub async fn run_list(
     // Invite: an interactive TTY offers an inline scan + re-render; any
     // non-interactive surface falls back to a printed command hint.
     if can_prompt(inter, output) && confirm_scan(unscanned) {
-        scan::run_local_audit(&api, output, "public", false).await?;
+        capability::run_local_audit(&api, output, "public", false, &[]).await?;
         // The cache is now populated — re-render with the fresh scores.
         let inventory = build_inventory(&api).await?;
         output.print_info("");
@@ -107,8 +108,8 @@ enum Resolved {
 }
 
 /// One row of the local inventory — one per discovered [`LocalCapability`] (so
-/// the same capability under two agents is two rows, matching `scan --local`'s
-/// per-agent fan-out).
+/// the same capability under two agents is two rows, matching the no-target
+/// `capability` audit's per-agent fan-out).
 struct InventoryEntry {
     /// Backend snake_case kind (`skill` | `mcp_server` | …).
     kind: String,
@@ -333,7 +334,7 @@ fn truncate(s: &str, w: usize) -> String {
 fn print_scan_hint(output: &OutputConfig, unscanned: usize) {
     output.print_info("");
     output.print_info(&format!(
-        "{unscanned} capability(ies) not scanned. Run: saferskills scan --local",
+        "{unscanned} capability(ies) not scanned. Run: saferskills capability",
     ));
 }
 

@@ -122,6 +122,12 @@ impl CatalogQuery {
 const SUGGEST_THRESHOLD: f64 = 0.7;
 /// Max did-you-mean suggestions to show.
 const MAX_SUGGESTIONS: usize = 3;
+/// How long a status poll tolerates *continuous* request failures before giving up.
+/// A single slow/failed poll must not abort a run that is fine server-side (the
+/// agent wait is minutes long; the local API can blip under load), but a genuinely
+/// unreachable API should still fail in bounded time rather than spin to the
+/// full client deadline. Reset on any successful (or "pending") poll.
+const POLL_FAILURE_GRACE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// Typed API surface the CLI consumes.
 #[derive(Debug, Clone)]
@@ -256,13 +262,23 @@ impl Api {
     ) -> Result<ScanRunReportDetail, SsError> {
         let spinner = output.create_spinner("Scanning…");
         let deadline = std::time::Instant::now() + timeout;
+        // Resilient poll (see `wait_for_agent_run`): a not-yet-persisted 404 is
+        // "pending" (resets the failure window), other transient errors are
+        // tolerated, and only `POLL_FAILURE_GRACE` of continuous failure (or the
+        // deadline) aborts.
+        let mut failing_since: Option<std::time::Instant> = None;
         let result = loop {
             match self.get_run(run_id).await {
                 Ok(run) if is_terminal(&run) => break Ok(run),
                 // Still running, OR not-yet-persisted (404 → ERR_ITEM_NOT_FOUND).
-                Ok(_) => {}
-                Err(e) if e.code == ERR_ITEM_NOT_FOUND => {}
-                Err(e) => break Err(e),
+                Ok(_) => failing_since = None,
+                Err(e) if e.code == ERR_ITEM_NOT_FOUND => failing_since = None,
+                Err(e) => {
+                    let since = failing_since.get_or_insert_with(std::time::Instant::now);
+                    if since.elapsed() >= POLL_FAILURE_GRACE {
+                        break Err(e);
+                    }
+                }
             }
             if std::time::Instant::now() >= deadline {
                 break Err(SsError::new(
@@ -411,11 +427,22 @@ impl Api {
     ) -> Result<AgentStatusResponse, SsError> {
         let spinner = output.create_spinner("Waiting for the agent to submit results…");
         let deadline = std::time::Instant::now() + timeout;
+        // Tolerate transient API hiccups during the long human-in-the-loop wait: a
+        // slow or briefly-failing poll must not abort a run that is fine
+        // server-side. Give up only when the API has been *continuously* failing
+        // for `POLL_FAILURE_GRACE` (covers a dead API / a rejected token in bounded
+        // time), the deadline passes, or the run reaches a terminal state.
+        let mut failing_since: Option<std::time::Instant> = None;
         let result = loop {
             match self.get_agent_status(run_id, token).await {
                 Ok(s) if is_agent_terminal(&s.status) => break Ok(s),
-                Ok(_) => {}
-                Err(e) => break Err(e),
+                Ok(_) => failing_since = None,
+                Err(e) => {
+                    let since = failing_since.get_or_insert_with(std::time::Instant::now);
+                    if since.elapsed() >= POLL_FAILURE_GRACE {
+                        break Err(e);
+                    }
+                }
             }
             if std::time::Instant::now() >= deadline {
                 break Err(SsError::new(
@@ -424,7 +451,7 @@ impl Api {
                 )
                 .with_suggestion(
                     "If your agent printed a SAFERSKILLS-AGENTSCAN blob, submit it with \
-                     `saferskills scan agent --submit-blob <file>`.",
+                     `saferskills agent --submit-blob <file>`.",
                 ));
             }
             tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
@@ -477,7 +504,7 @@ impl Api {
     /// 2. Exact (case-insensitive) match on `display_name`, `slug`, or the
     ///    `<name>` portion of the slug's trailing `<kind>-<name>` segment.
     /// 3. Else the top-`N` jaro_winkler matches (≥ threshold) become a
-    ///    did-you-mean `SS-E-1200`, with the `scan` fallback line.
+    ///    did-you-mean `SS-E-1200`, with the `capability` fallback line.
     pub async fn resolve(&self, name: &str) -> Result<CatalogItemSummary, SsError> {
         if name.contains("--") {
             match self.get_item(name).await {
@@ -549,7 +576,7 @@ fn similarity(name: &str, item: &CatalogItemSummary) -> f64 {
     by_display.max(by_tail)
 }
 
-/// Build the not-found error, appending did-you-mean lines + the `scan`
+/// Build the not-found error, appending did-you-mean lines + the `capability`
 /// fallback into the suggestion field (rendered by `print_error`).
 fn not_found_error(name: &str, suggestions: &[&CatalogItemSummary]) -> SsError {
     let mut hint = String::new();
@@ -567,7 +594,7 @@ fn not_found_error(name: &str, suggestions: &[&CatalogItemSummary]) -> SsError {
             ));
         }
     }
-    hint.push_str("Or submit a new scan: saferskills scan <github-url>");
+    hint.push_str("Or submit a new scan: saferskills capability <github-url>");
 
     SsError::new(
         ERR_ITEM_NOT_FOUND,
@@ -653,7 +680,7 @@ mod tests {
         let s = err.suggestion.unwrap();
         assert!(s.contains("Did you mean:"));
         assert!(s.contains("(87/100, Green)"));
-        assert!(s.contains("saferskills scan <github-url>"));
+        assert!(s.contains("saferskills capability <github-url>"));
     }
 
     #[test]
@@ -661,7 +688,7 @@ mod tests {
         let err = not_found_error("zzz", &[]);
         let s = err.suggestion.unwrap();
         assert!(!s.contains("Did you mean:"));
-        assert!(s.contains("saferskills scan <github-url>"));
+        assert!(s.contains("saferskills capability <github-url>"));
     }
 
     #[test]

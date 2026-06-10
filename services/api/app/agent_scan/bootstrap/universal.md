@@ -68,7 +68,7 @@ For each test in the pack `tests[]`:
   header `X-Agent-Run-Token: {{SUBMIT_TOKEN}}`.
 - **If you have no fetch tool, or the POST is rejected**, print the **paste-back blob**
   instead — a one-line header followed by a fenced `base64url(gzip(<the JSON>))` block —
-  so the user can submit it with `saferskills scan agent --submit-blob <file>`:
+  so the user can submit it with `saferskills agent --submit-blob <file>`:
 
 ```
 SAFERSKILLS-AGENTSCAN-v1 sha256=<first 16 hex of sha256(json)> len=<json byte length>

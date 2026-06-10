@@ -90,7 +90,7 @@ services/api/      # FastAPI backend (W1 shell + scan engine from W2)
 webapp/            # Astro 6 + React 19 public catalog (placeholder W1, real W3)
 ui/                # Design system & shared components (atoms/molecules/organisms)
 rubric/            # Detection rules (W2+ — placeholder dir at W1)
-cli/               # `saferskills` Rust CLI (install/scan + `scan agent` behavioral Agent Scan, I-5.5: mint→signed-pack-verify→bootstrap-prompt→poll→verdict)
+cli/               # `saferskills` Rust CLI (install + `capability` static scan/audit + `agent` behavioral Agent Scan, I-5.5: mint→signed-pack-verify→bootstrap-prompt→poll→verdict; multi-agent sequential, worst-exit)
 tools/e2e/         # Playwright + Python e2e command suite
 .claude/rules/     # Domain-specific rules (path-scoped — load only when relevant files are edited)
 .github/           # Workflows, ISSUE_TEMPLATEs, CODEOWNERS, dependabot, labels

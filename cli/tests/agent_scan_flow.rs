@@ -154,6 +154,39 @@ async fn wait_for_agent_run_polls_to_graded() {
 }
 
 #[tokio::test]
+async fn wait_for_agent_run_tolerates_transient_failure() {
+    // Regression: a SINGLE transient poll error (here a 503 while the API is busy)
+    // used to abort the whole wait with SS-E-1100, even though the run completes
+    // fine server-side. The resilient poll must ride the blip and still return the
+    // graded status. `.expect(1)` exhausts the 503 mock after one hit, so the next
+    // poll (1.5s later) matches the graded mock.
+    let mut server = Server::new_async().await;
+    server
+        .mock("GET", "/api/v1/agent-scans/run-1/status")
+        .with_status(503)
+        .expect(1)
+        .create_async()
+        .await;
+    server
+        .mock("GET", "/api/v1/agent-scans/run-1/status")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({ "status": "graded", "score": 100, "band": "green" }).to_string(),
+        )
+        .create_async()
+        .await;
+
+    let api = Api::new(server.url()).unwrap();
+    let status = api
+        .wait_for_agent_run("run-1", "tok", &quiet_output(), Duration::from_secs(15))
+        .await
+        .expect("a transient 503 must not abort the poll");
+    assert_eq!(status.status, "graded");
+    assert_eq!(status.score, Some(100));
+}
+
+#[tokio::test]
 async fn submit_agent_blob_returns_report() {
     let mut server = Server::new_async().await;
     server
