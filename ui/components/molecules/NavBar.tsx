@@ -21,6 +21,7 @@ interface Props {
 const DEFAULT_LINKS: NavLink[] = [
   { label: 'Home', href: '/' },
   { label: 'Catalog', href: '/catalog' },
+  { label: 'Agents', href: '/agents' },
   { label: 'Scan', href: '/scan' },
   { label: 'Docs', href: '/docs' },
   { label: 'Methodology', href: '/methodology' },

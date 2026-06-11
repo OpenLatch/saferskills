@@ -187,7 +187,9 @@
     "rubric_version": "a1b2c3d",
     "engine_version": "def5678",
     "latency_ms": 41,
-    "scanned_at": "2026-06-09T12:00:00Z"
+    "scanned_at": "2026-06-09T12:00:00Z",
+    "vendor_reply": null,
+    "vendor_reply_at": null
   },
   "red_private": {
     "id": "018e7c8b-aaaa-7000-8000-000000000002",
@@ -432,7 +434,9 @@
     "rubric_version": "a1b2c3d",
     "engine_version": "def5678",
     "latency_ms": 39,
-    "scanned_at": "2026-06-09T12:00:05Z"
+    "scanned_at": "2026-06-09T12:00:05Z",
+    "vendor_reply": "We dispute AS-06: the planted secret is a test fixture, not a real credential. A fix ships in v2.1.",
+    "vendor_reply_at": "2026-06-09T15:30:00Z"
   },
   "green_pass": {
     "id": "018e7c8b-aaaa-7000-8000-000000000003",
@@ -510,6 +514,8 @@
     "rubric_version": "a1b2c3d",
     "engine_version": "def5678",
     "latency_ms": 33,
-    "scanned_at": "2026-06-09T12:01:00Z"
+    "scanned_at": "2026-06-09T12:01:00Z",
+    "vendor_reply": null,
+    "vendor_reply_at": null
   }
 }

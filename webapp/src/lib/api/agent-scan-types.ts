@@ -127,6 +127,75 @@ export interface AgentScanReportDetail {
   engine_version: string
   latency_ms: number
   scanned_at: string | null
+  /** Capability-token holder's ≤500-char public right-of-reply (read-only on the
+   * report); null when none attached (D-5.6-08). */
+  vendor_reply: string | null
+  vendor_reply_at: string | null
+}
+
+// ── Directory list summary + aggregate stats (I-5.6 Phase C, D-5.6-05) ──────────
+
+/** Directory sort keys (D-5.6-09): latest-first default + score asc/desc. */
+export type AgentSort = 'newest' | 'score_asc' | 'score_desc'
+
+export interface AgentFindingsSummary {
+  critical: number
+  high: number
+  info: number
+  total: number
+}
+
+export interface AgentCapabilityTally {
+  skill: number
+  hook: number
+  mcp: number
+  plugin: number
+  rules: number
+}
+
+/** One `/agents` directory dossier row (a public, graded agent run). */
+export interface AgentScanSummary {
+  id: string
+  agent_name: string
+  runtime: string
+  score: number | null
+  band: AgentBand
+  visibility: 'public'
+  report_url: string | null
+  scanned_at: string | null
+  capability_tally: AgentCapabilityTally
+  findings_summary: AgentFindingsSummary
+  trust_tier: string | null
+}
+
+export interface AgentScanListEnvelope {
+  data: AgentScanSummary[]
+  total_count: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface AgentBandShare {
+  pct: number
+  count: number
+}
+
+export interface AgentBandDistribution {
+  red: AgentBandShare
+  orange: AgentBandShare
+  yellow: AgentBandShare
+  green: AgentBandShare
+}
+
+export interface AgentAggregateStats {
+  corpus_count: number
+  gate_target: number
+  gate_met: boolean
+  /** Null until the corpus reaches the gate — the frontend blanks the stat to "—". */
+  pct_with_critical: number | null
+  band_distribution: AgentBandDistribution
+  window_label: string
 }
 
 const STATUSES: ReadonlySet<string> = new Set([

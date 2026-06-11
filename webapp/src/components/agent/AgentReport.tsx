@@ -112,12 +112,13 @@ export default function AgentReport({ run, shareUrl, unlisted = false, token }: 
   }
 
   async function onVerify(email: string | null) {
-    await requestVerifyWaitlist(run.id, email)
+    await requestVerifyWaitlist(email)
     track('agent_report_verify_requested', {})
   }
 
   async function onReply(body: string) {
-    await submitAgentReply(run.id, body)
+    if (!token) return
+    await submitAgentReply(token, body)
     track('agent_report_reply_submitted', {})
   }
 
@@ -315,6 +316,19 @@ export default function AgentReport({ run, shareUrl, unlisted = false, token }: 
 
       {/* README badge embed + provenance */}
       <AgentBadgeBand run={run} />
+
+      {/* an existing vendor right-of-reply renders read-only on every report */}
+      {run.vendor_reply && (
+        <figure className="ar-vendor-reply">
+          <figcaption className="avr-head">
+            Vendor right-of-reply
+            {run.vendor_reply_at && (
+              <span className="avr-when"> · {run.vendor_reply_at.slice(0, 10)}</span>
+            )}
+          </figcaption>
+          <blockquote className="avr-body">{run.vendor_reply}</blockquote>
+        </figure>
+      )}
 
       {/* lifecycle: waitlist (every report) + right-of-reply (token holder) */}
       <div className="ar-lifecycle">

@@ -1,0 +1,78 @@
+---
+export const prerender = false
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import AgentDirectoryApp from '@/components/agent/AgentDirectoryApp.tsx'
+import { filtersFromSearchParams, filtersToParams } from '@/components/agent/directory-state'
+import {
+  type AgentAggregateStats,
+  type AgentScanListEnvelope,
+  fetchAgentAggregateStats,
+  listAgentScans,
+} from '@/lib/api/agent-scans'
+
+import '@/styles/page-agent-directory.css'
+
+const PAGE_SIZE = 24
+
+const url = new URL(Astro.request.url)
+const initialFilters = filtersFromSearchParams(url.searchParams)
+
+const EMPTY_LIST: AgentScanListEnvelope = {
+  data: [],
+  total_count: 0,
+  page: 1,
+  page_size: PAGE_SIZE,
+  total_pages: 1,
+}
+
+const EMPTY_STATS: AgentAggregateStats = {
+  corpus_count: 0,
+  gate_target: 500,
+  gate_met: false,
+  pct_with_critical: null,
+  band_distribution: {
+    red: { pct: 0, count: 0 },
+    orange: { pct: 0, count: 0 },
+    yellow: { pct: 0, count: 0 },
+    green: { pct: 0, count: 0 },
+  },
+  window_label: 'Whole corpus · Last 3 months',
+}
+
+const [initialData, initialStats] = await Promise.all([
+  listAgentScans(filtersToParams(initialFilters, 1, PAGE_SIZE)).catch(() => EMPTY_LIST),
+  fetchAgentAggregateStats().catch(() => EMPTY_STATS),
+])
+---
+
+<Base
+  title="Agents — SaferSkills"
+  description="Every assembled AI agent, independently scanned for behavioral risk. Browse the public corpus — filter by score, runtime, and findings."
+>
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
+
+  <h1 class="sr-only">Agents — the public corpus of independently-scanned agents</h1>
+
+  <AgentDirectoryApp
+    client:load
+    initialFilters={initialFilters}
+    initialData={initialData}
+    initialStats={initialStats}
+  />
+
+  <CtaBand
+    client:visible
+    title="Is your agent in the index?"
+    lead="~30 seconds, no account. Every public agent scan gets a permanent, shareable Agent Report — and lands here, newest first."
+    primaryAction={{ label: 'Scan an agent →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse the catalog', href: '/catalog' }}
+  />
+
+  <Footer />
+</Base>

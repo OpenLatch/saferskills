@@ -57,6 +57,8 @@ def _run(*, share_token: str | None, visibility: str) -> AgentRun:
         engine_version="def5678",
         latency_ms=0,
         scanned_at=datetime(2026, 6, 9, tzinfo=UTC),
+        vendor_reply=None,
+        vendor_reply_at=None,
     )
     return cast(AgentRun, ns)
 

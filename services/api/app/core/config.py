@@ -537,6 +537,16 @@ class Settings(BaseSettings):
             "intact."
         ),
     )
+    agent_corpus_gate_n: int = Field(
+        default=500,
+        ge=1,
+        description=(
+            "Minimum public agent-scan corpus size before the `/agents` directory "
+            "publishes its headline aggregate stat (% carrying a critical finding). "
+            "Below it the stat is gated ('collecting') to avoid misleading-at-small-N "
+            "(I-5.6, D-5.6-07). Founder-overridable without a code change."
+        ),
+    )
 
     # ── Ingestion (I-04 Phase A) ───────────────────────────────────────────
     ingestion_worker_enabled: bool = Field(

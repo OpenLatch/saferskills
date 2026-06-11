@@ -91,6 +91,6 @@ describe('mutations', () => {
 
   it('verify-waitlist tolerates a dev 404 (endpoint not yet deployed)', async () => {
     mockFetch(new Response('', { status: 404 }))
-    await expect(requestVerifyWaitlist('r1', 'a@b.com')).resolves.toBeUndefined()
+    await expect(requestVerifyWaitlist('a@b.com')).resolves.toBeUndefined()
   })
 })

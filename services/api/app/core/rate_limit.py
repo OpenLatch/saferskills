@@ -30,6 +30,7 @@ Bucket = Literal[
     "artifact_download",
     "private_lookup",
     "agent_scan_submit",
+    "agent_verify_waitlist",
 ]
 
 

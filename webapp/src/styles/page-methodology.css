@@ -662,3 +662,66 @@ html.dark .rf-export {
     transition: none;
   }
 }
+
+/* ─────────── Agent Scan pack cards (I-5.6 AR-12 §11) ─────────── */
+.ap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.ap-card {
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+html.dark .page-section--flat .ap-card {
+  background: var(--color-paper);
+}
+.ap-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ap-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  color: var(--brand-primary);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 2px 8px;
+}
+.ap-cap {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  margin-left: auto;
+}
+.ap-title {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  color: var(--fg-1);
+  margin: 0;
+}
+.ap-desc {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+}
+.ap-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}

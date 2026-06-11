@@ -1,6 +1,124 @@
 {
   "components": {
     "schemas": {
+      "AgentAggregateStats": {
+        "description": "`GET /api/v1/agent-scans/aggregate-stats` \u2014 the corpus risk meter feed.",
+        "properties": {
+          "band_distribution": {
+            "$ref": "#/components/schemas/AgentBandDistribution"
+          },
+          "corpus_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Corpus Count",
+            "type": "integer"
+          },
+          "gate_met": {
+            "default": false,
+            "title": "Gate Met",
+            "type": "boolean"
+          },
+          "gate_target": {
+            "default": 500,
+            "minimum": 1.0,
+            "title": "Gate Target",
+            "type": "integer"
+          },
+          "pct_with_critical": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct With Critical"
+          },
+          "window_label": {
+            "default": "Whole corpus \u00b7 Last 3 months",
+            "title": "Window Label",
+            "type": "string"
+          }
+        },
+        "title": "AgentAggregateStats",
+        "type": "object"
+      },
+      "AgentBandDistribution": {
+        "description": "Risk-distribution thermometer segments (proportions + counts).",
+        "properties": {
+          "green": {
+            "$ref": "#/components/schemas/AgentBandShare"
+          },
+          "orange": {
+            "$ref": "#/components/schemas/AgentBandShare"
+          },
+          "red": {
+            "$ref": "#/components/schemas/AgentBandShare"
+          },
+          "yellow": {
+            "$ref": "#/components/schemas/AgentBandShare"
+          }
+        },
+        "title": "AgentBandDistribution",
+        "type": "object"
+      },
+      "AgentBandShare": {
+        "description": "One band's slice of the corpus risk thermometer.",
+        "properties": {
+          "count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "pct": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "Pct",
+            "type": "number"
+          }
+        },
+        "title": "AgentBandShare",
+        "type": "object"
+      },
+      "AgentCapabilityTally": {
+        "description": "Per-kind capability counts (derived from `component_scores[].kind`).",
+        "properties": {
+          "hook": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Hook",
+            "type": "integer"
+          },
+          "mcp": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Mcp",
+            "type": "integer"
+          },
+          "plugin": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Plugin",
+            "type": "integer"
+          },
+          "rules": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rules",
+            "type": "integer"
+          },
+          "skill": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Skill",
+            "type": "integer"
+          }
+        },
+        "title": "AgentCapabilityTally",
+        "type": "object"
+      },
       "AgentCheckRow": {
         "properties": {
           "family": {
@@ -251,6 +369,37 @@
         "title": "AgentFindingRow",
         "type": "object"
       },
+      "AgentFindingsSummary": {
+        "description": "Per-run finding counts for a dossier card (derived from `agent_findings`).",
+        "properties": {
+          "critical": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Critical",
+            "type": "integer"
+          },
+          "high": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "High",
+            "type": "integer"
+          },
+          "info": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Info",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "AgentFindingsSummary",
+        "type": "object"
+      },
       "AgentRemediation": {
         "properties": {
           "action": {
@@ -286,6 +435,22 @@
           "action"
         ],
         "title": "AgentRemediation",
+        "type": "object"
+      },
+      "AgentReplyRequest": {
+        "description": "`POST /api/v1/agent-scans/r/{token}/reply` \u2014 the \u2264500-char public reply.",
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AgentReplyRequest",
         "type": "object"
       },
       "AgentSaferPattern": {
@@ -539,6 +704,47 @@
         "title": "AgentScanCreateResponse",
         "type": "object"
       },
+      "AgentScanListEnvelope": {
+        "description": "`GET /api/v1/agent-scans` paginated envelope (`data`, never `items`).",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/AgentScanSummary"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "page": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 24,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total Count",
+            "type": "integer"
+          },
+          "total_pages": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AgentScanListEnvelope",
+        "type": "object"
+      },
       "AgentScanReportDetail": {
         "description": "`GET /agent-scans/{run_id}` + `.../r/{token}` wire report (snake_case).",
         "properties": {
@@ -745,6 +951,29 @@
             "title": "Trust Labels",
             "type": "array"
           },
+          "vendor_reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor Reply"
+          },
+          "vendor_reply_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor Reply At"
+          },
           "verdict_label": {
             "anyOf": [
               {
@@ -842,6 +1071,101 @@
         "title": "AgentScanStatusResponse",
         "type": "object"
       },
+      "AgentScanSummary": {
+        "description": "One `/agents` directory dossier row (a public, graded agent run).",
+        "properties": {
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "band": {
+            "enum": [
+              "green",
+              "yellow",
+              "orange",
+              "red",
+              "unscoped"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "capability_tally": {
+            "$ref": "#/components/schemas/AgentCapabilityTally"
+          },
+          "findings_summary": {
+            "$ref": "#/components/schemas/AgentFindingsSummary"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Url"
+          },
+          "runtime": {
+            "title": "Runtime",
+            "type": "string"
+          },
+          "scanned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned At"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "trust_tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Tier"
+          },
+          "visibility": {
+            "const": "public",
+            "default": "public",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_name",
+          "runtime",
+          "band"
+        ],
+        "title": "AgentScanSummary",
+        "type": "object"
+      },
       "AgentShare": {
         "description": "One slice of the install agent-distribution row.\n\n`agent` is the canonical agent id (the 8-agent closed enum, D-05-14) \u2014 no\nlonger a free string now that real install telemetry (D-05-31) populates it.",
         "properties": {
@@ -871,6 +1195,38 @@
           "percentage"
         ],
         "title": "AgentShare",
+        "type": "object"
+      },
+      "AgentVerifyWaitlistRequest": {
+        "description": "`POST /api/v1/agent-scans/verify-waitlist` \u2014 account-free demand signal.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional contact email.",
+            "title": "Email"
+          }
+        },
+        "title": "AgentVerifyWaitlistRequest",
+        "type": "object"
+      },
+      "AgentVerifyWaitlistResponse": {
+        "description": "`POST /api/v1/agent-scans/verify-waitlist` ack (records demand only).",
+        "properties": {
+          "recorded": {
+            "default": true,
+            "title": "Recorded",
+            "type": "boolean"
+          }
+        },
+        "title": "AgentVerifyWaitlistResponse",
         "type": "object"
       },
       "CapabilityRow": {
@@ -4412,6 +4768,146 @@
       }
     },
     "/api/v1/agent-scans": {
+      "get": {
+        "description": "Public-only, filterable, sorted, paginated dossier list (the `/agents` grid).\n\nHard-filters `visibility='public' AND status IN ('graded','published') AND score\nIS NOT NULL` - never serves an unlisted/ungraded/null-score run (Codex P1).",
+        "operationId": "list_runs_api_v1_agent_scans_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "score_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Score Min"
+            }
+          },
+          {
+            "in": "query",
+            "name": "score_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Score Max"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Period",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "runtime",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Runtime",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Severity",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 60,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanListEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "agent-scans"
+        ]
+      },
       "post": {
         "description": "Mint a run + one-time submit token; return the token-gated pack URL.",
         "operationId": "create_run_api_v1_agent_scans_post",
@@ -4448,6 +4944,28 @@
           }
         },
         "summary": "Create Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/aggregate-stats": {
+      "get": {
+        "description": "Corpus risk-meter feed: gated % + band distribution over the public corpus.\n\n`pct_with_critical` is null until the corpus reaches `AGENT_CORPUS_GATE_N`\n(the collecting gate; D-5.6-07). Public-only.",
+        "operationId": "get_aggregate_stats_api_v1_agent_scans_aggregate_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAggregateStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Aggregate Stats",
         "tags": [
           "agent-scans"
         ]
@@ -4681,6 +5199,101 @@
           }
         },
         "summary": "Promote Unlisted Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/r/{token}/reply": {
+      "post": {
+        "description": "Attach the capability-token holder's \u2264500-char public right-of-reply to the\nrun (D-5.6-08, \u00a713). Token-gated (same `private_lookup` surface as view/promote/\ndelete); persisted on the run + rendered read-only on the report. Generic-404 a\nbad/expired token (no oracle). 500-char server-validated by `AgentReplyRequest`.",
+        "operationId": "reply_unlisted_run_api_v1_agent_scans_r__token__reply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentReplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScanReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reply Unlisted Run",
+        "tags": [
+          "agent-scans"
+        ]
+      }
+    },
+    "/api/v1/agent-scans/verify-waitlist": {
+      "post": {
+        "description": "Record demand for the (out-of-scope) independently-observed verify tier\n(D-5.6-08). Account-free, email-OPTIONAL. The submitter IP is redacted to\n/24-(v4)/48-(v6) at write time (`privacy.md`); a raw IP is never stored.",
+        "operationId": "verify_waitlist_api_v1_agent_scans_verify_waitlist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentVerifyWaitlistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentVerifyWaitlistResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Waitlist",
         "tags": [
           "agent-scans"
         ]

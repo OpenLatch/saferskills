@@ -88,6 +88,7 @@ All env vars are read through a typed wrapper — `pydantic-settings` on the bac
 | `AGENT_RUN_TOKEN_TTL_SECONDS` | no | `1800` | TTL of a minted one-time Agent Scan run/submit token (30 min). The single-use ledger `agent_run_token_spent` is reaped by expiry. |
 | `UNLISTED_AGENT_RETENTION_DAYS` | no | `90` | TTL for unlisted Agent Scan runs — sets `agent_runs.expires_at`; swept like the I-3.5 unlisted runs. |
 | `IPINFO_LITE_DB_PATH` | no | `/app/data/ipinfo-lite.mmdb` | Path to the IPinfo Lite MMDB the Agent Scan telemetry writer uses to derive company-level ASN/as_org/country from a **redacted** IP (`app/agent_scan/`). No raw IP stored — see `privacy.md` § agent_scan_telemetry. |
+| `AGENT_CORPUS_GATE_N` | no | `500` | Minimum public agent-scan corpus before the `/agents` directory publishes its headline aggregate stat (% carrying a critical finding); below it the stat is gated ("collecting") to avoid misleading-at-small-N (I-5.6, D-5.6-07). Read by `GET /agent-scans/aggregate-stats` (`app/agent_scan/directory.py`). Founder-overridable without a code change. |
 
 > **Artifact storage needs no new env/secret.** Stored scan snapshots
 > (`artifact_blobs`, content-addressed) live in the single Postgres (`DATABASE_URL`)

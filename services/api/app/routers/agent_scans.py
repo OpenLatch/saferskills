@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 from sqlalchemy import delete, select, update
@@ -30,6 +30,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_scan import bootstrap as bootstrap_mod
+from app.agent_scan import directory as directory_mod
 from app.agent_scan import pack as pack_mod
 from app.agent_scan import signing
 from app.agent_scan import telemetry as telemetry_mod
@@ -50,10 +51,12 @@ from app.agent_scan.run_token import (
     verify_run_token,
     verify_submit_token,
 )
+from app.core.access_log_middleware import redact_ip
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import enforce_ip_rate_limit
 from app.db.session import get_session
 from app.models.agent_evidence import AgentEvidence
+from app.models.agent_verify_waitlist import AgentVerifyWaitlist
 from app.models.generated.agent_run import AgentRun
 from app.observability import events
 from app.routers.scans import (
@@ -66,13 +69,18 @@ from app.routers.scans import (
 )
 from app.scan.upload import UploadRejected
 from app.schemas.agent_scan import (
+    AgentAggregateStats,
+    AgentReplyRequest,
     AgentScanBootstrapRequest,
     AgentScanBootstrapResponse,
     AgentScanCreateRequest,
     AgentScanCreateResponse,
+    AgentScanListEnvelope,
     AgentScanReportDetail,
     AgentScanResultV1,
     AgentScanStatusResponse,
+    AgentVerifyWaitlistRequest,
+    AgentVerifyWaitlistResponse,
 )
 from app.services.cli_pow import PowDisabled, PowRejected, verify_pow
 
@@ -539,6 +547,105 @@ async def delete_unlisted_run(
     await session.commit()
     set_unlisted_headers(response)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/r/{token}/reply", response_model=AgentScanReportDetail)
+async def reply_unlisted_run(
+    token: str,
+    body: AgentReplyRequest,
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+) -> AgentScanReportDetail:
+    """Attach the capability-token holder's ≤500-char public right-of-reply to the
+    run (D-5.6-08, §13). Token-gated (same `private_lookup` surface as view/promote/
+    delete); persisted on the run + rendered read-only on the report. Generic-404 a
+    bad/expired token (no oracle). 500-char server-validated by `AgentReplyRequest`."""
+    await enforce_private_lookup_limit(request, session)
+    run = (
+        await session.execute(select(AgentRun).where(AgentRun.share_token == token))
+    ).scalar_one_or_none()
+    if not _is_live_unlisted(run):
+        raise HTTPException(status_code=404, detail="not found")
+    assert run is not None
+    run.vendor_reply = body.text.strip()
+    run.vendor_reply_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(run)
+    set_unlisted_headers(response)
+    findings = await load_findings(session, run.id)
+    return build_agent_report(run, findings, settings=get_settings(), private=True, evidence=None)
+
+
+# ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
+# These STATIC paths are registered BEFORE the dynamic `/{run_id}` route below, or
+# FastAPI would match `aggregate-stats` / `verify-waitlist` as a `run_id` (Codex P1).
+
+
+@router.get("", response_model=AgentScanListEnvelope)
+async def list_runs(
+    score_min: int | None = Query(default=None, ge=0, le=100),
+    score_max: int | None = Query(default=None, ge=0, le=100),
+    period: list[str] = Query(default=[]),
+    runtime: list[str] = Query(default=[]),
+    severity: list[str] = Query(default=[]),
+    sort: str = Query(default="newest"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=24, ge=1, le=60),
+    session: AsyncSession = Depends(get_session),
+) -> AgentScanListEnvelope:
+    """Public-only, filterable, sorted, paginated dossier list (the `/agents` grid).
+
+    Hard-filters `visibility='public' AND status IN ('graded','published') AND score
+    IS NOT NULL` - never serves an unlisted/ungraded/null-score run (Codex P1)."""
+    return await directory_mod.list_public_runs(
+        session,
+        get_settings(),
+        score_min=score_min,
+        score_max=score_max,
+        periods=period,
+        runtimes=runtime,
+        severities=severity,
+        sort=sort if sort in ("newest", "score_asc", "score_desc") else "newest",
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/aggregate-stats", response_model=AgentAggregateStats)
+async def get_aggregate_stats(
+    session: AsyncSession = Depends(get_session),
+) -> AgentAggregateStats:
+    """Corpus risk-meter feed: gated % + band distribution over the public corpus.
+
+    `pct_with_critical` is null until the corpus reaches `AGENT_CORPUS_GATE_N`
+    (the collecting gate; D-5.6-07). Public-only."""
+    return await directory_mod.aggregate_stats(session, get_settings())
+
+
+@router.post("/verify-waitlist", response_model=AgentVerifyWaitlistResponse)
+async def verify_waitlist(
+    body: AgentVerifyWaitlistRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> AgentVerifyWaitlistResponse:
+    """Record demand for the (out-of-scope) independently-observed verify tier
+    (D-5.6-08). Account-free, email-OPTIONAL. The submitter IP is redacted to
+    /24-(v4)/48-(v6) at write time (`privacy.md`); a raw IP is never stored."""
+    settings = get_settings()
+    if not is_loopback(peer_host(request)):
+        await enforce_ip_rate_limit(
+            session,
+            ip=rate_limit_ip(request, settings),
+            bucket="agent_verify_waitlist",
+            limit=settings.agent_scan_submit_daily_limit,
+        )
+    email = (body.email or "").strip() or None
+    session.add(
+        AgentVerifyWaitlist(email=email, redacted_ip=redact_ip(rate_limit_ip(request, settings)))
+    )
+    await session.commit()
+    return AgentVerifyWaitlistResponse(recorded=True)
 
 
 @router.get("/{run_id}", response_model=AgentScanReportDetail)

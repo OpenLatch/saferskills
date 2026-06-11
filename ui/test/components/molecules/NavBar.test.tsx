@@ -4,12 +4,13 @@ import { axe } from 'vitest-axe'
 import NavBar from '../../../components/molecules/NavBar'
 
 describe('NavBar', () => {
-  it('renders the default 5 links', () => {
+  it('renders the default 6 links', () => {
     render(<NavBar />)
     // The mobile drawer duplicates these links but is `hidden` while closed,
     // so each accessible link resolves uniquely.
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Catalog' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Agents' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Scan' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Docs' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Methodology' })).toBeInTheDocument()
