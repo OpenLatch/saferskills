@@ -10,7 +10,7 @@ worker is enabled.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
@@ -24,7 +24,7 @@ from app.main import app, lifespan
 @asynccontextmanager
 async def _patched_lifespan(
     monkeypatch: pytest.MonkeyPatch, *, worker_enabled: bool
-) -> AsyncIterator[dict[str, MagicMock]]:
+) -> AsyncGenerator[dict[str, MagicMock]]:
     """Drive the real lifespan with every external touchpoint mocked.
 
     Yields the mocks of interest so a test can assert how the Procrastinate
