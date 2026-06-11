@@ -1,0 +1,53 @@
+# SaferSkills ingestion/scan worker — staging.
+#
+# Config-only deploy unit: NO code lives here. The worker runs the SAME image as
+# the API (services/api/Dockerfile) with a different command — `python -m
+# app.worker_main` — so it shares every byte of the API build (one image, dual
+# registry) and is deployed by deploy.yml against
+# `registry.fly.io/saferskills-api:main-<sha>`. See services/worker/README.md.
+
+app = "saferskills-worker-staging"
+primary_region = "iad"
+
+[deploy]
+# Single machine, no inbound traffic to drain — boot the new one immediately.
+strategy = "immediate"
+
+[processes]
+# Overrides the image CMD (uvicorn). No HTTP server runs in this process.
+app = "python -m app.worker_main"
+
+[env]
+VERSION = "0.0.0-foundation"
+ENV = "staging"
+LOG_LEVEL = "INFO"
+# Ephemeral per-machine Hishel HTTP cache (no Fly volume mounted; the /data
+# default is unwritable for the non-root app user). Mirrors the API.
+HISHEL_DB_PATH = "/home/app/.hishel.db"
+# OpenTelemetry traces → the shared Grafana Vector over 6PN. service.name is
+# hard-coded saferskills-api in observability.py; this is documentary parity.
+OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability-staging.internal:4318"
+OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+OTEL_SERVICE_NAME = "saferskills-worker"
+POSTHOG_HOST = "https://eu.i.posthog.com"
+# This IS the worker process — run the in-process Procrastinate worker.
+INGESTION_WORKER_ENABLED = "true"
+# Tuned for the 512 MB shared-cpu-1x box: with the per-job memory now bounded,
+# 2 concurrent scans + 2 ingest cycles fit comfortably (see ingestion.md
+# § memory budget). DB pool kept small to spare the 256 MB Postgres RAM —
+# 2 + 2 = 4 worker slots < 3 + 4 = 7 SQLAlchemy slots (budget assert holds).
+SCAN_MAX_CONCURRENCY = "2"
+INGESTION_WORKER_CONCURRENCY = "2"
+DB_POOL_SIZE = "3"
+DB_MAX_OVERFLOW = "4"
+
+[[restart]]
+# Crash → restart. The supervisor handles soft self-stops; this covers a hard
+# exit (e.g. the non-zero degraded-boot return).
+policy = "always"
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "512mb"
+cpu_kind = "shared"
+cpus = 1
