@@ -109,9 +109,12 @@ Write-only company-level aggregate signal on the legitimate-interest basis
 
 ### Retention
 
-**Retained** (anonymous, no PII) so the aggregate survives — and the `agent_run_id`
-FK is **`ON DELETE SET NULL`**, so deleting an agent run keeps the anonymous
-telemetry row (the company-level aggregate is not coupled to run lifetime).
+**Retained** (anonymous, no PII) for as long as the run exists. The `agent_run_id`
+FK is **`ON DELETE SET NULL`** at the DB layer, but every app-level deletion path
+goes through `delete_agent_run_cascade`, which **fully erases** the run's telemetry
+rows (unlisted self-delete, expiry sweep, admin delete) — a deliberate full-erase
+override of the SET-NULL constraint (see its docstring). Public runs are permanent
+(admin-only delete), so their telemetry persists with them.
 
 ### No export
 

@@ -7,7 +7,7 @@
 /* Generic padding + background are owned by .page-section (components.css). */
 .docs-cta-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0;
   border: 1px solid var(--color-ink);
   background: var(--color-line);
@@ -83,6 +83,22 @@
   font-weight: 600;
   color: var(--brand-primary);
   margin-top: auto;
+}
+/* Two-action variant (the Agent Scan card is a <div> holding two real links —
+   a single wrapping <a> can't nest them). */
+.docs-cta-card .cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: auto;
+}
+.docs-cta-card .cta-actions .cta-action {
+  margin-top: 0;
+  text-decoration: none;
+}
+.docs-cta-card .cta-actions .cta-action:hover,
+.docs-cta-card .cta-actions .cta-action:focus-visible {
+  color: var(--brand-primary-dark);
 }
 
 html.dark .docs-cta-grid {

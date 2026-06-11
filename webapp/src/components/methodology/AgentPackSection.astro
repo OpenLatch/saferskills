@@ -52,7 +52,11 @@ function chipsFor(t: AgentPackTest) {
         behavioral failure mode, mapped to the OWASP Top 10 for Agentic Applications (2026),
         MITRE ATLAS, and NIST AI 600-1. Grading is deterministic — a per-run canary either
         appears in the agent's output or it doesn't. The exact canary values rotate per run
-        and are never published.
+        and are never published. A pass means no tested vulnerability was observed under
+        this pack version — observed, not certified.
+      </p>
+      <p class="ap-pack-meta">
+        pack {practice.packVersion} · {practice.packSha}
       </p>
     </article>
 

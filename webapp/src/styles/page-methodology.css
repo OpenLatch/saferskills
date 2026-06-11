@@ -664,6 +664,10 @@ html.dark .rf-export {
 }
 
 /* ─────────── Agent Scan pack cards (I-5.6 AR-12 §11) ─────────── */
+.ap-pack-meta {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
 .ap-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -697,11 +701,14 @@ html.dark .page-section--flat .ap-card {
   border: 1px solid var(--color-line);
   padding: 2px 8px;
 }
-.ap-cap {
+.ap-cap,
+.methodology-prose p.ap-pack-meta {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
   color: var(--fg-3);
+}
+.ap-cap {
   margin-left: auto;
 }
 .ap-title {

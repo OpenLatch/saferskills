@@ -14,14 +14,14 @@ import '@/styles/page-about.css'
 ---
 <Base
   title="About — SaferSkills"
-  description="SaferSkills is the public, independent trust-scoring service for AI skills, MCP servers, hooks, and plugins. Stewarded by OpenLatch, open-source, methodology-driven."
+  description="SaferSkills is the public, independent security-scanning service for AI agents and the capabilities they run — skills, MCP servers, hooks, and plugins. We index them. We audit them. We scan the whole running agent. We publish the report. An OpenLatch project — open-source, methodology-driven."
 >
   <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
   <PageHead
     eyebrow="ABOUT · 07 · /ABOUT"
     title="About SaferSkills."
-    lede="A public, free, open-source trust-scoring service for AI skills, MCP servers, hooks, and plugins. We index them. We audit them. We publish the report."
+    lede="A public, free, open-source security-scanning service for AI agents and the capabilities they run. We index them. We audit them. We scan the whole running agent. We publish the report."
   />
   <PageRidge variant="contour" label="— /ABOUT —" />
 
@@ -69,13 +69,14 @@ import '@/styles/page-about.css'
 
       <p>
         SaferSkills is the answer to that gap. Anyone submits a public GitHub URL; thirty
-        seconds later, a deterministic security report appears at a permalink. The rules
-        are open. The methodology is open. The findings cite a rule ID and a line of
-        evidence. Vendors get a right-of-reply on every public verdict.
+        seconds later, a deterministic security report appears at a permalink. The same
+        open methodology also scans the whole running agent — not just the pieces it
+        installs. The rules are open. The methodology is open. The findings cite a rule
+        ID and a line of evidence. Vendors get a right-of-reply on every public verdict.
       </p>
 
       <p>
-        Think VirusTotal, but for AI capabilities.
+        Think VirusTotal, but for AI agents — audit the pieces, scan the whole agent.
       </p>
     </div>
   </section>
@@ -120,7 +121,7 @@ import '@/styles/page-about.css'
   <RidgeStars label="— REACH US · 03 —" />
 
   {/* ─────────── Reach us ─────────── */}
-  <section class="page-section page-section--flat about-band">
+  <section class="page-section page-section--flat about-band" id="reach-us">
     <div class="container">
       <h2 class="prose-h2">How to reach us.</h2>
       <p>
@@ -174,8 +175,8 @@ import '@/styles/page-about.css'
 
   <CtaBand
     client:visible
-    title="Try the scanner."
-    lead="~30 seconds. Free. No account. The report URL is bookmarkable and persists for 90 days."
+    title="Run a scan."
+    lead="Audit the pieces. Scan the whole. Decide. ~30 seconds. Free. No account. The report URL is bookmarkable and persists for 90 days."
     primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
     secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
   />

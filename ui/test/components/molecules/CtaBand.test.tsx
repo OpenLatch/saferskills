@@ -7,13 +7,15 @@ describe('CtaBand', () => {
   it('renders title + primary action; lede + secondary action when provided', () => {
     render(
       <CtaBand
-        title="Scan a capability."
+        title="Audit the pieces. Scan the whole. Decide."
         lead="Free. No account."
         primaryAction={{ label: 'Scan now', href: '/scan' }}
         secondaryAction={{ label: 'Methodology', href: '/methodology' }}
       />,
     )
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Scan a capability.')
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+      'Audit the pieces. Scan the whole. Decide.',
+    )
     expect(screen.getByText(/free.*no account/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Scan now' })).toHaveAttribute('href', '/scan')
     expect(screen.getByRole('link', { name: 'Methodology' })).toHaveAttribute('href', '/methodology')
