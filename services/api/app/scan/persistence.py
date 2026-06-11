@@ -46,6 +46,11 @@ _MANIFEST_MAX_BYTES = 64 * 1024  # cap the stored public manifest at 64 KiB
 # Per-file cap on what we store in artifact_blobs (matches the engine's per-file
 # fetch cap). Files above this are recorded as present-but-not-stored.
 _SNAPSHOT_MAX_PER_FILE_BYTES = 5 * 1024 * 1024
+# Flush the artifact_blobs INSERT in chunks so the whole repo's bytes are never
+# copied into one statement's wire buffer at once (a transient ~repo-size memory
+# spike on top of the in-memory index). Same transaction, same ON CONFLICT.
+_SNAPSHOT_INSERT_CHUNK_BYTES = 4 * 1024 * 1024
+_SNAPSHOT_INSERT_CHUNK_ROWS = 400
 
 
 def _looks_binary(content: bytes) -> bool:
@@ -95,9 +100,20 @@ async def _capture_snapshot(
     stays no-raw-payload; this is a separate stored-snapshot feature.
     """
     file_map: dict[str, str | None] = {}
-    # Dedup within this scan before the DB round-trip — identical paths/bytes
-    # collapse to one INSERT row, and on_conflict_do_nothing dedups globally.
-    new_blobs: dict[str, dict[str, object]] = {}
+    # Dedup within this scan (by sha) so identical bytes never insert twice; the
+    # ON CONFLICT then dedups globally. Rows are flushed in chunks — the whole
+    # repo's bytes are never marshalled into one statement at once.
+    seen_sha: set[str] = set()
+    chunk: list[dict[str, object]] = []
+    chunk_bytes = 0
+    insert_stmt = pg_insert(ArtifactBlob).on_conflict_do_nothing(index_elements=["sha256"])
+
+    async def _flush() -> None:
+        nonlocal chunk, chunk_bytes
+        if chunk:
+            await session.execute(insert_stmt, chunk)
+            chunk = []
+            chunk_bytes = 0
 
     for path, content in files_index:
         if _looks_binary(content) or len(content) > _SNAPSHOT_MAX_PER_FILE_BYTES:
@@ -105,19 +121,17 @@ async def _capture_snapshot(
             continue
         sha = hashlib.sha256(content).hexdigest()
         file_map[path] = sha
-        if sha not in new_blobs:
-            new_blobs[sha] = {
-                "sha256": sha,
-                "content": content,
-                "byte_size": len(content),
-                "is_binary": False,
-            }
-
-    if new_blobs:
-        await session.execute(
-            pg_insert(ArtifactBlob).on_conflict_do_nothing(index_elements=["sha256"]),
-            list(new_blobs.values()),
+        if sha in seen_sha:
+            continue
+        seen_sha.add(sha)
+        chunk.append(
+            {"sha256": sha, "content": content, "byte_size": len(content), "is_binary": False}
         )
+        chunk_bytes += len(content)
+        if len(chunk) >= _SNAPSHOT_INSERT_CHUNK_ROWS or chunk_bytes >= _SNAPSHOT_INSERT_CHUNK_BYTES:
+            await _flush()
+
+    await _flush()
     return file_map
 
 

@@ -120,6 +120,50 @@ async def test_capture_snapshot_dedups_and_flags_binary(db_session: AsyncSession
     assert stored[0].is_binary is False
 
 
+@pytest.mark.asyncio
+async def test_capture_snapshot_chunks_inserts(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the chunk thresholds shrunk, a multi-file snapshot flushes in >1
+    INSERT — but every blob still lands and intra-scan sha dedup is preserved.
+    FAILS on main (single bulk statement, no chunking)."""
+    from app.scan import persistence
+    from app.scan.persistence import _capture_snapshot  # pyright: ignore[reportPrivateUsage]
+
+    monkeypatch.setattr(persistence, "_SNAPSHOT_INSERT_CHUNK_ROWS", 2)
+    monkeypatch.setattr(persistence, "_SNAPSHOT_INSERT_CHUNK_BYTES", 10**9)
+
+    execute_calls = {"n": 0}
+    real_execute = db_session.execute
+
+    async def counting_execute(*args: object, **kwargs: object) -> object:
+        execute_calls["n"] += 1
+        return await real_execute(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(db_session, "execute", counting_execute)
+
+    files_index = [
+        ("a.txt", b"aaa"),
+        ("b.txt", b"bbb"),
+        ("c.txt", b"ccc"),
+        ("d.txt", b"aaa"),  # dup of a.txt → no extra row, no budget charge
+        ("e.txt", b"eee"),
+    ]
+    file_map = await _capture_snapshot(db_session, files_index)
+
+    # 4 unique blobs at chunk-rows=2 → 2 INSERT executes (no straggler beyond).
+    assert execute_calls["n"] == 2
+    assert file_map["a.txt"] == file_map["d.txt"]  # dedup preserved across chunks
+    for path in ("a.txt", "b.txt", "c.txt", "e.txt"):
+        sha = file_map[path]
+        rows = (
+            (await db_session.execute(select(ArtifactBlob).where(ArtifactBlob.sha256 == sha)))
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+
+
 # ── fixtures: an item with two snapshotted scans ─────────────────────────────
 
 
