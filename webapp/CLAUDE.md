@@ -21,6 +21,8 @@ A2 adds: `about.astro`, `docs/index.astro`, `404.astro`. Phase B adds: `catalog/
 
 I-5.6 adds the Agent Report: `agents/[id].astro` (public) + `agents/r/[token].astro` (unlisted, noindex/no-store/no-referrer). Both SSR (`prerender=false`), mirror the `/scans` pair, and render the shared island `components/agent/AgentReport.tsx`. The page is `/agents/*`; the API stays `/api/v1/agent-scans/*`. See `.claude/rules/frontend-patterns.md` § Routing.
 
+I-5.7 (plan 03) rebuilds `scan/index.astro` as the umbrella scan page — the `[01 Capability | 02 Agent]` mode control lives in ONE island (`components/scan/ScanModeShell.tsx`), `?mode=agent` is SSR-respected — and adds `agents/scan.astro` (the prerendered platform-picker activation page, `PageRidge variant="circuit"`; the static segment beats `/agents/[id]`). Both render the shared `components/scan/AgentScanActivation.tsx` island. See `.claude/rules/frontend-patterns.md` § Routing.
+
 ## Brand-asset assets
 
 - `public/logos/` — 9 SVG variants of the locked S-monogram + wordmark. Source for inline use.

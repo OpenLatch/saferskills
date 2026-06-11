@@ -55,7 +55,7 @@ describe('ScanConsole — Turnstile gate', () => {
   it('opens the gate instead of submitting when a site key is configured', () => {
     render(<ScanConsole />)
     selectFile()
-    fireEvent.click(screen.getByRole('button', { name: /scan now/i }))
+    fireEvent.click(screen.getByRole('button', { name: /scan capability/i }))
     expect(screen.getByTestId('gate')).toBeTruthy()
     expect(submitUpload).not.toHaveBeenCalled()
   })
@@ -69,7 +69,7 @@ describe('ScanConsole — Turnstile gate', () => {
     })
     render(<ScanConsole />)
     selectFile()
-    fireEvent.click(screen.getByRole('button', { name: /scan now/i }))
+    fireEvent.click(screen.getByRole('button', { name: /scan capability/i }))
     fireEvent.click(screen.getByRole('button', { name: 'verify' }))
     await waitFor(() => expect(submitUpload).toHaveBeenCalledTimes(1))
     const opts = vi.mocked(submitUpload).mock.calls[0][1]
@@ -80,7 +80,7 @@ describe('ScanConsole — Turnstile gate', () => {
     vi.mocked(submitUpload).mockRejectedValueOnce(new UploadError('captcha_failed', 403))
     render(<ScanConsole />)
     selectFile()
-    fireEvent.click(screen.getByRole('button', { name: /scan now/i }))
+    fireEvent.click(screen.getByRole('button', { name: /scan capability/i }))
     fireEvent.click(screen.getByRole('button', { name: 'verify' }))
     await waitFor(() => expect(submitUpload).toHaveBeenCalledTimes(1))
     // onCaptchaRetry bounces the host back into a fresh gate rather than erroring.

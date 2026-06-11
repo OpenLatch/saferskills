@@ -1403,6 +1403,20 @@ html.dark .ridge-contour::before {
   height: 116px;
 }
 
+/* circuit (/agents/scan) — relay/circuit-trace seam over a faint plus-grid. */
+.ridge-circuit {
+  height: 110px;
+}
+.ridge-circuit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--bg-plus-grid);
+  background-size: 32px 32px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 /* ============================================================
    SECTION SURFACES — reusable non-homepage page bands
    Alternating rhythm, section to section:

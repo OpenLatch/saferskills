@@ -1,22 +1,17 @@
-import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import Toggle from '@ui/components/atoms/Toggle'
 import DropZone from '@ui/components/molecules/DropZone'
 import TurnstileGate from '@ui/components/molecules/TurnstileGate'
 import { useEffect, useState } from 'react'
+import { PRIVATE_NOTE, VIS_EXPLAINER } from '@/components/scan/scan-privacy'
 import { track } from '@/lib/analytics'
 import type { Visibility } from '@/lib/api/scans'
 import { useCaptchaGate } from '@/lib/hooks/useCaptchaGate'
 import { useRepoScanFlow } from '@/lib/hooks/useRepoScanFlow'
 import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
-import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_MAX_BYTES } from '@/lib/upload'
+import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 
-const VIS_EXPLAINER =
-  'Public: listed in the catalog, permanent. Private: unlisted — only people with the link can see it, expires in 90 days.'
-const PRIVATE_NOTE =
-  "We'll give you a private (unlisted) link — anyone with the link can see it. It's not access-controlled."
-
-type Tab = 'upload' | 'url'
+type Action = 'upload' | 'url'
 
 function navigateWithHandoff(dest: string, onFade: () => void) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -28,13 +23,14 @@ function navigateWithHandoff(dest: string, onFade: () => void) {
 }
 
 /**
- * Dual-mode submit console for /scan (D-UP-24). One island owns the tab +
- * visibility so the shared Toggle (teal/orange by mode) and the "Scan now"
- * button drive both the Upload (DropZone → POST /scans/upload) and Scan-repo
- * (GitHub URL → POST /scans) paths, with the D-UP-ANIM upload state machine.
+ * Capability submit console for /scan (D-UP-24, v3 single-pane restyle).
+ * One pane carries BOTH inputs — DropZone, the "or paste a URL" divider, and
+ * the GitHub URL field — plus the shared visibility Toggle and one
+ * "Scan capability" submit that dispatches upload-vs-repo on whether files
+ * are selected. Submit/validation/SSE logic is the untouched I-3.5 pair
+ * (`useUploadFlow` / `useRepoScanFlow`) behind the same Turnstile gate.
  */
 export default function ScanConsole() {
-  const [tab, setTab] = useState<Tab>('upload')
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [handoff, setHandoff] = useState(false)
 
@@ -55,10 +51,7 @@ export default function ScanConsole() {
     }
     if (params.get('visibility') === 'unlisted') setVisibility('unlisted')
     const prefill = params.get('prefill')
-    if (prefill) {
-      repo.setUrlValue(prefill)
-      setTab('url')
-    }
+    if (prefill) repo.setUrlValue(prefill)
   }, [repo.setUrlValue])
 
   // Human-verification gate (Cloudflare Turnstile) — shared state machine. When a
@@ -72,15 +65,18 @@ export default function ScanConsole() {
   }
 
   const inFlight = repo.submitting || upload.uploading
+  // One submit, two paths: selected files win; otherwise the URL field
+  // (whose own validation reports an empty/invalid value).
+  const action: Action = upload.selectedFiles.length > 0 ? 'upload' : 'url'
 
-  function run(action: Tab, captchaToken?: string) {
+  function run(act: Action, captchaToken?: string) {
     // FE intent signal (closed-enum only — no URL/filename/bytes/token). The
     // backend emits the authoritative `scan_submitted` on the server side.
     track('homepage_scan_submitted', {
-      artifact_source: action === 'upload' ? 'upload' : 'github',
+      artifact_source: act === 'upload' ? 'upload' : 'github',
       visibility,
     })
-    if (action === 'upload')
+    if (act === 'upload')
       void upload.submit({
         visibility,
         captchaToken,
@@ -96,109 +92,92 @@ export default function ScanConsole() {
       })
   }
 
-  function handleSubmit() {
+  function handleSubmit(forced?: Action) {
     if (inFlight) return
-    if (!gate.request(tab)) run(tab)
+    // The URL field's own submit affordances force the url path — with files
+    // picked AND a URL typed, the old tabs let the user choose; the URL-side
+    // Enter/↵ keeps that choice without removing the files.
+    const act = forced ?? action
+    if (!gate.request(act)) run(act)
   }
 
   function onVerified(token: string) {
-    const action = gate.resolve()
-    if (action) run(action, token)
+    const act = gate.resolve()
+    if (act) run(act, token)
   }
 
   return (
     <div className={`scan-console-shell${handoff ? ' is-handoff' : ''}`}>
-      <div className="sub-eyebrow">Submit · 01</div>
-      <h2>Run an audit</h2>
+      <div className="scan-pane">
+        <DropZone
+          onFilesSelected={upload.onFiles}
+          accept={[...UPLOAD_ACCEPT]}
+          maxBytes={UPLOAD_MAX_BYTES}
+          hint={UPLOAD_HINT}
+          dropCopy="Drag a SKILL.md or .zip here"
+          state={upload.dzState}
+          progress={upload.progress}
+          selectedFiles={upload.selectedFiles}
+          error={upload.dzError ?? undefined}
+          onRemove={upload.onRemove}
+        />
 
-      <SegmentedTabs
-        variant="segmented"
-        idBase="scan"
-        ariaLabel="Scan mode"
-        tabs={SCAN_TABS}
-        value={tab}
-        onChange={(id) => setTab(id as Tab)}
-      />
-
-      {tab === 'upload' ? (
-        <div
-          id={panelId('scan', 'upload')}
-          role="tabpanel"
-          aria-labelledby="scan-tab-upload"
-          className="scan-pane"
-        >
-          <DropZone
-            onFilesSelected={upload.onFiles}
-            accept={[...UPLOAD_ACCEPT]}
-            maxBytes={UPLOAD_MAX_BYTES}
-            hint={UPLOAD_HINT}
-            state={upload.dzState}
-            progress={upload.progress}
-            selectedFiles={upload.selectedFiles}
-            error={upload.dzError ?? undefined}
-            onRemove={upload.onRemove}
-          />
+        <div className="cap-or">
+          <span>or paste a URL</span>
         </div>
-      ) : (
-        <div
-          id={panelId('scan', 'url')}
-          role="tabpanel"
-          aria-labelledby="scan-tab-url"
-          className="scan-pane"
-        >
-          <div className="scan-console audit">
-            <div className={`p1-input${repo.urlValue ? ' has-value' : ''}`}>
-              <span className="p1-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <title>Scan</title>
-                  <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07l-1.5 1.5" />
-                  <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07l1.5-1.5" />
-                </svg>
+
+        <div className="scan-console audit">
+          <div className={`p1-input${repo.urlValue ? ' has-value' : ''}`}>
+            <span className="p1-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <title>Scan</title>
+                <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07l-1.5 1.5" />
+                <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07l1.5-1.5" />
+              </svg>
+            </span>
+            <label className="p1-field">
+              <span className="caret" aria-hidden="true" />
+              <input
+                type="text"
+                placeholder="github.com/acme/linear-mcp or drop a SKILL.md"
+                autoComplete="off"
+                aria-label="GitHub repository to scan"
+                value={repo.urlValue}
+                onChange={(e) => repo.setUrlValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleSubmit('url')
+                  }
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="p1-submit"
+              aria-label="Scan repository"
+              disabled={inFlight}
+              onClick={() => handleSubmit('url')}
+            >
+              <span className="p1-submit-ret" aria-hidden="true">
+                {inFlight ? '…' : '↵'}
               </span>
-              <label className="p1-field">
-                <span className="caret" aria-hidden="true" />
-                <input
-                  type="text"
-                  placeholder="github.com/anthropic/claude-mcp"
-                  autoComplete="off"
-                  aria-label="GitHub repository to scan"
-                  value={repo.urlValue}
-                  onChange={(e) => repo.setUrlValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleSubmit()
-                    }
-                  }}
-                />
-              </label>
-              <button
-                type="button"
-                className="p1-submit"
-                aria-label="Scan repository"
-                disabled={inFlight}
-                onClick={handleSubmit}
-              >
-                <span className="p1-submit-ret" aria-hidden="true">
-                  {inFlight ? '…' : '↵'}
-                </span>
-              </button>
-            </div>
-          </div>
-          <div className="hint">
-            {repo.urlError ? (
-              <span role="alert" className="scan-error">
-                {repo.urlError}
-              </span>
-            ) : (
-              <>
-                Example: <b>github.com/openlatch/saferskills</b> · public repos only · re-scan
-                cooldown 24h
-              </>
-            )}
+            </button>
           </div>
         </div>
-      )}
+        <div className="hint">
+          {repo.urlError ? (
+            <span role="alert" className="scan-error">
+              {repo.urlError}
+            </span>
+          ) : (
+            <>
+              Example: <b>github.com/openlatch/saferskills</b> · public repos only · re-scan
+              cooldown 24h
+            </>
+          )}
+        </div>
+      </div>
 
       <div className="scan-privacy">
         <div className="pv-row">
@@ -206,7 +185,7 @@ export default function ScanConsole() {
             checked={visibility === 'public'}
             onChange={(pub) => setVisibility(pub ? 'public' : 'unlisted')}
             label="Make results public"
-            tone={tab === 'url' ? 'orange' : 'teal'}
+            tone="teal"
           />
           <span className="pv-info">
             <button type="button" className="pv-info-btn" aria-label={VIS_EXPLAINER}>
@@ -223,14 +202,8 @@ export default function ScanConsole() {
         {visibility === 'unlisted' && <p className="pv-note">{PRIVATE_NOTE}</p>}
       </div>
 
-      <button
-        type="button"
-        className="scan-go"
-        data-mode={tab}
-        disabled={inFlight}
-        onClick={handleSubmit}
-      >
-        Scan now{' '}
+      <button type="button" className="scan-go" disabled={inFlight} onClick={() => handleSubmit()}>
+        Scan capability{' '}
         <span className="kbd" aria-hidden="true">
           ↵
         </span>

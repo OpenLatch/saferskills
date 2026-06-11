@@ -18,6 +18,23 @@ export type MintPhase = 'idle' | 'gating' | 'minting' | 'ready' | 'error'
 export type MintCopyState = 'idle' | 'busy' | 'copied'
 
 /**
+ * Closed bootstrap-platform set — the 8 canonical agent ids + the
+ * platform-agnostic fallback. The router 422s anything else.
+ * Mirrors app/agent_scan/bootstrap.py::PLATFORMS
+ * (= app/services/agent_compat.py::ALL_AGENTS + "universal").
+ */
+export type MintPlatform =
+  | 'claude-code'
+  | 'cursor'
+  | 'codex'
+  | 'copilot'
+  | 'windsurf'
+  | 'cline'
+  | 'gemini'
+  | 'openclaw'
+  | 'universal'
+
+/**
  * The universal bootstrap template block — the pre-mint PREVIEW every mint
  * surface renders (homepage card 02, the /scan agent pane, the platform
  * picker). The `{{…}}` placeholders stay visible on purpose: this text is
@@ -75,12 +92,16 @@ export interface AgentScanMint {
   /** Set on `ready` — the visibility the run was minted with (drives the foot:
    *  unlisted runs 404 on /agents/<run_id>, so the foot must not link there). */
   mintedVisibility: MintVisibility | null
-  /** Copy click — opens the gate (site key set) or mints directly. */
-  copy: (visibility: MintVisibility) => void
+  /** Copy click — opens the gate (site key set) or mints directly.
+   *  `platform` defaults to `universal` (the homepage card's pre-picker path). */
+  copy: (visibility: MintVisibility, platform?: MintPlatform) => void
   /** TurnstileGate onVerified — mints with the token. */
   onGateVerified: (token: string) => void
   /** TurnstileGate onCancel — back to idle (or ready if already minted). */
   onGateCancel: () => void
+  /** "Generate a new prompt" — back to the pre-mint template (clears the
+   *  minted run/prompt/visibility). No-op while a mint/gate is in flight. */
+  reset: () => void
 }
 
 /**
@@ -99,6 +120,8 @@ export function useAgentScanMint(surface: MintSurface): AgentScanMint {
   // The visibility chosen at Copy time (the toggle can move while the gate is
   // open — the mint uses the value captured at click).
   const visibilityRef = useRef<MintVisibility>('public')
+  // The platform chosen at Copy time (same capture rule as visibility).
+  const platformRef = useRef<MintPlatform>('universal')
   // One captcha retry per Copy click (a consumed single-use token 403s once).
   const retriedRef = useRef(false)
   // Re-entrancy guard — a duplicate gate callback must not POST a second run.
@@ -120,7 +143,7 @@ export function useAgentScanMint(surface: MintSurface): AgentScanMint {
     setCopyState('idle')
   }
 
-  function copy(visibility: MintVisibility): void {
+  function copy(visibility: MintVisibility, platform: MintPlatform = 'universal'): void {
     if (copyState === 'busy' || phase === 'minting' || phase === 'gating') return
     if (resetTimer.current) clearTimeout(resetTimer.current)
     // Already minted: a re-click re-copies the existing prompt — it never
@@ -131,11 +154,25 @@ export function useAgentScanMint(surface: MintSurface): AgentScanMint {
       return
     }
     visibilityRef.current = visibility
+    platformRef.current = platform
     retriedRef.current = false
     // Busy within one tick of the click (motion guardrail: feedback <100ms).
     setCopyState('busy')
     if (siteKey) setPhase('gating')
     else void mint(undefined)
+  }
+
+  function reset(): void {
+    // A mint/gate in flight owns the state — the reset affordance is only
+    // rendered post-mint, this guard is belt-and-braces.
+    if (phase === 'minting' || phase === 'gating') return
+    if (resetTimer.current) clearTimeout(resetTimer.current)
+    retriedRef.current = false
+    setRunId(null)
+    setPrompt(null)
+    setMintedVisibility(null)
+    setPhase('idle')
+    setCopyState('idle')
   }
 
   async function recopy(text: string): Promise<void> {
@@ -175,7 +212,7 @@ export function useAgentScanMint(surface: MintSurface): AgentScanMint {
           'Content-Type': 'application/json',
           ...(captchaToken ? { 'Cf-Turnstile-Response': captchaToken } : {}),
         },
-        body: JSON.stringify({ platform: 'universal', visibility: visibilityRef.current }),
+        body: JSON.stringify({ platform: platformRef.current, visibility: visibilityRef.current }),
       })
     } catch {
       flashToast('Network error — could not reach SaferSkills.')
@@ -248,5 +285,6 @@ export function useAgentScanMint(surface: MintSurface): AgentScanMint {
     copy,
     onGateVerified,
     onGateCancel,
+    reset,
   }
 }

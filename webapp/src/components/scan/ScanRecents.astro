@@ -26,27 +26,25 @@ const recent = recentScans.slice(0, 4)
   <section class="scan-recents page-section page-section--grid">
     <div class="container">
       <div class="sub-eyebrow" data-reveal>Recents · 03</div>
-      <h3 data-reveal style="--reveal-delay: 60ms">Recently scanned repositories</h3>
-      <div class="scan-recent">
-        <div class="grid">
-          {recent.map((scan) => {
-            const band = tierBand(scan.tier)
-            const orgRepo = scan.slug.replace('--', '/')
-            return (
-              <a class="rs-cell" href={`/scans/${scan.id}`} data-reveal>
-                <div class="top">
-                  <span class="nm">{scan.title ?? orgRepo}</span>
-                  {band ? <BandPill tier={band} /> : <span class="band-pill">Unscoped</span>}
-                </div>
-                <div class="top">
-                  <span class="scn">{scan.aggregate_score}</span>
-                  <span class="rs-time">{relAge(scan.scanned_at)}</span>
-                </div>
-                <div class="bot">scn_{scan.id.slice(0, 8)}… · {orgRepo}</div>
-              </a>
-            )
-          })}
-        </div>
+      <h2 data-reveal style="--reveal-delay: 60ms">Recently scanned capabilities</h2>
+      <div class="rec-grid">
+        {recent.map((scan) => {
+          const band = tierBand(scan.tier)
+          const orgRepo = scan.slug.replace('--', '/')
+          return (
+            <a class="rec-cell" href={`/scans/${scan.id}`} data-reveal>
+              <div class="top">
+                <span class="nm">{scan.title ?? orgRepo}</span>
+                {band ? <BandPill tier={band} /> : <span class="band-pill">Unscoped</span>}
+              </div>
+              <div class="mid">
+                <span class="scn">{scan.aggregate_score}</span>
+                <span class="ago">{relAge(scan.scanned_at)}</span>
+              </div>
+              <div class="bot">scn_{scan.id.slice(0, 8)}… · {orgRepo}</div>
+            </a>
+          )
+        })}
       </div>
     </div>
   </section>

@@ -3,13 +3,15 @@ upload report (I-3.5).
 
 Staging acceptance, NOT a required pr-checks lane. Two parts, both skip-friendly:
 
-1. `/scan` renders with the **Upload** tab selected by default, a DropZone, the
+1. `/scan` renders with the **Capability** mode tab selected by default (the
+   I-5.7 v3 umbrella page — the old Upload/Scan-repo inner tabs became the
+   single pane with an "or paste a URL" divider), a DropZone, the
    public-default toggle, and the passive consent line. (UI presence — a live
    upload+scan is async + rate-limited, so it is asserted via the API contract
    in `tests/routers/test_upload_routes.py`, not here.)
-2. If a public upload item exists in the catalog, its `/scans/<run_id>` report
-   (reached via `/items/<slug>`) shows the upload provenance block + the `.zip`
-   download card. Empty catalog → skip (fresh staging).
+2. If a public upload item exists in the catalog, its `/items/<slug>` page
+   shows the upload provenance via the SaferSkills-built `.zip` download card
+   (the stable SSR marker). Empty catalog → skip (fresh staging).
 """
 
 from __future__ import annotations
@@ -59,14 +61,19 @@ class UploadFlowCommand(BaseCommand):
             return ExitCode.FAIL_UPLOAD_FLOW
 
         try:
-            upload_tab = page.get_by_role("tab", name="Upload")
-            await upload_tab.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
-            if await upload_tab.get_attribute("aria-selected") != "true":
-                print_fail("Upload tab is not the default-selected tab")
+            cap_tab = page.get_by_role("tab", name="Capability")
+            await cap_tab.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+            if await cap_tab.get_attribute("aria-selected") != "true":
+                print_fail("Capability mode is not the default-selected tab")
                 return ExitCode.FAIL_UPLOAD_FLOW
-            print_ok("/scan defaults to the Upload tab")
+            print_ok("/scan defaults to the Capability mode")
 
-            toggle = page.get_by_role("switch")
+            dropzone = page.locator("input[type='file']")
+            await dropzone.first.wait_for(state="attached", timeout=ELEMENT_TIMEOUT_MS)
+            print_ok("DropZone file input present")
+
+            # The hidden Agent pane carries its own switch — assert the visible one.
+            toggle = page.get_by_role("switch").locator("visible=true")
             await toggle.first.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
             if await toggle.first.get_attribute("aria-checked") != "true":
                 print_fail("Make-public toggle is not ON by default")
@@ -96,10 +103,10 @@ class UploadFlowCommand(BaseCommand):
         url = f"{config.base_url}/items/{slug}"
         try:
             await page.goto(url, timeout=PAGE_LOAD_TIMEOUT_MS)
-            await page.get_by_text("uploaded artifact", exact=False).first.wait_for(
+            await page.get_by_text("Download .zip", exact=False).first.wait_for(
                 state="visible", timeout=ELEMENT_TIMEOUT_MS
             )
-            print_ok(f"upload provenance renders for {slug}")
+            print_ok(f"upload provenance (.zip download card) renders for {slug}")
         except PlaywrightTimeoutError:
             print_fail(f"upload provenance missing on {url}")
             return ExitCode.FAIL_UPLOAD_FLOW

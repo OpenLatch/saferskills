@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { axe } from 'vitest-axe'
 import PageRidge from '../../../components/atoms/PageRidge'
 
-const VARIANTS = ['contour', 'mesh', 'swell'] as const
+const VARIANTS = ['contour', 'mesh', 'swell', 'circuit'] as const
 
 describe('PageRidge', () => {
   it.each(VARIANTS)('renders the %s variant with its class + an svg', (variant) => {

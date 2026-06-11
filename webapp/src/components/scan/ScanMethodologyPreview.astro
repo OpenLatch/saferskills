@@ -1,6 +1,16 @@
 ---
-import { ruleCount } from '@/generated/methodology/rule-count'
 import WeightBars from '@ui/components/molecules/WeightBars'
+import { ruleCount as generatedRuleCount } from '@/generated/methodology/rule-count'
+
+interface Props {
+  /** SSR-resolved page mode — the matching body renders un-hidden at first
+   *  paint (D-5.7-04, no capability flash); ScanModeShell toggles after. */
+  initialMode?: 'capability' | 'agent'
+  /** Live rule count (with the generated count as fallback). */
+  ruleCount?: number
+}
+
+const { initialMode = 'capability', ruleCount = generatedRuleCount } = Astro.props
 
 const CATS = [
   {
@@ -29,14 +39,36 @@ const CATS = [
     rules: 'SS-SKILL-COMMUNITY-STARS-01 · SS-SKILL-COMMUNITY-CONTRIBUTORS-01',
   },
 ] as const
+
+// Presentational marketing taxonomy — mirrors the v3 scan mockup's agent
+// risk-family rows verbatim. The per-test truth (AS-NN pack) lives on
+// /methodology; these rows are the sidebar preview only.
+const AGENT_CATS = [
+  { label: 'Prompt & tool-description integrity', weight: 30, rules: 'ASI04 · AML.T0010 · LLM01' },
+  { label: 'Secret & data exposure', weight: 25, rules: 'LLM02 · AML.T0057' },
+  { label: 'Excessive agency', weight: 20, rules: 'ASI06 · LLM08' },
+  { label: 'Memory / context poisoning', weight: 15, rules: 'ASI05 · AML.T0070' },
+  { label: 'Unsafe output handling', weight: 10, rules: 'LLM05 · ASI08' },
+] as const
 ---
 
 <div class="sub-eyebrow">Methodology · 02</div>
-<h3>What we check &amp; how it&rsquo;s weighted</h3>
 
-<p class="method-foot">
-  {ruleCount} deterministic rules across five categories. Every finding cites a
-  rule ID and an evidence line — read the full <a class="link" href="/methodology">methodology</a>.
-</p>
+<div class="method-body" data-method="capability" hidden={initialMode !== 'capability'}>
+  <h3>What we check &amp; how it&rsquo;s weighted</h3>
+  <p class="method-intro">
+    {ruleCount} deterministic rules across five categories. Every finding cites a
+    rule ID and an evidence line — read the full <a class="link" href="/methodology">methodology</a>.
+  </p>
+  <WeightBars rows={CATS} />
+</div>
 
-<WeightBars rows={CATS} />
+<div class="method-body method-body--agent" data-method="agent" hidden={initialMode !== 'agent'}>
+  <h3>Agent-scan risk families</h3>
+  <p class="method-intro">
+    An open adversarial pack mapped to <b>OWASP Agentic + MITRE ATLAS</b>. Each test
+    cites its taxonomy ID and the observed behavior — read the full
+    <a class="link" href="/methodology#agent-pack">agent methodology</a>.
+  </p>
+  <WeightBars rows={AGENT_CATS} />
+</div>
