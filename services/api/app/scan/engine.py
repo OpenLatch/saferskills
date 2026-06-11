@@ -450,15 +450,19 @@ def aggregate_score(
     return sub_scores, breakdowns, aggregate, tier
 
 
-def _walk_and_cleanup(result: fetch.FetchResult) -> list[tuple[str, bytes]]:
-    """Read every file into memory, then drop the temp tree.
+def _walk_and_cleanup(result: fetch.FetchResult) -> tuple[list[tuple[str, bytes]], list[str]]:
+    """Read the bounded file index into memory, then drop the temp tree.
 
-    Must-fix at scale: an unbounded scan firehose (the durable bulk drain) would
-    otherwise leak `/tmp`. The walk loads bytes into memory, so cleanup is safe
-    immediately after — in a `finally` so it runs even if the walk raises.
+    Returns `(file_index, over_bounds_skipped)`. The walk streams files in
+    sorted-path order through `collect_bounded_index`, so the in-memory index is
+    capped at the per-repo budget (`scan_max_index_files` /
+    `scan_max_index_total_bytes`) — the 25 MiB tarball cap bounds only the
+    COMPRESSED stream, and an uncompressed text repo could otherwise be 100s of
+    MB in RAM. Cleanup runs in a `finally` so the temp tree never leaks (the
+    durable bulk drain would otherwise fill `/tmp`).
     """
     try:
-        return list(fetch.walk_files(result.directory))
+        return fetch.collect_bounded_index(fetch.walk_files(result.directory))
     finally:
         shutil.rmtree(result.directory, ignore_errors=True)
 
@@ -473,7 +477,7 @@ async def run_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
+    file_index, over_bounds = _walk_and_cleanup(result)
 
     rules = list(RULES.values())
     if kind is not None:
@@ -493,7 +497,7 @@ async def run_scan(
         tier=tier,
         file_count=result.file_count,
         skipped_rules=skipped,
-        skipped_files=result.skipped_oversized_files,
+        skipped_files=result.skipped_oversized_files + over_bounds,
         ref_sha=result.ref_sha,
         latency_ms=latency_ms,
         files_index=file_index,
@@ -622,12 +626,12 @@ async def run_repo_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
+    file_index, over_bounds = _walk_and_cleanup(result)
     return _assemble_repo_scan_result(
         file_index,
         rubric_version,
         result.ref_sha,
-        skipped_files=result.skipped_oversized_files,
+        skipped_files=result.skipped_oversized_files + over_bounds,
         started=started,
     )
 
