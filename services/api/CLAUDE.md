@@ -2,6 +2,12 @@
 
 FastAPI backend for the SaferSkills public catalog + scan engine.
 
+## Process entrypoints
+
+This package ships two entrypoints from one image:
+- **`app.main:app`** — the uvicorn web tier (HTTP, SSE, interactive scans). Deployed with `INGESTION_WORKER_ENABLED=false`, so it does NOT run the Procrastinate worker, but it still opens the connector so its own defer paths work.
+- **`python -m app.worker_main`** — the standalone Procrastinate worker (ingest queues + bulk `scan` queue + periodic tasks + boot reapers). Deployed as the separate `services/worker/` Fly app. Locally + in `docker compose up`, the worker runs in-process in the web lifespan (the `INGESTION_WORKER_ENABLED=true` default). See `.claude/rules/ingestion.md` § Procrastinate worker.
+
 ## W1 surface
 
 - `GET /api/v1/health` — liveness + version + git_sha
