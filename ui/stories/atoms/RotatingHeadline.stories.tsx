@@ -24,3 +24,14 @@ export const Single: Story = () => (
     nouns={['Prompt Injection']}
   />
 )
+
+/** I-5.7 §2a two-line hero: each `baseLines` entry is its own block line; the
+ *  last line carries the rotator inline. */
+export const TwoLines: Story = () => (
+  <RotatingHeadline
+    baseLines={['Audit every capability.', 'Scan the whole agent against']}
+    nouns={NOUNS}
+    trailing="."
+    cycleMs={2600}
+  />
+)

@@ -8657,3 +8657,190 @@ html.dark .cs-cell .cs-id .nm { color: var(--fg-1); }
 }
 .prov-chip.tier { border-style: dashed; border-color: var(--brand-primary); color: var(--brand-primary); }
 .prov-chip.pack { border-color: var(--brand-accent); color: var(--brand-accent); }
+
+/* ============================================================
+   ROTATING HEADLINE — multi-line base (`baseLines`, I-5.7 §2a)
+   Each `baseLines` entry renders as its own block line; typography
+   inherits from the headline. The last line hosts the rotator inline.
+   ============================================================ */
+.rotating-headline .rh-line {
+  display: block;
+}
+/* The rotator wrapper flows INLINE inside the last .rh-line (v3 H1:
+   "Scan the whole agent against {rotator}." is one wrapping text line —
+   a block here would push the rotator onto its own third line). */
+.rotating-headline .rotator-line {
+  display: inline;
+}
+/* Hidden measuring span the component uses to pre-reserve the widest
+   noun's width (zero-CLS rotator swap). Must inherit the headline font. */
+.rotating-headline .rotator-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+/* ============================================================
+   PROMPT CODE CARD — code-editor-chrome prompt block (PromptCodeCard)
+   Head row: file glyph + title + Copy button; body: line-numbered mono
+   text on an ALWAYS-DARK code surface (both themes) — the raw hex below
+   is the sanctioned components.css terminal-palette exemption to
+   check-css rule (a), like `.ex` (see design-system.md § CSS token
+   discipline). Ported from the v3 homepage mockup's .code-editor/.ce-*
+   onto OWN class names so the card renders without page CSS (Ladle).
+   State swaps are interruptible color/opacity transitions (≤150ms,
+   exact properties); no keyframes, no movement.
+   ============================================================ */
+.prompt-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  background: #14151a;
+}
+
+/* head row — file glyph + title + copy control */
+.pc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px 7px 14px;
+  background: #1f2026;
+  border-bottom: 1px solid #0a0b0e;
+}
+.pc-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #9ca0a8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pc-name svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  stroke: #6b6f78;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* copy button — idle / busy (pending, disabled) / copied (brand fill) */
+.pc-copy {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  padding: 5px 11px;
+  cursor: pointer;
+  /* Interruptible state swap — exact properties, never `all`. */
+  transition:
+    background-color var(--dur-xs),
+    color var(--dur-xs),
+    opacity var(--dur-xs);
+}
+@media (hover: hover) {
+  .pc-copy:not(:disabled):hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+.pc-copy:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.pc-copy:disabled {
+  cursor: default;
+}
+.pc-copy.is-busy {
+  opacity: 0.65;
+}
+.pc-copy.is-copied {
+  background: var(--brand-primary);
+  color: #ffffff;
+}
+.pc-copy svg {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-copy {
+    transition: none;
+  }
+}
+
+/* body — line-numbered mono text; the gutter is aria-hidden + non-selectable
+   so the prompt selects/copies as one block. Plain grid rows: no per-line
+   measurement, 30–80 lines render without jank. */
+.pc-body {
+  padding: 9px 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.75;
+  background: #14151a;
+  max-height: 300px;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: #33363f #14151a;
+}
+.pc-body::-webkit-scrollbar {
+  width: 9px;
+}
+.pc-body::-webkit-scrollbar-track {
+  background: #14151a;
+}
+.pc-body::-webkit-scrollbar-thumb {
+  background: #33363f;
+  border: 2px solid #14151a;
+}
+.pc-body::-webkit-scrollbar-thumb:hover {
+  background: #474b57;
+}
+.pc-line {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+}
+.pc-line .pc-ln {
+  text-align: right;
+  padding-right: 14px;
+  color: #454a54;
+  user-select: none;
+}
+.pc-line .pc-lc {
+  color: #d7dae0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-right: 16px;
+}
+
+/* optional foot slot — caller-composed note under the body */
+.pc-foot {
+  padding: 8px 14px;
+  border-top: 1px solid #0a0b0e;
+  background: #1f2026;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: #9ca0a8;
+}

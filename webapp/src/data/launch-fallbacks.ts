@@ -28,13 +28,21 @@ export type PopularChip = {
   name: string
   score: number
   tier: ScanTier
+  /**
+   * Chip destination, resolved at view-model construction (D-5.7-13):
+   * live chips link to the real `/items/<slug>` page; fallback chips link to
+   * `/catalog` (their slugs are placeholders — a 404 would betray the
+   * fallback). `pickList` erases live-vs-fallback provenance, so the href
+   * MUST ride on the chip itself.
+   */
+  href: string
 }
 
 export const FALLBACK_POPULAR: PopularChip[] = [
-  { slug: 'anthropic--claude-pdf', name: 'claude-pdf', score: 95, tier: 'green' },
-  { slug: 'github--github-mcp', name: 'github-mcp', score: 87, tier: 'green' },
-  { slug: 'alice--slack-bot', name: 'slack-bot', score: 71, tier: 'yellow' },
-  { slug: 'linear--linear-mcp', name: 'linear-mcp', score: 92, tier: 'green' },
+  { slug: 'anthropic--claude-pdf', name: 'claude-pdf', score: 95, tier: 'green', href: '/catalog' },
+  { slug: 'github--github-mcp', name: 'github-mcp', score: 87, tier: 'green', href: '/catalog' },
+  { slug: 'alice--slack-bot', name: 'slack-bot', score: 71, tier: 'yellow', href: '/catalog' },
+  { slug: 'linear--linear-mcp', name: 'linear-mcp', score: 92, tier: 'green', href: '/catalog' },
 ]
 
 // ── Feeds mosaic (recently-scanned + trending) ───────────────────────────────

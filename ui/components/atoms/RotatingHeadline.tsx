@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 interface Props {
-  base: string
+  /** Single-line static text before the rotator. Ignored when `baseLines` is set. */
+  base?: string
+  /**
+   * Multi-line static text (I-5.7 §2a): each entry renders as its own block
+   * line (`<span class="rh-line">`); the LAST entry hosts the rotator inline.
+   * Backward-compatible — when absent, `base` renders exactly as before.
+   */
+  baseLines?: string[]
   nouns: string[]
   /** Static text appended after the rotating noun (e.g. "." for sentence end). */
   trailing?: string
@@ -25,7 +32,8 @@ interface Props {
  * nouns separated by ` · ` — no animation, no rotation.
  */
 export default function RotatingHeadline({
-  base,
+  base = '',
+  baseLines,
   nouns,
   trailing = '',
   cycleMs = 4000,
@@ -53,16 +61,32 @@ export default function RotatingHeadline({
   // Pre-measure every noun once so .rotator can transition its width when the
   // visible noun swaps. Without an explicit width, the citron underline jumps
   // instantly to the new noun's intrinsic width — the visible flicker the
-  // hi-fi calls out.
+  // hi-fi calls out. Re-measure once webfonts settle: a mount-time measure
+  // against the fallback font under-reports and clips the wider nouns.
   useEffect(() => {
     if (!measureRef.current) return
     const m = measureRef.current
-    const next = nouns.map((n) => {
-      m.textContent = n
-      return m.offsetWidth
-    })
-    m.textContent = ''
-    setWidths(next)
+    let cancelled = false
+    const measure = () => {
+      const next = nouns.map((n) => {
+        m.textContent = n
+        return m.offsetWidth
+      })
+      m.textContent = ''
+      setWidths(next)
+    }
+    measure()
+    // Re-measure only while webfonts are still loading — on a settled page the
+    // mount-time measure is already against the real font, and the resolved
+    // promise would just trigger a redundant second layout + state update.
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.status !== 'loaded') {
+      document.fonts.ready.then(() => {
+        if (!cancelled) measure()
+      })
+    }
+    return () => {
+      cancelled = true
+    }
   }, [nouns])
 
   useEffect(() => {
@@ -83,16 +107,39 @@ export default function RotatingHeadline({
     return () => clearInterval(interval)
   }, [reducedMotion, paused, nouns.length, cycleMs, fadeMs])
 
+  // Renders the static base text around the rotator span. Multi-line mode
+  // (`baseLines`) emits one `.rh-line` block per entry, the last carrying the
+  // rotator inline; single-line mode keeps the original `{base}{rotator}` flow.
+  const renderBase = (rotator: ReactNode): ReactNode => {
+    if (baseLines && baseLines.length > 0) {
+      const last = baseLines.length - 1
+      return baseLines.map((line, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static positional lines
+        <span key={i} className="rh-line">
+          {line}
+          {i === last && <> {rotator}</>}
+        </span>
+      ))
+    }
+    return (
+      <>
+        {base}
+        {rotator}
+      </>
+    )
+  }
+
   if (reducedMotion) {
     return (
       <h1 className="h-display rotating-headline reduced">
-        {base}
-        <span className="rotator-line">
-          <span className="rotator">
-            <span className="rotator-word">{nouns.join(' · ')}</span>
-          </span>
-          {trailing}
-        </span>
+        {renderBase(
+          <span className="rotator-line">
+            <span className="rotator">
+              <span className="rotator-word">{nouns.join(' · ')}</span>
+            </span>
+            {trailing}
+          </span>,
+        )}
       </h1>
     )
   }
@@ -105,26 +152,27 @@ export default function RotatingHeadline({
       onMouseEnter={pauseOnHover ? () => setPaused(true) : undefined}
       onMouseLeave={pauseOnHover ? () => setPaused(false) : undefined}
     >
-      {base}
-      <span className="rotator-line">
-        <span
-          className="rotator"
-          style={rotatorWidth ? { width: `${rotatorWidth}px` } : undefined}
-        >
+      {renderBase(
+        <span className="rotator-line">
           <span
-            ref={wordRef}
-            className={`rotator-word ${stateClass}`.trim()}
+            className="rotator"
+            style={rotatorWidth ? { width: `${rotatorWidth}px` } : undefined}
           >
-            {nouns[index]}
+            <span
+              ref={wordRef}
+              className={`rotator-word ${stateClass}`.trim()}
+            >
+              {nouns[index]}
+            </span>
+            <span
+              ref={measureRef}
+              className="rotator-measure"
+              aria-hidden="true"
+            />
           </span>
-          <span
-            ref={measureRef}
-            className="rotator-measure"
-            aria-hidden="true"
-          />
-        </span>
-        {trailing}
-      </span>
+          {trailing}
+        </span>,
+      )}
     </h1>
   )
 }
