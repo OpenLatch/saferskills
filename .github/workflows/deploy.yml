@@ -32,6 +32,7 @@ jobs:
     outputs:
       api: ${{ steps.resolve.outputs.api }}
       webapp: ${{ steps.resolve.outputs.webapp }}
+      worker: ${{ steps.resolve.outputs.worker }}
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
@@ -44,25 +45,30 @@ jobs:
           filters: |
             api:    [ 'services/api/**', 'schemas/**' ]
             webapp: [ 'webapp/**', 'ui/**' ]
+            worker: [ 'services/api/**', 'schemas/**', 'services/worker/**' ]
       - id: resolve
         env:
           EVENT: ${{ github.event_name }}
           SERVICES: ${{ inputs.services }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_WEBAPP: ${{ steps.filter.outputs.webapp }}
+          FILTER_WORKER: ${{ steps.filter.outputs.worker }}
         run: |
           if [ "$EVENT" = "workflow_dispatch" ]; then
+            # The worker shares the API image, so it follows the `api` selection.
             case "$SERVICES" in
-              api)    api=true;  webapp=false ;;
-              webapp) api=false; webapp=true  ;;
-              *)      api=true;  webapp=true  ;;
+              api)    api=true;  webapp=false; worker=true  ;;
+              webapp) api=false; webapp=true;  worker=false ;;
+              *)      api=true;  webapp=true;  worker=true  ;;
             esac
           else
             api="$FILTER_API"
             webapp="$FILTER_WEBAPP"
+            worker="$FILTER_WORKER"
           fi
           echo "api=$api"       >> "$GITHUB_OUTPUT"
           echo "webapp=$webapp" >> "$GITHUB_OUTPUT"
+          echo "worker=$worker" >> "$GITHUB_OUTPUT"
 
   build-and-push:
     name: Build & push (${{ matrix.service }})
@@ -253,6 +259,67 @@ jobs:
             flyctl machine start --app saferskills-api-staging "$mid" || true
           done
 
+  deploy-staging-worker:
+    name: Deploy staging worker
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.worker == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        # The worker runs the SAME image as the API (services/worker/ is config
+        # only). FLY_API_TOKEN_API must be org-scoped (or be granted deploy on
+        # saferskills-worker-staging + pull on registry.fly.io/saferskills-api);
+        # else mint FLY_API_TOKEN_WORKER. The worker loads the same Settings, so
+        # ENV=staging hard-fails boot without the four guard secrets — stage the
+        # same set as the API MINUS the HTTP-route-only ADMIN_KEY / PROXY secret.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
+          SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
+          SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
+          SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          cd services/worker
+          if [ -n "$TURNSTILE_SECRET_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_CLI_POW_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
+          fi
+          if [ -n "$SAFERSKILLS_AGENT_MASTER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SAFERSKILLS_AGENT_MASTER_KEY="$SAFERSKILLS_AGENT_MASTER_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
+          fi
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SENTRY_DSN="$SENTRY_DSN"
+          fi
+          if [ -n "$POSTHOG_PROJECT_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
+          fi
+          if [ -n "$POSTHOG_SERVER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging POSTHOG_SERVER_KEY="$POSTHOG_SERVER_KEY"
+          fi
+          if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
+          fi
+          flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
+          flyctl machine list --app saferskills-worker-staging --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-worker-staging "$mid" || true
+          done
+
   deploy-staging-webapp:
     name: Deploy staging webapp
     needs: [detect-changes, build-and-push]
@@ -294,8 +361,8 @@ jobs:
 
   e2e-staging:
     name: E2E smoke against staging
-    needs: [deploy-staging-api, deploy-staging-webapp]
-    if: always() && (needs.deploy-staging-api.result == 'success' || needs.deploy-staging-webapp.result == 'success')
+    needs: [deploy-staging-api, deploy-staging-webapp, deploy-staging-worker]
+    if: always() && (needs.deploy-staging-api.result == 'success' || needs.deploy-staging-webapp.result == 'success' || needs.deploy-staging-worker.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: step-security/harden-runner@v2
@@ -413,6 +480,64 @@ jobs:
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-api "$mid" || true
+          done
+
+  deploy-production-worker:
+    name: Deploy production worker (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    needs: [e2e-staging]
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        # Same image as the production API (services/worker/ is config only). The
+        # saferskills-worker app is created suspended and stays so until MVP. Same
+        # boot-guard secret set as the API MINUS the HTTP-route-only ones.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
+          SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
+          SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
+          SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          cd services/worker
+          if [ -n "$TURNSTILE_SECRET_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_CLI_POW_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-worker SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
+          fi
+          if [ -n "$SAFERSKILLS_AGENT_MASTER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker SAFERSKILLS_AGENT_MASTER_KEY="$SAFERSKILLS_AGENT_MASTER_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
+          fi
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set --stage --app saferskills-worker SENTRY_DSN="$SENTRY_DSN"
+          fi
+          if [ -n "$POSTHOG_PROJECT_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
+          fi
+          if [ -n "$POSTHOG_SERVER_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker POSTHOG_SERVER_KEY="$POSTHOG_SERVER_KEY"
+          fi
+          if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
+            flyctl secrets set --stage --app saferskills-worker SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
+          fi
+          flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
+          flyctl machine list --app saferskills-worker --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-worker "$mid" || true
           done
 
   deploy-production-webapp:
