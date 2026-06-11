@@ -4,7 +4,6 @@ export const prerender = true
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import RotatingHeadline from '@ui/components/atoms/RotatingHeadline.tsx'
-import CrosshairGrid from '@ui/components/atoms/CrosshairGrid.tsx'
 import RidgePixel from '@ui/components/atoms/RidgePixel.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import RidgeFlow from '@ui/components/atoms/RidgeFlow.tsx'
@@ -19,6 +18,7 @@ import WaveBand from '@/components/homepage/WaveBand.astro'
 import FeedsMosaic from '@/components/homepage/FeedsMosaic.astro'
 import DetectionBand from '@/components/homepage/DetectionBand.astro'
 import PixelWave from '@/components/homepage/PixelWave.astro'
+import AgentScanBand from '@/components/homepage/AgentScanBand.astro'
 import HeroActionCards from '@/components/homepage/HeroActionCards.astro'
 import HomepageLive from '@/components/homepage/HomepageLive.tsx'
 
@@ -35,7 +35,7 @@ import '@/styles/page-home.css'
 const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
 ---
 <Base
-  title="SaferSkills — Every AI capability, independently audited."
+  title="SaferSkills — Audit every capability. Scan the whole agent."
   bodyClass="va"
 >
   <NavBar client:idle ghCount={data.githubStars} activePath={Astro.url.pathname} />
@@ -45,19 +45,14 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
   <HomepageLive client:only="react" initial={data} />
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 1 — HERO
+       BAND 1 — HERO (v3: two-line rotating H1 + 3-card grid)
        ───────────────────────────────────────────────────────── */}
   <section class="hero-band" data-screen-label="01 Hero">
-    <CrosshairGrid client:idle spacing={40} />
     <div class="container">
-
-      {/* Empty spacer preserves the vertical rhythm where the
-          "12,847 INDEXED · LIVE — …" eyebrow used to sit. */}
-      <div class="hero-top" aria-hidden="true"></div>
 
       <RotatingHeadline
         client:load
-        base="Every AI capability, independently audited against"
+        baseLines={['Audit every capability.', 'Scan the whole agent against']}
         nouns={[
           'Prompt Injection',
           'PII Leaks',
@@ -74,11 +69,11 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
       />
 
       <p class="hero-lede">
-        Send an AI Skill, MCP or Hook — get a transparent security report in thirty seconds.
-        One unified catalog. One install command to manage capabilities across eight agents.
+        Paste a public GitHub URL — get a transparent security report in thirty seconds.
+        One unified catalog. One install command across eight agents.
       </p>
 
-      <div class="hero-cards">
+      <div class="hero-cards vb-grid">
         <HeroActionCards data={data} />
       </div>
 
@@ -139,12 +134,17 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
   </section>
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 4 — RIDGE-PIXEL DIVIDER (install → feeds)
+       BAND 4 — AGENT SCAN · 04 (v3 — behavioral scan + globe)
        ───────────────────────────────────────────────────────── */}
-  <RidgePixel label="— FEEDS · 04 —" />
+  <AgentScanBand />
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 5 — FEEDS (Recently + Trending, 3×3 mosaic)
+       BAND 5 — RIDGE-PIXEL DIVIDER (agent scan → feeds)
+       ───────────────────────────────────────────────────────── */}
+  <RidgePixel label="— FEEDS · 05 —" />
+
+  {/* ─────────────────────────────────────────────────────────
+       BAND 6 — FEEDS (Recently + Trending, 3×3 mosaic)
        ───────────────────────────────────────────────────────── */}
   <section class="section feeds-band">
     <div class="container">
@@ -153,12 +153,12 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
   </section>
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 6 — RIDGE-STARS DIVIDER (feeds → docs/why)
+       BAND 7 — RIDGE-STARS DIVIDER (feeds → docs/why)
        ───────────────────────────────────────────────────────── */}
-  <RidgeStars label="— WHY · 05 —" />
+  <RidgeStars label="— WHY · 06 —" />
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 7 — WHY · 05 (man-page "Five reasons" docs-band)
+       BAND 8 — WHY · 06 (man-page "Five reasons" docs-band, v3 rows)
        ───────────────────────────────────────────────────────── */}
   <section class="section docs-band">
     <div class="container">
@@ -167,13 +167,14 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
           <span>WHY(5)</span>
           <span>SaferSkills — Five Reasons It Earns The URL</span>
         </div>
+        <div class="r">v1.0 · Apache 2.0</div>
       </div>
       <div class="docs-body">
         <div class="docs-side">
           <div class="sec">Name</div>
           <div class="name">Five reasons it earns the URL.</div>
           <div class="blurb">
-            Find · Install · Verify · Monitor · Trust. Each pillar earns its row — and the
+            Find · Install · Audit · Scan · Trust. Each pillar earns its row — and the
             metrics underneath.
           </div>
           <a class="pill" href="/methodology">Read the methodology →</a>
@@ -194,70 +195,73 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
             client:visible
             index="02"
             tag="install"
-            bodyHtml="<b>One command across all eight agent platforms.</b><span>macOS, Windows, Linux — no agent-specific config to learn. The score is re-verified at install time so you never install based on a stale page.</span>"
+            bodyHtml={`<b>The CLI is a local control plane.</b><span>Search the catalog, install across all eight agents with a risk gate on dangerous capabilities, and audit what&#39;s already installed (<span class="mono">scan --local</span>). The score is re-verified at install time so you never install based on a stale page.</span>`}
             metaLinesHtml={[
               `<b>8 / 8</b>agents`,
-              `<b>3</b>OSes · one binary`,
+              `<b>3</b>OSes`,
             ]}
-            arrow={{ label: 'npm package', href: 'https://www.npmjs.com/package/saferskills' }}
+            arrow={{ label: 'CLI reference', href: '/docs' }}
           />
           <WhyRow
             client:visible
             index="03"
-            tag="verify"
-            bodyHtml={`<b>Independent, transparent, open-source scoring.</b><span><b data-live-stat="rule_count">${data.ruleCount}</b> deterministic detection rules across five categories. Every finding cites a rule ID and an evidence line — not &quot;AI thinks this is bad,&quot; only reproducible facts.</span>`}
+            tag="audit"
+            bodyHtml="<b>Static audit of any capability.</b><span>Every finding cites a rule ID and an evidence line — not “AI thinks this is bad,” only reproducible facts you can open and check.</span>"
             metaLinesHtml={[
-              `<b data-live-stat="rule_count">${data.ruleCount}</b>rules · Apache 2.0`,
-              `community PRs welcome`,
+              `rules · Apache 2.0`,
+              `cites rule ID + line`,
             ]}
             arrow={{ label: 'rule index', href: '/methodology' }}
           />
           <WhyRow
             client:visible
             index="04"
-            tag="monitor"
-            bodyHtml="<b>Watch any skill.</b><span>Drift alerts when content changes. Risk alerts when the score drops ≥10 points. Weekly digests of trending items in your watched categories. Throttled, GDPR-compliant, one-click unsubscribe.</span>"
+            tag="scan"
+            bodyHtml="<b>Scan the whole running agent.</b><span>Tested against OWASP Agentic and MITRE ATLAS, then rolled up into a single shareable Agent Report.</span>"
             metaLinesHtml={[
-              `email-gated`,
-              `<b>≤ 5</b>alerts / day`,
+              `OWASP + MITRE`,
+              `open pack`,
             ]}
-            arrow={{ label: 'account self-deletion', href: '/docs#account' }}
+            arrow={{ label: 'Agent Report', href: '/agents' }}
           />
           <WhyRow
             client:visible
             index="05"
             tag="trust"
-            bodyHtml="<b>No browser fingerprinting. No cross-site tracking.</b><span>Vendor right-of-reply with a 1-hour re-scan SLA. Privacy policy reviewed by external counsel; aggregated IP-ASN data only, fully disclosed.</span>"
+            bodyHtml="<b>No browser fingerprinting. No cross-site tracking.</b><span>Open methodology and vendor right-of-reply. Privacy policy reviewed by external counsel; aggregated IP-ASN data only, fully disclosed.</span>"
             metaLinesHtml={[
-              `privacy policy reviewed by counsel`,
+              `privacy reviewed by counsel`,
             ]}
-            arrow={{ label: 'privacy policy', href: '/privacy' }}
+            links={[
+              { label: 'privacy policy', href: '/privacy' },
+              { label: 'methodology', href: '/methodology' },
+            ]}
           />
         </div>
       </div>
       <div class="docs-foot">
-        <span>SEE ALSO · <a class="link" href="/methodology">scoring(7)</a> · <a class="link" href="/privacy">privacy(5)</a> · <a class="link" href="https://github.com/OpenLatch/saferskills">github</a></span>
+        <span>SEE ALSO · <a class="link" href="/methodology">scoring(7)</a> · <a class="link" href="/privacy">privacy(5)</a> · <a class="link" href="https://github.com/OpenLatch/saferskills">github.com/openlatch/saferskills</a></span>
       </div>
     </div>
   </section>
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 8 — RIDGE-FLOW DIVIDER (docs/why → detection)
+       BAND 9 — RIDGE-FLOW DIVIDER (docs/why → detection)
        ───────────────────────────────────────────────────────── */}
-  <RidgeFlow label="— DETECTION · 06 —" />
+  <RidgeFlow label="— DETECTION · 07 —" />
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 9 — DETECTION (57 attacks marquee)
+       BAND 10 — DETECTION (57 attacks marquee)
        ───────────────────────────────────────────────────────── */}
   <DetectionBand />
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 10 — WAVE-BAND DIVIDER (detection → CTA)
+       BAND 11 — WAVE-BAND DIVIDER (detection → CTA)
        ───────────────────────────────────────────────────────── */}
   <WaveBand />
 
   {/* ─────────────────────────────────────────────────────────
-       BAND 11 — CTA-BAND
+       BAND 12 — CTA-BAND
        ───────────────────────────────────────────────────────── */}
   <CtaBand
     client:visible

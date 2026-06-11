@@ -44,10 +44,20 @@ export const FullList: Story = () => (
     />
     <WhyRow
       index="03"
-      tag="monitor"
-      body={<><b>Watch any skill.</b><span>Drift alerts when content changes. Risk alerts on score drops.</span></>}
-      metaLines={[<>email-gated</>, <><b>≤ 5</b>alerts / day</>]}
-      arrow={{ label: 'account self-deletion', href: '/docs#account' }}
+      tag="audit"
+      body={<><b>Static audit of any capability.</b><span>Every finding cites a rule ID and an evidence line.</span></>}
+      metaLines={[<>rules · Apache 2.0</>, <>cites rule ID + line</>]}
+      arrow={{ label: 'rule index', href: '/methodology' }}
+    />
+    <WhyRow
+      index="05"
+      tag="trust"
+      body={<><b>No browser fingerprinting. No cross-site tracking.</b><span>Open methodology and vendor right-of-reply.</span></>}
+      metaLines={[<>privacy reviewed by counsel</>]}
+      links={[
+        { label: 'privacy policy', href: '/privacy' },
+        { label: 'methodology', href: '/methodology' },
+      ]}
     />
   </div>
 )

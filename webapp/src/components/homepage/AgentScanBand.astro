@@ -1,0 +1,69 @@
+---
+import AgentScanGlobe from '@/components/homepage/AgentScanGlobe.tsx'
+
+/**
+ * Homepage section `· 04` — Agent Scan (I-5.7 Module 3, D-5.7-11).
+ * Sits between the Install band and the FEEDS divider. All copy verbatim from
+ * the v3 mockup (`SaferSkills-Homepage-v3-unpacked.html` agentscan-band);
+ * section CSS arrives via the regenerated page-home.css. The globe canvas is
+ * a contained `client:visible` island (rAF only while intersecting, one
+ * static frame under reduced motion).
+ */
+---
+<section class="section agentscan-band" data-screen-label="Agent Scan">
+  <AgentScanGlobe client:visible />
+  <div class="container">
+    <div class="as-head">
+      <p class="eyebrow">Agent Scan · 04</p>
+      <h2 class="as-title">Scan <span class="hl">your agent</span>,<br />in-context</h2>
+      <p class="as-lede">
+        Point it at your live agent — the whole assembly — and it runs an open adversarial pack
+        (OWASP Agentic + MITRE ATLAS), returning a graded, evidence-backed report you can share.
+      </p>
+      <a class="as-cta" href="/scan?mode=agent">Scan your agent →</a>
+      <p class="t-meta">Observed, not certified.</p>
+    </div>
+  </div>
+
+  <div class="as-cols">
+    <div class="as-col">
+      <span class="ac-num">01</span>
+      <h3 class="ac-title">The whole running agent</h3>
+      <p class="ac-desc">
+        Not a lone skill — the assembled agent: model, harness, and every capability running
+        together, exercised live and graded on what it actually does.
+      </p>
+    </div>
+    <div class="as-col">
+      <span class="ac-num">02</span>
+      <h3 class="ac-title">Evidence, mapped to the canon</h3>
+      <p class="ac-desc">
+        An open adversarial pack runs against the agent. Every finding cites the turn, the tool
+        call, and the rule it broke — mapped to OWASP Agentic + MITRE ATLAS.
+      </p>
+      <div class="ac-refs">
+        <span class="ac-ref">ASI04 · AML.T0010</span>
+        <span class="ac-ref">LLM02 · AML.T0057</span>
+        <span class="ac-ref">ASI01 · AML.T0051</span>
+      </div>
+    </div>
+    <div class="as-col">
+      <span class="ac-num">03</span>
+      <h3 class="ac-title">A report you can ship on</h3>
+      <p class="ac-desc">
+        A graded, shareable verdict — cloud-validated, client-administered, and CI-ready as a
+        deploy gate.
+      </p>
+      <div class="ac-report">
+        <div class="ac-rtop">
+          <span class="ac-rlabel">Sample verdict</span>
+          <span class="ac-band-chip"><span class="sw"></span>Red · Do-Not-Deploy</span>
+        </div>
+        <div class="ac-rscore">
+          <span class="vn">38<span class="vslash">/100</span></span>
+          <span class="ac-bar"><i></i></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

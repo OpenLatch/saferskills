@@ -134,6 +134,9 @@ export default function TurnstileGate({ open, siteKey, onVerified, onCancel }: P
     if (!dialog) return
 
     if (!open) {
+      // Cancel any pending success-beat handoff — a cancel during the
+      // "Verified" hold must never let onVerified fire after the gate closed.
+      clearTimers()
       // Reset so a subsequent open issues a fresh, unused challenge.
       if (widgetIdRef.current !== null) window.turnstile?.reset(widgetIdRef.current)
       if (!dialog.open) return

@@ -1,7 +1,7 @@
 /* webapp/src/styles/page-home.css
  *
  * Homepage-only page-vocabulary CSS. Ported from the canonical hi-fi mockup at
- * .local/.brainstorms/frontend/mockups/SaferSkills-Homepage-unpacked.html
+ * .local/.brainstorms/frontend/mockups/SaferSkills-Homepage-v3-unpacked.html
  * (variant-A second style block), via .local/.brainstorms/frontend/mockups/
  * build-page-home.py.
  *
@@ -9,40 +9,47 @@
  *   - Selectors prefixed with `body.va` only apply when index.astro passes
  *     `bodyClass="va"` to <Base>. Other pages stay untouched.
  *   - Selectors NOT prefixed with `body.va` (the homepage-specific bands like
- *     .hero-band, .topo-band, .install-band, .feeds-band .mosaic, .docs-band,
- *     .detection-band, .reason-row, .scan-card, .wire-cell, .title-cell,
- *     .ridge-pixel, .ridge-stars, .ridge-flow, .p1-card) only exist on the
- *     homepage and therefore can't collide.
+ *     .hero-band, .agentscan-band, .install-band, .feeds-band .mosaic,
+ *     .docs-band, .detection-band, .reason-row, .code-editor, .p1-card) only
+ *     exist on the homepage and therefore can't collide.
  *   - Dark mode: `html.dark body.va` (post-rewrite) — the FOUC script in
  *     Base.astro toggles `<html class="dark">`, not body, so the mockup's
- *     `body.va.dark .X` selectors needed the rewrite to ever match.
+ *     `body.va.dark .X` selectors needed the rewrite to ever match. The
+ *     light-only guards are rewritten the same way: `body.va:not(.dark) .X`
+ *     -> `html:not(.dark) body.va .X` (body never carries .dark here, so the
+ *     unrewritten guard would match in BOTH themes). The legacy bands' dark
+ *     skins live in the mockup's block 0 and are re-added below
+ *     (BLOCK0_DARK_READDS in build-page-home.py).
  *
  * Strip rules (build-page-home.py):
- *   - `:root { ... }` blocks dropped (tokens owned by ui/styles/tokens.css).
+ *   - `:root { ... }` blocks dropped (tokens owned by ui/styles/tokens.css);
+ *     var(--bg-dotgrid-ink) rewritten to the DS var(--bg-dot-grid).
  *   - Bare `body`, `html`, `html, body`, `*`, `a`, `button` blocks dropped
  *     (page-level base resets owned by webapp/src/styles/reset.css and the
  *     OpenLatch DS base in ui/styles/components.css).
  *   - @font-face stripped at the build-page-home.py source step
  *     (fonts owned by @fontsource/* imports in ui/styles/globals.css).
  *
- * Keyframes (verbatim): p1-pulse, p1-pulse-y, p1-blink, p1-march,
- * ol-pulse, mq-scroll, dt-scroll, mt-blink, marquee, blink, tc-pulse.
- * Names are already namespaced; no collision with our ss-marquee/ss-blink/
- * ss-pulse defined in ui/styles/components.css.
+ * Keyframes (verbatim): hc-pulse, hc-blink, mq-scroll, dt-scroll.
+ * Names are already namespaced; no collision with the ss-* keyframes defined
+ * in ui/styles/components.css.
  *
  * Do not edit by hand — re-run build-page-home.py from the mockups dir.
  */
 
 /* ============================================================
-   HOMEPAGE-VOCAB BASE RULES — ported from mockup block-1.
+   HOMEPAGE-VOCAB BASE RULES — ported from mockup block-0.
    These selectors are homepage-only (install-head 2-col grid,
-   docs-band man-page header + body + side rail) but were filtered
-   out by build-page-home.py because that script skips block-1
-   entirely. They get re-added here so the page lays out correctly.
+   docs-band man-page header + body + side rail, and the legacy
+   bands' DARK-MODE skins — hero/topo/install/wave/feeds/docs)
+   but live in the mockup's shared base block, which this script
+   otherwise skips. They get re-added here so the page lays out
+   correctly and the legacy bands keep their dark theme. The few
+   DS-class overrides at the end (EXTRA_RULES in the script) are
+   the sanctioned single-page overrides of design-system classes.
    Keep them above the body.va overrides so the cascade still wins.
    ============================================================ */
 
-/* INSTALL-HEAD — 2-column grid (headline + lede side-by-side) */
 .install-head {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
@@ -55,23 +62,6 @@
   font-size: 17px;
   max-width: 480px;
 }
-.install-head h2 {
-  margin: 0;
-  font-size: clamp(36px, 4vw, 56px);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-.install-head .script {
-  font-family: var(--font-script);
-  color: var(--brand-accent);
-  font-size: 28px;
-  transform: rotate(-3deg);
-  display: inline-block;
-  margin-left: 12px;
-}
-
-/* DOCS-HEAD / BODY / SIDE — man-page band for the WHY · 05 section */
 .docs-head {
   display: flex;
   justify-content: space-between;
@@ -128,7 +118,6 @@
   color: var(--color-paper);
   font-family: var(--font-mono);
   font-size: 13px;
-  text-decoration: none;
   -webkit-mask:
     var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
     var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
@@ -171,13 +160,92 @@
   padding: 2px 6px;
   color: var(--fg-2);
 }
+html.dark body.va .hero-band .hero-lede {
+  color: var(--fg-2);
+}
+html.dark body.va .hero-band::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23F8FAFC' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
+}
+html.dark body.va .hero-band .supported-band {
+  background: var(--color-paper-deep);
+  border-top-color: var(--color-line);
+}
+html.dark body.va .hero-band .supported-band::before {
+  color: var(--fg-3);
+}
+html.dark body.va .topo-band {
+  background: var(--color-paper);
+  border-top-color: var(--color-line);
+}
+html.dark body.va .topo-band .topo-label {
+  background: var(--color-paper);
+  color: var(--fg-3);
+}
+html.dark body.va .topo-band svg {
+  color: var(--fg-2);
+}
+html.dark body.va .install-band {
+  background-color: #060b14;
+  color: var(--fg-1);
+}
+html.dark body.va .install-band .eyebrow {
+  color: var(--brand-accent);
+}
+html.dark body.va .install-band .install-head h2 {
+  color: var(--fg-1);
+}
+html.dark body.va .install-band .install-head h2 .script {
+  color: var(--brand-accent);
+}
+html.dark body.va .install-band .install-head .lede {
+  color: rgba(255, 255, 255, 0.78);
+}
+html.dark body.va .install-band .install-cap {
+  color: rgba(255, 255, 255, 0.55);
+}
+html.dark body.va .install-band .install-cap kbd {
+  color: var(--fg-1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+html.dark body.va .wave-band {
+  background: #060b14;
+  border-top-color: var(--color-line);
+}
+html.dark body.va .feeds-band {
+  background: var(--color-paper);
+}
+html.dark body.va .docs-band {
+  background: var(--color-paper-deep);
+}
+html.dark body.va .docs-head {
+  border-bottom-color: var(--color-line);
+}
+html.dark body.va .docs-foot {
+  border-top-color: var(--color-line);
+}
+html.dark body.va .docs-side .name {
+  color: var(--fg-1);
+}
+html.dark body.va .docs-side .pill {
+  background: var(--fg-1);
+  color: var(--color-paper);
+}
+html.dark body.va .docs-side .pill:hover {
+  background: var(--brand-primary);
+  color: var(--color-paper);
+}
+/* DS override — PromptCodeCard peek window on hero card 02 (mirrors the
+   mockup's .ce-body max-height; the DS default is 300px). */
+.vb-grid .p1-card.assess .pc-body {
+  max-height: 80px;
+}
 
 /* ============================================================
-     VARIANT A — "Clean Studio"
-     Faithful greptile/OpenLatch register. White-paper backbone,
-     spectrum corner flourish on the Audit door, dot-grid texture
-     under the hero, dark-slate CTA band before the footer.
-     ============================================================ */
+   VARIANT A — "Clean Studio"
+   Faithful greptile/OpenLatch register. White-paper backbone,
+   spectrum corner flourish on the Audit door, dot-grid texture
+   under the hero, dark-slate CTA band before the footer.
+   ============================================================ */
 
 /* page bg: subtle plus-marker grid (signature graph-paper texture) */
 body.va {
@@ -186,14 +254,14 @@ body.va {
 }
 
 /* ============================================================
-     NAV — greptile-style floating pill + firecrawl-style hover
-     ------------------------------------------------------------
-     · Top of page: transparent, full-width — content shows through.
-     · Scrolled: nav-inner contracts into a centered pill, with
-       four `+` crosshair registration marks at its outer corners.
-     · Hover/active: subtle rounded background on the item
-       (no more underline).
-     ============================================================ */
+   NAV — greptile-style floating pill + firecrawl-style hover
+   ------------------------------------------------------------
+   · Top of page: transparent, full-width — content shows through.
+   · Scrolled: nav-inner contracts into a centered pill, with
+     four `+` crosshair registration marks at its outer corners.
+   · Hover/active: subtle rounded background on the item
+     (no more underline).
+   ============================================================ */
 body.va .nav {
   background: transparent;
   backdrop-filter: none;
@@ -222,13 +290,13 @@ body.va .nav-inner {
 }
 
 /* float the whole nav down a touch when scrolled so it sits with
-     a visible gap from the viewport top (no longer flush-sticky). */
+   a visible gap from the viewport top (no longer flush-sticky). */
 body.va .nav.scrolled {
   top: 14px;
 }
 
 /* the scrolled pill — paper-paper, hairline border, floating.
-     Square corners on purpose. Wider than before so menu breathes. */
+   Square corners on purpose. Wider than before so menu breathes. */
 body.va .nav.scrolled .nav-inner {
   max-width: 1100px;
   padding: 0 22px 0 26px;
@@ -242,7 +310,7 @@ body.va .nav.scrolled .nav-inner {
 }
 
 /* corner registration marks — `+` crosshairs at 4 outer corners
-     of the pill. Fade in only when scrolled. */
+   of the pill. Fade in only when scrolled. */
 body.va .nav-inner .nav-corner {
   position: absolute;
   width: 11px;
@@ -334,8 +402,8 @@ body.va .nav.scrolled .brand {
   font-size: 20px;
 }
 body.va .nav.scrolled .brand .mk {
-  width: auto;
-  height: 22px;
+  width: 16px;
+  height: 16px;
 }
 
 /* on small screens, let the pill breathe */
@@ -348,9 +416,9 @@ body.va .nav.scrolled .brand .mk {
 }
 
 /* ----- DARK MODE OVERRIDES for the new pill nav -----
-     - keep the whole .nav strip transparent so the page bg shows through
-       cleanly above & below the pill (no full-width white/paper band).
-     - flip the pill, hover, active backgrounds to dark-tinted values. */
+   - keep the whole .nav strip transparent so the page bg shows through
+     cleanly above & below the pill (no full-width white/paper band).
+   - flip the pill, hover, active backgrounds to dark-tinted values. */
 html.dark body.va .nav,
 html.dark body.va .nav.scrolled {
   background: transparent;
@@ -377,11 +445,11 @@ html.dark body.va .nav-links a.active:hover {
 }
 
 /* ============================================================
-     HERO — centered console (v3)
-     Title with rotating attack technique. Two rich animated search
-     cards side-by-side with a gap. No shadows. Search input is the
-     centerpiece; CTAs are secondary text links.
-     ============================================================ */
+   HERO — centered console (v3)
+   Title with rotating attack technique. Two rich animated search
+   cards side-by-side with a gap. No shadows. Search input is the
+   centerpiece; CTAs are secondary text links.
+   ============================================================ */
 .hero-band {
   position: relative;
   padding: 0;
@@ -392,12 +460,16 @@ html.dark body.va .nav-links a.active:hover {
   flex-direction: column;
   min-height: calc(100svh - 72px);
 }
-/* Soften the marquee bottom (= .hero-band bottom) in dark mode to match
-   the marquee top — both pair with the .topo-band top border underneath,
-   and all three need to read as a single hairline divider, not a stark
-   white line. Same reasoning as the .topo-band fix on this branch. */
-html.dark .hero-band {
-  border-bottom-color: var(--color-line);
+.hero-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* smaller crosshair glyphs (6px arms instead of 10px) — keeps the
+     graph-paper texture but lets it recede behind the headline. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
+  background-size: 40px 40px;
+  opacity: 0.9;
+  pointer-events: none;
 }
 .hero-band > .container {
   position: relative;
@@ -407,34 +479,40 @@ html.dark .hero-band {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: 16px;
-  padding-bottom: 20px;
-  gap: 14px;
+  padding-top: 32px;
+  padding-bottom: 48px;
+  gap: 26px;
   justify-content: center;
 }
 
-/* Empty spacer where the eyebrow row used to sit — preserves the
-   headline's vertical position. 28px matches the removed Badge height. */
+/* meta row above headline */
 .hero-top {
-  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.hero-top .hero-tag {
+  color: var(--fg-3);
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* headline + animated rotator */
 .hero-band h1 {
-  font-size: clamp(36px, 4.1vw, 64px);
+  font-size: clamp(40px, 4.6vw, 72px);
   font-weight: 800;
-  line-height: 0.98;
+  line-height: 1;
   letter-spacing: -0.045em;
   margin: 0;
   max-width: 1100px;
   text-wrap: balance;
-}
-/* Force the rotating noun + trailing punctuation onto its own line so the
-   headline always reserves the same number of lines regardless of which
-   noun is currently visible — eliminates the layout flicker between
-   short ("Tool Poisoning") and long ("Supply Chain Attacks") nouns. */
-.rotator-line {
-  display: block;
 }
 .rotator {
   display: inline-block;
@@ -442,44 +520,13 @@ html.dark .hero-band {
   vertical-align: baseline;
   overflow: hidden;
   line-height: 1;
-  /* Stops are em-from-top (not %) so they stay pinned under the word when the
-     box grows taller for descender room below — see padding-bottom. */
   background-image: linear-gradient(
-    transparent 0.7em,
-    var(--color-citron) 0.7em,
-    var(--color-citron) 0.94em,
-    transparent 0.94em
+    transparent 70%,
+    var(--color-citron) 70%,
+    var(--color-citron) 94%,
+    transparent 94%
   );
-  /* line-height:1 makes the box exactly 1em tall, so overflow:hidden clips
-     glyph descenders (the "g" in "Rogue Obfuscation"). The 0.18em bottom pad
-     gives them room inside the clip box; the em-anchored gradient above keeps
-     the citron highlight visually unchanged. */
-  padding: 0 10px 0.18em;
-  /* overflow:hidden makes an inline-block take its baseline from the bottom
-     margin edge (CSS2 §10.8.1), so the bottom pad above would drag the
-     baseline — and the trailing "." sibling — down by 0.18em. Cancel that with
-     a matching negative bottom margin: the clip box keeps its descender room
-     (margin doesn't clip), but the baseline (and the ".") returns to where it
-     was, with descenders hanging below it as they should. */
-  margin-bottom: -0.18em;
-  /* The JS measures pure text width; without content-box the 10px side
-     padding would eat into that width (Tailwind's default border-box) and
-     clip the trailing letter of longer nouns. */
-  box-sizing: content-box;
-  /* Width is set inline from the JS-measured noun widths. Transitioning it
-     makes the citron underline grow/shrink smoothly when the noun swaps
-     instead of snapping to the new word's intrinsic width. */
-  transition: width 320ms cubic-bezier(0.45, 0, 0.2, 1);
-}
-.rotator-measure {
-  position: absolute;
-  top: 0;
-  left: 0;
-  visibility: hidden;
-  pointer-events: none;
-  white-space: nowrap;
-  font: inherit;
-  letter-spacing: inherit;
+  padding: 0 10px;
 }
 .rotator-word {
   display: inline-block;
@@ -492,11 +539,11 @@ html.dark .hero-band {
     opacity 240ms ease-out;
 }
 .rotator-word.out {
-  transform: translateY(-120%);
+  transform: translateY(-108%);
   opacity: 0;
 }
 .rotator-word.in {
-  transform: translateY(120%);
+  transform: translateY(108%);
   opacity: 0;
   transition: none;
 }
@@ -518,54 +565,1002 @@ html.dark .hero-band {
   grid-template-columns: 1fr 1fr;
   gap: 28px;
   text-align: left;
-  /* Push the cards downward so the centered title + lede sit in their own
-     vertical band; widens the breathing room between the headline pair and
-     the Find/Audit cards. */
-  margin-top: 88px;
+  margin-top: 6px;
+}
+.hero-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  padding: 28px 28px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  transition:
+    border-color var(--dur-md) var(--ease-std),
+    background var(--dur-md) var(--ease-std);
+}
+.hero-card:hover {
+  border-color: var(--color-ink);
+}
+.hero-card:focus-within {
+  border-color: var(--brand-primary);
 }
 
-/* Homepage audit-panel scan affordance (HomeScanPanel) — compact dual-mode
-   selection control inside the AUDIT card. The DS SegmentedTabs/Toggle/DropZone
-   atoms own their look in components.css; this is layout glue only.
-   NOTE: re-added below the generated mockup CSS — build-page-home.py strips
-   hand-added blocks, so this lives after the generated region intentionally. */
-/* The v2 mockup floats the compact tabs inline-right with the "Scan a new
-   skill." title (no pipeline bar; card height ~= the FIND card). The audit
-   body is the positioning context; the tabs are pulled up beside the headline. */
+.hc-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hc-head .hc-num {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--color-paper-deep);
+  color: var(--fg-2);
+  border: 1px solid var(--color-line);
+}
+.hero-card.audit .hc-num {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+}
+.hc-head .hc-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.hc-head .hc-pulse {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.hc-head .hc-pulse::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--score-green);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  animation: hc-pulse 1.8s ease-out infinite;
+}
+@keyframes hc-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.hc-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  color: var(--color-ink);
+}
+.hc-blurb {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  max-width: 420px;
+}
+
+/* rich input */
+.hc-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--color-paper-deep);
+  border: 1.5px solid var(--color-line);
+  padding: 20px 22px;
+  transition:
+    border-color var(--dur-md) var(--ease-std),
+    background var(--dur-md) var(--ease-std);
+}
+.hc-input::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: -1.5px;
+  height: 2px;
+  background: var(--brand-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hc-input:focus-within {
+  border-color: var(--color-ink);
+  background: var(--color-paper);
+}
+.hc-input:focus-within::after {
+  transform: scaleX(1);
+}
+.hc-input .glyph {
+  font-family: var(--font-mono);
+  color: var(--fg-3);
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color var(--dur-md);
+}
+.hc-input:focus-within .glyph {
+  color: var(--brand-primary);
+}
+.hc-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+}
+.hc-input input::placeholder {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+.hc-input .caret {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  color: var(--brand-primary);
+  line-height: 1;
+  margin-left: -8px;
+  animation: hc-blink 1.05s steps(1) infinite;
+  pointer-events: none;
+}
+.hc-input.user-typing .caret {
+  display: none;
+}
+@keyframes hc-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.hc-input .kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+  border: 1px solid var(--color-line);
+  padding: 3px 7px;
+  background: var(--color-paper);
+}
+
+/* suggestion chips */
+.hc-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.hc-suggest .lbl {
+  margin-right: 4px;
+}
+.hc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: all var(--dur-xs) var(--ease-std);
+}
+.hc-chip:hover {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+  transform: translateY(-1px);
+}
+.hero-card.audit .hc-chip:hover {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+/* secondary CTA — text link, not a button */
+.hc-cta {
+  margin-top: 2px;
+  align-self: flex-start;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--fg-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition:
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.hc-cta:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+.hero-card.audit .hc-cta:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+/* ============================================================
+   P1 HERO CARDS — refined: console head + rich input bar
+   (supersedes the old hero-card / hc-* styles)
+   ============================================================ */
+.p1-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+/* slim machine head */
+.p1-card .p1-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 18px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.p1-card .p1-head .seq {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  padding: 3px 7px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.p1-card .p1-head .pulse {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(247, 235, 255, 0.78);
+}
+.p1-card .p1-head .pulse::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  animation: p1-pulse 1.8s ease-out infinite;
+}
+.p1-card.audit .p1-head .pulse::before {
+  background: #f59e0b;
+  animation: p1-pulse-y 1.8s ease-out infinite;
+}
+
+/* body */
+.p1-card .p1-body {
+  padding: 26px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+}
+.p1-card .p1-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  color: var(--color-ink);
+}
+.p1-card .p1-blurb {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  max-width: 440px;
+}
+
+/* rich input bar */
+.p1-input {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--color-paper);
+  border: 1.5px solid var(--color-ink);
+  transition: border-color var(--dur-xs) var(--ease-std);
+}
+.p1-input:hover {
+  border-color: var(--color-ink);
+}
+.p1-input:focus-within {
+  border-color: var(--brand-primary);
+}
+.p1-card.audit .p1-input:focus-within {
+  border-color: var(--brand-accent);
+}
+/* leading search badge */
+.p1-input .p1-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  border-right: 1px solid var(--color-line);
+  background: var(--color-paper-deep);
+  color: var(--color-ink);
+  flex-shrink: 0;
+}
+.p1-input .p1-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.p1-input:focus-within .p1-icon {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border-right-color: var(--brand-primary);
+}
+.p1-card.audit .p1-input:focus-within .p1-icon {
+  background: var(--brand-accent);
+  border-right-color: var(--brand-accent);
+}
+/* input field area */
+.p1-input .p1-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 0;
+  cursor: text;
+}
+.p1-input .caret {
+  width: 9px;
+  height: 18px;
+  background: var(--color-ink);
+  flex-shrink: 0;
+  margin-right: 2px;
+  animation: p1-blink 1.05s steps(1) infinite;
+}
+.p1-input:focus-within .caret {
+  background: var(--brand-primary);
+}
+.p1-card.audit .p1-input:focus-within .caret {
+  background: var(--brand-accent);
+}
+.p1-input.has-value .caret {
+  display: none;
+}
+.p1-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-ink);
+  padding: 17px 0;
+  letter-spacing: -0.005em;
+}
+.p1-input input::placeholder {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+}
+
+/* trailing Enter key */
+.p1-input .p1-enter {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border-left: 1px solid var(--color-line);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  flex-shrink: 0;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.p1-input .p1-enter:hover {
+  background: var(--brand-primary);
+  color: var(--color-paper);
+  border-left-color: var(--brand-primary);
+}
+.p1-card.audit .p1-input .p1-enter:hover {
+  background: var(--brand-accent);
+  color: var(--color-paper);
+  border-left-color: var(--brand-accent);
+}
+.p1-input .p1-enter .key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper-deep);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.p1-input .p1-enter:hover .key {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border-color: var(--color-paper);
+}
+
+/* ---- scan source group: segmented tabs + drop zone + visibility switch ---- */
+.scan-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* segmented control — lifted to the panel title row (top-right) so the
+   input below aligns with the FIND card's search input. */
 .p1-card.audit .p1-body {
   position: relative;
-  /* Match the v2 mockup card chrome (26px top / 24px bottom) so the audit
-     content aligns with the headline band; the grid stretches the FIND card to
-     match (FIND internals untouched). */
-  padding: 26px 28px 24px;
 }
-.hs-panel {
-  /* The body flex-gap is 14px; the mockup's title→dropzone gap is 18px. The
-     absolute .seg below is unaffected (out of flow). */
-  margin-top: 4px;
-}
-.hs-panel .seg {
+.scan-seg {
   position: absolute;
   top: 22px;
   right: 28px;
-  width: auto;
-  /* content-sized columns (the /scan tabs are equal 1fr; here they hug labels) */
-  grid-auto-columns: auto;
-  margin-bottom: 0;
+  z-index: 2;
+  display: inline-flex;
+  border: 1px solid var(--color-line);
+  background: var(--color-paper-deep);
 }
-/* Compact tabs beside the headline (mockup: content-sized, 7px 15px) — a
-   legitimate single-route override of the DS .seg-tab size (design-system.md § CSS ownership). */
-.hs-panel .seg-tab {
+.scan-seg-tab {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
   padding: 7px 15px;
+  transition:
+    color var(--dur-xs),
+    background var(--dur-xs),
+    box-shadow var(--dur-xs);
 }
-.hs-vis {
-  margin-top: 12px;
+.scan-seg-tab + .scan-seg-tab {
+  border-left: 1px solid var(--color-line);
 }
-.hs-vis-help {
-  margin-top: 1px;
+.scan-seg-tab:hover {
+  color: var(--color-ink);
+}
+.scan-seg-tab.on {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: inset 0 -2px 0 var(--brand-accent);
+}
+
+/* drop zone — matches input row height; dashed border, 0 radius */
+.p1-drop {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--color-paper);
+  border: 1.5px dashed var(--border-dashed);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-xs) var(--ease-std),
+    background var(--dur-xs);
+}
+.p1-drop:hover,
+.p1-drop.drag {
+  border-color: var(--brand-accent);
+  background: var(--color-paper-deep);
+}
+.p1-drop .drop-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 20px 16px;
+}
+.p1-drop .drop-glyph {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--fg-3);
+}
+.p1-drop .drop-glyph svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.p1-drop:hover .drop-glyph,
+.p1-drop.drag .drop-glyph {
+  color: var(--brand-accent);
+}
+.p1-drop .drop-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.p1-drop.has-file .drop-text {
+  color: var(--color-ink);
+}
+/* reuse the Enter-key vocabulary inside the drop zone */
+.p1-drop .p1-enter {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border-left: 1.5px dashed var(--border-dashed);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  flex-shrink: 0;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.p1-drop .p1-enter:hover {
+  background: var(--brand-accent);
+  color: var(--color-paper);
+  border-left-color: var(--brand-accent);
+}
+.p1-drop .p1-enter .key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper-deep);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.p1-drop .p1-enter:hover .key {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border-color: var(--color-paper);
+}
+
+/* visibility switch — teal when on, square thumb, 0 radius */
+.scan-vis {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vis-switch {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+}
+.vis-switch .track {
+  position: relative;
+  width: 36px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper-deep);
+  transition:
+    background var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.vis-switch .thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  background: var(--color-ink);
+  transition:
+    transform var(--dur-xs) var(--ease-std),
+    background var(--dur-xs);
+}
+.vis-switch.on .track {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+.vis-switch.on .thumb {
+  transform: translateX(18px);
+  background: #ffffff;
+}
+.vis-switch .vis-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: 0.02em;
+}
+.vis-help {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+
+/* dark-mode skins (mirror the .p1-card dark treatment) */
+html.dark body.va .scan-seg {
+  border-color: var(--color-line);
+  background: rgba(255, 255, 255, 0.05);
+}
+html.dark body.va .scan-seg-tab:hover {
+  color: var(--fg-1);
+}
+html.dark body.va .scan-seg-tab.on {
+  background: var(--color-paper-deep);
+  color: var(--fg-1);
+  box-shadow: inset 0 -2px 0 var(--brand-accent);
+}
+html.dark body.va .p1-drop {
+  background: var(--color-paper);
+  border-color: var(--color-line);
+}
+html.dark body.va .p1-drop .p1-enter .key {
+  color: var(--fg-1);
+  border-color: var(--color-line);
+}
+html.dark body.va .vis-switch .track {
+  border-color: var(--color-line);
+  background: rgba(255, 255, 255, 0.08);
+}
+html.dark body.va .vis-switch .thumb {
+  background: var(--fg-1);
+}
+html.dark body.va .vis-switch.on .track {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+html.dark body.va .vis-switch .vis-label {
+  color: var(--fg-1);
+}
+
+/* tab-completion chips (find card) */
+.p1-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  font-family: var(--font-mono);
+}
+.p1-tabs .lbl {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-right: 6px;
+}
+.p1-chip {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  transition:
+    border-color var(--dur-xs),
+    transform var(--dur-xs);
+}
+.p1-chip:hover {
+  border-color: var(--color-ink);
+  transform: translateY(-1px);
+}
+.p1-chip .kbd {
+  background: var(--color-paper-deep);
+  color: var(--fg-3);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  padding: 4px 6px;
+  border-right: 1px solid var(--color-line);
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+}
+.p1-chip .nm {
+  font-size: 11.5px;
+  color: var(--color-ink);
+  padding: 4px 8px;
+}
+.p1-chip .sc {
+  font-size: 9.5px;
+  color: #fff;
+  padding: 4px 6px;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+}
+.p1-chip .sc.green {
+  background: #10b981;
+}
+.p1-chip .sc.yellow {
+  background: #f59e0b;
+  color: var(--color-ink);
+}
+.p1-chip .sc.orange {
+  background: #f97316;
+}
+
+/* audit progress bar (audit card) */
+.p1-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono);
+  padding-top: 2px;
+}
+.p1-progress .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.p1-progress .row b {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.p1-progress .bar {
+  position: relative;
+  height: 8px;
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+}
+.p1-progress .bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 64%;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--brand-accent) 0,
+    var(--brand-accent) 4px,
+    #fb923c 4px,
+    #fb923c 8px
+  );
+  animation: p1-march 1.2s linear infinite;
+}
+
+.p1-progress .steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  font-size: 10px;
+  color: var(--fg-3);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.p1-progress .steps span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.p1-progress .steps .ok::before {
+  content: "✓";
+  color: #10b981;
+  font-weight: 700;
+}
+.p1-progress .steps .cur::before {
+  content: "›";
+  color: var(--brand-accent);
+  font-weight: 700;
+}
+.p1-progress .steps .pen {
+  color: #b0b4bc;
+}
+.p1-progress .steps .pen::before {
+  content: "·";
+}
+
+/* foot */
+.p1-card .p1-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid var(--color-ink);
+  padding: 14px 28px;
+  margin-top: 4px;
+}
+.p1-card .p1-cta {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--color-ink);
+  text-decoration: none;
+  border-bottom: 1.5px solid var(--color-ink);
+  padding-bottom: 1px;
+}
+.p1-card .p1-cta:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+.p1-card.audit .p1-cta:hover {
+  color: var(--brand-accent);
+  border-color: var(--brand-accent);
+}
+.p1-card .p1-foot .meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.p1-card .p1-foot .meta b {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  margin-right: 4px;
+}
+
+/* ---- P1 dark mode overrides ----
+   The head bar reads as a light bar in dark mode because it uses
+   var(--color-ink), which flips to a light color. Re-skin it as a
+   dark elevated surface so the labels stay readable. */
+html.dark body.va .p1-card {
+  background: var(--color-paper-deep);
+  border-color: var(--color-line);
+}
+html.dark body.va .p1-card .p1-head {
+  background: #1a2237; /* slightly elevated dark */
+  color: var(--fg-1);
+  border-bottom: 1px solid var(--color-line);
+}
+html.dark body.va .p1-card .p1-head .seq {
+  background: var(--fg-1);
+  color: #0f172a;
+}
+html.dark body.va .p1-card .p1-head .pulse {
+  color: var(--fg-2);
+}
+html.dark body.va .p1-card .p1-title {
+  color: var(--fg-1);
+}
+html.dark body.va .p1-card .p1-blurb {
+  color: var(--fg-2);
+}
+html.dark body.va .p1-card .p1-foot {
+  border-top-color: var(--color-line);
+}
+html.dark body.va .p1-card .p1-cta {
+  color: var(--fg-1);
+  border-bottom-color: var(--fg-1);
+}
+html.dark body.va .p1-card .p1-foot .meta {
+  color: var(--fg-3);
+}
+html.dark body.va .p1-card .p1-foot .meta b {
+  color: var(--fg-1);
+}
+
+/* input bar — make the search badge and Enter key feel right on dark */
+html.dark body.va .p1-input {
+  background: var(--color-paper);
+  border-color: var(--color-line);
+}
+html.dark body.va .p1-input .p1-icon {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-1);
+  border-right-color: var(--color-line);
+}
+html.dark body.va .p1-input input {
+  color: var(--fg-1);
+}
+html.dark body.va .p1-input .caret {
+  background: var(--fg-1);
+}
+html.dark body.va .p1-input .p1-enter {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg-1);
+  border-left-color: var(--color-line);
+}
+html.dark body.va .p1-input .p1-enter .key {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg-1);
+  border-color: var(--color-line);
+}
+
+/* chips */
+html.dark body.va .p1-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--color-line);
+}
+html.dark body.va .p1-chip .kbd {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg-3);
+  border-right-color: var(--color-line);
+}
+html.dark body.va .p1-chip .nm {
+  color: var(--fg-1);
+}
+html.dark body.va .p1-chip:hover {
+  border-color: var(--fg-2);
+}
+
+/* audit progress */
+html.dark body.va .p1-progress .bar {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-line);
+}
+html.dark body.va .p1-progress .row b {
+  color: var(--fg-1);
 }
 
 /* inline mono stat strip below cards */
@@ -600,10 +1595,7 @@ html.dark .hero-band {
 /* responsive */
 @media (max-width: 980px) {
   .hero-cards {
-    /* minmax(0,1fr) — not 1fr — so the single column can shrink to the
-       viewport instead of being forced wider by a card's min-content, which
-       made the Find/Audit cards hang off the right edge (look off-centre). */
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 20px;
   }
   .hero-band > .container {
@@ -612,15 +1604,269 @@ html.dark .hero-band {
     padding-bottom: 44px;
   }
   .hero-band h1 {
-    /* Constrain to the viewport so the headline wraps instead of sizing to its
-       1100px desktop max-width and overflowing both edges on phones. */
-    max-width: 100%;
-    /* Lower the floor from 38px → 24px: below ~514px the 7.4vw term dropped
-       under the old 38px floor, pinning the font too large so the longest
-       rotating noun ("Destructive Commands") ran off-screen. The noun width is
-       measured live at this font, so a smaller floor makes the rotator fit.
-       The 56px cap keeps tablet/desktop sizing unchanged. */
-    font-size: clamp(24px, 7vw, 56px);
+    font-size: clamp(38px, 7.4vw, 56px);
+  }
+  .hero-top .hero-tag {
+    display: none;
+  }
+}
+
+/* ============================================================
+   PORTED 3-BOX HERO LAYOUT (from Hero Playground)
+   Find full-width on top; Scan a Running Agent + Audit a
+   Capability side-by-side beneath. Reuses the existing
+   p1-card / scan-group / scan-vis vocabulary.
+   ============================================================ */
+.hero-cards.vb-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.hero-cards.vb-grid .b-wide {
+  grid-column: 1 / -1;
+}
+.hero-cards.vb-grid .b-wide .p1-body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px 32px;
+  align-items: start;
+}
+.hero-cards.vb-grid .b-wide .p1-body > .b-find-search {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* card title promoted into the ink head bar */
+.p1-card .p1-head .hd-title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: inherit;
+}
+
+/* pin the visibility switch to the bottom so the two boxes' switches align */
+.vb-grid .p1-card.audit .scan-vis,
+.vb-grid .p1-card.assess .scan-vis {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+/* compaction: keep the two scan boxes tidy & equal */
+.vb-grid .p1-card.audit .p1-head,
+.vb-grid .p1-card.assess .p1-head {
+  padding: 10px 18px;
+}
+.vb-grid .p1-card.audit .p1-body,
+.vb-grid .p1-card.assess .p1-body {
+  padding: 18px 28px 16px;
+  gap: 15px;
+}
+.vb-grid .p1-card.audit .scan-group {
+  gap: 12px;
+}
+.vb-grid .p1-card.audit .p1-drop .drop-main {
+  padding: 29px 16px;
+}
+/* in this layout the source switch sits inline above the panes (not floated) */
+.vb-grid .p1-card.audit .scan-seg {
+  position: static;
+  top: auto;
+  right: auto;
+  align-self: flex-start;
+}
+
+/* code editor — multi-line agent prompt, syntax-tinted, w/ copy (dark by default) */
+.code-editor {
+  border: 1px solid var(--border-dashed);
+  background: #14151a;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.dark body.va .code-editor {
+  border-color: var(--color-line);
+}
+.code-editor .ce-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px 7px 14px;
+  background: #1f2026;
+  border-bottom: 1px solid #0a0b0e;
+}
+.code-editor .ce-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #9ca0a8;
+  letter-spacing: 0.04em;
+}
+.code-editor .ce-name svg {
+  width: 13px;
+  height: 13px;
+  stroke: #6b6f78;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.code-editor .ce-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs);
+}
+.code-editor .ce-copy:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.code-editor .ce-copy.copied {
+  background: var(--brand-primary);
+  color: #ffffff;
+}
+.code-editor .ce-copy svg {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.code-editor .ce-body {
+  padding: 9px 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.75;
+  background: #14151a;
+  max-height: 80px;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: #33363f #14151a;
+}
+.code-editor .ce-body::-webkit-scrollbar {
+  width: 9px;
+}
+.code-editor .ce-body::-webkit-scrollbar-track {
+  background: #14151a;
+}
+.code-editor .ce-body::-webkit-scrollbar-thumb {
+  background: #33363f;
+  border: 2px solid #14151a;
+}
+.code-editor .ce-body::-webkit-scrollbar-thumb:hover {
+  background: #474b57;
+}
+.code-editor .ce-line {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+}
+.code-editor .ce-line .ln {
+  text-align: right;
+  padding-right: 14px;
+  color: #454a54;
+  user-select: none;
+}
+.code-editor .ce-line .lc {
+  color: #d7dae0;
+  white-space: pre-wrap;
+  padding-right: 16px;
+}
+.code-editor .tok-c {
+  color: #5c6b7a;
+  font-style: italic;
+}
+.code-editor .tok-k {
+  color: #61afef;
+}
+.code-editor .tok-s {
+  color: #f9a35e;
+}
+.code-editor .tok-f {
+  color: #4ec9b0;
+}
+.code-editor .tok-m {
+  color: #c678dd;
+}
+
+/* light-mode editor skin */
+html:not(.dark) body.va .code-editor {
+  background: #ffffff;
+}
+html:not(.dark) body.va .code-editor .ce-head {
+  background: #eef2f7;
+  border-bottom-color: #dce3ec;
+}
+html:not(.dark) body.va .code-editor .ce-name {
+  color: #64748b;
+}
+html:not(.dark) body.va .code-editor .ce-name svg {
+  stroke: #94a3b8;
+}
+html:not(.dark) body.va .code-editor .ce-copy {
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+}
+html:not(.dark) body.va .code-editor .ce-copy:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+html:not(.dark) body.va .code-editor .ce-body {
+  background: #ffffff;
+}
+html:not(.dark) body.va .code-editor .ce-line .ln {
+  color: #b6becb;
+}
+html:not(.dark) body.va .code-editor .ce-line .lc {
+  color: #334155;
+}
+html:not(.dark) body.va .code-editor .tok-c {
+  color: #7a8694;
+}
+html:not(.dark) body.va .code-editor .tok-k {
+  color: #1d4ed8;
+}
+html:not(.dark) body.va .code-editor .tok-s {
+  color: #b45309;
+}
+html:not(.dark) body.va .code-editor .tok-f {
+  color: #0f766e;
+}
+html:not(.dark) body.va .code-editor .tok-m {
+  color: #7c3aed;
+}
+html:not(.dark) body.va .code-editor .ce-body::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+html:not(.dark) body.va .code-editor .ce-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-color: #ffffff;
+}
+html:not(.dark) body.va .code-editor .ce-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+html:not(.dark) body.va .vb-grid .p1-card.assess .code-editor .ce-body {
+  scrollbar-color: #cbd5e1 #ffffff;
+}
+
+@media (max-width: 980px) {
+  .hero-cards.vb-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-cards.vb-grid .b-wide .p1-body {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 
@@ -634,30 +1880,18 @@ html.dark .hero-band {
   background-image: var(--bg-diag-slate);
   background-blend-mode: multiply;
 }
-/* In dark mode --color-ink flips to slate-50, which renders as a near-white
-   hard rule across the bottom of the hero — too loud. Use the softer line
-   token so the divider sits with the rest of the dark-mode chrome. */
-html.dark .hero-band .supported-band {
-  border-top-color: var(--color-line);
-}
 .hero-band .supported-band::before {
-  content: "SUPPORTED AI AGENTS";
+  content: "SUPPORTED ACROSS";
   position: absolute;
-  top: 10px;
+  top: 14px;
   left: 32px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.3em;
   color: var(--fg-3);
-  z-index: 1;
 }
 .hero-band .supported-band .marquee {
-  /* Top padding (32px) makes room for the absolute label (y=10→22) plus
-     a 10px gap before the logos start at y=32. Bottom padding mirrors
-     just that 10–14px label-to-logo gap so the strip feels visually
-     balanced — equal numeric padding would leave the bottom looking
-     empty since the top half is anchored by the label. */
-  padding: 32px 0 14px;
+  padding: 36px 0 22px;
 }
 
 /* ----- TOPOGRAPHIC RIDGE DIVIDER ----- */
@@ -667,12 +1901,6 @@ html.dark .hero-band .supported-band {
   background: var(--color-paper);
   border-top: 1px solid var(--color-ink);
   overflow: hidden;
-}
-/* Soften the divider in dark mode — same reason as the supported-band top
-   border: --color-ink flips to slate-50 and burns through the dark chrome
-   as a stark white rule between the marquee and the HORIZON band. */
-html.dark .topo-band {
-  border-top-color: var(--color-line);
 }
 .topo-band::before {
   content: "";
@@ -712,16 +1940,6 @@ html.dark .topo-band {
   border-top: 1px solid var(--color-ink);
   overflow: hidden;
 }
-/* Mirror the install-band + cta-band dark-mode pins — without this,
-   --color-slate flips to slate-50 and the wave divider sits on a
-   bright white slab between two dark sections. #060B14 matches the
-   adjacent CTA band so the transition reads as one continuous deep
-   slate surface. Ported verbatim from the mockup
-   (body.va.dark .wave-band { background:#060B14; border-top-color:var(--color-line); }). */
-html.dark .wave-band {
-  background: #060b14;
-  border-top-color: var(--color-line);
-}
 .wave-band svg {
   position: absolute;
   inset: 0;
@@ -731,8 +1949,8 @@ html.dark .wave-band {
 }
 
 /* =========================================================
-     RIDGES — section dividers, each a unique geometric pattern
-     ========================================================= */
+   RIDGES — section dividers, each a unique geometric pattern
+   ========================================================= */
 
 /* shared ridge base */
 .ridge {
@@ -795,15 +2013,12 @@ html.dark .wave-band {
 }
 
 /* DARK MODE — ridge-pixel "FEEDS · 04" would blow out white because
-     it's painted in --color-ink (which inverts to white in dark mode).
-     Re-skin it to match the ridge-stars "WHY · 05" treatment: dark
-     paper-deep panel + plus-grid pattern. The decorative SVG (pixel
-     teeth, paper slab) doesn't translate to dark, so we hide it. */
+   it's painted in --color-ink (which inverts to white in dark mode).
+   Re-skin it to match the ridge-stars "WHY · 05" treatment: dark
+   paper-deep panel + plus-grid pattern. The decorative SVG (pixel
+   teeth, paper slab) doesn't translate to dark, so we hide it. */
 html.dark body.va .ridge-pixel {
   background: var(--color-paper-deep);
-  /* Symmetric --color-line (slate-700) hairline top and bottom — the bottom
-     matches the top. The following feeds-band suppresses its own white section
-     top border (below) so this ridge border is the only line at the edge. */
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
   background-image: var(--bg-plus-grid);
@@ -820,18 +2035,6 @@ html.dark body.va .ridge-pixel .ridge-label {
   background: var(--color-paper-deep);
   color: var(--color-ink);
   border: 1px solid var(--color-line);
-}
-
-/* The shared `.section` rule (ui/styles/components.css) stamps a
-   `border-top: 1px solid var(--color-ink)` on every section — which flips to
-   slate-50 (near-white) in dark mode. On the bands that directly FOLLOW a
-   ridge divider (feeds-band after ridge-pixel, docs-band after ridge-stars)
-   that white rule lands exactly on the ridge's bottom edge and reads as a
-   bright line. The ridge already carries the divider (its own soft border +
-   plus-grid + label), so drop the duplicate section top border here. */
-html.dark body.va .feeds-band.section,
-html.dark body.va .docs-band {
-  border-top-color: transparent;
 }
 
 /* ---- ridge-stars · FEEDS → DOCS (plus-marker constellation) ---- */
@@ -868,6 +2071,474 @@ html.dark body.va .docs-band {
   border: 1px solid var(--color-line);
 }
 
+/* ============================================================
+   AGENT SCAN BAND (section 04) — eyebrow + headline + lede + report
+   Reuses section / eyebrow / lede / btn / score-num / band grammar.
+   ============================================================ */
+.agentscan-band {
+  background-color: var(--color-slate);
+  color: #f8fafc;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='290' height='290' viewBox='0 0 290 290'><g stroke='%23E2E8F0' stroke-width='1' opacity='0.32'><line x1='145' y1='136' x2='145' y2='143'/><line x1='145' y1='147' x2='145' y2='154'/><line x1='136' y1='145' x2='143' y2='145'/><line x1='147' y1='145' x2='154' y2='145'/></g></svg>"),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(226, 232, 240, 0.06) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='asn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23asn)' opacity='0.03'/%3E%3C/svg%3E");
+  background-position:
+    145px 145px,
+    0 0,
+    0 0,
+    0 0;
+  background-size:
+    290px 290px,
+    290px 290px,
+    290px 290px,
+    160px 160px;
+  background-repeat: repeat, repeat, repeat, repeat;
+}
+/* top tick-ruler ridge (orange majors + light minors — matches install band) */
+.agentscan-band::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247, 235, 255, 0.18) 1px, transparent 1px);
+  background-size:
+    120px 14px,
+    12px 14px;
+  background-position:
+    0 0,
+    0 4px;
+  background-repeat: repeat-x;
+}
+/* bottom diagonal-hatch ridge */
+.agentscan-band::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 96px;
+  z-index: 1;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    -55deg,
+    rgba(247, 235, 255, 0.1) 0,
+    rgba(247, 235, 255, 0.1) 1px,
+    transparent 1px,
+    transparent 7px
+  );
+  border-top: 1px solid rgba(247, 235, 255, 0.14);
+}
+.agentscan-band > .container {
+  position: relative;
+  z-index: 2;
+}
+
+/* rotating wireframe globe (canvas, behind content, top-right) */
+.agentscan-band .as-globe {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  top: 50%;
+  right: -90px;
+  transform: translateY(-50%);
+  width: 660px;
+  height: 660px;
+  max-width: 58%;
+  -webkit-mask-image: radial-gradient(circle at 55% 50%, #000 60%, transparent 77%);
+  mask-image: radial-gradient(circle at 55% 50%, #000 60%, transparent 77%);
+}
+
+/* header */
+.agentscan-band .as-head {
+  display: block;
+  margin-bottom: 120px;
+}
+.agentscan-band .as-title .hl {
+  color: var(--brand-primary);
+}
+.agentscan-band .eyebrow {
+  color: var(--brand-accent);
+}
+.agentscan-band .eyebrow::before {
+  background: currentColor;
+}
+.agentscan-band .as-title {
+  margin: 12px 0 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(36px, 4vw, 56px);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #f8fafc;
+}
+.agentscan-band .as-title .script {
+  font-family: var(--font-script);
+  font-stretch: normal;
+  font-weight: 400;
+  color: var(--brand-accent);
+  font-size: 0.5em;
+  transform: rotate(-3deg);
+  display: inline-block;
+  margin-left: 10px;
+  letter-spacing: 0;
+}
+.agentscan-band .as-lede {
+  margin: 16px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 760px;
+}
+.agentscan-band .as-cta {
+  align-self: flex-start;
+  margin-top: 26px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  height: 40px;
+  padding: 0 28px;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  --btn-h: 40px;
+  --cap-w: 18px;
+  -webkit-mask:
+    var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
+    var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
+    linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
+    calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
+  mask:
+    var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
+    var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
+    linear-gradient(#000, #000) calc(var(--cap-w) - 1px) center /
+    calc(100% - var(--cap-w) * 2 + 2px) var(--btn-h) no-repeat;
+  transition: background var(--dur-xs);
+}
+.agentscan-band .as-cta:hover {
+  background: var(--brand-primary);
+}
+.agentscan-band .as-browse {
+  display: inline-block;
+  margin-top: 16px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f8fafc;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  padding-bottom: 2px;
+  transition:
+    color var(--dur-xs),
+    border-color var(--dur-xs);
+}
+.agentscan-band .as-browse:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+.agentscan-band .as-head .btn.primary {
+  background: var(--brand-primary);
+  color: #ffffff;
+}
+
+/* three cards — near full-bleed, equal side margins + gap, ruler per card */
+.agentscan-band {
+  padding: 128px 0 96px;
+}
+.agentscan-band .as-cols {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  padding: 0 40px;
+}
+.agentscan-band .as-col {
+  position: relative;
+  padding: 34px 30px 14px;
+  min-height: 400px;
+  border: 1px solid rgba(247, 235, 255, 0.16);
+  border-top: 0;
+  background: rgba(13, 19, 33, 0.42);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+/* one ruler across the full width, glued to the cards' top — same style as the section's top ruler */
+.agentscan-band .as-cols::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 5;
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247, 235, 255, 0.2) 1px, transparent 1px);
+  background-size:
+    120px 14px,
+    12px 14px;
+  background-position:
+    0 0,
+    0 4px;
+  background-repeat: repeat-x;
+}
+.agentscan-band .ac-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--brand-primary);
+  letter-spacing: 0.1em;
+}
+.agentscan-band .ac-title {
+  margin: 13px 0 0;
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 23px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: #f8fafc;
+}
+.agentscan-band .ac-desc {
+  margin: 14px 0 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.66);
+}
+.agentscan-band .ac-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 16px;
+}
+.agentscan-band .ac-ref {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(247, 235, 255, 0.18);
+  padding: 4px 8px;
+}
+.agentscan-band .ac-report {
+  margin: 20px auto 0;
+  max-width: 340px;
+  border: 1px solid rgba(247, 235, 255, 0.16);
+  border-left: 3px solid var(--fg-3);
+  padding: 13px 15px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.agentscan-band .ac-rtop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.agentscan-band .ac-rlabel {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+.agentscan-band .ac-band-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--score-red);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+.agentscan-band .ac-band-chip .sw {
+  width: 8px;
+  height: 8px;
+  background: var(--score-red);
+  flex-shrink: 0;
+}
+.agentscan-band .ac-rscore {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.agentscan-band .ac-rscore .vn {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 32px;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.agentscan-band .ac-rscore .vn .vslash {
+  font-family: var(--font-mono);
+  font-stretch: normal;
+  font-weight: 400;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 2px;
+}
+.agentscan-band .ac-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(247, 235, 255, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+.agentscan-band .ac-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: var(--score-red);
+}
+.agentscan-band .ac-agent {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.02em;
+}
+.agentscan-band .ac-agent b {
+  color: var(--score-red);
+  font-weight: 700;
+}
+.agentscan-band .ac-agent .adot {
+  width: 6px;
+  height: 6px;
+  background: var(--score-red);
+  flex-shrink: 0;
+}
+
+@media (max-width: 920px) {
+  .agentscan-band .as-head {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .agentscan-band .as-cols {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 24px;
+  }
+  .agentscan-band .as-col {
+    min-height: 0;
+    padding: 30px 22px 14px;
+  }
+  .agentscan-band .as-globe {
+    top: 42%;
+    right: -150px;
+    width: 420px;
+    height: 420px;
+    opacity: 0.5;
+  }
+}
+
+/* DARK MODE: match the "Five reasons" (WHY) band surface — page paper, not the extra-dark slate */
+html.dark body.va .agentscan-band {
+  background-color: var(--color-paper);
+}
+
+/* ===== LIGHT MODE: true light theme for the Agent Scan band (visuals unchanged) ===== */
+html:not(.dark) body.va .agentscan-band {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
+html:not(.dark) body.va .agentscan-band {
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='290' height='290' viewBox='0 0 290 290'><g stroke='%230F172A' stroke-width='1' opacity='0.30'><line x1='145' y1='136' x2='145' y2='143'/><line x1='145' y1='147' x2='145' y2='154'/><line x1='136' y1='145' x2='143' y2='145'/><line x1='147' y1='145' x2='154' y2='145'/></g></svg>"),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(15, 23, 42, 0.07) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='asnl'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23asnl)' opacity='0.025'/%3E%3C/svg%3E");
+}
+html:not(.dark) body.va .agentscan-band::before {
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.22) 1px, transparent 1px);
+}
+html:not(.dark) body.va .agentscan-band::after {
+  background-image: repeating-linear-gradient(
+    -55deg,
+    rgba(15, 23, 42, 0.07) 0,
+    rgba(15, 23, 42, 0.07) 1px,
+    transparent 1px,
+    transparent 7px
+  );
+  border-top-color: rgba(15, 23, 42, 0.14);
+}
+html:not(.dark) body.va .agentscan-band .as-title {
+  color: var(--color-ink);
+}
+html:not(.dark) body.va .agentscan-band .as-lede {
+  color: var(--fg-2);
+}
+html:not(.dark) body.va .agentscan-band .as-browse {
+  color: var(--color-ink);
+  border-bottom-color: rgba(15, 23, 42, 0.35);
+}
+html:not(.dark) body.va .agentscan-band .as-browse:hover {
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
+}
+html:not(.dark) body.va .agentscan-band .ac-title {
+  color: var(--color-ink);
+}
+html:not(.dark) body.va .agentscan-band .ac-desc {
+  color: var(--fg-2);
+}
+html:not(.dark) body.va .agentscan-band .ac-ref {
+  color: var(--fg-3);
+  border-color: rgba(15, 23, 42, 0.18);
+}
+html:not(.dark) body.va .agentscan-band .ac-report {
+  border-color: rgba(15, 23, 42, 0.16);
+  border-left-color: var(--fg-3);
+}
+html:not(.dark) body.va .agentscan-band .ac-rlabel {
+  color: var(--fg-3);
+}
+html:not(.dark) body.va .agentscan-band .ac-rscore .vn {
+  color: var(--color-ink);
+}
+html:not(.dark) body.va .agentscan-band .ac-rscore .vn .vslash {
+  color: var(--fg-3);
+}
+html:not(.dark) body.va .agentscan-band .ac-bar {
+  background: rgba(15, 23, 42, 0.1);
+}
+html:not(.dark) body.va .agentscan-band .ac-agent {
+  color: var(--fg-2);
+}
+html:not(.dark) body.va .agentscan-band .as-col {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: var(--color-line);
+}
+html:not(.dark) body.va .agentscan-band .as-cols::before {
+  background-image:
+    linear-gradient(90deg, var(--brand-accent) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.22) 1px, transparent 1px);
+}
+
 /* ----- INSTALL BAND — dark slate accent, pixel-wave bottom ----- */
 .install-band {
   background-color: var(--color-slate);
@@ -876,7 +2547,8 @@ html.dark body.va .docs-band {
   position: relative;
   overflow: hidden;
   padding: 112px 0 200px;
-  background-image: /* + crosses at grid intersections */
+  background-image:
+/* + crosses at grid intersections */
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g stroke='rgba(247,235,255,0.12)' stroke-width='1' stroke-linecap='square'><line x1='60' y1='54' x2='60' y2='66'/><line x1='54' y1='60' x2='66' y2='60'/></g></svg>"),
     /* horizontal grid lines */
     linear-gradient(rgba(247, 235, 255, 0.05) 1px, transparent 1px),
@@ -1010,46 +2682,22 @@ html.dark body.va .docs-band {
 }
 .install-band .install-cap {
   color: rgba(255, 255, 255, 0.55);
-  margin-top: 22px;
 }
 .install-band .install-cap kbd {
   color: var(--color-paper);
   border-color: rgba(255, 255, 255, 0.22);
-  /* Keep the "Copy command" tag on one line — it must never break mid-label. */
-  white-space: nowrap;
-  display: inline-block;
 }
 
-/* ----- DARK MODE — ported from
-   .local/.brainstorms/frontend/mockups/SaferSkills-Homepage-unpacked.html
-   (body.va.dark .install-band …). The install-band is already a dark
-   section in light mode; in dark mode it deepens further to #060B14 so
-   it sits a notch below the slate-900 body, keeping the same terminal
-   contrast vibe and preventing --color-slate from flipping to slate-50. */
-html.dark .install-band {
-  background-color: #060b14;
-  color: var(--fg-1);
-}
-html.dark .install-band .eyebrow {
-  color: var(--brand-accent);
-}
-html.dark .install-band .install-head h2 {
-  color: var(--fg-1);
-}
-html.dark .install-band .install-head h2 .script {
-  color: var(--brand-accent);
-}
-html.dark .install-band .install-head .lede {
-  color: rgba(255, 255, 255, 0.78);
-}
-html.dark .install-band .install-cap {
-  color: rgba(255, 255, 255, 0.55);
-}
-html.dark .install-band .install-cap kbd {
-  color: var(--fg-1);
+/* tabs + terminal — adjust borders for dark surround */
+.install-band .tabs {
   border-color: rgba(255, 255, 255, 0.22);
 }
-
+.install-band .tab-btn {
+  border-right-color: rgba(255, 255, 255, 0.22);
+}
+.install-band .term {
+  border-color: rgba(255, 255, 255, 0.22);
+}
 .install-band .container {
   position: relative;
   z-index: 1;
@@ -1071,11 +2719,321 @@ html.dark .install-band .install-cap kbd {
 }
 
 /* ============================================================
-     INSTALL BAND — macOS terminal window w/ sidebar agent picker
-     (Variant B from install-section-proposals.html, ported in)
-     ============================================================ */
-/* The terminal-window color palette (--t-*) moved with InstallTabs into
-   ui/styles/components.css, re-rooted onto .iw-window. */
+   INSTALL BAND — macOS terminal window w/ sidebar agent picker
+   (Variant B from install-section-proposals.html, ported in)
+   ============================================================ */
+.install-band {
+  /* terminal-window color palette, scoped to install-band */
+  --t-bg: #1a1b1f;
+  --t-bg-deep: #14151a;
+  --t-border: #2c2e36;
+  --t-fg: #e4e4e4;
+  --t-fg-dim: #9ca0a8;
+  --t-fg-muted: #6b6f78;
+  --t-ansi-green: #4ec9b0;
+  --t-ansi-blue: #61afef;
+  --t-ansi-cyan: #56b6c2;
+  --t-ansi-orange: #f9a35e;
+  --t-prompt: #14b8a6;
+}
+
+/* shared mac chrome — traffic lights */
+.install-band .mac-traffic {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.install-band .mac-traffic span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+.install-band .mac-traffic .l-r {
+  background: #ff5f57;
+}
+.install-band .mac-traffic .l-y {
+  background: #febc2e;
+}
+.install-band .mac-traffic .l-g {
+  background: #28c840;
+}
+
+/* terminal body text rules */
+.install-band .mt-body {
+  background: var(--t-bg);
+  color: var(--t-fg);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  padding: 22px 26px 96px; /* tall bottom space below last line */
+  position: relative;
+  min-height: 420px; /* keeps the window tall */
+  flex: 1;
+}
+.install-band .mt-body .ln {
+  display: block;
+}
+.install-band .mt-body .prompt-sigil {
+  color: var(--t-prompt);
+  font-weight: 700;
+}
+.install-band .mt-body .cmd {
+  color: #f5f5f5;
+  font-weight: 700;
+}
+.install-band .mt-body .arg {
+  color: var(--t-ansi-orange);
+}
+.install-band .mt-body .ok {
+  color: var(--t-ansi-green);
+  font-weight: 700;
+}
+.install-band .mt-body .num {
+  color: #f5f5f5;
+  font-weight: 700;
+}
+.install-band .mt-body .green-tag {
+  color: var(--t-ansi-green);
+}
+.install-band .mt-body .path {
+  color: var(--t-ansi-blue);
+}
+.install-band .mt-body .file {
+  color: var(--t-ansi-cyan);
+}
+.install-band .mt-body .done-line {
+  color: #f5f5f5;
+  font-weight: 600;
+}
+.install-band .mt-body .dim {
+  color: var(--t-fg-dim);
+}
+.install-band .mt-body .caret {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--t-fg);
+  vertical-align: text-bottom;
+  margin-left: 4px;
+  animation: mt-blink 1.05s steps(1) infinite;
+}
+
+.install-band .mt-body .group {
+  margin-top: 10px;
+}
+.install-band .mt-body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(255, 255, 255, 0.012) 2px,
+    rgba(255, 255, 255, 0.012) 3px
+  );
+}
+
+/* copy button on chrome */
+.install-band .mt-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--dur-xs) var(--ease-std);
+}
+.install-band .mt-copy:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+.install-band .mt-copy svg {
+  width: 11px;
+  height: 11px;
+  opacity: 0.85;
+}
+
+/* the window */
+.install-band .iw-window {
+  border-radius: 11px;
+  overflow: hidden;
+  background: var(--t-bg);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 20px 50px -20px rgba(0, 0, 0, 0.55),
+    0 4px 16px -8px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+.install-band .iw-chrome {
+  position: relative;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: linear-gradient(180deg, #3a3c42 0%, #2c2e34 100%);
+  border-bottom: 1px solid #1a1b1f;
+  flex-shrink: 0;
+}
+.install-band .iw-chrome .iw-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #d2d4d8;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.install-band .iw-chrome .copy-slot {
+  margin-left: auto;
+  z-index: 2;
+}
+
+.install-band .iw-grid {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  flex: 1;
+  min-height: 480px; /* overall taller window */
+}
+.install-band .iw-side {
+  background: #1f2026;
+  border-right: 1px solid #0e0f12;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.install-band .iw-side .side-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #7e818a;
+  padding: 6px 10px 10px;
+}
+.install-band .iw-row {
+  all: unset;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  column-gap: 11px;
+  row-gap: 1px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: #d9dbe0;
+  transition: background var(--dur-xs) var(--ease-std);
+}
+.install-band .iw-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.install-band .iw-row .iw-mono {
+  grid-row: 1 / span 2;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #d9dbe0;
+  transition:
+    background var(--dur-xs),
+    color var(--dur-xs);
+}
+.install-band .iw-row .iw-name {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+}
+.install-band .iw-row .iw-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #7e818a;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.install-band .iw-row.active {
+  background: rgba(13, 148, 136, 0.18);
+  box-shadow: inset 2px 0 0 var(--brand-primary);
+}
+.install-band .iw-row.active .iw-mono {
+  background: var(--brand-primary);
+  color: #ffffff;
+}
+.install-band .iw-row.active .iw-name {
+  color: #ffffff;
+}
+.install-band .iw-row.active .iw-sub {
+  color: #b2d9d4;
+}
+
+.install-band .iw-main {
+  background: var(--t-bg);
+  display: flex;
+  flex-direction: column;
+}
+.install-band .iw-bread {
+  padding: 12px 22px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #7e818a;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.install-band .iw-bread .crumb {
+  color: #b0b4bc;
+}
+.install-band .iw-bread .crumb.cur {
+  color: #f5f5f5;
+}
+.install-band .iw-bread .sep {
+  opacity: 0.55;
+}
+
+/* responsive — stack picker above terminal on small screens */
+@media (max-width: 980px) {
+  .install-band .iw-grid {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .install-band .iw-side {
+    border-right: 0;
+    border-bottom: 1px solid #0e0f12;
+  }
+  .install-band .mt-body {
+    min-height: 320px;
+    padding-bottom: 72px;
+  }
+}
 
 /* ----- FEEDS — Grid Mosaic (3×3 with decorative wireframes) ----- */
 /* section header lives inside the grid's title-cell now; tighten outer padding */
@@ -1223,6 +3181,151 @@ html.dark .install-band .install-cap kbd {
   background: var(--brand-primary);
 }
 
+/* mini scan card (works for recent + trending) */
+.feeds-band .scan-card {
+  gap: 10px;
+}
+.feeds-band .scan-card .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.feeds-band .scan-card .name {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+  margin-top: 2px;
+}
+.feeds-band .scan-card .meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.feeds-band .scan-card .body {
+  flex: 1;
+  min-width: 0;
+}
+.feeds-band .scan-card .icon-mark {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--score-green);
+  color: var(--color-paper);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.feeds-band .scan-card .icon-mark.orange {
+  background: var(--score-orange);
+}
+.feeds-band .scan-card .icon-mark.yellow {
+  background: var(--score-yellow);
+  color: var(--color-ink);
+}
+.feeds-band .scan-card .score-line {
+  margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-line);
+}
+.feeds-band .scan-card .score-num {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 36px;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+  color: var(--color-ink);
+}
+.feeds-band .scan-card .score-num .slash {
+  font-family: var(--font-mono);
+  font-stretch: normal;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--fg-3);
+  margin-left: 4px;
+}
+.feeds-band .scan-card .band {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.feeds-band .scan-card .band .sw {
+  width: 10px;
+  height: 10px;
+}
+.feeds-band .scan-card .band .sw.green {
+  background: var(--score-green);
+}
+.feeds-band .scan-card .band .sw.orange {
+  background: var(--score-orange);
+}
+.feeds-band .scan-card .band .sw.yellow {
+  background: var(--score-yellow);
+}
+
+/* trending card extras */
+.feeds-band .trend-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.feeds-band .trend-stats .num {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.025em;
+  color: var(--color-ink);
+  margin-right: 6px;
+}
+.feeds-band .trend-stats .delta {
+  color: var(--score-green);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.feeds-band .trend-spark {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--brand-primary);
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+.feeds-band .rank-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.18em;
+}
+.feeds-band .rank-pill b {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+}
+
 /* decorative wireframe cell */
 .feeds-band .wire-cell {
   padding: 0;
@@ -1242,8 +3345,8 @@ html.dark .install-band .install-cap kbd {
   overflow: hidden;
 }
 /* decorative side gutters — dashed verticals + lemon-yellow markers.
-     Mirrored on the right with scaleX(-1). Faded into the content with
-     an inner-edge mask so the pattern doesn't fight the text. */
+   Mirrored on the right with scaleX(-1). Faded into the content with
+   an inner-edge mask so the pattern doesn't fight the text. */
 .docs-band::before,
 .docs-band::after {
   content: "";
@@ -1278,16 +3381,6 @@ html.dark .install-band .install-cap kbd {
   .docs-band::after {
     width: 140px;
   }
-  /* At narrower widths the container fills most of the band, so the decorative
-     dotted gutters would bleed through the heading + reasons text (they sit
-     behind it with no backing). Give the content columns an opaque band-colour
-     backing so the text stays clean; the gutters then only peek in the margins. */
-  .docs-band .docs-side,
-  .docs-band .reasons-list {
-    position: relative;
-    z-index: 1;
-    background: var(--color-paper-deep);
-  }
 }
 @media (max-width: 980px) {
   .docs-band::before,
@@ -1313,6 +3406,106 @@ html.dark .install-band .install-cap kbd {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--color-ink);
+}
+.reason-row {
+  display: grid;
+  grid-template-columns: 44px 120px 1fr 220px;
+  gap: 24px;
+  align-items: baseline;
+  padding: 22px 0 22px 0;
+  border-bottom: 1px dashed var(--color-line);
+  text-decoration: none;
+  color: var(--color-ink);
+  transition:
+    padding var(--dur-xs) var(--ease-std),
+    background var(--dur-xs) var(--ease-std);
+}
+.reason-row:hover {
+  padding-left: 10px;
+  background: var(--color-paper);
+}
+.reason-row:hover .k {
+  color: var(--brand-primary);
+}
+.reason-row:hover .arrow {
+  transform: translateX(4px);
+  color: var(--brand-primary);
+}
+.reason-row .n {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: 0.22em;
+}
+.reason-row .k {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color var(--dur-xs);
+}
+.reason-row .k .arrow {
+  display: inline-block;
+  transition:
+    transform var(--dur-xs) var(--ease-std),
+    color var(--dur-xs);
+  color: var(--fg-3);
+}
+.reason-row .d {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-wrap: pretty;
+}
+.reason-row .d .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--color-ink);
+  letter-spacing: 0;
+}
+.reason-row .d b {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--color-ink);
+  font-size: 16px;
+  letter-spacing: -0.005em;
+}
+.reason-row .m {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.reason-row .m .stat b {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  margin-right: 4px;
+}
+.reason-row .m .ml-link {
+  color: var(--brand-primary);
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+  padding-bottom: 1px;
+  align-self: flex-end;
+}
+.reason-row .m .ml-link:hover {
+  color: var(--color-ink);
 }
 
 /* ----- MARQUEE BAND (replaces old Why band) ----- */
@@ -1568,6 +3761,23 @@ html.dark .install-band .install-cap kbd {
   .docs-toc {
     grid-template-columns: 1fr;
   }
+  .reason-row {
+    grid-template-columns: 36px 1fr;
+    row-gap: 6px;
+  }
+  .reason-row .d {
+    grid-column: 1 / -1;
+  }
+  .reason-row .m {
+    grid-column: 1 / -1;
+    text-align: left;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .reason-row .m .ml-link {
+    align-self: flex-start;
+  }
   .marquee-band .mq-head {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -1582,19 +3792,28 @@ html.dark .install-band .install-cap kbd {
   .ft-brand {
     grid-column: span 2;
   }
+  .tabs {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .tabs .tab-btn:nth-child(4) {
+    border-right: 0;
+  }
+  .tabs .tab-btn:nth-child(n + 5) {
+    border-top: 1px solid var(--color-ink);
+  }
 }
 
 /* ============================================================
-     DETECTION BAND — Variant B (Density Forward · 3 rows)
-     Replaces the old "12,847 skills, scored" catalog marquee.
-     ============================================================ */
+   DETECTION BAND — Variant B (Density Forward · 3 rows)
+   Replaces the old "12,847 skills, scored" catalog marquee.
+   ============================================================ */
 /* ============================================================
-     DETECTION BAND — dot-grid tokens (used by .detection-band)
-     ============================================================ */
+   DETECTION BAND — dot-grid tokens (used by .detection-band)
+   ============================================================ */
 
 /* ============================================================
-     DETECTION BAND
-     ============================================================ */
+   DETECTION BAND
+   ============================================================ */
 .detection-band {
   position: relative;
   padding: 64px 0 56px;
@@ -1682,8 +3901,7 @@ html.dark .install-band .install-cap kbd {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 700;
-  /* darker teal so the 13px bold link meets WCAG AA (4.5:1) on paper */
-  color: var(--brand-primary-dark);
+  color: var(--brand-primary);
   border-bottom: 1px solid transparent;
   padding-bottom: 2px;
   transition: border-color var(--dur-xs);
@@ -1730,8 +3948,8 @@ html.dark .install-band .install-cap kbd {
 }
 
 /* ============================================================
-     TRACKS — full-bleed marquee · 3 rows
-     ============================================================ */
+   TRACKS — full-bleed marquee · 3 rows
+   ============================================================ */
 .detection-band .dt-tracks {
   position: relative;
   margin-left: calc(50% - 50vw);
@@ -1744,10 +3962,6 @@ html.dark .install-band .install-cap kbd {
   position: relative;
   width: 100%;
   overflow: hidden;
-  /* Vertical breathing room so the tiles' 1px top/bottom borders aren't shaved
-     off by the (horizontally-needed) overflow:hidden clip — without it the last
-     row reads as bottomless. The horizontal marquee mask is unaffected. */
-  padding: 2px 0;
   -webkit-mask: linear-gradient(
     90deg,
     transparent 0,
@@ -1801,8 +4015,8 @@ html.dark .install-band .install-cap kbd {
 }
 
 /* ============================================================
-     TILE — density card · 244 × 116
-     ============================================================ */
+   TILE — density card · 244 × 116
+   ============================================================ */
 .dt-tile {
   flex: 0 0 244px;
   height: 116px;
@@ -1816,63 +4030,15 @@ html.dark .install-band .install-cap kbd {
   border-radius: 0;
   text-decoration: none;
   color: var(--color-ink);
-  /* Clip the scan beam (::after) to the tile. */
-  overflow: hidden;
   transition:
     border-color var(--dur-xs) var(--ease-std),
-    background var(--dur-xs) var(--ease-std);
+    background var(--dur-xs) var(--ease-std),
+    transform var(--dur-xs) var(--ease-std);
 }
-/* Highlight: teal accent border + subtle surface lift (no shadow, no move). */
-.dt-tile:hover,
-.dt-tile:focus-visible {
-  border-color: var(--brand-primary);
+.dt-tile:hover {
+  border-color: var(--color-ink);
   background: var(--color-paper-deep);
-}
-/* Rich flourish: a thematic teal "scan beam" wipes across the tile once on
-   hover/focus — on-brand for the detection section. GPU-only (transform +
-   opacity), no shadow, no layout movement. */
-.dt-tile::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  /* Neutral, low-key sheen — uses --color-ink so it's a light sweep on dark
-     tiles and a dark sweep on light tiles (theme-aware grey), kept subtle. */
-  background: linear-gradient(
-    100deg,
-    transparent 38%,
-    color-mix(in srgb, var(--color-ink) 6%, transparent) 47%,
-    color-mix(in srgb, var(--color-ink) 16%, transparent) 50%,
-    color-mix(in srgb, var(--color-ink) 6%, transparent) 53%,
-    transparent 62%
-  );
-  transform: translateX(-120%);
-  opacity: 0;
-}
-@media (hover: hover) and (pointer: fine) {
-  .dt-tile:hover::after,
-  .dt-tile:focus-visible::after {
-    animation: dt-scan var(--dur-lg) var(--ease-out);
-  }
-}
-@keyframes dt-scan {
-  0% {
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(120%);
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dt-tile:hover::after,
-  .dt-tile:focus-visible::after {
-    animation: none;
-  }
+  transform: translateY(-1px);
 }
 .dt-tile::before {
   content: "";
@@ -1983,8 +4149,8 @@ html.dark .install-band .install-cap kbd {
 }
 
 /* ============================================================
-     FOOTLINE — right-aligned "Read the full rubric →" only
-     ============================================================ */
+   FOOTLINE — right-aligned "Read the full rubric →" only
+   ============================================================ */
 .detection-band .dt-foot-line {
   margin-top: 24px;
   display: flex;
@@ -1996,6 +4162,12 @@ html.dark .install-band .install-cap kbd {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
+  color: var(--fg-3);
+}
+.detection-band .dt-foot-line .prefix {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
   color: var(--fg-3);
 }
 

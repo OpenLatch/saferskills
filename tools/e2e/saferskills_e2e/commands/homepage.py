@@ -4,8 +4,8 @@ Loads `<base_url>` in headless Chromium and asserts the public landing
 page's contract per the Phase A2 hi-fi rebuild (2026-05-28):
 
   (a) The "SaferSkills" wordmark is visible.
-  (b) The hero headline carries the canonical "Every AI capability"
-      copy that anchors every Phase A2 hero variation.
+  (b) The hero headline carries the canonical "Audit every capability"
+      copy that anchors the I-5.7 v3 two-scan hero.
   (c) The "Run a scan" CTA in the nav-right pair is visible AND
       enabled — this is the primary conversion affordance on the
       A2 page.
@@ -44,7 +44,7 @@ from saferskills_e2e.shared.exit_codes import ExitCode
 from saferskills_e2e.shared.output import print_fail, print_info, print_ok
 
 WORDMARK = "SaferSkills"
-HERO_COPY_FRAGMENT = "Every AI capability"
+HERO_COPY_FRAGMENT = "Audit every capability"
 SCAN_CTA_LABEL = "Run a scan"
 PAGE_LOAD_TIMEOUT_MS = 15_000
 ELEMENT_TIMEOUT_MS = 5_000
@@ -102,8 +102,8 @@ class HomepageCommand(BaseCommand):
             await self._screenshot(page, screenshot_dir, suffix="missing-wordmark")
             return ExitCode.FAIL_HOMEPAGE
 
-        # 2. Hero copy fragment — anchors every Phase A2 hero variation
-        # ("Every AI capability, independently audited against …").
+        # 2. Hero copy fragment — anchors the I-5.7 v3 two-scan hero
+        # ("Audit every capability. / Scan the whole agent against ...").
         try:
             await page.get_by_text(HERO_COPY_FRAGMENT, exact=False).first.wait_for(
                 state="visible", timeout=ELEMENT_TIMEOUT_MS
