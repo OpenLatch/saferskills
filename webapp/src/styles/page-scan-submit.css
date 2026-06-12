@@ -1,10 +1,14 @@
-/* /scan — pixel-faithful port of the Claude-Design scan-submit mockup.
+/* /scan + /agents/scan — pixel-faithful port of the v3 scan-submit mockup.
  *
- * Source: .local/.brainstorms/frontend/mockups/SaferSkills-Scan-unpacked.html
- *   scan block (.scan-split / .scan-form-pane / .scan-method-pane). Ported with
- *   `body.va.dark` → `html.dark` and raw values → tokens (rule (a): shell page
- *   CSS is token-only). DS vocabulary (.band-pill, .page-head .ph-*,
- *   .ridge-stars) lives in ui/styles/components.css and is reused.
+ * Source: .local/.brainstorms/website-refresh/mockups/SaferSkills-Scan-v3-unpacked.html
+ *   scan view (.scan-split / .scan-form-pane / .modepanel / .scan-method-pane /
+ *   .rec-grid). Ported with `body.va.dark` → `html.dark` and raw values →
+ *   tokens (rule (a): shell page CSS is token-only). DS vocabulary (.band-pill,
+ *   .page-head .ph-*, .seg, .prompt-card, .weight-bars) lives in
+ *   ui/styles/components.css and is reused. The agent activation vocabulary
+ *   (.agent-activation / .plat-* / .cli-alt) is shared by /scan and
+ *   /agents/scan — both routes import this file (the page-scan-report.css
+ *   two-route precedent).
  */
 
 /* shared sub-eyebrow (both panes + recents band) */
@@ -147,11 +151,59 @@ html.dark .scan-form-pane .hint b {
 .scan-console-shell.is-handoff {
   opacity: 0;
 }
-.scan-console-shell .seg {
-  margin: 20px 0;
+.scan-form-pane .seg {
+  margin: 0 0 20px;
 }
 .scan-pane {
   margin-bottom: 4px;
+}
+
+/* ============================================================
+   MODE PANELS (ScanModeShell) — [01 Capability | 02 Agent] tabpanels.
+   Entry is an interruptible opacity (+4px translateY) TRANSITION via
+   @starting-style — never a keyframe (motion guardrail: tab-panel swap is
+   an opacity crossfade, ≤250ms, reduced-motion short-circuited).
+   ============================================================ */
+.modepanel {
+  position: relative;
+}
+.mp-body[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mp-body {
+    transition:
+      opacity 200ms var(--ease-out),
+      translate 200ms var(--ease-out);
+  }
+  @starting-style {
+    .mp-body:not([hidden]) {
+      opacity: 0;
+      translate: 0 4px;
+    }
+  }
+}
+
+/* "or paste a URL" divider inside the capability pane (mockup verbatim). */
+.cap-or {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+}
+.cap-or::before,
+.cap-or::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--color-line);
+}
+.cap-or span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-3);
 }
 
 /* Privacy row — toggle + info tooltip + private note. */
@@ -262,7 +314,8 @@ html.dark .scan-form-pane .hint b {
   font-family: var(--font-mono);
   opacity: 0.8;
 }
-.scan-go[data-mode="url"] {
+.scan-go[data-mode="url"],
+.scan-go[data-mode="agent"] {
   background: var(--brand-accent);
   /* P2-3: the mockup uses near-white text on #F97316 (~2.3:1, fails AA). Orange
      can't darken without losing identity, so dark ink on orange (~6.8:1) is the
@@ -274,7 +327,8 @@ html.dark .scan-form-pane .hint b {
   background: var(--brand-primary-dark);
   transform: translateY(-1px);
 }
-.scan-go[data-mode="url"]:not(:disabled):hover {
+.scan-go[data-mode="url"]:not(:disabled):hover,
+.scan-go[data-mode="agent"]:not(:disabled):hover {
   background: var(--brand-accent);
   transform: translateY(-1px);
 }
@@ -283,6 +337,52 @@ html.dark .scan-form-pane .hint b {
   cursor: not-allowed;
 }
 .scan-go:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Post-mint re-copy button (mockup .copy-prompt) — icon + label. */
+.scan-go.copy-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.scan-go .cp-ic {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Secondary "Generate a new prompt" reset under the re-copy action. */
+.scan-regen {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--color-line);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color var(--dur-xs) var(--ease-out),
+    background var(--dur-xs) var(--ease-out);
+}
+@media (hover: hover) {
+  .scan-regen:hover {
+    color: var(--color-ink);
+    background: var(--color-paper-deep);
+  }
+  html.dark .scan-regen:hover {
+    color: var(--fg-1);
+  }
+}
+.scan-regen:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
@@ -302,6 +402,139 @@ html.dark .scan-form-pane .hint b {
 }
 
 /* ============================================================
+   AGENT ACTIVATION (AgentScanActivation) — shared by the /scan agent pane
+   (surface='scan') and the /agents/scan picker page (surface='picker').
+   ============================================================ */
+
+/* Platform picker — a role="group" row of toggle chips (the .cap-filter
+   precedent: a SELECTION over one prompt block, not tabs over panels). */
+.plat-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.plat-picker .pp {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  color: var(--fg-3);
+  transition:
+    color var(--dur-xs) var(--ease-out),
+    background var(--dur-xs) var(--ease-out),
+    border-color var(--dur-xs) var(--ease-out);
+}
+html.dark .plat-picker .pp {
+  background: transparent;
+}
+/* DS hover language: a bg-fill change only — gated against sticky hover. */
+@media (hover: hover) {
+  .plat-picker .pp:not(.on):hover {
+    color: var(--color-ink);
+    background: var(--color-paper-deep);
+  }
+  html.dark .plat-picker .pp:not(.on):hover {
+    color: var(--fg-1);
+    background: var(--bg-surface-mute);
+  }
+}
+.plat-picker .pp.on {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+}
+html.dark .plat-picker .pp.on {
+  background: var(--fg-1);
+  border-color: var(--fg-1);
+  color: var(--color-paper);
+}
+.plat-picker .pp:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  position: relative;
+  z-index: 1;
+}
+
+/* Per-platform "how to use it" hint line above the prompt block. */
+.plat-hint {
+  margin: 12px 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  color: var(--fg-2);
+}
+
+/* Prompt-card foot content (PromptCodeCard footSlot). */
+.pcf-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+.pcf-note b {
+  color: var(--color-ink);
+}
+html.dark .pcf-note b {
+  color: var(--fg-1);
+}
+.pcf-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--brand-primary);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+/* CLI alternative line under the card. */
+.cli-alt {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--color-line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cli-alt .cli-cmd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink);
+  background: var(--color-paper-deep);
+  border: 1px solid var(--color-line);
+  padding: 5px 9px;
+}
+html.dark .cli-alt .cli-cmd {
+  color: var(--fg-1);
+}
+.cli-alt .cli-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.cli-alt .cli-note a {
+  color: var(--brand-primary);
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+/* /agents/scan picker page glue — center the surface, picker prominent. */
+.agent-scan-band .agent-activation {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.agent-activation--picker .plat-picker .pp {
+  font-size: 11.5px;
+  padding: 10px 16px;
+}
+
+/* ============================================================
    RECENTS · 03 — full-width band below the split. The recent-scan
    gallery, lifted out of the methodology pane into its own row.
    ============================================================ */
@@ -314,27 +547,27 @@ html.dark .scan-form-pane .hint b {
 html.dark .scan-recents {
   border-top-color: var(--color-line);
 }
-.scan-recents h3 {
+.scan-recents h2 {
   font-family: var(--font-sans);
-  font-size: 22px;
+  font-size: clamp(26px, 2.6vw, 34px);
   font-weight: 800;
-  letter-spacing: -0.03em;
-  margin: 0 0 22px;
+  letter-spacing: -0.035em;
+  margin: 0 0 28px;
 }
 
-.scan-recent {
-  border: 1px dashed var(--color-line);
-}
-.scan-recent .grid {
+/* v3 rec-grid cards — name + band + score + time + scan id + source. */
+.rec-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  border: 1px dashed var(--color-line);
+  background: var(--color-paper);
 }
-.scan-recent .rs-cell {
+.rec-cell {
   position: relative;
-  padding: 16px 18px;
+  padding: 22px 24px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 14px;
   border-right: 1px dashed var(--color-line);
   text-decoration: none;
   color: inherit;
@@ -344,7 +577,7 @@ html.dark .scan-recents {
    a surface-color lift with NO movement (a translateY would reveal the 1px
    --color-line seam on the dashed grid), plus a brand-primary bar that scales
    in so the hovered card is unmistakable even on a subtle bg shift. */
-.scan-recent .rs-cell::after {
+.rec-cell::after {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
@@ -354,61 +587,68 @@ html.dark .scan-recents {
   transform-origin: left;
   transition: transform var(--dur-sm) var(--ease-out);
 }
-.scan-recent .rs-cell:hover,
-.scan-recent .rs-cell:focus-visible {
+.rec-cell:hover,
+.rec-cell:focus-visible {
   background: var(--color-paper-deep);
 }
-.scan-recent .rs-cell:hover::after,
-.scan-recent .rs-cell:focus-visible::after {
+.rec-cell:hover::after,
+.rec-cell:focus-visible::after {
   transform: scaleX(1);
 }
-.scan-recent .rs-cell:hover .nm,
-.scan-recent .rs-cell:focus-visible .nm {
-  color: var(--brand-primary);
-}
 @media (prefers-reduced-motion: reduce) {
-  .scan-recent .rs-cell::after {
+  .rec-cell::after {
     transition: none;
   }
 }
-.scan-recent .rs-cell:nth-child(4n) {
+.rec-cell:nth-child(4n) {
   border-right: 0;
 }
-.scan-recent .rs-cell .top {
+.rec-cell .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.rec-cell .nm {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+html.dark .rec-cell .nm {
+  color: var(--fg-1);
+}
+.rec-cell:hover .nm,
+.rec-cell:focus-visible .nm {
+  color: var(--brand-primary);
+}
+.rec-cell .mid {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
 }
-.scan-recent .rs-cell .nm {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-ink);
-}
-html.dark .scan-recent .rs-cell .nm {
-  color: var(--fg-1);
-}
-.scan-recent .rs-cell .scn {
+.rec-cell .scn {
   font-family: var(--font-loud);
   font-stretch: 125%;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 30px;
   letter-spacing: -0.04em;
   color: var(--color-ink);
+  line-height: 1;
 }
-html.dark .scan-recent .rs-cell .scn {
+html.dark .rec-cell .scn {
   color: var(--fg-1);
 }
-.scan-recent .rs-cell .rs-time {
+.rec-cell .ago {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--fg-3);
 }
-.scan-recent .rs-cell .bot {
+.rec-cell .bot {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--fg-3);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 /* ============================================================
@@ -439,18 +679,25 @@ html.dark .scan-method-pane {
    (.weight-bars in ui/styles/components.css) — consumed here + on
    /methodology. Only the surrounding copy stays page-local. */
 
-.method-foot {
+.method-intro {
   margin: 0 0 22px;
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--fg-3);
-  letter-spacing: 0.02em;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  letter-spacing: 0.01em;
+  max-width: 52ch;
 }
-.method-foot .link {
+.method-intro .link {
   color: var(--brand-primary);
   border-bottom: 1px solid currentColor;
   text-decoration: none;
+}
+
+/* Agent risk-family body — orange fill accent (mockup .method-cats.agent).
+   A single-page override of the DS WeightBars fill. */
+.method-body--agent .weight-bars .wb-fill {
+  background: var(--brand-accent);
 }
 
 /* ============================================================
@@ -470,28 +717,28 @@ html.dark .scan-method-pane {
 
 /* Recents: 4-up → 2×2 on tablet (add the inter-row dashed seam) */
 @media (max-width: 860px) {
-  .scan-recent .grid {
+  .rec-grid {
     grid-template-columns: 1fr 1fr;
   }
-  .scan-recent .rs-cell:nth-child(2n) {
+  .rec-cell:nth-child(2n) {
     border-right: 0;
   }
-  .scan-recent .rs-cell:nth-child(2n + 1) {
+  .rec-cell:nth-child(2n + 1) {
     border-right: 1px dashed var(--color-line);
   }
-  .scan-recent .rs-cell:nth-child(-n + 2) {
+  .rec-cell:nth-child(-n + 2) {
     border-bottom: 1px dashed var(--color-line);
   }
 }
 
 @media (max-width: 520px) {
-  .scan-recent .grid {
+  .rec-grid {
     grid-template-columns: 1fr;
   }
-  .scan-recent .rs-cell {
+  .rec-cell {
     border-right: 0;
   }
-  .scan-recent .rs-cell:not(:last-child) {
+  .rec-cell:not(:last-child) {
     border-bottom: 1px dashed var(--color-line);
   }
 }
@@ -519,7 +766,7 @@ html.dark .scan-method-pane {
 
   /* Recent cards fade in place — no translate, so the dashed grid seams stay
      flush (the hover affordance is the brand top-bar, not a lift). */
-  .js-anim .rs-cell[data-reveal] {
+  .js-anim .rec-cell[data-reveal] {
     transform: none;
     transition:
       opacity var(--dur-lg) var(--ease-out) var(--reveal-delay, 0ms),
@@ -550,15 +797,15 @@ html.dark .scan-method-pane {
 }
 
 /* Recent-card entrance stagger. */
-.scan-recent .rs-cell:nth-child(1) {
+.rec-grid .rec-cell:nth-child(1) {
   --reveal-delay: 0ms;
 }
-.scan-recent .rs-cell:nth-child(2) {
+.rec-grid .rec-cell:nth-child(2) {
   --reveal-delay: 70ms;
 }
-.scan-recent .rs-cell:nth-child(3) {
+.rec-grid .rec-cell:nth-child(3) {
   --reveal-delay: 140ms;
 }
-.scan-recent .rs-cell:nth-child(4) {
+.rec-grid .rec-cell:nth-child(4) {
   --reveal-delay: 210ms;
 }

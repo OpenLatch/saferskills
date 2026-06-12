@@ -17,14 +17,18 @@ webapp/src/pages/
 ├── index.astro            → /
 ├── catalog/index.astro    → /catalog
 ├── catalog/[id].astro     → /catalog/:id
+├── scan/index.astro       → /scan               (umbrella scan page — SSR; `?mode=agent` deep-link, I-5.7)
 ├── scans/[id].astro       → /scans/:id          (public run report; 404s unlisted runs)
 ├── scans/r/[token].astro  → /scans/r/:token     (unlisted capability URL — SSR, noindex, no-store)
+├── agents/scan.astro      → /agents/scan        (platform-picker activation page — prerendered, I-5.7; the static segment beats /agents/[id])
 ├── agents/[id].astro      → /agents/:id         (public Agent Report; 404s unlisted runs — I-5.6)
 ├── agents/r/[token].astro → /agents/r/:token    (unlisted Agent Report — SSR, noindex, no-store — I-5.6)
 ├── api/[...path].ts       → /api/*              (same-origin reverse proxy → backend; SSR)
 ├── methodology.astro      → /methodology
 └── appeal.astro           → /appeal       (W6)
 ```
+
+The `/scan` page (I-5.7 plan 03) is one umbrella surface with a `[01 Capability | 02 Agent]` `SegmentedTabs` mode control owned by ONE island (`components/scan/ScanModeShell.tsx`, `client:load`): the Capability pane is the existing `ScanConsole` (v3 single-pane restyle — DropZone + "or paste a URL" divider + URL input; submit/validation/SSE logic untouched), the Agent pane is the shared activation island `components/scan/AgentScanActivation.tsx` (platform picker → Turnstile-gated mint via `useAgentScanMint` → the substituted bootstrap prompt). **`?mode=agent` is SSR-respected** (D-5.7-04): the page frontmatter reads `Astro.url.searchParams` and passes `initialMode` into the island AND the static methodology aside (`ScanMethodologyPreview.astro`, dual `.method-body[data-method]` bodies — the shell island toggles `hidden`, zero extra hydration), so a deep-link first-paints the Agent pane with no capability flash. Tab switches sync the URL with `history.replaceState` (no navigation). `/agents/scan` (D-5.7-02) renders the same activation island (`surface='picker'`, `client:load`) on a prerendered shell; every marketing agent CTA targets `/scan?mode=agent`, so a `/agents/scan` rollback strands nothing.
 
 The Agent Report routes (`agents/[id].astro` + `agents/r/[token].astro`, I-5.6) **mirror the `/scans` pair** — `prerender=false`; the unlisted route sets the same three anti-leakage headers + `Base noindex`, generic-404s a bad/expired token, and 307→`/agents/{id}` on a promoted run. The web pages are `/agents/*`; the **API** stays `/api/v1/agent-scans/*` (the backend `report.py` builds `report_url`/`share_url` at `/agents/*` so share links resolve — D-5.6-17). Both routes render the shared body island `webapp/src/components/agent/AgentReport.tsx` (`client:load`, SSR'd then hydrated): score hero (`ScoreNumber`-style `.sr-big`/`DotStrip`/`BandPill`/`AgentVerb`/`TrustTierPill`/`CapCallout`) + a `SegmentedTabs variant="underline"` shell (Report = `ProofOfTestsTable`; Findings/Component = Phase-B placeholders) + lifecycle chrome (manage bar, `VerifyWaitlistTile`, `RightOfReplyForm`). The **evidence split is route-driven** (D-5.6-03): the public fetch helper guarantees + defensively strips `evidence_excerpt`; only the token route hydrates the transcript (Phase B renders it). A pre-grade run renders `AgentScanPollBoard` (polls the page's own tokenless GET — NOT the token-gated `/{id}/status`). Dev builds against `fixtures/agent-scan-report.sample.json` via a `?fixture=` query (server-side, `import.meta.env.DEV`-gated). See `.claude/rules/security.md` § Capability-URL anti-leakage.
 

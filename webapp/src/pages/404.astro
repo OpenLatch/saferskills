@@ -20,7 +20,7 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
 ---
 <Base
   title="Page not found — SaferSkills"
-  description="We can't find that skill, MCP, or page. Search the catalog, scan a new skill, or head back home."
+  description="We can't find that skill, MCP, or page. Search the catalog, scan a capability or your agent, or head back home."
   bodyClass="va"
 >
   <NavBar client:idle ghCount={data.githubStars} activePath={Astro.url.pathname} />
@@ -31,7 +31,7 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
       <h1>We can't find that <span class="mk">skill, MCP, or page</span>.</h1>
       <p class="nf-lede">
         It may have been moved, renamed, or never existed. Search the catalog,
-        scan a new skill, or head back home.
+        scan a capability or your agent, or head back home.
       </p>
 
       <div class="nf-cards">

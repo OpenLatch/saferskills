@@ -212,11 +212,12 @@ Each carries an optional centered uppercase mono label.
 
 ### Header ridges (`PageRidge`)
 
-A separate, taller family (~104–116px) that carries the header→body transition under `<PageHead>`. One distinct `variant` per non-homepage page; all three recombine the same brand cues (contour + plus-grid + wave + tick-ruler) so pages feel unique-but-familiar:
+A separate, taller family (~104–116px) that carries the header→body transition under `<PageHead>`. One distinct `variant` per non-homepage page; all four recombine the same brand cues (contour + plus-grid + wave + tick-ruler) so pages feel unique-but-familiar:
 
 - **`contour`** (`/about`) — topographic contour bundle dissolving toward the content, with a thin tick-ruler edge.
 - **`mesh`** (`/methodology`) — a plus-grid field crossed by a dashed alignment seam + scattered teal/orange `+` marks.
 - **`swell`** (`/docs`) — a smooth wave bundle with corner registration crosshairs.
+- **`circuit`** (`/agents/scan`) — a relay/circuit-trace seam: right-angle traces with square junction pads over a faint plus-grid field, plus registration `+` marks (I-5.7).
 
 Mark colors are token-driven (`--brand-primary` / `--brand-accent` / `--color-ink` via the `.rdg-s-*` classes in `components.css`), so every stroke flips for dark mode for free. Pass `label` for the centered page-path cue (e.g. `label="— /ABOUT —"`). Adding a new page = a new `variant` here + the CSS height/treatment + a Ladle story case.
 

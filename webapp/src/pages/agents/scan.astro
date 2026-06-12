@@ -1,0 +1,57 @@
+---
+// The PRD §9.1 platform-picker page (I-5.7 plan 03 Module 3, D-5.7-02).
+// Static shell — all minting is client-side in the AgentScanActivation island.
+// Route note: this static segment beats the dynamic /agents/[id] in Astro
+// file routing, so /agents/scan renders this page while /agents/<uuid> still
+// hits the Agent Report.
+export const prerender = true
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import AgentScanActivation from '@/components/scan/AgentScanActivation.tsx'
+
+// The activation-surface vocabulary (.agent-activation / .plat-* / .scan-go …)
+// is shared with /scan and lives in page-scan-submit.css (the ScanRunReport ↔
+// page-scan-report.css precedent for a two-route composition).
+import '@/styles/page-scan-submit.css'
+---
+
+<Base
+  title="Scan your agent — SaferSkills"
+  description="Pick your platform, copy one prompt, and scan your whole running agent against an open adversarial pack — OWASP Agentic + MITRE ATLAS."
+>
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
+
+  <header class="page-head">
+    <div class="container">
+      <div class="ph-eyebrow">AGENT SCAN · /AGENTS/SCAN</div>
+      <h1 class="ph-title">Scan <span class="mark">your agent</span>.</h1>
+      <p class="ph-lede">
+        Point it at your live agent — the whole assembly — and it runs an open adversarial pack
+        (OWASP Agentic + MITRE ATLAS), returning a graded, evidence-backed report you can share.
+      </p>
+    </div>
+  </header>
+
+  <PageRidge variant="circuit" label="— /AGENTS/SCAN —" />
+
+  <section class="page-section page-section--grid agent-scan-band">
+    <div class="container">
+      <AgentScanActivation client:load surface="picker" />
+    </div>
+  </section>
+
+  <CtaBand
+    client:visible
+    title="Scan your agent. Read the report. Decide."
+    primaryAction={{ label: 'Run a scan →', href: '/scan?mode=agent' }}
+    secondaryAction={{ label: 'Browse scanned agents', href: '/agents' }}
+  />
+
+  <Footer />
+</Base>

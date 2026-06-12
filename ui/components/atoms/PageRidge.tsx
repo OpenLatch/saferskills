@@ -1,4 +1,4 @@
-type Variant = 'contour' | 'mesh' | 'swell'
+type Variant = 'contour' | 'mesh' | 'swell' | 'circuit'
 
 interface Props {
   variant: Variant
@@ -22,6 +22,9 @@ interface Props {
  *                              dashed alignment seam + scattered teal/orange `+`.
  * - `swell` (/docs)          — a smooth wave bundle with corner registration
  *                              crosshairs.
+ * - `circuit` (/agents/scan) — a relay/circuit-trace seam: right-angle traces
+ *                              with junction pads over a faint plus-grid field
+ *                              (CSS ::before), plus registration `+` marks.
  *
  * Stroke/fill colors are driven by CSS classes mapped to tokens
  * (`--brand-primary` / `--brand-accent` / `--color-ink`) in
@@ -38,6 +41,7 @@ export default function PageRidge({ variant, label, className = '' }: Props) {
       {variant === 'contour' && <ContourSvg />}
       {variant === 'mesh' && <MeshSvg />}
       {variant === 'swell' && <SwellSvg />}
+      {variant === 'circuit' && <CircuitSvg />}
     </div>
   )
 }
@@ -118,6 +122,61 @@ function MeshSvg() {
         <Plus cx={380} cy={68} cls="rdg-s-orange" />
         <Plus cx={860} cy={28} cls="rdg-s-orange" />
         <Plus cx={1180} cy={72} cls="rdg-s-orange" />
+      </g>
+    </svg>
+  )
+}
+
+/** A small square junction pad centred on (cx, cy). */
+function Pad({ cx, cy, r = 3.5, cls }: { cx: number; cy: number; r?: number; cls: string }) {
+  return (
+    <rect
+      className={cls}
+      x={cx - r}
+      y={cy - r}
+      width={r * 2}
+      height={r * 2}
+      strokeWidth={1.4}
+      fill="none"
+    />
+  )
+}
+
+function CircuitSvg() {
+  // Relay traces: horizontal runs with right-angle bends, terminated by square
+  // junction pads — the "signal hand-off" seam for the agent activation page.
+  const traces: Array<{ d: string; cls: string; op: number; w?: number }> = [
+    { d: 'M0,34 H320 V58 H640', cls: 'rdg-s-teal', op: 0.55, w: 1.4 },
+    { d: 'M640,58 H960 V34 H1280', cls: 'rdg-s-teal', op: 0.3 },
+    { d: 'M0,72 H180 V52 H470', cls: 'rdg-s-ink', op: 0.24 },
+    { d: 'M470,52 H760 V78 H1100', cls: 'rdg-s-orange', op: 0.6, w: 1.4 },
+    { d: 'M1100,78 H1280', cls: 'rdg-s-orange', op: 0.35 },
+    { d: 'M0,90 H400 V70 H840 V90 H1280', cls: 'rdg-s-ink', op: 0.14 },
+  ]
+  return (
+    <svg viewBox="0 0 1280 110" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" strokeLinecap="square" strokeLinejoin="miter">
+        {traces.map((t) => (
+          <path
+            key={t.d}
+            className={t.cls}
+            d={t.d}
+            strokeOpacity={t.op}
+            strokeWidth={t.w ?? 1.2}
+          />
+        ))}
+      </g>
+      <g opacity={0.8}>
+        <Pad cx={320} cy={34} cls="rdg-s-teal" />
+        <Pad cx={640} cy={58} cls="rdg-s-teal" />
+        <Pad cx={470} cy={52} cls="rdg-s-orange" />
+        <Pad cx={760} cy={78} cls="rdg-s-orange" />
+        <Pad cx={1100} cy={78} cls="rdg-s-ink" />
+      </g>
+      <g opacity={0.7}>
+        <Plus cx={120} cy={20} r={5} cls="rdg-s-orange" />
+        <Plus cx={980} cy={18} r={5} cls="rdg-s-teal" />
+        <Plus cx={1240} cy={96} r={5} cls="rdg-s-ink" />
       </g>
     </svg>
   )

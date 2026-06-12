@@ -29,6 +29,9 @@ interface DropZoneProps {
   onRemove?: (index: number) => void
   /** Compact row layout (homepage audit panel). */
   compact?: boolean
+  /** Main-line prefix before ", or click to browse" (page-specific copy —
+   *  e.g. /scan's v3 "Drag a SKILL.md or .zip here"). */
+  dropCopy?: string
 }
 
 const MIB = 1024 * 1024
@@ -57,6 +60,7 @@ export default function DropZone({
   error,
   onRemove,
   compact,
+  dropCopy = 'Drag a file or .zip here',
 }: DropZoneProps) {
   const [dragging, setDragging] = useState(false)
 
@@ -126,7 +130,7 @@ export default function DropZone({
           <UploadGlyph />
         </span>
         <p className="dz-main">
-          Drag a file or .zip here, or <span className="dz-browse">click to browse</span>
+          {dropCopy}, or <span className="dz-browse">click to browse</span>
         </p>
         {/* The sub-line collapses (grid-rows 1fr→0fr) once files are picked,
             shrinking the zone to glyph + sentence — see components.css. */}

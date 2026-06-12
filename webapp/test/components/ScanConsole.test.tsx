@@ -9,7 +9,7 @@ vi.mock('@/lib/api/scans', async (importActual) => {
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 
 import ScanConsole from '@/components/scan/ScanConsole'
-import { submitUpload, UploadError } from '@/lib/api/scans'
+import { submitScan, submitUpload, UploadError } from '@/lib/api/scans'
 
 function makeFile(name = 'SKILL.md') {
   return new File(['# skill'], name, { type: 'text/markdown' })
@@ -34,9 +34,12 @@ describe('ScanConsole', () => {
     })
   })
 
-  it('defaults to the Upload tab with a public toggle + passive consent', () => {
+  it('renders the v3 single pane — drop zone + URL input + public toggle + consent', () => {
     render(<ScanConsole />)
-    expect(screen.getByRole('tab', { name: 'Upload' }).getAttribute('aria-selected')).toBe('true')
+    // Both inputs visible at once (the "or paste a URL" divider layout).
+    expect(document.querySelector('input[type="file"]')).toBeTruthy()
+    expect(screen.getByLabelText(/github repository to scan/i)).toBeTruthy()
+    expect(screen.getByText(/or paste a URL/i)).toBeTruthy()
     expect(
       screen.getByRole('switch', { name: /make results public/i }).getAttribute('aria-checked')
     ).toBe('true')
@@ -49,12 +52,6 @@ describe('ScanConsole', () => {
     expect(screen.getByText(/anyone with the link can see it/i)).toBeTruthy()
   })
 
-  it('switches to the Scan-repo tab and shows the GitHub input', () => {
-    render(<ScanConsole />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Scan repo' }))
-    expect(screen.getByLabelText(/github repository to scan/i)).toBeTruthy()
-  })
-
   it('uploads a selected file and navigates to the run report', async () => {
     vi.mocked(submitUpload).mockResolvedValue({
       id: 'run-1',
@@ -64,7 +61,7 @@ describe('ScanConsole', () => {
     })
     render(<ScanConsole />)
     selectFile()
-    fireEvent.click(screen.getByRole('button', { name: /scan now/i }))
+    fireEvent.click(screen.getByRole('button', { name: /scan capability/i }))
     await waitFor(() => expect(submitUpload).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(window.location.assign).toHaveBeenCalledWith('/scans/run-1'))
   })
@@ -73,9 +70,22 @@ describe('ScanConsole', () => {
     vi.mocked(submitUpload).mockRejectedValue(new UploadError('upload_too_large', 413))
     render(<ScanConsole />)
     selectFile()
-    fireEvent.click(screen.getByRole('button', { name: /scan now/i }))
+    fireEvent.click(screen.getByRole('button', { name: /scan capability/i }))
     await waitFor(() =>
       expect(screen.getAllByText(/larger than the 10 MiB limit/i).length).toBeGreaterThan(0)
     )
+  })
+
+  it('files selected AND a URL typed → the URL-side submit forces the url path', async () => {
+    vi.mocked(submitScan).mockResolvedValue({ run_id: 'run-9' } as never)
+    render(<ScanConsole />)
+    selectFile()
+    const urlInput = screen.getByLabelText(/github repository to scan/i)
+    fireEvent.change(urlInput, { target: { value: 'github.com/acme/linear-mcp' } })
+    // The URL field's own ↵ button must submit the URL, not the picked files
+    // (the old Upload/Scan-repo tabs let the user choose — this preserves it).
+    fireEvent.click(screen.getByRole('button', { name: /scan repository/i }))
+    await waitFor(() => expect(submitScan).toHaveBeenCalledTimes(1))
+    expect(submitUpload).not.toHaveBeenCalled()
   })
 })
