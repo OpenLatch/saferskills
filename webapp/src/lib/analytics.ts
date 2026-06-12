@@ -51,6 +51,13 @@ type EventMap = {
   // I-3.5 — unlisted (capability-URL) manage-bar actions. Closed-enum action
   // only; NEVER the share_token, slug, filename, or any path content (telemetry.md).
   unlisted_manage_action: { action: 'copy_link' | 'promote' | 'delete' }
+  // I-5.7 — a bootstrap prompt was minted + copied (homepage card 02 / /scan
+  // agent pane / platform picker). Closed-enum only; NEVER the run_id, the
+  // one-time token, or any prompt content (telemetry.md).
+  agent_scan_prompt_minted: {
+    surface: 'homepage' | 'scan' | 'picker'
+    visibility: 'public' | 'unlisted'
+  }
   // I-5.6 — Agent Report surface interactions. Closed-enum only; NEVER the
   // share_token, agent name, runtime, or any transcript content (telemetry.md).
   agent_report_tab_selected: { tab: 'report' | 'findings' | 'component' }

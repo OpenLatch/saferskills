@@ -56,12 +56,21 @@ function patchScalars(data: HomepageData): void {
 }
 
 function patchPopular(chips: PopularChip[]): void {
-  const buttons = document.querySelectorAll<HTMLElement>('[data-live-popular] .p1-chip')
-  buttons.forEach((btn, i) => {
+  const anchors = document.querySelectorAll<HTMLElement>('[data-live-popular] .p1-chip')
+  anchors.forEach((el, i) => {
     const chip = chips[i]
-    if (!chip) return
-    const nm = btn.querySelector<HTMLElement>('.nm')
-    const sc = btn.querySelector<HTMLElement>('.sc')
+    if (!chip) {
+      // Fewer live chips than SSR'd fallbacks — hide the leftovers so a stale
+      // fallback chip never sits beside live data.
+      el.hidden = true
+      return
+    }
+    el.hidden = false
+    // Chips are anchors since I-5.7 — refresh the destination from the
+    // view-model href (live → /items/<slug>, fallback → /catalog).
+    if (el instanceof HTMLAnchorElement) el.href = chip.href
+    const nm = el.querySelector<HTMLElement>('.nm')
+    const sc = el.querySelector<HTMLElement>('.sc')
     if (nm) nm.textContent = chip.name
     if (sc) {
       sc.textContent = String(chip.score)

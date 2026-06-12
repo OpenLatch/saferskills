@@ -47,13 +47,16 @@ export default function AgentMarquee({ agents = DEFAULT_AGENTS }: Props) {
       <div className="marquee-track">
         {track.map((agent, i) => {
           const Logo = AGENT_LOGOS[agent.id]
+          // Copies 2..N exist only to make the loop seamless — hide them from
+          // the a11y tree so screen readers announce each agent exactly once.
+          const isDuplicate = i >= agents.length
           return (
             <span
               className="agent-chip"
               key={`${agent.id}-${i}`}
-              role="img"
-              aria-label={agent.name}
-              title={agent.name}
+              {...(isDuplicate
+                ? { 'aria-hidden': true as const }
+                : { role: 'img', 'aria-label': agent.name, title: agent.name })}
             >
               {Logo ? (
                 <Logo className="gly" />

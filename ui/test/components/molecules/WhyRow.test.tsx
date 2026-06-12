@@ -42,6 +42,26 @@ describe('WhyRow', () => {
     expect(container.querySelector('a')).toBeNull()
   })
 
+  it('renders real anchors per destination with `links` and keeps the root a div', () => {
+    const { container } = render(
+      <WhyRow
+        index="05"
+        tag="trust"
+        body="No browser fingerprinting."
+        links={[
+          { label: 'privacy policy', href: '/privacy' },
+          { label: 'methodology', href: '/methodology' },
+        ]}
+      />,
+    )
+    const row = container.querySelector('.reason-row')
+    expect(row?.tagName).toBe('DIV')
+    const anchors = container.querySelectorAll('a.ml-link')
+    expect(anchors.length).toBe(2)
+    expect(anchors[0]).toHaveAttribute('href', '/privacy')
+    expect(anchors[1]).toHaveAttribute('href', '/methodology')
+  })
+
   it('renders meta lines as .stat spans', () => {
     const { container } = render(
       <WhyRow

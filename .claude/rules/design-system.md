@@ -81,6 +81,9 @@ ui/
 │   │                 #   ComponentScoresTable (I-5.6 Phase B — Findings/Component tabs)
 │   │                 # CorpusRiskMeter, RiskThermometer, AgentFilterBar, MultiSelect,
 │   │                 #   DossierCard (I-5.6 Phase C — /agents directory)
+│   │                 # PromptCodeCard (I-5.7 — the code-editor-chrome bootstrap-prompt block,
+│   │                 #   `.prompt-card`/`.pc-*`; presentational, controlled copyState; shared by
+│   │                 #   the homepage mint card + the /scan agent pane + the platform picker)
 │   └── organisms/    # (composition shells if needed)
 ├── styles/
 │   ├── tokens.css    # Token SSOT + dark-mode block + Tailwind v4 @theme
