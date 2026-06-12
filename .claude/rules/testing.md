@@ -32,7 +32,7 @@ Coverage gates are enforced in `pr-checks.yml` (`test-fe` / `test-be` lanes). Th
 | `doctor` | Sanity-check the test environment — base URL reachable, target host resolves, browser launches. Always green or always red; no flakes. |
 | `smoke` | Smallest possible end-to-end — load the homepage, assert the page boots without JS errors, assert the API `/healthz` returns 200. |
 | `homepage` | Hero copy + nav + footer + above-the-fold render assertions. |
-| `item-detail` | Load `/items/<slug>` (slug discovered from the API); assert identity strip + score band render. Empty catalog → skip. (I-03 Phase C) |
+| `item-detail` | Load `/items/<slug>` (slug discovered from the API); assert the page-head identity title renders. Empty catalog → skip. (I-03 Phase C) |
 | `vendor-respond` | Load `/items/<slug>/respond`; assert the unverified verify-challenge renders. Full redeem→submit is covered by `tests/routers/test_vendor.py`. Empty catalog → skip. (I-03 Phase C) |
 | `badge-endpoint` | GET `/badge/<scan_id>/<score>.svg`; assert 200 + `image/svg+xml` + a tampered score → 400. No scans → skip. (I-03 Phase C) |
 | `og-endpoint` | GET `/og/scan/<scan_id>.png`; assert 200 + `image/png` + PNG magic. No scans → skip. (I-03 Phase C) |

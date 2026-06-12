@@ -6,7 +6,7 @@ page's contract per the Phase A2 hi-fi rebuild (2026-05-28):
   (a) The "SaferSkills" wordmark is visible.
   (b) The hero headline carries the canonical "Every AI capability"
       copy that anchors every Phase A2 hero variation.
-  (c) The "Scan a capability" CTA in the nav-right pair is visible AND
+  (c) The "Run a scan" CTA in the nav-right pair is visible AND
       enabled — this is the primary conversion affordance on the
       A2 page.
 
@@ -45,7 +45,7 @@ from saferskills_e2e.shared.output import print_fail, print_info, print_ok
 
 WORDMARK = "SaferSkills"
 HERO_COPY_FRAGMENT = "Every AI capability"
-SCAN_CTA_LABEL = "Scan a capability"
+SCAN_CTA_LABEL = "Run a scan"
 PAGE_LOAD_TIMEOUT_MS = 15_000
 ELEMENT_TIMEOUT_MS = 5_000
 
@@ -114,7 +114,7 @@ class HomepageCommand(BaseCommand):
             await self._screenshot(page, screenshot_dir, suffix="missing-hero")
             return ExitCode.FAIL_HOMEPAGE
 
-        # 3. "Scan a capability" CTA in the nav-right pair — primary conversion
+        # 3. "Run a scan" CTA in the nav-right pair — primary conversion
         # affordance on A2. Match by accessible name (role link OR button)
         # so we tolerate `<a>`, `<button>`, and `aria-label` variants.
         scan_cta: Locator = page.get_by_role("link", name=SCAN_CTA_LABEL).first

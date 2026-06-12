@@ -20,7 +20,7 @@ import Footer from '@ui/components/atoms/Footer.astro'
 
 import '@/styles/page-legal.css'
 
-const meta = { effective: '29 May 2026', updated: '29 May 2026', version: '1.0' }
+const meta = { effective: '29 May 2026', updated: '11 June 2026', version: '1.0' }
 const privacyEmail = 'privacy@openlatch.ai'
 // Fill with the registered entity details once finalised.
 const controllerLine =
@@ -34,6 +34,7 @@ const toc = [
   { id: 'children', label: 'Special-category & children’s data' },
   { id: 'legitimate-interests', label: 'Use of legitimate interests' },
   { id: 'access-signals', label: 'Anonymised catalog-access signals' },
+  { id: 'agent-scan-telemetry', label: 'Agent Scan telemetry (company-level)' },
   { id: 'scanning', label: 'Scanning public repositories' },
   { id: 'your-rights', label: 'Your rights' },
   { id: 'processors', label: 'Who we share data with' },
@@ -48,7 +49,7 @@ const toc = [
 ---
 <Base
   title="Privacy Policy — SaferSkills"
-  description="How SaferSkills processes personal data: no accounts, no tracking cookies, cookieless analytics, hashed IPs for abuse prevention only, and public scan results. GDPR-aligned, stewarded by OpenLatch (France)."
+  description="How SaferSkills processes personal data: no accounts, no tracking cookies, cookieless analytics, hashed IPs for abuse prevention only, and public scan results. GDPR-aligned. SaferSkills is an OpenLatch project (France)."
 >
   <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
 
@@ -129,6 +130,13 @@ const toc = [
                 <td>Understand aggregate usage; improve the service</td>
                 <td>Legitimate interest</td>
                 <td>~90 days, then aggregated</td>
+              </tr>
+              <tr>
+                <td>Agent Scan company-level signal</td>
+                <td>Yes, <strong>only if you run an agent scan</strong> — server-side IP→ASN (company, not person) + an anonymised assembled-agent fingerprint</td>
+                <td>Usage-as-intent / service improvement + warm enterprise outreach</td>
+                <td>Legitimate interest + one-time notice with opt-out</td>
+                <td>See Section 11</td>
               </tr>
               <tr>
                 <td>Error / diagnostic data</td>
@@ -336,6 +344,26 @@ const toc = [
         <p><strong>Legal basis:</strong> legitimate interest in understanding aggregate
         catalog usage and improving the service (Art. 6(1)(f) GDPR). Records are
         retained for approximately 30 days, then deleted.</p>
+
+        <h3 id="agent-scan-telemetry">3.10 Agent Scan telemetry (company-level)</h3>
+        <p>
+          When you run an Agent Scan, we record a <strong>company-level</strong>
+          telemetry signal alongside the graded run: a server-side IP→ASN attribution
+          (the network's autonomous-system number, organisation name, and country code)
+          plus an anonymised assembled-agent fingerprint (runtime, declared
+          capabilities, the observed risk band, and finding counts). This tells us which
+          kinds of organisations run agent scans — never which person did.
+        </p>
+        <ul>
+          <li><strong>Redact-then-derive:</strong> the submitter IP is redacted to the network prefix (/24 for IPv4, /48 for IPv6) at the moment of collection; the ASN lookup runs on the redacted value, and the raw IP is never stored.</li>
+          <li><strong>No person-level de-anonymisation:</strong> no username, machine name, or Active Directory / Entra domain is harvested — the fingerprint is built from a closed set of server-derived keys and structurally cannot carry them.</li>
+          <li><strong>One-time notice + opt-out:</strong> the CLI shows a one-time notice; opting out (<code>--no-telemetry</code>, or the universal <code>DO_NOT_TRACK</code> / <code>SAFERSKILLS_NO_TELEMETRY</code> / <code>CI</code> opt-outs) suppresses the signal, and the public report is labelled <code>metadata-opted-out</code>.</li>
+          <li><strong>EU geo-gate:</strong> enrichment beyond this anonymous baseline is geo-gated away from the EU — only the baseline above (ASN, organisation, country) is ever processed for EU visitors.</li>
+          <li><strong>Behaviour, not identity:</strong> the signal — like the Agent Scan itself — assesses the agent's behaviour, never identity or permission configuration.</li>
+        </ul>
+        <p><strong>Legal basis:</strong> legitimate interest in measuring demand for and
+        improving the agent-scan service (Art. 6(1)(f) GDPR), with a one-time notice
+        and an opt-out. Retention is set out in Section 11.</p>
       </section>
 
       <section id="newsletter">
@@ -523,6 +551,7 @@ const toc = [
               <tr><td>Unlisted (private) uploaded-artifact bytes + report</td><td><strong>90 days</strong>, then auto-deleted — or sooner if you delete via the link</td></tr>
               <tr><td>Hashed IP / rate-limit counters</td><td>~24 hours (rolling), then deleted</td></tr>
               <tr><td>Anonymised catalog-access signals (network-prefix /24 or /48, action type, timestamp)</td><td>~30 days, then deleted</td></tr>
+              <tr><td>Agent-scan company-level signal + anonymised fingerprint</td><td>Retained as an anonymous aggregate (no PII) for as long as the run exists; erased with the run when it is deleted or expires; subject to counsel review</td></tr>
               <tr><td>Cookieless analytics events</td><td>~90 days, then retained only in aggregate</td></tr>
               <tr><td>Error / diagnostic data (Sentry)</td><td>~90 days</td></tr>
               <tr><td>Server logs</td><td>~30 days</td></tr>

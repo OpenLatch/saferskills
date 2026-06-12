@@ -122,4 +122,4 @@ Concerns about **what SaferSkills says about an item it scans** (incorrect verdi
 
 ## License
 
-Apache License 2.0 — see [LICENSE](./LICENSE). Stewarded by [OpenLatch](https://openlatch.ai).
+Apache License 2.0 — see [LICENSE](./LICENSE). An [OpenLatch](https://openlatch.ai) project.
