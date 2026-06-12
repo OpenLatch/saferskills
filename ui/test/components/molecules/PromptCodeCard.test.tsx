@@ -24,6 +24,19 @@ describe('PromptCodeCard', () => {
     expect(gutters[2]?.textContent).toBe('3')
   })
 
+  it('exposes the scrollable body as a keyboard-focusable, labelled region', () => {
+    // Regression: the `.pc-body` overflows (max-height + overflow:auto), so axe's
+    // `scrollable-region-focusable` (WCAG 2 A/AA, serious) requires it be reachable
+    // by keyboard. jsdom can't compute scroll, so assert the structure directly.
+    const { container } = render(
+      <PromptCodeCard title="SaferSkills Agent Scan Prompt" lines={LINES} copyState="idle" onCopy={() => {}} />,
+    )
+    const body = container.querySelector('.pc-body')
+    expect(body?.getAttribute('tabindex')).toBe('0')
+    expect(body?.getAttribute('role')).toBe('group')
+    expect(body?.getAttribute('aria-label')).toBe('SaferSkills Agent Scan Prompt')
+  })
+
   it('fires onCopy when the Copy button is clicked', () => {
     const onCopy = vi.fn()
     render(<PromptCodeCard title="Prompt" lines={LINES} copyState="idle" onCopy={onCopy} />)

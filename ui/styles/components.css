@@ -8805,6 +8805,10 @@ html.dark .cs-cell .cs-id .nm { color: var(--fg-1); }
   scrollbar-width: thin;
   scrollbar-color: #33363f #14151a;
 }
+.pc-body:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
 .pc-body::-webkit-scrollbar {
   width: 9px;
 }

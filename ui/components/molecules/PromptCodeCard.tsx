@@ -91,7 +91,9 @@ export default function PromptCodeCard({ title, lines, copyState, onCopy, footSl
           <span className="pc-lbl">{COPY_LABEL[copyState]}</span>
         </button>
       </div>
-      <div className="pc-body">
+      {/* tabIndex makes the scrollable body keyboard-reachable (arrow-scroll) —
+          axe `scrollable-region-focusable` (WCAG 2 A/AA); role+label name it. */}
+      <div className="pc-body" tabIndex={0} role="group" aria-label={title}>
         {lines.map((line, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: lines are a static positional list
           <div className="pc-line" key={i}>
