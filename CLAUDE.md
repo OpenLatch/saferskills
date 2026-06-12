@@ -86,7 +86,8 @@ Mandates, forbidden tools, and package-manager rules: `.claude/rules/tech-stack.
 ```
 schemas/           # JSON Schema source-of-truth for all data contracts
 scripts/           # The 6 codegen scripts + validate-schemas.cjs
-services/api/      # FastAPI backend (W1 shell + scan engine from W2)
+services/api/      # FastAPI backend (W1 shell + scan engine from W2). Entrypoints: `app.main:app` (uvicorn web tier) + `python -m app.worker_main` (the Procrastinate worker, deployed separately)
+services/worker/   # Procrastinate worker DEPLOY CONFIG (no code) — the same services/api image run with `app.worker_main`; split out so a worker OOM can't take the API down (fixes the staging OOM-loop). API deploys set INGESTION_WORKER_ENABLED=false; dev/compose stay in-process
 webapp/            # Astro 6 + React 19 public catalog (placeholder W1, real W3). Agent Report at /agents/[id] + /agents/r/[token] + the /agents directory (I-5.6 Phase C — corpus risk meter + dossier grid + infinite scroll), the agent badge /badge/agent/[id]/[score].svg, and the /methodology Agent-pack section (mirrors /scans; API stays /api/v1/agent-scans/* incl. GET list + GET aggregate-stats + verify-waitlist + r/{token}/reply)
 ui/                # Design system & shared components (atoms/molecules/organisms)
 rubric/            # Detection rules (W2+ — placeholder dir at W1)

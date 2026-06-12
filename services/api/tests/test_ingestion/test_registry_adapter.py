@@ -345,16 +345,89 @@ def _zero_counters() -> dict[str, int]:
     }
 
 
-def _prepared(repo: str) -> _PreparedItem:
+def _prepared(repo: str, *, metadata_files: dict[str, bytes] | None = None) -> _PreparedItem:
     normalized = NormalizedItem(
         github_org="acme",
         github_repo=repo,
         display_name=repo,
         description="",
-        metadata_files={},
+        metadata_files={} if metadata_files is None else metadata_files,
         aggregator_listings=["test_source"],
     )
     return _PreparedItem(raw=_make_raw(repo=repo), normalized=normalized, raw_hash="h")
+
+
+# ---------------------------------------------------------------------------
+# _write_batch — per-batch memory hygiene (expunge + metadata_files release)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_write_batch_empties_identity_map(db_session: AsyncSession) -> None:
+    """After a committed batch the session identity map is empty, so a full-feed
+    crawl can't accumulate ~10k ORM objects. FAILS on main (no expunge_all)."""
+    from app.ingestion.framework.merger import MergeEngine
+    from app.ingestion.framework.outbox import OutboxWriter
+
+    adapter = _MinimalAdapter(_make_config(), [])
+    merger = MergeEngine(db_session)
+    outbox = OutboxWriter(db_session, source="github_topics")
+    db_session.commit = AsyncMock()  # keep the fixture's outer transaction intact
+
+    counters = _zero_counters()
+    batch = [_prepared("a"), _prepared("b")]
+    await adapter._write_batch(db_session, merger, outbox, batch, counters)  # pyright: ignore[reportPrivateUsage]
+
+    assert counters["items_added"] == 2
+    assert len(db_session.identity_map) == 0  # expunged after commit
+
+
+@pytest.mark.asyncio
+async def test_metadata_files_released_after_commit() -> None:
+    """A committed batch clears each item's raw README/manifest bytes. FAILS on
+    main (metadata_files retained for the whole cycle)."""
+    adapter = _MinimalAdapter(_make_config(), [])
+    session = _mock_write_session()
+    outbox = AsyncMock()
+    merger = AsyncMock()
+    merger.upsert = AsyncMock(return_value="added")
+
+    item = _prepared("a", metadata_files={"README.md": b"# big readme" * 1000})
+    assert item.normalized is not None and item.normalized.metadata_files  # precondition
+    await adapter._write_batch(session, merger, outbox, [item], _zero_counters())  # pyright: ignore[reportPrivateUsage]
+
+    assert item.normalized.metadata_files == {}  # released post-commit
+
+
+@pytest.mark.asyncio
+async def test_metadata_files_survive_batch_retry() -> None:
+    """On a retryable failure the whole batch replays and re-reads metadata_files
+    (classify_all / _has_enrichment_signals) — so the release MUST be post-commit
+    only. This pins that the upsert always sees the bytes present (both attempts)."""
+    adapter = _MinimalAdapter(_make_config(), [])
+    session = _mock_write_session()
+    outbox = AsyncMock()
+    merger = AsyncMock()
+
+    seen_present: list[bool] = []
+    raised = {"done": False}
+
+    async def upsert(normalized: NormalizedItem, **_kwargs: Any) -> str:
+        seen_present.append(bool(normalized.metadata_files))
+        if not raised["done"]:
+            raised["done"] = True
+            raise _db_error("40P01")  # deadlock → whole-batch replay
+        return "added"
+
+    merger.upsert = AsyncMock(side_effect=upsert)
+
+    item = _prepared("a", metadata_files={"mcp.json": b"{}"})
+    with patch("asyncio.sleep", AsyncMock()):
+        await adapter._write_batch(session, merger, outbox, [item], _zero_counters())  # pyright: ignore[reportPrivateUsage]
+
+    assert seen_present == [True, True]  # bytes present on the failed attempt AND the replay
+    assert item.normalized is not None
+    assert item.normalized.metadata_files == {}  # released only after the successful commit
 
 
 @pytest.mark.asyncio

@@ -199,13 +199,33 @@ def _fnmatch_recursive(path: str, pattern: str) -> bool:
     return re.match(regex, path) is not None
 
 
-def _evaluate_regex_match(
-    rule: RubricRule, file_index: list[tuple[str, bytes]], rubric_version: str
-) -> list[EngineFinding]:
+@dataclass
+class _PreparedRegex:
+    """A regex rule pre-compiled once, evaluated per file in the shared file loop."""
+
+    rule: RubricRule
+    pattern: re.Pattern[str]
+    scope_paths: list[str]
+    penalty: int
+
+
+@dataclass
+class _PreparedMetadata:
+    """A metadata rule with its glob/predicate extracted once."""
+
+    rule: RubricRule
+    file_glob: str
+    predicate: dict[str, Any]
+    penalty: int
+
+
+def _prepare_regex(rule: RubricRule) -> _PreparedRegex | None:
+    """Compile a regex rule's trigger once. None = the rule yields no findings
+    (missing pattern / bad regex) — same silent-drop semantics as before."""
     trigger = rule.trigger
     pattern_str = trigger.get("pattern")
     if not pattern_str:
-        return []
+        return None
     flags = re.MULTILINE
     if "i" in str(trigger.get("flags", "")).lower():
         flags |= re.IGNORECASE
@@ -214,39 +234,57 @@ def _evaluate_regex_match(
     try:
         pattern = re.compile(pattern_str, flags=flags)
     except re.error:
-        return []
-
-    scope_paths = trigger.get("scope", {}).get("paths", [])
-    in_scope = (
-        file_index
-        if not scope_paths
-        else [(p, b) for p, b in file_index if _match_any_glob(p, scope_paths)]
+        return None
+    return _PreparedRegex(
+        rule=rule,
+        pattern=pattern,
+        scope_paths=trigger.get("scope", {}).get("paths", []),
+        penalty=SEVERITY_PENALTY.get(rule.severity, 0),
     )
 
-    penalty = SEVERITY_PENALTY.get(rule.severity, 0)
+
+def _prepare_metadata(rule: RubricRule) -> _PreparedMetadata | None:
+    """Extract a metadata rule's glob + predicate once. None = no findings
+    (missing glob/predicate) — same silent-drop semantics as before."""
+    trigger = rule.trigger
+    file_glob = trigger.get("fileGlob")
+    predicate = trigger.get("predicate", {})
+    if not file_glob or not predicate:
+        return None
+    return _PreparedMetadata(
+        rule=rule,
+        file_glob=file_glob,
+        predicate=predicate,
+        penalty=SEVERITY_PENALTY.get(rule.severity, 0),
+    )
+
+
+def _regex_findings_for_file(
+    prepared: _PreparedRegex, file_path: str, text: str, rubric_version: str
+) -> list[EngineFinding]:
+    """Finding construction moved verbatim from the old per-rule loop — same
+    line math, same sha inputs, same field order."""
     findings: list[EngineFinding] = []
-    for file_path, content in in_scope:
-        text = content.decode("utf-8", errors="replace")
-        for match in pattern.finditer(text):
-            matched_text = match.group(0)
-            line_start = text[: match.start()].count("\n") + 1
-            line_end = line_start + matched_text.count("\n") or None
-            matched_sha = hashlib.sha256(matched_text.encode("utf-8")).hexdigest()
-            findings.append(
-                EngineFinding(
-                    rule_id=rule.rule_id,
-                    severity=rule.severity,
-                    sub_score=rule.sub_score,
-                    penalty=penalty,
-                    status_at_scan=rule.status,
-                    file_path=file_path,
-                    line_start=line_start,
-                    line_end=line_end,
-                    matched_content_sha256=matched_sha,
-                    remediation_link=rule.remediation_link,
-                    rubric_version=rubric_version,
-                )
+    for match in prepared.pattern.finditer(text):
+        matched_text = match.group(0)
+        line_start = text[: match.start()].count("\n") + 1
+        line_end = line_start + matched_text.count("\n") or None
+        matched_sha = hashlib.sha256(matched_text.encode("utf-8")).hexdigest()
+        findings.append(
+            EngineFinding(
+                rule_id=prepared.rule.rule_id,
+                severity=prepared.rule.severity,
+                sub_score=prepared.rule.sub_score,
+                penalty=prepared.penalty,
+                status_at_scan=prepared.rule.status,
+                file_path=file_path,
+                line_start=line_start,
+                line_end=line_end,
+                matched_content_sha256=matched_sha,
+                remediation_link=prepared.rule.remediation_link,
+                rubric_version=rubric_version,
             )
+        )
     return findings
 
 
@@ -277,54 +315,49 @@ def _evaluate_file_glob_absent(
     return findings
 
 
-def _evaluate_metadata_check(
-    rule: RubricRule, file_index: list[tuple[str, bytes]], rubric_version: str
-) -> list[EngineFinding]:
-    trigger = rule.trigger
-    file_glob = trigger.get("fileGlob")
-    predicate = trigger.get("predicate", {})
-    if not file_glob or not predicate:
-        return []
+# Sentinel: the file's structured parse failed (or isn't JSON/YAML) — cached so
+# a 2nd metadata rule on the same file doesn't re-attempt the parse.
+_PARSE_FAILED = object()
 
-    penalty = SEVERITY_PENALTY.get(rule.severity, 0)
-    findings: list[EngineFinding] = []
-    for file_path, content in file_index:
-        if not _match_any_glob(file_path, [file_glob]):
-            continue
-        text = content.decode("utf-8", errors="replace")
-        parsed: Any
-        if file_path.endswith((".json",)):
-            try:
-                parsed = json.loads(text)
-            except json.JSONDecodeError:
-                continue
-        elif file_path.endswith((".yaml", ".yml")):
-            try:
-                parsed = yaml.safe_load(text)
-            except yaml.YAMLError:
-                continue
-        else:
-            continue
 
-        if _predicate_holds(predicate, parsed):
-            target_field = predicate.get("field", "<root>")
-            marker = hashlib.sha256(f"{file_path}:{target_field}".encode()).hexdigest()
-            findings.append(
-                EngineFinding(
-                    rule_id=rule.rule_id,
-                    severity=rule.severity,
-                    sub_score=rule.sub_score,
-                    penalty=penalty,
-                    status_at_scan=rule.status,
-                    file_path=file_path,
-                    line_start=1,
-                    line_end=None,
-                    matched_content_sha256=marker,
-                    remediation_link=rule.remediation_link,
-                    rubric_version=rubric_version,
-                )
-            )
-    return findings
+def _parse_structured(file_path: str, text: str) -> Any:
+    """Parse a JSON/YAML file once. Returns `_PARSE_FAILED` for a non-structured
+    extension or a parse error — exactly the cases the old per-rule loop
+    `continue`d on."""
+    if file_path.endswith((".json",)):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return _PARSE_FAILED
+    if file_path.endswith((".yaml", ".yml")):
+        try:
+            return yaml.safe_load(text)
+        except yaml.YAMLError:
+            return _PARSE_FAILED
+    return _PARSE_FAILED
+
+
+def _metadata_finding_for_file(
+    prepared: _PreparedMetadata, file_path: str, parsed: Any, rubric_version: str
+) -> EngineFinding | None:
+    """Finding construction moved verbatim from the old per-rule loop."""
+    if not _predicate_holds(prepared.predicate, parsed):
+        return None
+    target_field = prepared.predicate.get("field", "<root>")
+    marker = hashlib.sha256(f"{file_path}:{target_field}".encode()).hexdigest()
+    return EngineFinding(
+        rule_id=prepared.rule.rule_id,
+        severity=prepared.rule.severity,
+        sub_score=prepared.rule.sub_score,
+        penalty=prepared.penalty,
+        status_at_scan=prepared.rule.status,
+        file_path=file_path,
+        line_start=1,
+        line_end=None,
+        matched_content_sha256=marker,
+        remediation_link=prepared.rule.remediation_link,
+        rubric_version=rubric_version,
+    )
 
 
 def _predicate_holds(predicate: dict[str, Any], parsed: Any) -> bool:
@@ -367,9 +400,22 @@ def _evaluate_rules(
 ) -> tuple[list[EngineFinding], list[str]]:
     """Evaluate every rule (optionally filtered by sub-score). Returns
     (findings, skipped_rule_ids).
+
+    Memory-aware shape: rules are PREPARED once (compiled regex / extracted
+    predicate), then the file loop runs OUTER — each file is decoded at most
+    once and JSON/YAML-parsed at most once (failure cached), shared by every
+    content rule, instead of the old rules-outer loop re-decoding the whole
+    index per rule (~N_rules x index decode churn). Findings are bucketed per
+    rule and emitted in the original rule order, so the output list is
+    byte-identical to the old per-rule iteration (per rule → per in-scope file
+    → per match).
     """
-    findings: list[EngineFinding] = []
     skipped: list[str] = []
+    # (trigger_type, rule) in original order — the emit order.
+    ordered: list[tuple[str, RubricRule]] = []
+    regex_rules: list[_PreparedRegex] = []
+    metadata_rules: list[_PreparedMetadata] = []
+
     for rule in rules:
         if sub_score_filter is not None and rule.sub_score != sub_score_filter:
             continue
@@ -377,11 +423,57 @@ def _evaluate_rules(
             skipped.append(rule.rule_id)
             continue
         if rule.trigger_type == "regex_match":
-            findings.extend(_evaluate_regex_match(rule, file_index, rubric_version))
+            prepared_re = _prepare_regex(rule)
+            if prepared_re is not None:
+                regex_rules.append(prepared_re)
+            ordered.append((rule.trigger_type, rule))
         elif rule.trigger_type == "file_glob_absent":
-            findings.extend(_evaluate_file_glob_absent(rule, file_index, rubric_version))
+            ordered.append((rule.trigger_type, rule))
         elif rule.trigger_type == "metadata_check":
-            findings.extend(_evaluate_metadata_check(rule, file_index, rubric_version))
+            prepared_md = _prepare_metadata(rule)
+            if prepared_md is not None:
+                metadata_rules.append(prepared_md)
+            ordered.append((rule.trigger_type, rule))
+
+    # File loop — decode/parse each file at most once, run every content rule.
+    per_rule: dict[str, list[EngineFinding]] = {}
+    if regex_rules or metadata_rules:
+        for file_path, content in file_index:
+            text: str | None = None  # decoded lazily, at most once per file
+            parsed: Any = None
+            parsed_ready = False
+            for pr in regex_rules:
+                if pr.scope_paths and not _match_any_glob(file_path, pr.scope_paths):
+                    continue
+                if text is None:
+                    text = content.decode("utf-8", errors="replace")
+                hits = _regex_findings_for_file(pr, file_path, text, rubric_version)
+                if hits:
+                    per_rule.setdefault(pr.rule.rule_id, []).extend(hits)
+            for pm in metadata_rules:
+                if not _match_any_glob(file_path, [pm.file_glob]):
+                    continue
+                if not parsed_ready:
+                    parsed_ready = True
+                    if file_path.endswith((".json", ".yaml", ".yml")):
+                        if text is None:
+                            text = content.decode("utf-8", errors="replace")
+                        parsed = _parse_structured(file_path, text)
+                    else:
+                        parsed = _PARSE_FAILED
+                if parsed is _PARSE_FAILED:
+                    continue
+                finding = _metadata_finding_for_file(pm, file_path, parsed, rubric_version)
+                if finding is not None:
+                    per_rule.setdefault(pm.rule.rule_id, []).append(finding)
+
+    # Emit in original rule order — byte-identical to the old per-rule loop.
+    findings: list[EngineFinding] = []
+    for trigger_type, rule in ordered:
+        if trigger_type == "file_glob_absent":
+            findings.extend(_evaluate_file_glob_absent(rule, file_index, rubric_version))
+        else:
+            findings.extend(per_rule.get(rule.rule_id, []))
     return findings, skipped
 
 
@@ -450,15 +542,19 @@ def aggregate_score(
     return sub_scores, breakdowns, aggregate, tier
 
 
-def _walk_and_cleanup(result: fetch.FetchResult) -> list[tuple[str, bytes]]:
-    """Read every file into memory, then drop the temp tree.
+def _walk_and_cleanup(result: fetch.FetchResult) -> tuple[list[tuple[str, bytes]], list[str]]:
+    """Read the bounded file index into memory, then drop the temp tree.
 
-    Must-fix at scale: an unbounded scan firehose (the durable bulk drain) would
-    otherwise leak `/tmp`. The walk loads bytes into memory, so cleanup is safe
-    immediately after — in a `finally` so it runs even if the walk raises.
+    Returns `(file_index, over_bounds_skipped)`. The walk streams files in
+    sorted-path order through `collect_bounded_index`, so the in-memory index is
+    capped at the per-repo budget (`scan_max_index_files` /
+    `scan_max_index_total_bytes`) — the 25 MiB tarball cap bounds only the
+    COMPRESSED stream, and an uncompressed text repo could otherwise be 100s of
+    MB in RAM. Cleanup runs in a `finally` so the temp tree never leaks (the
+    durable bulk drain would otherwise fill `/tmp`).
     """
     try:
-        return list(fetch.walk_files(result.directory))
+        return fetch.collect_bounded_index(fetch.walk_files(result.directory))
     finally:
         shutil.rmtree(result.directory, ignore_errors=True)
 
@@ -473,7 +569,7 @@ async def run_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
+    file_index, over_bounds = _walk_and_cleanup(result)
 
     rules = list(RULES.values())
     if kind is not None:
@@ -493,7 +589,7 @@ async def run_scan(
         tier=tier,
         file_count=result.file_count,
         skipped_rules=skipped,
-        skipped_files=result.skipped_oversized_files,
+        skipped_files=result.skipped_oversized_files + over_bounds,
         ref_sha=result.ref_sha,
         latency_ms=latency_ms,
         files_index=file_index,
@@ -622,12 +718,12 @@ async def run_repo_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index: list[tuple[str, bytes]] = _walk_and_cleanup(result)
+    file_index, over_bounds = _walk_and_cleanup(result)
     return _assemble_repo_scan_result(
         file_index,
         rubric_version,
         result.ref_sha,
-        skipped_files=result.skipped_oversized_files,
+        skipped_files=result.skipped_oversized_files + over_bounds,
         started=started,
     )
 

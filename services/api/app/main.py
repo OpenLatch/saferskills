@@ -83,39 +83,47 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
         sweep_task = asyncio.create_task(run_sweep_loop())
 
-    # In-process Procrastinate ingestion worker (I-04 D-04-03). Only when healthy
-    # and enabled, after migrations + pool init — mirrors the sweep guard above.
-    # Schema applied idempotently under a FRESH advisory lock 0x5AFE5C13.
+    # Procrastinate connector + (optionally) the in-process worker (I-04 D-04-03).
+    # After migrations + pool init — mirrors the sweep guard above. Schema applied
+    # idempotently under a FRESH advisory lock 0x5AFE5C13.
     ingestion_task: asyncio.Task[None] | None = None
-    if startup_state.is_healthy and settings.ingestion_worker_enabled:
-        from app.ingestion.worker import assert_worker_concurrency_budget
+    if startup_state.is_healthy:
+        if settings.ingestion_worker_enabled:
+            from app.ingestion.worker import assert_worker_concurrency_budget
 
-        # Static-config invariant — fail fast (refuse to boot) on a misconfigured
-        # concurrency-vs-pool budget, BEFORE the suppress below (crash-resilience
-        # §1.5). This is a deploy error, not the transient DB-unreachable class
-        # the degraded-mode path handles.
-        assert_worker_concurrency_budget()
-        # Explicit try/except — NOT contextlib.suppress (WS-2): a swallowed
-        # failure here used to leave `ingestion_task = None`, the worker silently
-        # dead, and /health still green. Log the full traceback + flag degraded
-        # (surfaced on /api/v1/health) so a dead worker is visible. Do NOT
-        # re-raise — a transient DB-at-boot must not crash the API (the
-        # budget-assert above stays outside, correctly fail-fast for misconfig).
+            # Static-config invariant — fail fast (refuse to boot) on a misconfigured
+            # concurrency-vs-pool budget, BEFORE opening anything (crash-resilience
+            # §1.5 / WS-2). A deploy error, not the transient DB-unreachable class
+            # the degraded-mode path handles. Only the worker process cares about it.
+            assert_worker_concurrency_budget()
+
+        # Open the connector + apply its schema REGARDLESS of whether THIS process
+        # runs the worker. The API's own defer paths — webhook dispatch
+        # (`routers/webhooks.py`), admin force-cycle + popularity recompute
+        # (`routers/admin.py`) — call `procrastinate_app.defer_async`, which needs the
+        # connector open + the schema present. With the worker split to its own
+        # process (`INGESTION_WORKER_ENABLED=false` on the API) this branch is the
+        # ONLY thing keeping those endpoints from 500ing. Idempotent + advisory-locked
+        # → running it here AND in the worker process is safe. NOT contextlib.suppress
+        # (WS-2): log the full traceback + flag degraded (surfaced on /api/v1/health)
+        # so a failed connector is visible, but do NOT re-raise (a transient DB-at-boot
+        # must not crash the API).
         try:
             from app.ingestion import procrastinate_app
-            from app.ingestion.worker import (
-                apply_procrastinate_schema_locked,
-                ingestion_worker_supervisor,
-            )
+            from app.ingestion.worker import apply_procrastinate_schema_locked
 
             await procrastinate_app.open_async()
             await apply_procrastinate_schema_locked()
-            ingestion_task = asyncio.create_task(
-                ingestion_worker_supervisor(), name="ingestion_worker_supervisor"
-            )
         except Exception as exc:
-            logger.error("ingestion worker failed to start", exc_info=True)
+            logger.error("procrastinate connector failed to open", exc_info=True)
             startup_state.mark_ingestion_degraded(str(exc))
+        else:
+            if settings.ingestion_worker_enabled:
+                from app.ingestion.worker import ingestion_worker_supervisor
+
+                ingestion_task = asyncio.create_task(
+                    ingestion_worker_supervisor(), name="ingestion_worker_supervisor"
+                )
 
     try:
         yield

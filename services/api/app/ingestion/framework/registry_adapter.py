@@ -189,6 +189,18 @@ class RegistryAdapter(BaseAdapter):
                             source_id=item.raw.source_id,
                         )
                 await session.commit()
+                # Release per-batch memory now the write is durable. expunge_all
+                # detaches the committed ORM objects (CatalogItem/ItemSource) so the
+                # identity map can't accumulate ~10k rows across a full-feed crawl;
+                # clearing metadata_files drops the raw README/manifest bytes
+                # (uncapped, from github_enrich) the batch no longer needs. Strictly
+                # POST-commit-success — the retry path below replays the whole batch
+                # and re-reads metadata_files (classify_all / _has_enrichment_signals),
+                # so an earlier clear would silently mis-tier a replayed item.
+                session.expunge_all()
+                for item in batch:
+                    if item.normalized is not None:
+                        item.normalized.metadata_files.clear()
                 return
             except DBAPIError as exc:
                 await session.rollback()

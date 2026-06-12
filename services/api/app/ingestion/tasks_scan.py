@@ -45,6 +45,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.memory import rss_mb
 from app.ingestion import PERIODIC_MAINTENANCE_PRIORITY, procrastinate_app
 from app.ingestion.framework.failure import classify_failure, is_transient_failure
 from app.models.repo_fetch_state import RepoFetchState
@@ -466,7 +467,15 @@ async def scan_capability_repo(github_url: str, reason: str = "reconcile") -> di
     """
     async with _semaphore():
         try:
-            return await execute_scan(github_url, reason=reason)
+            result = await execute_scan(github_url, reason=reason)
+            logger.info(
+                "memory.rss_mb",
+                rss_mb=rss_mb(),
+                context="scan_job",
+                github_url=github_url,
+                action=result.get("action"),
+            )
+            return result
         except Exception as exc:
             reason_enum = classify_failure(exc)
             await _mark_repo_pending_runs_failed(github_url)

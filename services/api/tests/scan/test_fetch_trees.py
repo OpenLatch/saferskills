@@ -119,8 +119,8 @@ async def test_tree_404_raises(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.asyncio
 async def test_max_files_bound_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
-    """scan_trees_max_files caps the kept set; the rest are skipped gracefully."""
-    monkeypatch.setattr(fetch.get_settings(), "scan_trees_max_files", 1)
+    """scan_max_index_files caps the kept set; the rest are skipped gracefully."""
+    monkeypatch.setattr(fetch.get_settings(), "scan_max_index_files", 1)
     blobs = {"a.md": b"a", "b.md": b"b"}
     tree = _tree(_blob("a.md", 1), _blob("b.md", 1))
     _patch_transport(monkeypatch, tree=tree, blobs=blobs)
@@ -136,8 +136,8 @@ async def test_max_files_bound_enforced(monkeypatch: pytest.MonkeyPatch) -> None
 
 @pytest.mark.asyncio
 async def test_max_total_bytes_bound_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
-    """scan_trees_max_total_bytes stops fetching once the per-repo budget is hit."""
-    monkeypatch.setattr(fetch.get_settings(), "scan_trees_max_total_bytes", 4)
+    """scan_max_index_total_bytes stops fetching once the per-repo budget is hit."""
+    monkeypatch.setattr(fetch.get_settings(), "scan_max_index_total_bytes", 4)
     blobs = {"a.md": b"aaa", "b.md": b"bbb"}  # 3 + 3 = 6 > 4
     tree = _tree(_blob("a.md", 3), _blob("b.md", 3))
     _patch_transport(monkeypatch, tree=tree, blobs=blobs)

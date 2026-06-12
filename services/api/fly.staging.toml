@@ -24,6 +24,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability-staging.internal:4
 OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
 OTEL_SERVICE_NAME = "saferskills-api"
 POSTHOG_HOST = "https://eu.i.posthog.com"
+# The deployed worker runs as its own process (services/worker/, the same image
+# with `python -m app.worker_main`), so the API tier does NOT run the in-process
+# Procrastinate worker — it stays a lean web process. The connector is still
+# opened (main.py) so the API's own defer paths work. Local dev + docker-compose
+# keep the default (true) → `docker compose up` runs everything in one process.
+INGESTION_WORKER_ENABLED = "false"
 # Non-secret runtime config only. `SAFERSKILLS_PROXY_SHARED_SECRET` (the
 # trusted-proxy token read by scans.py::_rate_limit_ip) is a SECRET — staged via
 # `flyctl secrets set --stage` in deploy.yml, never committed here. See ci-cd.md.

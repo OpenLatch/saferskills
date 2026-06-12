@@ -22,9 +22,14 @@ Two fetch paths converge on the same `list[(path, bytes)]` file-index contract:
 
 Limits:
 - 25 MiB total tarball size — streamed; we abort on overflow (`TarballTooLargeError`).
+  This caps the COMPRESSED stream only; the in-memory index bound below is what
+  bounds the uncompressed bytes that actually sit in RAM.
 - 5 MiB per file — files larger are skipped (logged as scan warnings, not findings).
-- Per-repo trees-path bounds (`scan_trees_max_files` / `scan_trees_max_total_bytes`)
-  cap a many-small-file monorepo's raw-fetch fan-out — remaining blobs are skipped.
+- Per-repo in-memory index bounds (`scan_max_index_files` /
+  `scan_max_index_total_bytes`) cap what EITHER fetch path admits to the
+  `list[(path, bytes)]` index — applied in sorted-path order on both paths via
+  `select_index_within_bounds`, so the kept fileset is identical regardless of
+  fetch path. Over-bounds files are skipped gracefully (recorded on the report).
 - 60 s overall timeout for the fetch + extract step.
 
 Returns a `FetchResult(directory, ref_sha, file_count)` so the walker can
@@ -38,7 +43,7 @@ import io
 import re
 import tarfile
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
@@ -319,6 +324,93 @@ async def fetch_repository(github_url: str) -> FetchResult:
     )
 
 
+class IndexBudget:
+    """The ONE per-repo in-memory-index bounds policy both fetch paths share.
+
+    Sticky: once either bound (file count / total bytes) trips, every later
+    file is rejected — no best-fit backfill — mirroring the original trees-path
+    loop. Inputs MUST arrive in sorted-path order (deterministic,
+    fetch-path-independent) and already per-file-capped, so the kept fileset is
+    identical regardless of which path fetched the repo.
+    """
+
+    def __init__(self, *, max_files: int, max_total_bytes: int) -> None:
+        self._max_files = max_files
+        self._max_total_bytes = max_total_bytes
+        self._kept = 0
+        self._total_bytes = 0
+        self.bounds_hit = False
+
+    def admit(self, size: int) -> bool:
+        if (
+            self.bounds_hit
+            or self._kept >= self._max_files
+            or self._total_bytes + size > self._max_total_bytes
+        ):
+            self.bounds_hit = True
+            return False
+        self._kept += 1
+        self._total_bytes += size
+        return True
+
+
+def select_index_within_bounds(
+    sized_paths: Iterable[tuple[str, int]],
+    *,
+    max_files: int,
+    max_total_bytes: int,
+) -> tuple[list[str], list[str]]:
+    """Partition pre-sorted, per-file-capped `(path, size)` pairs by the budget.
+
+    Returns `(kept_paths_in_order, skipped_paths)`. Used by the trees path
+    (sizes known up-front from the tree listing); the walk path streams bytes
+    through the same `IndexBudget` in `collect_bounded_index`.
+    """
+    budget = IndexBudget(max_files=max_files, max_total_bytes=max_total_bytes)
+    kept: list[str] = []
+    skipped: list[str] = []
+    for path, size in sized_paths:
+        (kept if budget.admit(size) else skipped).append(path)
+    return kept, skipped
+
+
+def collect_bounded_index(
+    walked: Iterable[tuple[str, bytes]],
+) -> tuple[list[tuple[str, bytes]], list[str]]:
+    """Apply the per-repo index bounds to a (pre-sorted) walked file stream.
+
+    The tarball/walk-path twin of the trees path's bound: consumes the walk
+    generator one file at a time, so an over-budget repo costs at most the kept
+    budget + one in-flight file of RAM — never the whole uncompressed tree (the
+    25 MiB tarball cap is compressed-stream only). Per-file oversize is a belt
+    here (`_extract_tarball` already drops > 5 MiB members).
+    """
+    settings = get_settings()
+    budget = IndexBudget(
+        max_files=settings.scan_max_index_files,
+        max_total_bytes=settings.scan_max_index_total_bytes,
+    )
+    kept: list[tuple[str, bytes]] = []
+    skipped: list[str] = []
+    for path, content in walked:
+        if len(content) > MAX_PER_FILE_BYTES:
+            skipped.append(path)
+            continue
+        if budget.admit(len(content)):
+            kept.append((path, content))
+        else:
+            skipped.append(path)
+    if budget.bounds_hit:
+        logger.warning(
+            "collect_bounded_index.bounds_hit",
+            kept=len(kept),
+            skipped=len(skipped),
+            max_files=settings.scan_max_index_files,
+            max_total_bytes=settings.scan_max_index_total_bytes,
+        )
+    return kept, skipped
+
+
 async def fetch_file_index_via_trees(
     github_url: str,
     *,
@@ -338,9 +430,10 @@ async def fetch_file_index_via_trees(
     `walk_files`: `file_index` is `list[(path, bytes)]`; `skipped_oversized`
     lists every path dropped for exceeding the per-file cap (parity with
     `_extract_tarball`'s > 5 MiB skip) or for falling past the per-repo bounds
-    (`scan_trees_max_files` / `scan_trees_max_total_bytes`). A truncated tree
-    (>100k entries / 7 MB) raises `FetchError` — fail honestly rather than
-    silently under-scan.
+    (`scan_max_index_files` / `scan_max_index_total_bytes`, applied in
+    sorted-path order — the same budget + order as the walk path, so the kept
+    fileset is fetch-path-independent). A truncated tree (>100k entries / 7 MB)
+    raises `FetchError` — fail honestly rather than silently under-scan.
     """
     ref = parse_github_url(github_url)
     settings = get_settings()
@@ -366,10 +459,8 @@ async def fetch_file_index_via_trees(
                 "(>100k entries / 7 MB) — cannot scan completely"
             )
 
-        kept: list[str] = []
         skipped: list[str] = []
-        total_bytes = 0
-        bounds_hit = False
+        sized: list[tuple[str, int]] = []
         for entry in body.get("tree", []):
             if entry.get("type") != "blob":
                 continue
@@ -380,25 +471,26 @@ async def fetch_file_index_via_trees(
             if size > MAX_PER_FILE_BYTES:
                 skipped.append(path)  # parity with _extract_tarball's > 5 MiB skip
                 continue
-            if (
-                bounds_hit
-                or len(kept) >= settings.scan_trees_max_files
-                or total_bytes + size > settings.scan_trees_max_total_bytes
-            ):
-                bounds_hit = True
-                skipped.append(path)
-                continue
-            kept.append(path)
-            total_bytes += size
+            sized.append((path, size))
 
-        if bounds_hit:
+        # Sorted-path order BEFORE the budget — the walk path enumerates in the
+        # same order, so the kept fileset is identical regardless of fetch path.
+        sized.sort(key=lambda pair: pair[0])
+        kept, over_bounds = select_index_within_bounds(
+            sized,
+            max_files=settings.scan_max_index_files,
+            max_total_bytes=settings.scan_max_index_total_bytes,
+        )
+        skipped.extend(over_bounds)
+
+        if over_bounds:
             logger.warning(
                 "fetch_file_index_via_trees.bounds_hit",
                 github_url=github_url,
                 kept=len(kept),
                 skipped=len(skipped),
-                max_files=settings.scan_trees_max_files,
-                max_total_bytes=settings.scan_trees_max_total_bytes,
+                max_files=settings.scan_max_index_files,
+                max_total_bytes=settings.scan_max_index_total_bytes,
             )
 
         semaphore = asyncio.Semaphore(settings.scan_trees_fetch_concurrency)
@@ -418,11 +510,19 @@ async def fetch_file_index_via_trees(
 
 
 def walk_files(directory: Path) -> Iterator[tuple[str, bytes]]:
-    """Yield `(relative_path, content_bytes)` for every file in `directory`."""
-    for path in directory.rglob("*"):
-        if not path.is_file():
-            continue
+    """Yield `(relative_path, content_bytes)` for every file in `directory`.
+
+    Sorted-path order (by the posix relative path) — the same deterministic
+    order the trees path applies before its budget, so `collect_bounded_index`
+    keeps an identical fileset regardless of fetch path.
+    """
+    paths = sorted(
+        (path.relative_to(directory).as_posix(), path)
+        for path in directory.rglob("*")
+        if path.is_file()
+    )
+    for rel_posix, path in paths:
         try:
-            yield (path.relative_to(directory).as_posix(), path.read_bytes())
+            yield (rel_posix, path.read_bytes())
         except OSError:
             continue

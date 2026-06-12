@@ -22,6 +22,7 @@ from procrastinate.retry import RetryStrategy
 from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.memory import rss_mb
 from app.ingestion import (
     INGEST_CYCLE_PRIORITY,
     PERIODIC_MAINTENANCE_PRIORITY,
@@ -151,6 +152,7 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
         http_304_ratio=int(counters.get("http_304_count", 0)) / seen,
     )
     logger.info("ingestion.cycle_completed", source=source_name, **counters)
+    logger.info("memory.rss_mb", rss_mb=rss_mb(), context="ingestion_cycle", source=source_name)
     return counters
 
 

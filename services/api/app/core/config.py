@@ -308,22 +308,24 @@ class Settings(BaseSettings):
             "fallback (TarballTooLargeError → trees) covers misclassification."
         ),
     )
-    scan_trees_max_files: int = Field(
+    scan_max_index_files: int = Field(
         default=4000,
         ge=1,
         description=(
-            "Per-repo ceiling on raw blobs fetched via the Git Trees path. Beyond "
-            "this, remaining blobs are skipped (graceful, not a failure) — bounds a "
-            "many-small-file monorepo's raw-fetch fan-out."
+            "Per-repo ceiling on files admitted to the in-memory scan file index, on "
+            "EVERY fetch path (tarball walk + Git Trees). Beyond this, remaining "
+            "files are skipped (graceful, not a failure; recorded on the report) — "
+            "bounds a many-small-file monorepo's footprint."
         ),
     )
-    scan_trees_max_total_bytes: int = Field(
-        default=26_214_400,  # 25 MiB — parity with the tarball cap.
+    scan_max_index_total_bytes: int = Field(
+        default=26_214_400,  # 25 MiB — the per-repo in-memory index budget.
         ge=1,
         description=(
-            "Per-repo total-bytes ceiling on the Git Trees raw-fetch path. Once hit, "
-            "remaining blobs are skipped (graceful) — keeps the trees path's total "
-            "footprint at tarball-cap parity."
+            "Per-repo total-bytes ceiling on the in-memory scan file index, on EVERY "
+            "fetch path (tarball walk + Git Trees). Once hit, remaining files are "
+            "skipped (graceful; recorded on the report). The 25 MiB tarball cap is "
+            "COMPRESSED-stream only — this is the bound on what actually sits in RAM."
         ),
     )
     scan_trees_fetch_concurrency: int = Field(
