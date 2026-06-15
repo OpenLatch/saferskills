@@ -28,9 +28,9 @@
     "prepare": "pre-commit install || exit 0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.16",
+    "@biomejs/biome": "2.5.0",
     "typescript": "^6.0.0",
-    "@types/node": "^25.9.2",
+    "@types/node": "^25.9.3",
     "ajv": "^8.17.1",
     "yaml": "^2.6.0"
   },
