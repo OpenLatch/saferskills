@@ -63,7 +63,6 @@ type EventMap = {
   agent_report_tab_selected: { tab: 'report' | 'findings' | 'component' }
   agent_report_shared: Record<string, never>
   agent_report_exported: Record<string, never>
-  agent_report_verify_requested: Record<string, never>
   agent_report_reply_submitted: Record<string, never>
 }
 

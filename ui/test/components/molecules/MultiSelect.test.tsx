@@ -13,7 +13,7 @@ describe('MultiSelect', () => {
   it('opens on click and toggles an option', () => {
     const onChange = vi.fn()
     render(
-      <MultiSelect label="Findings" ariaLabel="Findings" options={OPTIONS} selected={[]} onChange={onChange} />
+      <MultiSelect label="Findings" allLabel="Any" ariaLabel="Findings" options={OPTIONS} selected={[]} onChange={onChange} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Findings' }))
     expect(screen.getByRole('listbox')).toBeInTheDocument()
@@ -26,14 +26,15 @@ describe('MultiSelect', () => {
     render(
       <MultiSelect
         label="Findings"
+        allLabel="Any"
         ariaLabel="Findings"
         options={OPTIONS}
         selected={['critical']}
         onChange={onChange}
       />
     )
-    // Count badge reflects the selection.
-    expect(screen.getByText('1')).toBeInTheDocument()
+    // The trigger shows the single selected option's label.
+    expect(screen.getByText('Critical')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Findings' }))
     fireEvent.click(screen.getByRole('option', { name: 'Critical' }))
     expect(onChange).toHaveBeenCalledWith([])
@@ -43,6 +44,7 @@ describe('MultiSelect', () => {
     const { container } = render(
       <MultiSelect
         label="Findings"
+        allLabel="Any"
         ariaLabel="Findings"
         options={OPTIONS}
         selected={['high']}

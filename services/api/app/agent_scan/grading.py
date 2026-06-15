@@ -167,14 +167,20 @@ def _confidence(*, optional_total: int, optional_na: int, tamper: bool) -> str:
     return "high"
 
 
-def _cap_callout(breakdown: dict[str, Any], band: str, findings: list[GradedFinding]) -> str:
+def _cap_callout(
+    breakdown: dict[str, Any], band: str, findings: list[GradedFinding], family_count: int
+) -> str:
+    """The locked design §5 cap-callout copy (em-dash; the lead renders bold)."""
     if not breakdown["ceiling_applied"]:
-        return "No cap applied - grade is 100 - the sum of penalties."
+        return (
+            f"No cap applied — the grade is the weighted average across all {family_count} families"
+        )
     worst = "critical" if any(f.severity == "critical" for f in findings) else "high"
     n = sum(1 for f in findings if f.severity == worst)
+    plural = "s" if n != 1 else ""
     return (
-        f"Capped to {band.capitalize()} - {n} {worst} finding(s); the worst-finding "
-        f"cap overrides the weighted average."
+        f"Capped to {band.capitalize()} — {n} {worst} finding{plural}; the worst-finding "
+        f"cap overrides the weighted average"
     )
 
 
@@ -286,7 +292,7 @@ def grade(
         confidence=confidence,
         trust_labels=trust_labels,
         verdict_label=_VERDICT_LABELS.get(band, "Review"),
-        cap_callout=_cap_callout(breakdown, band, findings),
+        cap_callout=_cap_callout(breakdown, band, findings, len(family_tally)),
         family_tally=family_tally,
         tamper_suspected=tamper_suspected,
     )

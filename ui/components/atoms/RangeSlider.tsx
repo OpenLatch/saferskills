@@ -21,6 +21,9 @@ interface Props {
   maxCapLabel?: string
   /** Optional accessible group label wrapping both thumbs + caption. */
   label?: string
+  /** Render the `{min} min / {max} max` caption row. Default true; the
+   *  `/agents` filterbar drops it (its `Score {lo}–{hi}` label lives outside). */
+  showCaption?: boolean
 }
 
 /**
@@ -45,6 +48,7 @@ export default function RangeSlider({
   minCapLabel = 'min',
   maxCapLabel = 'max',
   label,
+  showCaption = true,
 }: Props) {
   const span = rangeMax - rangeMin || 1
   const left = `${((min - rangeMin) / span) * 100}%`
@@ -81,14 +85,16 @@ export default function RangeSlider({
           onChange={(e) => handleMax(Number.parseInt(e.target.value, 10))}
         />
       </div>
-      <div className="slider-cap">
-        <span>
-          <b>{min}</b> {minCapLabel}
-        </span>
-        <span>
-          <b>{max}</b> {maxCapLabel}
-        </span>
-      </div>
+      {showCaption && (
+        <div className="slider-cap">
+          <span>
+            <b>{min}</b> {minCapLabel}
+          </span>
+          <span>
+            <b>{max}</b> {maxCapLabel}
+          </span>
+        </div>
+      )}
     </>
   )
 

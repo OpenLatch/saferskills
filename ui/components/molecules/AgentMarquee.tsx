@@ -1,4 +1,4 @@
-import { AGENT_LOGOS } from './agent-logos'
+import { AGENT_LOGOS } from '../atoms/agent-logos'
 
 interface Agent {
   id: string

@@ -10,8 +10,31 @@ platform → 422; an unlisted run returns a `share_token`.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.generated.agent_run import AgentRun
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_without_name_generates_codename(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Regression: omitting `agent_name` mints a distinct memorable codename, not
+    the old shared `my-agent` placeholder (the directory used to show every card
+    as 'my-agent')."""
+    r = await db_client.post(
+        "/api/v1/agent-scans/bootstrap",
+        json={"platform": "claude-code", "visibility": "public"},
+    )
+    assert r.status_code == 201
+    run = await db_session.get(AgentRun, UUID(r.json()["run_id"]))
+    assert run is not None
+    assert run.agent_name != "my-agent"
+    assert "-" in run.agent_name  # adjective-noun shape
 
 
 @pytest.mark.asyncio

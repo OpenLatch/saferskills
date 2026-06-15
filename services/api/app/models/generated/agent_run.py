@@ -204,6 +204,11 @@ class AgentRun(Base):
         nullable=True,
     )
 
+    kind_tally: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,

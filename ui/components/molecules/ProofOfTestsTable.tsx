@@ -9,8 +9,8 @@ export interface ProofCheck {
 }
 
 const RES_LABEL: Record<ProofVerdict, string> = {
-  vulnerable: 'Vulnerable',
-  not_observed: 'Not observed',
+  vulnerable: 'Fail',
+  not_observed: 'Pass',
   n_a: 'N/A',
   error: 'Error',
 }
@@ -38,11 +38,12 @@ function groupByFamily(checks: ProofCheck[]): FamilyGroup[] {
 }
 
 /**
- * The Report-tab proof-of-tests table (I-5.6 §3 Report tab). Groups every applied
- * `check` by OWASP family; a passing row (`not_observed`/`n_a`) shows a ✓ result
- * chip, a vulnerable row shows a "View finding →" button (`onViewFinding(testId)`)
- * that the report wires to deep-link the Findings tab. Reuses the DS `.chk-*`
- * grammar (CheckGroupList); the full-pass variant flips to the celebratory header.
+ * The Report-tab proof-of-tests table (I-5.6 §3 Report tab). Mirrors the locked
+ * mockup: a `Rules & checks applied · N total` checks-head, then one bordered
+ * `.chk-group` per OWASP family — group head carries `{n} failed · {p}/{t} passed`,
+ * a passing row shows the ✓ + `PASS` chip, a vulnerable row the ✗ + a red
+ * `View finding →` button (`onViewFinding(testId)`) that the report wires to
+ * deep-link the Findings tab. Reuses the DS `.chk-*` grammar (CheckGroupList).
  */
 export default function ProofOfTestsTable({
   checks,
@@ -52,42 +53,29 @@ export default function ProofOfTestsTable({
   onViewFinding?: (testId: string) => void
 }) {
   const total = checks.length
-  const failed = checks.filter((c) => c.verdict === 'vulnerable').length
-  const passed = total - failed
-  const allPass = failed === 0
+  const allPass = checks.every((c) => c.verdict !== 'vulnerable')
   const groups = groupByFamily(checks)
 
   return (
     <section className={`ar-tests${allPass ? ' pass' : ''}`} aria-label="Rules and checks applied">
-      <div className="ar-tests-inner">
-        <header className="ar-tests-head">
-          <div className="tt-l">
-            <span className="tt-badge" aria-hidden="true">
-              {allPass ? '✓' : total}
-            </span>
-            <div className="tt-txt">
-              <h3>
-                {allPass ? `Passed all ${total} tests` : `Rules & checks applied · ${total} total`}
-              </h3>
-              <p>
-                {allPass
-                  ? 'clean across the full OWASP Agentic + MITRE ATLAS pack'
-                  : `Passed ${passed} of ${total} tests`}
-              </p>
-            </div>
-          </div>
-          <div className="tt-meta">
-            OWASP Agentic · <b>MITRE ATLAS</b>
-          </div>
-        </header>
+      <p className="score-checks-head">Rules &amp; checks applied · {total} total</p>
 
-        {groups.map((g) => (
+      {groups.map((g) => {
+        const passedRows = g.rows.length - g.failed
+        return (
           <div className="chk-group" key={g.family}>
             <div className="chk-head">
               <span className="cg-name">{g.family}</span>
               <span className="cg-meta">
-                {g.rows.length - g.failed}/{g.rows.length}
-                {g.failed > 0 && <b> · {g.failed} failed</b>}
+                {g.failed > 0 ? (
+                  <>
+                    <b>{g.failed} failed</b> · {passedRows}/{g.rows.length} passed
+                  </>
+                ) : (
+                  <>
+                    {passedRows}/{g.rows.length} passed
+                  </>
+                )}
               </span>
             </div>
             {g.rows.map((row) => {
@@ -97,7 +85,7 @@ export default function ProofOfTestsTable({
               return (
                 <div className={`chk-row ${rowClass}`} key={row.test_id}>
                   <span className="chk-st" aria-hidden="true">
-                    {fail ? '✕' : warn ? '!' : '✓'}
+                    {fail ? '✗' : warn ? '!' : '✓'}
                   </span>
                   <span className="chk-id">{row.test_id}</span>
                   <span className="chk-tt">{row.title}</span>
@@ -117,8 +105,8 @@ export default function ProofOfTestsTable({
               )
             })}
           </div>
-        ))}
-      </div>
+        )
+      })}
     </section>
   )
 }

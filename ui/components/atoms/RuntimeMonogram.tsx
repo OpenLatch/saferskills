@@ -1,9 +1,14 @@
+import { AGENT_LOGOS } from './agent-logos'
+
 /**
- * RuntimeMonogram — a compact agent-runtime badge (monogram + optional name) for
- * the `/agents` directory (I-5.6 §12). The id set mirrors
- * `app/services/agent_compat.py::AgentName` + the telemetry `other` fallback — an
- * unknown runtime falls back to `other` (the enum stays closed). Token-only chip;
- * CSS (`.rt-mono` / `.rt-mark` / `.rt-name`) is in `page-agent-directory.css`.
+ * RuntimeMonogram — a compact agent-runtime badge (brand mark + optional name)
+ * for the `/agents` directory (I-5.6 §12). The bordered square carries the
+ * agent's real brand logo (the same `AGENT_LOGOS` marks the homepage hero
+ * marquee uses); a runtime with no known logo (e.g. `other`) falls back to the
+ * 2-letter monogram. The id set mirrors `app/services/agent_compat.py::AgentName`
+ * + the telemetry `other` fallback — an unknown runtime falls back to `other`
+ * (the enum stays closed). Token-only chip; CSS (`.rt-mono` / `.rt-mark` /
+ * `.rt-logo` / `.rt-name`) is in `page-agent-directory.css`.
  */
 
 // Mirrors app/services/agent_compat.py::AgentName + the `other` runtime fallback.
@@ -35,21 +40,21 @@ const MONOGRAM: Record<RuntimeId, string> = {
   cursor: 'Cu',
   codex: 'Cx',
   copilot: 'Co',
-  windsurf: 'Ws',
+  windsurf: 'Wd',
   cline: 'Cl',
-  gemini: 'Ge',
-  openclaw: 'Oc',
+  gemini: 'Gm',
+  openclaw: 'OC',
   other: '··',
 }
 
 const NAME: Record<RuntimeId, string> = {
   'claude-code': 'Claude Code',
   cursor: 'Cursor',
-  codex: 'Codex',
-  copilot: 'Copilot',
+  codex: 'Codex CLI',
+  copilot: 'GH Copilot',
   windsurf: 'Windsurf',
   cline: 'Cline',
-  gemini: 'Gemini',
+  gemini: 'Gemini CLI',
   openclaw: 'OpenClaw',
   other: 'Other',
 }
@@ -75,10 +80,11 @@ export default function RuntimeMonogram({
   className?: string
 }) {
   const id = asRuntimeId(runtime)
+  const Logo = AGENT_LOGOS[id]
   return (
     <span className={`rt-mono rt-${id} ${className}`.trim()}>
-      <span className="rt-mark" aria-hidden="true">
-        {MONOGRAM[id]}
+      <span className={`rt-mark${Logo ? ' rt-mark--logo' : ''}`} aria-hidden="true">
+        {Logo ? <Logo className="rt-logo" /> : MONOGRAM[id]}
       </span>
       {showName ? (
         <span className="rt-name">{NAME[id]}</span>

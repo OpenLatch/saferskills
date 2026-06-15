@@ -55,6 +55,7 @@ export function filtersToSearchParams(f: AgentFilters): URLSearchParams {
 /** Build the API list params from the filter state for a given 1-based page. */
 export function filtersToParams(f: AgentFilters, page: number, pageSize: number): AgentListParams {
   return {
+    q: f.q.trim() || undefined,
     scoreMin: f.scoreMin > 0 ? f.scoreMin : undefined,
     scoreMax: f.scoreMax < 100 ? f.scoreMax : undefined,
     period: f.period,

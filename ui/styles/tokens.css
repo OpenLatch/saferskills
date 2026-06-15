@@ -124,6 +124,11 @@
   --score-green-text: #0A7A55;
   --score-red-text:   #B4302B;
 
+  /* Legible ink ON a yellow band fill (the only band whose fill is too light
+     for white text) — e.g. the /agents risk-thermometer segment %. Same in
+     both themes (the fill never flips). */
+  --score-yellow-ink: #5B4708;
+
   /* ============================================================
      TYPOGRAPHY — FAMILIES
      ============================================================ */

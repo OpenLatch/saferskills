@@ -83,7 +83,7 @@
         "type": "object"
       },
       "AgentCapabilityTally": {
-        "description": "Per-kind capability counts (derived from `component_scores[].kind`).",
+        "description": "Per-kind capability counts (stored per-run on `agent_runs.kind_tally`;\npopulated by the seed today, by the grader/submit flow when the component\ninventory is captured).",
         "properties": {
           "hook": {
             "default": 0,
@@ -475,11 +475,17 @@
         "description": "`POST|GET /api/v1/agent-scans/bootstrap` input - mint a run + return the\nplatform-picked bootstrap prompt (Phase 3). The web picker page is I-5.7.",
         "properties": {
           "agent_name": {
-            "default": "my-agent",
-            "description": "Display name for the scanned agent.",
-            "maxLength": 200,
-            "title": "Agent Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name for the scanned agent; omit for a generated codename.",
+            "title": "Agent Name"
           },
           "platform": {
             "anyOf": [
@@ -606,10 +612,17 @@
         "description": "`POST /api/v1/agent-scans` body - mint a run + one-time submit token.",
         "properties": {
           "agent_name": {
-            "description": "Display name for the scanned agent.",
-            "maxLength": 200,
-            "title": "Agent Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name for the scanned agent; omit for a generated codename.",
+            "title": "Agent Name"
           },
           "runtime": {
             "anyOf": [
@@ -646,7 +659,6 @@
           }
         },
         "required": [
-          "agent_name",
           "runtime"
         ],
         "title": "AgentScanCreateRequest",
@@ -1195,38 +1207,6 @@
           "percentage"
         ],
         "title": "AgentShare",
-        "type": "object"
-      },
-      "AgentVerifyWaitlistRequest": {
-        "description": "`POST /api/v1/agent-scans/verify-waitlist` \u2014 account-free demand signal.",
-        "properties": {
-          "email": {
-            "anyOf": [
-              {
-                "maxLength": 320,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Optional contact email.",
-            "title": "Email"
-          }
-        },
-        "title": "AgentVerifyWaitlistRequest",
-        "type": "object"
-      },
-      "AgentVerifyWaitlistResponse": {
-        "description": "`POST /api/v1/agent-scans/verify-waitlist` ack (records demand only).",
-        "properties": {
-          "recorded": {
-            "default": true,
-            "title": "Recorded",
-            "type": "boolean"
-          }
-        },
-        "title": "AgentVerifyWaitlistResponse",
         "type": "object"
       },
       "CapabilityRow": {
@@ -4774,6 +4754,23 @@
         "parameters": [
           {
             "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
             "name": "score_min",
             "required": false,
             "schema": {
@@ -4990,9 +4987,15 @@
             "name": "agent_name",
             "required": false,
             "schema": {
-              "default": "my-agent",
-              "title": "Agent Name",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Name"
             }
           },
           {
@@ -5252,48 +5255,6 @@
           }
         },
         "summary": "Reply Unlisted Run",
-        "tags": [
-          "agent-scans"
-        ]
-      }
-    },
-    "/api/v1/agent-scans/verify-waitlist": {
-      "post": {
-        "description": "Record demand for the (out-of-scope) independently-observed verify tier\n(D-5.6-08). Account-free, email-OPTIONAL. The submitter IP is redacted to\n/24-(v4)/48-(v6) at write time (`privacy.md`); a raw IP is never stored.",
-        "operationId": "verify_waitlist_api_v1_agent_scans_verify_waitlist_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentVerifyWaitlistRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentVerifyWaitlistResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Verify Waitlist",
         "tags": [
           "agent-scans"
         ]

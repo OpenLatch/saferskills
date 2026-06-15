@@ -166,6 +166,9 @@ html.dark body.va .hero-band .hero-lede {
 html.dark body.va .hero-band::before {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23F8FAFC' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='17' x2='20' y2='23'/><line x1='17' y1='20' x2='23' y2='20'/></g></svg>");
 }
+html.dark body.va .hero-band {
+  border-bottom-color: var(--color-line);
+}
 html.dark body.va .hero-band .supported-band {
   background: var(--color-paper-deep);
   border-top-color: var(--color-line);
@@ -187,6 +190,7 @@ html.dark body.va .topo-band svg {
 html.dark body.va .install-band {
   background-color: #060b14;
   color: var(--fg-1);
+  border-top-color: var(--color-line);
 }
 html.dark body.va .install-band .eyebrow {
   color: var(--brand-accent);
@@ -213,14 +217,22 @@ html.dark body.va .wave-band {
 }
 html.dark body.va .feeds-band {
   background: var(--color-paper);
+  border-top-color: var(--color-line);
 }
 html.dark body.va .docs-band {
   background: var(--color-paper-deep);
+  border-top-color: var(--color-line);
 }
 html.dark body.va .docs-head {
   border-bottom-color: var(--color-line);
 }
 html.dark body.va .docs-foot {
+  border-top-color: var(--color-line);
+}
+html.dark body.va .reasons-list {
+  border-top-color: var(--color-line);
+}
+html.dark body.va .detection-band .dt-foot-line {
   border-top-color: var(--color-line);
 }
 html.dark body.va .docs-side .name {
@@ -2457,6 +2469,7 @@ html.dark body.va .ridge-pixel .ridge-label {
 /* DARK MODE: match the "Five reasons" (WHY) band surface — page paper, not the extra-dark slate */
 html.dark body.va .agentscan-band {
   background-color: var(--color-paper);
+  border-top-color: var(--color-line);
 }
 
 /* ===== LIGHT MODE: true light theme for the Agent Scan band (visuals unchanged) ===== */

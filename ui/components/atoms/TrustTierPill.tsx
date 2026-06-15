@@ -23,10 +23,10 @@ export default function TrustTierPill({
   const text = labels.map(humanize).join(' · ')
   return (
     <span className={`trust-pill ${className}`.trim()} tabIndex={0} aria-describedby={tipId}>
+      {text}
       <span className="ti" aria-hidden="true">
         i
       </span>
-      {text}
       <span className="tip" id={tipId} role="tooltip">
         {tooltip}
       </span>

@@ -1,12 +1,11 @@
 import EvidenceWithheldNote from '@ui/components/atoms/EvidenceWithheldNote'
-import RefChip from '@ui/components/atoms/RefChip'
 import SeverityPill from '@ui/components/atoms/SeverityPill'
 import OwaspFindingGroup from '@ui/components/molecules/OwaspFindingGroup'
 import RedactedTranscript from '@ui/components/molecules/RedactedTranscript'
 import RemediationTerminal from '@ui/components/molecules/RemediationTerminal'
 import ScoreMathTable from '@ui/components/molecules/ScoreMathTable'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { findingRefChips, groupFindingsByFamily, scoreMathFor } from '@/lib/agent/findings-view'
+import { groupFindingsByFamily, scoreMathFor } from '@/lib/agent/findings-view'
 import { findingRemediationMarkdown } from '@/lib/agent-report-markdown'
 import type { AgentFindingRow, AgentScoreBreakdown } from '@/lib/api/agent-scan-types'
 
@@ -84,12 +83,16 @@ export default function AgentFindings({
         cards: g.findings.map((f) => {
           const severity = f.severity ?? 'info'
           const inBreakdown = scoreBreakdown?.findings.some((m) => m.test_id === f.test_id) ?? false
+          // The pack's severity_rationale leads with its own `CRITICAL — ` prefix;
+          // split it so the leading severity renders bold exactly once (mockup shape).
+          const rat = f.severity_rationale ?? ''
+          const ratMatch = rat.match(/^([A-Za-z]+)\s+—\s+([\s\S]*)$/)
           return {
             finding: f,
             severity,
-            sevLabel: severity.toUpperCase(),
+            ratLead: ratMatch ? ratMatch[1].toUpperCase() : severity.toUpperCase(),
+            ratBody: ratMatch ? ratMatch[2] : rat,
             math: inBreakdown ? scoreMathFor(scoreBreakdown, f.test_id) : null,
-            refs: findingRefChips(f),
           }
         }),
       })),
@@ -133,7 +136,7 @@ export default function AgentFindings({
     <div ref={rootRef}>
       {groups.map((g) => (
         <OwaspFindingGroup key={g.family} index={g.index} title={g.family} refs={g.refs}>
-          {g.cards.map(({ finding: f, severity, sevLabel, math, refs }) => (
+          {g.cards.map(({ finding: f, severity, ratLead, ratBody, math }) => (
             <details
               className="find-card"
               id={`finding-${f.id}`}
@@ -142,7 +145,7 @@ export default function AgentFindings({
               onToggle={(e) => toggle(f.id, (e.currentTarget as HTMLDetailsElement).open)}
             >
               <summary>
-                <SeverityPill severity={severity} label={sevLabel} />
+                <SeverityPill severity={severity} label={severity.toUpperCase()} />
                 <span className="fc-titlewrap">
                   <span className="fc-title">{f.title || f.test_id}</span>
                   <span className="fc-rule">
@@ -155,17 +158,9 @@ export default function AgentFindings({
               </summary>
 
               <div className="fc-detail">
-                {f.severity_rationale ? (
+                {ratBody ? (
                   <div className={`fc-rationale ${severity}`}>
-                    <b>{sevLabel}</b> — {f.severity_rationale}
-                  </div>
-                ) : null}
-
-                {refs.length > 0 ? (
-                  <div className="fc-refs">
-                    {refs.map((r) => (
-                      <RefChip key={`${r.kind}-${r.label}`} {...r} />
-                    ))}
+                    <b>{ratLead}</b> — {ratBody}
                   </div>
                 ) : null}
 

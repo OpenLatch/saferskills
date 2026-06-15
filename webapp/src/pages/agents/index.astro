@@ -15,10 +15,16 @@ import {
   fetchAgentAggregateStats,
   listAgentScans,
 } from '@/lib/api/agent-scans'
+import practicePack from '@/generated/agent-pack/practice.json'
 
 import '@/styles/page-agent-directory.css'
 
 const PAGE_SIZE = 24
+
+// The live pack size (AS-NN behavioral-test count) — read from the generated public
+// practice pack at build time (server-only; the JSON never reaches the client bundle,
+// only this scalar is passed as a prop). Drives the collecting-state instrument.
+const PACK_TEST_COUNT = (practicePack.tests ?? []).length
 
 const url = new URL(Astro.request.url)
 const initialFilters = filtersFromSearchParams(url.searchParams)
@@ -64,6 +70,8 @@ const [initialData, initialStats] = await Promise.all([
     initialFilters={initialFilters}
     initialData={initialData}
     initialStats={initialStats}
+    packTestCount={PACK_TEST_COUNT}
+    now={Date.now()}
   />
 
   <CtaBand

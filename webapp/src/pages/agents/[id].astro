@@ -4,16 +4,17 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
-import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
-import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import { runtimeLabel } from '@ui/components/atoms/RuntimeMonogram.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import AgentReport from '@/components/agent/AgentReport.tsx'
+import AgentReportActions from '@/components/agent/AgentReportActions.tsx'
 import AgentScanPollBoard from '@/components/agent/AgentScanPollBoard.tsx'
 
 import { fetchAgentScanRunById } from '@/lib/api/agent-scans'
 import { isPreGrade, isReportable } from '@/lib/api/agent-scan-types'
+import { formatScannedAt } from '@/lib/agent/format'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
@@ -57,6 +58,7 @@ const stats = await fetchOrNull(fetchPlatformStats)
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 const capCount = run.capabilities_present.length
 const scoreLabel = run.score === null ? '' : ` ${run.score}/100`
+const runtimeName = runtimeLabel(run.runtime)
 ---
 
 <Base
@@ -73,24 +75,33 @@ const scoreLabel = run.score === null ? '' : ` ${run.score}/100`
 >
   <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath="/agents" />
 
-  <section class="page-head">
+  <header class="page-head sr-head">
     <div class="container">
-      <Breadcrumb items={[{ label: 'Agents', href: '/agents' }, { label: run.agent_name }]} />
-      <div class="ph-eyebrow">Report · Agent Scan · /agents/{run.id}</div>
-      {preGrade ? (
-        <h1 class="ph-title">Auditing {run.agent_name}<span class="script"> — in progress</span></h1>
-      ) : (
-        <h1 class="ph-title">{run.agent_name}<span class="script"> — agent scan complete</span></h1>
-      )}
-      <p class="ph-lede">
-        we ran an open adversarial pack against the whole assembled agent — model, harness, all {capCount}
-        {' '}capabilities, identity and permissions; security here is emergent, no per-component score
-        {' '}predicts it
-      </p>
+      <span class="ph-eyebrow">Report · Agent Scan · /agents/{run.agent_name}</span>
+      <div class="sr-head-row">
+        <div class="sr-head-l">
+          {preGrade ? (
+            <h1 class="ph-title">Auditing {run.agent_name}<span class="script"> — in progress</span></h1>
+          ) : (
+            <h1 class="ph-title">{run.agent_name}<span class="script"> — agent scan complete</span></h1>
+          )}
+          <p class="ph-lede">
+            We ran an open adversarial pack against the whole assembled agent — model, harness,
+            all {capCount} capabilities, identity and permissions. Security here is emergent: no
+            per-component score predicts it.
+          </p>
+          <div class="sr-head-meta">
+            <span class="by">scanned <b>{formatScannedAt(run.scanned_at)}</b></span>
+            <span class="dot">·</span>
+            <span>{runtimeName} · {capCount} capabilities</span>
+          </div>
+        </div>
+        <div class="sr-head-r">
+          {!preGrade && <AgentReportActions client:load run={run} shareUrl={Astro.url.href} />}
+        </div>
+      </div>
     </div>
-  </section>
-
-  <PageRidge variant="contour" label="— AGENT SCAN —" />
+  </header>
 
   {preGrade ? (
     <AgentScanPollBoard client:load runId={run.id} target={run.agent_name} ruleCount={ruleCount} />
@@ -100,10 +111,10 @@ const scoreLabel = run.score === null ? '' : ` ${run.score}/100`
 
   <CtaBand
     client:visible
-    title="Scan your agent. Read the report. Decide."
-    lead="An open adversarial pack across the OWASP Agentic + MITRE ATLAS families. Free. Methodology-open."
-    primaryAction={{ label: 'Browse the agent index →', href: '/agents' }}
-    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+    title="Point the scanner at your own agent."
+    lead="~40 seconds. Free. No account. Every scan produces a permanent, shareable Agent Report — and the badge to prove it."
+    primaryAction={{ label: 'Scan an agent →', href: '/scan' }}
+    secondaryAction={{ label: 'Browse the index', href: '/agents' }}
   />
 
   <Footer />

@@ -3,7 +3,7 @@ import { type KeyboardEvent, useRef } from 'react'
 export interface SegmentedTab {
   id: string
   label: string
-  count?: number
+  count?: number | string
   /** Active-state accent for the `segmented` variant. Default teal. */
   accent?: 'teal' | 'orange'
 }
@@ -96,7 +96,7 @@ export default function SegmentedTabs({
             onKeyDown={(e) => onKeyDown(e, i)}
           >
             {t.label}
-            {typeof t.count === 'number' && <span className="t-ct">{t.count}</span>}
+            {t.count != null && <span className="t-ct">{t.count}</span>}
           </button>
         )
       })}

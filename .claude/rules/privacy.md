@@ -121,43 +121,6 @@ override of the SET-NULL constraint (see its docstring). Public runs are permane
 Row-level `agent_scan_telemetry` is internal; only bucketed aggregates surface in the
 I-06 B2B intelligence surface. No raw ASN/IP export to third parties.
 
-## agent_verify_waitlist table (I-5.6)
-
-The `agent_verify_waitlist` table records demand for the (out-of-scope)
-independently-observed verify tier — one row per "Request independent verification"
-tile submit on an Agent Report (D-5.6-08), written by
-`POST /api/v1/agent-scans/verify-waitlist`.
-
-### What is stored
-
-`email` (OPTIONAL — only when the requester leaves one; the tile is account-free),
-`redacted_ip`, `created_at`. **No slug, no URL, no agent name, no PII beyond the
-opt-in email.** It is a demand signal, not a profile.
-
-### IP redaction (mandatory)
-
-Same contract as `access_log` / `install_events`: the submitter IP is **redacted at
-write time** to /24 (IPv4) or /48 (IPv6) in `app/routers/agent_scans.py` (via
-`access_log_middleware.redact_ip`) — a raw IP is never stored.
-
-### Consent + legal basis
-
-The optional email is provided **only when the requester types it** (explicit, an
-opt-in contact for the future verify tier — consent basis Art. 6(1)(a) for that
-field). The redacted-IP demand row rests on the legitimate-interest basis
-(Art. 6(1)(f) — product demand measurement), justified by the redaction + the
-absence of other PII.
-
-### Retention
-
-**Retained** (redacted IP + opt-in email only) — the demand signal is the point.
-A requester who wants their email erased uses the privacy contact (`privacy@openlatch.ai`).
-
-### No export
-
-Row-level `agent_verify_waitlist` is internal; the email list seeds the future
-verify-tier launch only.
-
 ## First-launch audit (I-05, D-05-26)
 
 On the install CLI's first interactive run it offers a **one-time, opt-in** security
@@ -186,7 +149,6 @@ Link to `security.md` § Vendor-data isolation for the full retention-tier break
 |---|---|
 | `install_events` column / retention / enum change | "install_events table" + `app/models/install_event.py` + `app/routers/installs.py` + migration 0014 + `security.md` |
 | `agent_scan_telemetry` column / retention / fingerprint change | "agent_scan_telemetry table" + `app/models/agent_scan_telemetry.py` + `app/agent_scan/` + migration 0019 + `security.md` |
-| `agent_verify_waitlist` column / retention change | "agent_verify_waitlist table" + `app/models/agent_verify_waitlist.py` + `app/routers/agent_scans.py` (`verify_waitlist`) + migration 0020 + `database.md` |
 | New `action` enum value added | "What is stored" + `app/core/access_log_middleware.py` enum + `privacy.astro` |
 | IP redaction granularity changed | "IP redaction" + `app/core/access_log_middleware.py` + `privacy.astro` |
 | `access_log` reader ships (I-06) | "access_log table" — remove "write-only at I-04" note; document the read surface |

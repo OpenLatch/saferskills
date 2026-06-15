@@ -13,6 +13,7 @@ No raw payload (prime invariant #3): a summary carries only derived counts/label
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import ColumnElement, and_, asc, desc, func, or_, select
@@ -83,6 +84,7 @@ def _severity_condition(severities: list[str]) -> ColumnElement[bool] | None:
 
 def _filters(
     *,
+    q: str | None,
     score_min: int | None,
     score_max: int | None,
     periods: list[str],
@@ -90,6 +92,10 @@ def _filters(
     severities: list[str],
 ) -> list[ColumnElement[bool]]:
     clauses: list[ColumnElement[bool]] = [_public_graded()]
+    if q and q.strip():
+        # Escape LIKE wildcards so user input is matched literally.
+        needle = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        clauses.append(AgentRun.agent_name.ilike(f"%{needle}%", escape="\\"))
     if score_min is not None:
         clauses.append(AgentRun.score >= score_min)
     if score_max is not None:
@@ -122,6 +128,22 @@ def _trust_tier(trust_labels: list[str] | None) -> str | None:
     return labels[0] if labels else None
 
 
+def _capability_tally(kind_tally: dict[str, Any] | None) -> AgentCapabilityTally:
+    """Project the DB-only `agent_runs.kind_tally` JSONB onto the wire tally.
+
+    NULL/absent → an all-zero tally (no icons), which is correct until a real
+    component inventory is captured. Keys are exactly skill/hook/mcp/plugin/rules.
+    """
+    kt = kind_tally or {}
+    return AgentCapabilityTally(
+        skill=int(kt.get("skill", 0)),
+        hook=int(kt.get("hook", 0)),
+        mcp=int(kt.get("mcp", 0)),
+        plugin=int(kt.get("plugin", 0)),
+        rules=int(kt.get("rules", 0)),
+    )
+
+
 async def _findings_by_run(
     session: AsyncSession, run_ids: list[UUID]
 ) -> dict[UUID, AgentFindingsSummary]:
@@ -150,6 +172,7 @@ async def list_public_runs(
     session: AsyncSession,
     settings: Settings,
     *,
+    q: str | None = None,
     score_min: int | None = None,
     score_max: int | None = None,
     periods: list[str] | None = None,
@@ -163,6 +186,7 @@ async def list_public_runs(
     page = max(1, page)
     page_size = max(1, min(page_size, _MAX_PAGE_SIZE))
     clauses = _filters(
+        q=q,
         score_min=score_min,
         score_max=score_max,
         periods=periods or [],
@@ -198,7 +222,7 @@ async def list_public_runs(
             band=run.band,  # type: ignore[arg-type]
             report_url=report_urls(run, settings, private=False)[0],
             scanned_at=run.scanned_at,
-            capability_tally=AgentCapabilityTally(),  # builder-populated later (I-5.5 dep)
+            capability_tally=_capability_tally(run.kind_tally),
             findings_summary=tallies.get(run.id, AgentFindingsSummary()),
             trust_tier=_trust_tier(run.trust_labels),
         )

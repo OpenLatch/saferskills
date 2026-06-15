@@ -1565,6 +1565,7 @@ html.dark .page-section--flat {
 }
 html.dark .cta-band {
   background-color: #060b14;
+  border-top-color: var(--color-line);
   background-image: repeating-linear-gradient(
     -55deg,
     rgba(248, 250, 252, 0.1) 0px,
@@ -7976,7 +7977,7 @@ html.dark .fc-trace > summary:hover {
    AGENT REPORT (I-5.6) — DS-owned CSS for the agent-report
    components: AgentVerb / TrustTierPill / CapCallout /
    ProofOfTestsTable / EvidenceWithheldNote / StalePackBanner /
-   VerifyWaitlistTile / RightOfReplyForm. Page-composition glue
+   RightOfReplyForm. Page-composition glue
    (.ar-scoreline / .ar-panel / .ar-panel-lead) lives in
    webapp/src/styles/page-agent-report.css. Ported from the locked
    mockup (body.va.dark -> html.dark); tokens only.
@@ -8095,73 +8096,9 @@ html.dark .trust-pill .tip::after { border-top-color: var(--ol-slate-800); }
 html.dark .cap-reason p b { color: var(--fg-1); }
 
 /* ---- ProofOfTestsTable (Report tab) — header + the .chk-* additions ---- */
-.ar-tests { background: var(--color-paper); padding: 8px 0 0; }
-html.dark .ar-tests { background: transparent; }
-.ar-tests-inner { border: 1px solid var(--color-ink); border-top: 0; }
-html.dark .ar-tests-inner { border-color: var(--color-line); }
-.ar-tests-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--color-ink);
-  background-image: var(--bg-plus-grid);
-  background-size: 40px 40px;
-}
-html.dark .ar-tests-head { border-color: var(--color-line); background-image: none; }
-.ar-tests-head .tt-l { display: flex; align-items: center; gap: 14px; }
-.ar-tests-head .tt-badge {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border: 1.5px solid var(--color-ink);
-  display: grid;
-  place-items: center;
-  font-family: var(--font-loud);
-  font-stretch: 125%;
-  font-weight: 800;
-  font-size: 18px;
-  color: var(--color-ink);
-  letter-spacing: -0.02em;
-}
-html.dark .ar-tests-head .tt-badge { border-color: var(--color-line); color: var(--fg-1); }
-.ar-tests.pass .ar-tests-head .tt-badge {
-  border-color: var(--score-green);
-  color: var(--score-green);
-  background: rgba(16, 185, 129, 0.08);
-}
-.ar-tests-head .tt-txt h3 {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
-}
-html.dark .ar-tests-head .tt-txt h3 { color: var(--fg-1); }
-.ar-tests.pass .ar-tests-head .tt-txt h3 { color: var(--score-green); }
-.ar-tests-head .tt-txt p {
-  margin: 3px 0 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--fg-3);
-}
-.ar-tests-head .tt-meta {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  text-align: right;
-}
-.ar-tests-head .tt-meta b { color: var(--color-ink); }
-html.dark .ar-tests-head .tt-meta b { color: var(--fg-1); }
+.ar-tests { background: transparent; padding: 0; }
 /* The proof table reuses the DS .chk-group/.chk-row grammar; these additions are
    scoped under .ar-tests so the shared scan-report CheckGroupList is untouched. */
-.ar-tests .chk-group { border: 0; margin-bottom: 0; }
 .ar-tests .chk-group .chk-head .cg-meta b { color: var(--score-red); }
 .ar-tests .chk-row.fail { background: rgba(239, 68, 68, 0.03); }
 html.dark .ar-tests .chk-row.fail { background: rgba(239, 68, 68, 0.07); }
@@ -8228,52 +8165,7 @@ html.dark .ar-tests .chk-row.fail { background: rgba(239, 68, 68, 0.07); }
 }
 .ar-stale-cta:hover { text-decoration: underline; }
 
-/* ---- VerifyWaitlistTile ---- */
-.vw-tile {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 20px 22px;
-  border: 1px solid var(--color-ink);
-  background: var(--bg-page-alt);
-}
-html.dark .vw-tile { border-color: var(--color-line); }
-.vw-tile .vw-txt { flex: 1 1 280px; min-width: 0; }
-.vw-tile .vw-txt h3 {
-  margin: 0 0 4px;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--color-ink);
-}
-html.dark .vw-tile .vw-txt h3 { color: var(--fg-1); }
-.vw-tile .vw-txt p {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--fg-2);
-  text-wrap: pretty;
-}
-.vw-done {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--score-green);
-}
-.vw-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--fg-2);
-}
-.vw-field .vw-opt { color: var(--fg-3); }
-.vw-field input,
+/* ---- RightOfReplyForm ---- */
 .ror-field textarea {
   font-family: var(--font-sans);
   font-size: 14px;
@@ -8284,12 +8176,8 @@ html.dark .vw-tile .vw-txt h3 { color: var(--fg-1); }
   padding: 9px 11px;
   width: 100%;
 }
-html.dark .vw-field input,
 html.dark .ror-field textarea { color: var(--fg-1); background: var(--bg-surface); border-color: var(--color-line); }
-.vw-field input:focus-visible,
 .ror-field textarea:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--brand-primary); }
-
-/* ---- RightOfReplyForm ---- */
 .ror { display: inline-flex; }
 .ror-done {
   font-family: var(--font-mono);
@@ -8570,94 +8458,18 @@ html.dark .transcript { border-color: var(--color-line); }
 .transcript .ts-flag b { color: #fff; }
 
 /* ---- ComponentScoresTable (contributing-context grid) ---- */
-.ar-components-tab .cs-note {
-  margin: 0 0 14px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--fg-3);
-  letter-spacing: 0.01em;
-}
-.ar-components-tab .cs-note b { color: var(--brand-primary); }
 .cs-empty {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
   padding: 32px 4px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  color: var(--fg-3);
 }
-.cs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  border-top: 1px solid var(--color-line);
+/* component table: soft hover on "View report" — no brutalist stamp shadow */
+.ar-components-tab .cap-action .open:hover {
+  box-shadow: none;
+  transform: none;
 }
-.cs-grid.cs-grid-boxed { border: 1px solid var(--color-ink); }
-html.dark .cs-grid,
-html.dark .cs-grid.cs-grid-boxed { border-color: var(--color-line); }
-.cs-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  border-right: 1px solid var(--color-line);
-  border-bottom: 1px solid var(--color-line);
-  text-decoration: none;
-  transition: background var(--dur-xs);
-}
-html.dark .cs-cell { border-color: var(--color-line); }
-.cs-cell:hover { background: rgba(15, 23, 42, 0.025); }
-html.dark .cs-cell:hover { background: rgba(255, 255, 255, 0.035); }
-.cs-cell:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.cs-cell .cs-mk { flex: 0 0 auto; width: 9px; height: 9px; }
-.cs-cell .cs-mk.skill { background: var(--brand-primary); }
-.cs-cell .cs-mk.hook { width: 10px; height: 10px; background: var(--brand-accent); transform: rotate(45deg); }
-.cs-cell .cs-mk.mcp { border-radius: 50%; background: var(--status-info); }
-.cs-cell .cs-id { min-width: 0; flex: 1; }
-.cs-cell .cs-id .nm {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-html.dark .cs-cell .cs-id .nm { color: var(--fg-1); }
-.cs-cell .cs-id .ty {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-.cs-cell .cs-chip {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 7px;
-  border: 1px solid currentColor;
-}
-.cs-cell .cs-chip.clear { color: var(--score-green); }
-.cs-cell .cs-chip.review { color: var(--score-orange); }
-.cs-cell .cs-num {
-  flex: 0 0 auto;
-  font-family: var(--font-loud);
-  font-stretch: 125%;
-  font-weight: 800;
-  font-size: 21px;
-  letter-spacing: -0.02em;
-}
-.cs-cell.g .cs-num { color: var(--score-green); }
-.cs-cell.y .cs-num { color: var(--score-yellow); }
-.cs-cell.o .cs-num { color: var(--score-orange); }
-.cs-cell.r .cs-num { color: var(--score-red); }
-.cs-cell .cs-go { flex: 0 0 auto; font-family: var(--font-mono); font-size: 13px; color: var(--fg-3); }
-.cs-cell:hover .cs-go { color: var(--brand-primary); }
-@media (prefers-reduced-motion: reduce) { .cs-cell { transition: none; } }
 
 /* ---- ProvenanceChips (badge-band) ---- */
 .ar-prov-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }

@@ -4,7 +4,6 @@ import {
   fetchAgentScanRunById,
   fetchAgentScanUnlistedReport,
   promoteAgentUnlisted,
-  requestVerifyWaitlist,
 } from '@/lib/api/agent-scans'
 
 function report(extra: Record<string, unknown> = {}) {
@@ -87,10 +86,5 @@ describe('mutations', () => {
   it('delete resolves on 404 (already purged)', async () => {
     mockFetch(new Response('', { status: 404 }))
     await expect(deleteAgentUnlisted('tok')).resolves.toBeUndefined()
-  })
-
-  it('verify-waitlist tolerates a dev 404 (endpoint not yet deployed)', async () => {
-    mockFetch(new Response('', { status: 404 }))
-    await expect(requestVerifyWaitlist('a@b.com')).resolves.toBeUndefined()
   })
 })

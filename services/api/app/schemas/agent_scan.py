@@ -36,7 +36,11 @@ _Tier = Literal["green", "yellow", "orange", "red", "unscoped"]
 class AgentScanCreateRequest(OrmBaseModel):
     """`POST /api/v1/agent-scans` body - mint a run + one-time submit token."""
 
-    agent_name: str = Field(..., max_length=200, description="Display name for the scanned agent.")
+    agent_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Display name for the scanned agent; omit for a generated codename.",
+    )
     runtime: _Runtime = Field(..., description="Declared agent runtime (8 ids + `other`).")
     visibility: _Visibility = Field(default="public", description="public (default) | unlisted.")
 
@@ -70,8 +74,10 @@ class AgentScanBootstrapRequest(OrmBaseModel):
     platform: _Platform = Field(
         ..., description="Target platform template (8 agent ids + `universal` fallback)."
     )
-    agent_name: str = Field(
-        default="my-agent", max_length=200, description="Display name for the scanned agent."
+    agent_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Display name for the scanned agent; omit for a generated codename.",
     )
     runtime: _Runtime = Field(
         default="other", description="Declared agent runtime (8 ids + `other`)."
@@ -263,7 +269,9 @@ class AgentFindingsSummary(OrmBaseModel):
 
 
 class AgentCapabilityTally(OrmBaseModel):
-    """Per-kind capability counts (derived from `component_scores[].kind`)."""
+    """Per-kind capability counts (stored per-run on `agent_runs.kind_tally`;
+    populated by the seed today, by the grader/submit flow when the component
+    inventory is captured)."""
 
     skill: int = Field(default=0, ge=0)
     hook: int = Field(default=0, ge=0)
@@ -324,18 +332,6 @@ class AgentAggregateStats(OrmBaseModel):
     pct_with_critical: float | None = None
     band_distribution: AgentBandDistribution = Field(default_factory=AgentBandDistribution)
     window_label: str = "Whole corpus · Last 3 months"
-
-
-class AgentVerifyWaitlistRequest(OrmBaseModel):
-    """`POST /api/v1/agent-scans/verify-waitlist` — account-free demand signal."""
-
-    email: str | None = Field(default=None, max_length=320, description="Optional contact email.")
-
-
-class AgentVerifyWaitlistResponse(OrmBaseModel):
-    """`POST /api/v1/agent-scans/verify-waitlist` ack (records demand only)."""
-
-    recorded: bool = True
 
 
 class AgentReplyRequest(OrmBaseModel):

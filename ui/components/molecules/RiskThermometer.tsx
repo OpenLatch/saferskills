@@ -1,9 +1,10 @@
 /**
  * RiskThermometer — the corpus risk-distribution bar on the `/agents` header
  * (I-5.6 §12.1). Four proportional segments (Red / Orange / Yellow / Green) with
- * their percentages, the `Whole corpus · Last 3 months` window label + corpus
- * count, and the band-range legend. Segment colors are the score-band tokens
- * (never raw hex). CSS (`.therm*` / `.distrib`) is in `page-agent-directory.css`.
+ * their percentages, the `Risk distribution · Whole corpus · Last 3 months` head
+ * + corpus count, and the band-range legend. Markup mirrors the locked mockup
+ * (`.therm-wrap` / `.therm-head` / `.therm` / `.seg` / `.therm-legend`); segment
+ * colors are the score-band tokens. CSS is in `page-agent-directory.css`.
  */
 
 export interface BandShare {
@@ -18,11 +19,11 @@ export interface BandDistribution {
   green: BandShare
 }
 
-const SEGMENTS: { key: keyof BandDistribution; label: string }[] = [
-  { key: 'red', label: 'Red' },
-  { key: 'orange', label: 'Orange' },
-  { key: 'yellow', label: 'Yellow' },
-  { key: 'green', label: 'Green' },
+const SEGMENTS: { key: keyof BandDistribution; cls: string; label: string; range: string }[] = [
+  { key: 'red', cls: 'r', label: 'Red', range: '0–39' },
+  { key: 'orange', cls: 'o', label: 'Orange', range: '40–59' },
+  { key: 'yellow', cls: 'y', label: 'Yellow', range: '60–79' },
+  { key: 'green', cls: 'g', label: 'Green', range: '80–100' },
 ]
 
 export default function RiskThermometer({
@@ -35,13 +36,15 @@ export default function RiskThermometer({
   corpusCount: number
 }) {
   return (
-    <div className="therm">
+    <div className="therm-wrap">
       <div className="therm-head">
-        <span className="therm-window">{windowLabel}</span>
-        <span className="therm-count">{corpusCount.toLocaleString()} scans</span>
+        <span>Risk distribution · {windowLabel}</span>
+        <span>
+          <b>{corpusCount.toLocaleString()}</b> agents
+        </span>
       </div>
       <div
-        className="distrib"
+        className="therm"
         role="img"
         aria-label={SEGMENTS.map(
           (s) => `${s.label} ${Math.round(distribution[s.key]?.pct ?? 0)} percent`
@@ -50,31 +53,21 @@ export default function RiskThermometer({
         {SEGMENTS.map((s) => {
           const pct = distribution[s.key]?.pct ?? 0
           // Fall back to an even split only when the corpus is still empty.
-          const width = corpusCount > 0 ? pct : 25
+          const flex = corpusCount > 0 ? pct : 25
           return (
-            <span
-              key={s.key}
-              className={`distrib-seg distrib-${s.key}`}
-              style={{ width: `${width}%` }}
-            >
-              {pct >= 8 && <span className="distrib-pct">{Math.round(pct)}%</span>}
-            </span>
+            <div key={s.key} className={`seg ${s.cls}`} style={{ flex }}>
+              {pct >= 8 && <span className="pct">{Math.round(pct)}%</span>}
+            </div>
           )
         })}
       </div>
       <div className="therm-legend">
-        <span>
-          <i className="lg-sw distrib-red" aria-hidden="true" /> Red 0–39
-        </span>
-        <span>
-          <i className="lg-sw distrib-orange" aria-hidden="true" /> Orange 40–59
-        </span>
-        <span>
-          <i className="lg-sw distrib-yellow" aria-hidden="true" /> Yellow 60–79
-        </span>
-        <span>
-          <i className="lg-sw distrib-green" aria-hidden="true" /> Green 80–100
-        </span>
+        {SEGMENTS.map((s) => (
+          <div key={s.key}>
+            <i className={s.cls} aria-hidden="true" />
+            {s.label} · {s.range}
+          </div>
+        ))}
       </div>
     </div>
   )

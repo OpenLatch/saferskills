@@ -1,6 +1,7 @@
 //! Shared leaf modules: config + local state, the error model, the HTTP client,
 //! the install registry, the Proof-of-Work solver, and telemetry.
 
+pub mod agent_name;
 pub mod baseline;
 pub mod config;
 pub mod crash_report;

@@ -11,7 +11,7 @@ export interface ComponentScoreRowData {
   slug: string
 }
 
-const TIER_CELL: Record<ComponentTier, string> = {
+const TIER_BAND: Record<ComponentTier, string> = {
   green: 'g',
   yellow: 'y',
   orange: 'o',
@@ -19,13 +19,12 @@ const TIER_CELL: Record<ComponentTier, string> = {
   unscoped: '',
 }
 
-/** Glyph modifier (`.cs-mk`): MCP gets the circle, hook the diamond, the rest the square. */
 const KIND_GLYPH: Record<ComponentKind, string> = {
   skill: 'skill',
   mcp_server: 'mcp',
   hook: 'hook',
-  plugin: 'skill',
-  rules: 'skill',
+  plugin: 'plugin',
+  rules: 'rules',
 }
 
 const KIND_LABEL: Record<ComponentKind, string> = {
@@ -43,12 +42,14 @@ export interface ComponentScoresTableProps {
 }
 
 /**
- * Component Scores tab (I-5.6 §3.3, D-5.6-10) — the per-capability score grid.
- * **Contributing context only — never fused into the behavioral score.** Each
- * row deep-links to `/items/<slug>`; the all-clear / needs-review chip derives
- * from `tier` (the DTO has no `summary`/`needs_review`/`scan_id`). Renders a clean
+ * Component Scores tab (I-5.6 §3.3, D-5.6-10) — the per-capability score table,
+ * reusing the scan report's `.cap-list`/`.cap-row` grammar exactly as the locked
+ * mockup does. **Contributing context only — never fused into the behavioral
+ * score.** Each row deep-links to `/items/<slug>`; the all-clear / needs-review
+ * chip derives from `tier` (the DTO has no `summary` field). Renders a clean
  * empty-state when there are no assembled capabilities (the live builder is
- * data-starved until I-5.5 populates it). CSS `.cs-*` is DS-owned in components.css.
+ * data-starved until I-5.5 populates it). The `.cap-*` CSS ships with
+ * `page-scan-report.css`, which every agent-report route imports.
  */
 export default function ComponentScoresTable({
   rows,
@@ -63,35 +64,48 @@ export default function ComponentScoresTable({
   }
   return (
     <div className="ar-components-tab">
-      <p className="cs-note">
-        <b>Contributing context only</b> — never fused into the behavioral score.
+      <p className="ar-panel-lead">
+        Each capability's own score, shown as <b>contributing context</b> only — they are never
+        fused into the behavioral score. Open any to read its full report.
       </p>
-      <div className="cs-grid cs-grid-boxed">
+      <div className="cap-list">
+        <div className="cap-row cap-headrow">
+          <span>Type</span>
+          <span>Capability</span>
+          <span>Security summary</span>
+          <span>Score</span>
+          <span>Report</span>
+        </div>
         {rows.map((r) => {
           const clear = r.tier === 'green'
           return (
-            <a
-              className={`cs-cell ${TIER_CELL[r.tier]}`.trim()}
-              href={`${basePath}/${r.slug}`}
-              key={r.slug}
-              aria-label={`View report for ${r.name}`}
-            >
-              <span className={`cs-mk ${KIND_GLYPH[r.kind]}`} aria-hidden="true" />
-              <span className="cs-id">
+            <div className={`cap-row ${TIER_BAND[r.tier]}`.trim()} key={r.slug}>
+              <span className={`cap-type ${KIND_GLYPH[r.kind]}`}>
+                <span className="g-mk" aria-hidden="true" />
+                {KIND_LABEL[r.kind]}
+              </span>
+              <div className="cap-id">
                 <span className="nm">{r.name}</span>
-                <span className="ty">
-                  {KIND_LABEL[r.kind]}
-                  {r.path ? ` · ${r.path}` : ''}
+                {r.path && <span className="pth">{r.path}</span>}
+              </div>
+              <div className="cap-note">
+                Scored on its own {KIND_LABEL[r.kind]} rubric.
+                <span className={`find ${clear ? 'clear' : 'warn'}`}>
+                  {clear ? 'all clear' : 'needs review'}
                 </span>
-              </span>
-              <span className={`cs-chip ${clear ? 'clear' : 'review'}`}>
-                {clear ? 'all-clear' : 'needs review'}
-              </span>
-              <span className="cs-num">{r.score}</span>
-              <span className="cs-go" aria-hidden="true">
-                →
-              </span>
-            </a>
+              </div>
+              <div className="cap-score">
+                <span className="num">
+                  {r.score}
+                  <i>/100</i>
+                </span>
+              </div>
+              <div className="cap-action">
+                <a className="open" href={`${basePath}/${r.slug}`}>
+                  View report →
+                </a>
+              </div>
+            </div>
           )
         })}
       </div>

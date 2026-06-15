@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { axe } from 'vitest-axe'
 import CapCallout from '../../../components/atoms/CapCallout'
 
 describe('CapCallout', () => {
-  it('renders the callout text', () => {
-    render(<CapCallout band="red" text="Capped to Red — 1 critical finding observed." />)
-    expect(screen.getByText('Capped to Red — 1 critical finding observed.')).toBeInTheDocument()
+  it('renders the callout text with the lead clause bold', () => {
+    const { container } = render(
+      <CapCallout band="red" text="Capped to Red — 1 critical finding observed." />
+    )
+    expect(container.querySelector('.cap-reason b')?.textContent).toBe('Capped to Red')
+    expect(container.querySelector('.cap-reason p')?.textContent).toBe(
+      'Capped to Red — 1 critical finding observed.'
+    )
   })
 
   it('shows a check glyph for a clean green band and a warning glyph otherwise', () => {
