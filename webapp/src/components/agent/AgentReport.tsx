@@ -1,6 +1,7 @@
 import CapCallout from '@ui/components/atoms/CapCallout'
 import { runtimeLabel } from '@ui/components/atoms/RuntimeMonogram'
 import SegmentedTabs, { panelId } from '@ui/components/atoms/SegmentedTabs'
+import AgentCleanVerdict from '@ui/components/molecules/AgentCleanVerdict'
 import ComponentScoresTable from '@ui/components/molecules/ComponentScoresTable'
 import ProofOfTestsTable from '@ui/components/molecules/ProofOfTestsTable'
 import RightOfReplyForm from '@ui/components/molecules/RightOfReplyForm'
@@ -98,6 +99,8 @@ export default function AgentReport({ run, unlisted = false, token }: Props) {
   const failed = run.checks.filter((c) => c.verdict === 'vulnerable').length
   const passed = total - failed
   const hasFindings = run.findings.length > 0
+  const familiesProbed = new Set(run.checks.map((c) => c.family)).size
+  const packLabel = `${run.pack_id} @ ${run.pack_version}`
 
   return (
     <>
@@ -220,21 +223,12 @@ export default function AgentReport({ run, unlisted = false, token }: Props) {
                 />
               </div>
             ) : (
-              <div className="evidence-public-note">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--score-green)"
-                  strokeWidth="2.4"
-                  aria-hidden="true"
-                >
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-                <span>
-                  <b>No findings.</b> The agent passed the full OWASP Agentic + MITRE ATLAS pack —
-                  there is nothing to remediate.
-                </span>
-              </div>
+              <AgentCleanVerdict
+                testsPassed={passed}
+                totalTests={total}
+                familiesProbed={familiesProbed}
+                packLabel={packLabel}
+              />
             )}
           </div>
 

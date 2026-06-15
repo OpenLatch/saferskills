@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { highlightAgentPrompt } from '../../lib/highlight-prompt'
 
 export type PromptCopyState = 'idle' | 'copied' | 'busy'
 
@@ -7,6 +8,12 @@ interface Props {
   title: string
   /** Prompt text, one entry per displayed line ('' renders an empty line). */
   lines: string[]
+  /**
+   * Syntax-tint the body as the SaferSkills Agent-Scan prompt (placeholders,
+   * URLs, HTTP verbs, headers, the privacy paragraph). Opt-in — plain text
+   * otherwise. Restores the v3 mockup's `.tok-*` coloring (`highlight-prompt`).
+   */
+  tinted?: boolean
   /**
    * Controlled copy-button state — the parent owns every transition (mint,
    * clipboard write, reset timer). 'busy' disables the control and shows a
@@ -69,10 +76,19 @@ const CheckGlyph = () => (
  * names, never the page-CSS `.code-editor`/`.ce-*`, so Ladle renders it
  * without page CSS.
  */
-export default function PromptCodeCard({ title, lines, copyState, onCopy, footSlot }: Props) {
+export default function PromptCodeCard({
+  title,
+  lines,
+  copyState,
+  onCopy,
+  footSlot,
+  tinted = false,
+}: Props) {
   const copyClass = `pc-copy${copyState === 'copied' ? ' is-copied' : ''}${
     copyState === 'busy' ? ' is-busy' : ''
   }`
+  // Tint once per render — aligned 1:1 with `lines` so the row map can index it.
+  const tintedLines = tinted ? highlightAgentPrompt(lines) : null
   return (
     <div className="prompt-card">
       <div className="pc-head">
@@ -100,7 +116,7 @@ export default function PromptCodeCard({ title, lines, copyState, onCopy, footSl
             <span className="pc-ln" aria-hidden="true">
               {i + 1}
             </span>
-            <span className="pc-lc">{line}</span>
+            <span className="pc-lc">{tintedLines ? tintedLines[i] : line}</span>
           </div>
         ))}
       </div>

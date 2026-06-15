@@ -57,9 +57,27 @@ export default function ComponentScoresTable({
 }: ComponentScoresTableProps) {
   if (rows.length === 0) {
     return (
-      <p className="cs-empty">
-        No assembled capabilities to show — this Agent Scan graded behavior only.
-      </p>
+      <section className="ar-empty ar-empty--na" aria-label="No component scores in this scan">
+        <p className="cv-eyebrow">
+          Component scores · <b>Not in this scan</b>
+        </p>
+        <h3 className="cv-title">Behavior graded as one system.</h3>
+        <p className="cv-lede">
+          This Agent Scan probed the assembled agent — model, harness, identity and permissions
+          — as a single system. Per-capability scores appear when a scan bundles named skills,
+          MCP servers, hooks or plugins.
+        </p>
+        <ul className="csx-kinds" aria-hidden="true">
+          <li className="csx-chip">Skill</li>
+          <li className="csx-chip">MCP</li>
+          <li className="csx-chip">Hook</li>
+          <li className="csx-chip">Plugin</li>
+          <li className="csx-chip">Rules</li>
+        </ul>
+        <a className="csx-link" href="/methodology">
+          How component scores work →
+        </a>
+      </section>
     )
   }
   return (

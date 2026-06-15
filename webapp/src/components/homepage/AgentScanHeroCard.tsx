@@ -46,6 +46,7 @@ export default function AgentScanHeroCard() {
         <PromptCodeCard
           title="SaferSkills Agent Scan Prompt"
           lines={lines}
+          tinted
           copyState={mint.copyState}
           onCopy={() => mint.copy(visibility)}
         />

@@ -76,16 +76,31 @@ export default function RotatingHeadline({
       setWidths(next)
     }
     measure()
-    // Re-measure only while webfonts are still loading — on a settled page the
-    // mount-time measure is already against the real font, and the resolved
-    // promise would just trigger a redundant second layout + state update.
-    if (typeof document !== 'undefined' && document.fonts && document.fonts.status !== 'loaded') {
+    // Always re-measure once webfonts settle. The mount-time measure can run
+    // against the fallback font (narrower) and under-reserve the rotator width,
+    // which clips the widest noun — and `fonts.status` can read 'loaded' before
+    // the display weight is actually applied, so the correction must never be
+    // gated on it.
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
       document.fonts.ready.then(() => {
         if (!cancelled) measure()
       })
     }
+    // The headline font-size is viewport-relative (clamp vw), so noun widths
+    // change on resize — re-measure (rAF-throttled) to keep the reserved width
+    // exact and avoid a clipped or over-wide underline.
+    let raf = 0
+    const onResize = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        if (!cancelled) measure()
+      })
+    }
+    window.addEventListener('resize', onResize)
     return () => {
       cancelled = true
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
     }
   }, [nouns])
 

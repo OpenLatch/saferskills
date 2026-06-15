@@ -8138,6 +8138,217 @@ html.dark .ar-tests .chk-row.fail { background: rgba(239, 68, 68, 0.07); }
   margin: 0;
 }
 
+/* ---- Empty-state panels — shared chrome for the Findings clean-pass verdict
+   (`.ar-empty--pass`, AgentCleanVerdict) + the Component-Scores not-in-this-scan
+   explainer (`.ar-empty--na`, ComponentScoresTable). A bordered report section on
+   a faint dot-grid field — DS tokens only, theme-aware, reduced-motion guarded. */
+.ar-empty {
+  position: relative;
+  overflow: hidden;
+  margin-top: 4px;
+  padding: clamp(24px, 4vw, 36px) clamp(20px, 4vw, 34px);
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+}
+.ar-empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--color-line) 80%, transparent) 1px,
+    transparent 1.5px
+  );
+  background-size: 22px 22px;
+  opacity: 0.5;
+  -webkit-mask-image: radial-gradient(135% 110% at 9% -12%, #000, transparent 72%);
+  mask-image: radial-gradient(135% 110% at 9% -12%, #000, transparent 72%);
+  pointer-events: none;
+}
+.ar-empty > * {
+  position: relative;
+}
+
+/* head: hex-cap seal + verdict copy */
+.cv-head {
+  display: flex;
+  gap: clamp(16px, 3vw, 22px);
+  align-items: flex-start;
+}
+.cv-seal {
+  flex: 0 0 auto;
+  line-height: 0;
+  margin-top: 2px;
+}
+.cv-seal-hex {
+  stroke: color-mix(in oklch, var(--score-green) 65%, var(--color-line));
+  stroke-width: 1.5;
+  fill: color-mix(in oklch, var(--score-green) 9%, transparent);
+}
+.cv-seal-check {
+  stroke: var(--score-green);
+  stroke-width: 2.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cv-headtext {
+  min-width: 0;
+}
+.cv-eyebrow {
+  margin: 0 0 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.cv-eyebrow b {
+  font-weight: 700;
+  color: var(--score-green);
+}
+.cv-title {
+  margin: 0 0 9px;
+  font-family: var(--font-sans);
+  font-size: clamp(20px, 2.6vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+html.dark .cv-title {
+  color: var(--fg-1);
+}
+.cv-lede {
+  margin: 0;
+  max-width: 60ch;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+
+/* evidence ledger — the run's real numbers, hairline-separated */
+.cv-ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(22px, 5vw, 52px);
+  margin: clamp(20px, 3vw, 26px) 0 0;
+  padding: clamp(18px, 2.5vw, 22px) 0 0;
+  border-top: 1px solid var(--color-line);
+}
+.cv-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: ar-empty-rise var(--dur-lg) var(--ease-out) backwards;
+}
+.cv-stat:nth-child(1) {
+  animation-delay: 0.08s;
+}
+.cv-stat:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.cv-stat:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.cv-num {
+  font-family: var(--font-loud);
+  font-size: clamp(26px, 3vw, 33px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--color-ink);
+  font-feature-settings: "tnum" 1;
+}
+html.dark .cv-num {
+  color: var(--fg-1);
+}
+.cv-num--clear,
+html.dark .cv-num--clear {
+  color: var(--score-green);
+}
+.cv-num-d {
+  font-family: var(--font-mono);
+  font-size: 0.46em;
+  font-weight: 400;
+  color: var(--fg-3);
+}
+.cv-lab {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.cv-prov {
+  margin: clamp(16px, 2.5vw, 20px) 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+.cv-prov-k {
+  color: var(--fg-2);
+}
+.cv-seal svg {
+  animation: ar-empty-rise var(--dur-md) var(--ease-out) backwards;
+}
+@keyframes ar-empty-rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* not-in-this-scan variant — neutral, teaches what the tab would show */
+.ar-empty--na .cv-eyebrow b {
+  color: var(--fg-1);
+}
+.csx-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: clamp(18px, 2.5vw, 22px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.csx-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  padding: 5px 11px;
+  border: 1px dashed var(--color-line);
+}
+.csx-link {
+  display: inline-block;
+  margin-top: clamp(16px, 2.5vw, 20px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--brand-primary);
+  text-decoration: none;
+}
+.csx-link:hover {
+  text-decoration: underline;
+}
+@media (max-width: 560px) {
+  .cv-head {
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cv-stat,
+  .cv-seal svg {
+    animation: none;
+  }
+}
+
 /* ---- StalePackBanner ---- */
 .ar-stale-banner {
   display: flex;
@@ -8458,13 +8669,6 @@ html.dark .transcript { border-color: var(--color-line); }
 .transcript .ts-flag b { color: #fff; }
 
 /* ---- ComponentScoresTable (contributing-context grid) ---- */
-.cs-empty {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--fg-3);
-  padding: 32px 4px;
-}
 /* component table: soft hover on "View report" — no brutalist stamp shadow */
 .ar-components-tab .cap-action .open:hover {
   box-shadow: none;
@@ -8663,6 +8867,26 @@ html.dark .transcript { border-color: var(--color-line); }
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding-right: 16px;
+}
+
+/* syntax tint (PromptCodeCard `tinted`) — dark editor palette, restores the v3
+   mockup `.tok-*` coloring. Always-dark surface, so no light variant. The card
+   is the sanctioned terminal-palette surface (intentional raw hex). */
+.pc-line .pc-lc .pc-tok-c {
+  color: #5c6b7a;
+  font-style: italic;
+}
+.pc-line .pc-lc .pc-tok-k {
+  color: #61afef;
+}
+.pc-line .pc-lc .pc-tok-s {
+  color: #f9a35e;
+}
+.pc-line .pc-lc .pc-tok-f {
+  color: #4ec9b0;
+}
+.pc-line .pc-lc .pc-tok-m {
+  color: #c678dd;
 }
 
 /* optional foot slot — caller-composed note under the body */

@@ -249,7 +249,7 @@ html.dark body.va .docs-side .pill:hover {
 /* DS override — PromptCodeCard peek window on hero card 02 (mirrors the
    mockup's .ce-body max-height; the DS default is 300px). */
 .vb-grid .p1-card.assess .pc-body {
-  max-height: 80px;
+  max-height: 58px;
 }
 
 /* ============================================================
@@ -491,9 +491,9 @@ html.dark body.va .nav-links a.active:hover {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: 32px;
-  padding-bottom: 48px;
-  gap: 26px;
+  padding-top: 18px;
+  padding-bottom: 14px;
+  gap: 12px;
   justify-content: center;
 }
 
@@ -518,12 +518,14 @@ html.dark body.va .nav-links a.active:hover {
 
 /* headline + animated rotator */
 .hero-band h1 {
-  font-size: clamp(40px, 4.6vw, 72px);
+  /* Sized so line 2 ("Scan the whole agent against <noun>.") stays ONE line for
+     every rotating noun within the container — keeps the headline to 2 lines. */
+  font-size: clamp(30px, 3.1vw, 46px);
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.06;
   letter-spacing: -0.045em;
   margin: 0;
-  max-width: 1100px;
+  max-width: 1240px;
   text-wrap: balance;
 }
 .rotator {
@@ -538,6 +540,9 @@ html.dark body.va .nav-links a.active:hover {
     var(--color-citron) 94%,
     transparent 94%
   );
+  /* content-box so the JS-measured noun width is the CONTENT width — with
+     border-box the 10px side padding eats into it and clips the widest noun. */
+  box-sizing: content-box;
   padding: 0 10px;
 }
 .rotator-word {
@@ -561,11 +566,11 @@ html.dark body.va .nav-links a.active:hover {
 }
 
 .hero-band .hero-lede {
-  font-size: 17px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--fg-2);
   margin: 0;
-  max-width: 620px;
+  max-width: 660px;
   text-wrap: pretty;
 }
 
@@ -577,7 +582,7 @@ html.dark body.va .nav-links a.active:hover {
   grid-template-columns: 1fr 1fr;
   gap: 28px;
   text-align: left;
-  margin-top: 6px;
+  margin-top: 0;
 }
 .hero-card {
   background: var(--color-paper);
@@ -885,10 +890,10 @@ html.dark body.va .nav-links a.active:hover {
 
 /* body */
 .p1-card .p1-body {
-  padding: 26px 28px 24px;
+  padding: 16px 26px 14px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   flex: 1;
 }
 .p1-card .p1-title {
@@ -901,11 +906,12 @@ html.dark body.va .nav-links a.active:hover {
   color: var(--color-ink);
 }
 .p1-card .p1-blurb {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--fg-3);
-  max-width: 440px;
+  /* No width cap — cards 02/03 blurbs stay on ONE line in the wide grid body. */
+  max-width: none;
 }
 
 /* rich input bar */
@@ -1589,6 +1595,7 @@ html.dark body.va .p1-progress .row b {
   text-transform: uppercase;
   color: var(--fg-3);
   justify-content: center;
+  margin-top: 4px;
 }
 .hero-stats li {
   display: inline-flex;
@@ -1612,11 +1619,11 @@ html.dark body.va .p1-progress .row b {
   }
   .hero-band > .container {
     min-height: 0;
-    padding-top: 44px;
-    padding-bottom: 44px;
+    padding-top: 36px;
+    padding-bottom: 36px;
   }
   .hero-band h1 {
-    font-size: clamp(38px, 7.4vw, 56px);
+    font-size: clamp(28px, 6vw, 42px);
   }
   .hero-top .hero-tag {
     display: none;
@@ -1631,20 +1638,20 @@ html.dark body.va .p1-progress .row b {
    ============================================================ */
 .hero-cards.vb-grid {
   grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 .hero-cards.vb-grid .b-wide {
   grid-column: 1 / -1;
 }
+/* Card 01 is single-column: the search input IS the invitation (the count/
+   registries already live in the card foot, so no redundant blurb label). */
 .hero-cards.vb-grid .b-wide .p1-body {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 18px 32px;
-  align-items: start;
+  display: block;
 }
 .hero-cards.vb-grid .b-wide .p1-body > .b-find-search {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 /* card title promoted into the ink head bar */
@@ -1667,18 +1674,18 @@ html.dark body.va .p1-progress .row b {
 /* compaction: keep the two scan boxes tidy & equal */
 .vb-grid .p1-card.audit .p1-head,
 .vb-grid .p1-card.assess .p1-head {
-  padding: 10px 18px;
+  padding: 8px 18px;
 }
 .vb-grid .p1-card.audit .p1-body,
 .vb-grid .p1-card.assess .p1-body {
-  padding: 18px 28px 16px;
-  gap: 15px;
+  padding: 14px 26px 12px;
+  gap: 10px;
 }
 .vb-grid .p1-card.audit .scan-group {
-  gap: 12px;
+  gap: 10px;
 }
 .vb-grid .p1-card.audit .p1-drop .drop-main {
-  padding: 29px 16px;
+  padding: 18px 16px;
 }
 /* in this layout the source switch sits inline above the panes (not floated) */
 .vb-grid .p1-card.audit .scan-seg {
@@ -1903,7 +1910,7 @@ html:not(.dark) body.va .vb-grid .p1-card.assess .code-editor .ce-body {
   color: var(--fg-3);
 }
 .hero-band .supported-band .marquee {
-  padding: 36px 0 22px;
+  padding: 28px 0 14px;
 }
 
 /* ----- TOPOGRAPHIC RIDGE DIVIDER ----- */
@@ -2173,7 +2180,7 @@ html.dark body.va .ridge-pixel .ridge-label {
 /* header */
 .agentscan-band .as-head {
   display: block;
-  margin-bottom: 120px;
+  margin-bottom: 48px;
 }
 .agentscan-band .as-title .hl {
   color: var(--brand-primary);
@@ -2265,7 +2272,7 @@ html.dark body.va .ridge-pixel .ridge-label {
 
 /* three cards — near full-bleed, equal side margins + gap, ruler per card */
 .agentscan-band {
-  padding: 128px 0 96px;
+  padding: 88px 0 96px;
 }
 .agentscan-band .as-cols {
   position: relative;
@@ -2277,8 +2284,8 @@ html.dark body.va .ridge-pixel .ridge-label {
 }
 .agentscan-band .as-col {
   position: relative;
-  padding: 34px 30px 14px;
-  min-height: 400px;
+  padding: 30px 30px 24px;
+  min-height: 0;
   border: 1px solid rgba(247, 235, 255, 0.16);
   border-top: 0;
   background: rgba(13, 19, 33, 0.42);
@@ -2781,9 +2788,10 @@ html:not(.dark) body.va .agentscan-band .as-cols::before {
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.7;
-  padding: 22px 26px 96px; /* tall bottom space below last line */
+  padding: 22px 26px 28px;
   position: relative;
-  min-height: 420px; /* keeps the window tall */
+  /* min-height:0 (from the DS .mt-body) lets this flex child shrink inside the
+     fixed-height grid so its own overflow:auto produces the vertical scrollbar. */
   flex: 1;
 }
 .install-band .mt-body .ln {
@@ -2922,8 +2930,9 @@ html:not(.dark) body.va .agentscan-band .as-cols::before {
 .install-band .iw-grid {
   display: grid;
   grid-template-columns: 256px 1fr;
-  flex: 1;
-  min-height: 480px; /* overall taller window */
+  /* Fixed height — switching verbs (install/scan/list/info) NEVER resizes the
+     window; long output scrolls inside .mt-body instead (mockup behavior). */
+  height: 480px;
 }
 .install-band .iw-side {
   background: #1f2026;

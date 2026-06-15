@@ -20,9 +20,10 @@ describe('ComponentScoresTable', () => {
     expect(container.querySelector('.ar-panel-lead')?.textContent).toContain('never fused')
   })
 
-  it('renders a clean empty-state when there are no capabilities', () => {
+  it('renders the not-in-this-scan explainer panel when there are no capabilities', () => {
     const { container } = render(<ComponentScoresTable rows={[]} />)
-    expect(container.querySelector('.cs-empty')).not.toBeNull()
+    expect(container.querySelector('.ar-empty--na')).not.toBeNull()
+    expect(screen.getByText('Behavior graded as one system.')).toBeInTheDocument()
     expect(container.querySelector('.cap-list')).toBeNull()
   })
 

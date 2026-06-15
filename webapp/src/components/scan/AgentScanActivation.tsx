@@ -127,6 +127,7 @@ export default function AgentScanActivation({ surface, initialPlatform = 'univer
       <PromptCodeCard
         title="SaferSkills Agent Scan Prompt"
         lines={lines}
+        tinted
         copyState={mint.copyState}
         onCopy={generate}
         footSlot={
