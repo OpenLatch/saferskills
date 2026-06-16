@@ -1869,7 +1869,7 @@ requires-dist = [
     { name = "hishel", extras = ["httpx"], specifier = ">=1.2,<2" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "lxml", specifier = ">=6.0.1,<7" },
-    { name = "maxminddb", specifier = "~=2.6" },
+    { name = "maxminddb", specifier = ">=2.6,<4.0" },
     { name = "opentelemetry-api", specifier = ">=1.30" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.30" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.51b0" },
