@@ -44,7 +44,7 @@ dependencies = [
   "beautifulsoup4~=4.12",        # listing/item-page DOM parsing (bs4 selectors)
   "lxml>=6.0.1,<7",              # fast parser backend for bs4 + trafilatura (6.0.1+ ships cp314 wheels)
   "defusedxml~=0.7",             # XXE/billion-laughs-safe XML parse for untrusted aggregator sitemaps
-  "maxminddb~=2.6",              # reads the IPinfo Lite .mmdb for agent-scan IP->ASN telemetry (I-5.5)
+  "maxminddb>=2.6,<4.0",              # reads the IPinfo Lite .mmdb for agent-scan IP->ASN telemetry (I-5.5)
 ]
 
 [dependency-groups]
