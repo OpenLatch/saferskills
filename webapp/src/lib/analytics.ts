@@ -48,6 +48,9 @@ type EventMap = {
   // Methodology rules → CSV export. Bucketed count of the exported (currently
   // visible) rules; never a rule_id list or any raw count (telemetry.md).
   rule_csv_exported: { count_bucket: '0' | '1' | '2-5' | '6-20' | '21+' }
+  // /methodology mode control — which scan-mode catalog a reader switches to.
+  // Closed-enum only; no PII (telemetry.md, rule_* prefix).
+  rule_methodology_tab_selected: { tab: 'capability' | 'agent' }
   // I-3.5 — unlisted (capability-URL) manage-bar actions. Closed-enum action
   // only; NEVER the share_token, slug, filename, or any path content (telemetry.md).
   unlisted_manage_action: { action: 'copy_link' | 'promote' | 'delete' }
