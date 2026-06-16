@@ -2,9 +2,9 @@
 
 All checks must pass before merge. Every third-party action is **SHA-pinned** (never floating tags); the first step of every workflow is `step-security/harden-runner`; every workflow declares `permissions: contents: read` at the top and elevates per-job only when needed.
 
-## Pipeline lanes (14 + 5 Rust CLI + `all-checks` aggregation)
+## Pipeline lanes (15 + 5 Rust CLI + `all-checks` aggregation)
 
-`pr-checks.yml` runs 14 web/backend lanes + 5 Rust CLI lanes plus the aggregator (the 13 W1 lanes + `lighthouse-a11y` from I-03 Phase C + the 5 `cli-*` lanes from I-05). Tools are SHA-pinned in `.github/actions/` reusable composites.
+`pr-checks.yml` runs 15 web/backend lanes + 5 Rust CLI lanes plus the aggregator (the 13 W1 lanes + `lighthouse-a11y` from I-03 Phase C + `docs-build` from I-06 + the 5 `cli-*` lanes from I-05). Tools are SHA-pinned in `.github/actions/` reusable composites.
 
 | # | Lane | What it does |
 |---|---|---|
@@ -22,14 +22,15 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 | 12 | `dep-scan` | `pip-audit` (`uv pip compile`) + `pnpm audit --audit-level=high` |
 | 13 | `pr-title-lint` | Conventional Commits format check |
 | 14 | `lighthouse-a11y` | `@lhci/cli` (Lighthouse, **observe-mode `warn`** on the no-seed public pages — reports uploaded, not yet hard-gating; promote categories to `error` once perf is baselined in this CI env) + `@axe-core/playwright` WCAG 2 A/AA smoke as the **hard** a11y gate. Runs on PRs touching `webapp/**` or `ui/**` (gated on `detect-changes.outputs.frontend`). Brings up postgres+api from the smoke compose, builds + serves the webapp Node SSR on :5173 (`--no-sandbox` Chrome). Seeded pages (item-detail / scan-report) are Lighthoused in the staging e2e. (I-03 Phase C) |
-| 15 | `cli-fmt` | `cargo fmt --manifest-path cli/Cargo.toml --all --check` (I-05) |
-| 16 | `cli-clippy` | `cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings` (I-05) |
-| 17 | `cli-test` | `cargo llvm-cov` test + **≥70% line coverage** (`--fail-under-lines 70`) (I-05) |
-| 18 | `cli-build` | `cargo build --release` + **<15 MB** size gate on the `saferskills` binary (I-05) |
-| 19 | `cli-rustls` | `cargo tree -e normal` must contain no `openssl-sys` / `native-tls` — the rustls-only invariant (I-05). The I-5.5 `scan agent` deps (`ed25519-dalek` verify-only, `base64`) are pure-Rust and pull neither, so the lane stays green |
-| – | `all-checks` | Aggregation job — gates merge; depends on all 19 |
+| 15 | `docs-build` | Starlight docs (I-06): frontmatter gate (`node scripts/validate-docs-frontmatter.cjs` — every page has `title` + `description`) → `astro build --config docs.astro.config.mjs` (Starlight SSG → `webapp/dist-docs`, Pagefind index built in-process) → internal-link gate (`node scripts/check-internal-docs-links.cjs` — no broken `/docs/*` link in the emitted HTML). Gated on a `docs` paths-filter (`webapp/docs/**` + `webapp/docs.astro.config.mjs` + the agent manifest `webapp/src/data/homepage-constants.ts` + the two scripts). Docs a11y + Lighthouse are deferred to I-06 Plan 3 |
+| 16 | `cli-fmt` | `cargo fmt --manifest-path cli/Cargo.toml --all --check` (I-05) |
+| 17 | `cli-clippy` | `cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings` (I-05) |
+| 18 | `cli-test` | `cargo llvm-cov` test + **≥70% line coverage** (`--fail-under-lines 70`) (I-05) |
+| 19 | `cli-build` | `cargo build --release` + **<15 MB** size gate on the `saferskills` binary (I-05) |
+| 20 | `cli-rustls` | `cargo tree -e normal` must contain no `openssl-sys` / `native-tls` — the rustls-only invariant (I-05). The I-5.5 `scan agent` deps (`ed25519-dalek` verify-only, `base64`) are pure-Rust and pull neither, so the lane stays green |
+| – | `all-checks` | Aggregation job — gates merge; depends on all 20 |
 
-The 5 `cli-*` lanes gate on a `dorny/paths-filter` `cli` matcher (`cli/**` + `.github/actions/setup-rust/**`) and use the `.github/actions/setup-rust` composite (toolchain + `cli/`-scoped cargo cache). Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
+The 5 `cli-*` lanes gate on a `dorny/paths-filter` `cli` matcher (`cli/**` + `.github/actions/setup-rust/**`) and use the `.github/actions/setup-rust` composite (toolchain + `cli/`-scoped cargo cache). The `docs-build` lane gates on its own `docs` paths-filter and reuses the `.github/actions/setup-saferskills-build` composite. Both smoke + build lanes gate positively on a `dorny/paths-filter` `changes` matcher (`backend`/`frontend`/`schemas`/`ci`); they skip only when the PR is **pure docs**. Mixed code+docs PRs run the full pipeline.
 
 ## Always-on workflows (W1)
 

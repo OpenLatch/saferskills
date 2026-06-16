@@ -20,6 +20,8 @@
   },
   "scripts": {
     "generate": "node scripts/_run-generators.cjs",
+    "dev:docs": "pnpm --filter @saferskills/webapp dev:docs",
+    "build:docs": "pnpm --filter @saferskills/webapp build:docs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "pnpm -r --filter=./webapp --filter=./ui test",

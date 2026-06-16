@@ -6,7 +6,10 @@ import { expect, test } from '@playwright/test'
  * data (D-FE-18). Item-detail + scan-report a11y run against the seeded
  * staging e2e since they require catalog data. Fails on any violation.
  */
-const PAGES = ['/', '/catalog', '/scan', '/about', '/docs', '/methodology', '/404']
+// `/docs/*` is the Starlight SSG docs site (I-06), built separately and served
+// by the Node server as a static fall-through. Its a11y + Lighthouse gate lives
+// in the docs build (I-06 Plan 3), not in this main-site SSR smoke.
+const PAGES = ['/', '/catalog', '/scan', '/about', '/methodology', '/404']
 
 for (const path of PAGES) {
   test(`a11y: ${path}`, async ({ page }) => {

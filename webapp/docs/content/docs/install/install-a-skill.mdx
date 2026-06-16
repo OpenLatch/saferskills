@@ -1,0 +1,36 @@
+---
+title: "Install a Skill"
+description: "The canonical install guide. Pick your agent once and every tab on the site follows — the agent list is manifest-driven, so it never drifts."
+updated: 2026-06-16
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { SUPPORTED_AGENTS } from '@/data/homepage-constants';
+
+Install a verified capability into your agent and check its trust score before it
+touches your machine. Pick your agent below — your choice syncs to every
+agent-tabbed block across these docs (`syncKey="agent"`), and the agent list
+itself comes from one manifest, so it can never fall out of step. [TK]
+
+## Pick your agent
+
+The tabs below are generated from the shared agent manifest
+(`webapp/src/data/homepage-constants.ts`, the same `SUPPORTED_AGENTS` the
+homepage uses). Add, remove, or rename an agent there and this list — and every other
+`<Tabs syncKey="agent">` on the site — updates automatically (D-7, the Prime
+Invariant).
+
+<Tabs syncKey="agent">
+  {SUPPORTED_AGENTS.map((agent) => (
+    <TabItem key={agent.id} label={agent.name}>
+      Install path: <code>{agent.installPath}</code> · config:{' '}
+      <code>{agent.configPath}</code>. Step-by-step install flow forthcoming in
+      Plan 2. [TK]
+    </TabItem>
+  ))}
+</Tabs>
+
+## Severity gating
+
+How the CLI warns (or blocks) on a low score before it installs. Content
+forthcoming. [TK]

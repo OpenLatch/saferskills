@@ -40,6 +40,12 @@ ARG GIT_SHA=""
 ENV PUBLIC_GIT_SHA=$GIT_SHA
 RUN pnpm run build
 
+# Build the Starlight docs (I-06) and fold them into dist/client/docs so the
+# Node SSR server serves `/docs/*` as a static fall-through — one host, no
+# separate docs server. Must run AFTER the main build (which creates
+# dist/client). Docs are 100% static and have no API dependency at build time.
+RUN pnpm run build:docs
+
 # Upload source maps to Sentry, keyed to the GIT_SHA release. SENTRY_AUTH_TOKEN
 # is a BuildKit secret (never an image layer / build-cache metadata). No-op when
 # the secret OR the release SHA is empty (plain local `docker build`, PR builds)
