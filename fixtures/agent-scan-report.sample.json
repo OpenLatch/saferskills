@@ -180,6 +180,7 @@
         "slug": "acme--coding-agent--hook-pre-commit-guard"
       }
     ],
+    "component_report_url": null,
     "visibility": "public",
     "expires_at": null,
     "share_url": null,
@@ -427,6 +428,7 @@
         "slug": "acme--coding-agent--hook-pre-commit-guard"
       }
     ],
+    "component_report_url": "https://saferskills.ai/scans/r/Hh3y6Qk2pN8fT0aZ1cV9bWx",
     "visibility": "unlisted",
     "expires_at": "2026-09-07T12:00:00Z",
     "share_url": "https://saferskills.ai/agents/r/Hh3y6Qk2pN8fT0aZ1cV9bWx",
@@ -507,6 +509,7 @@
     ],
     "findings": [],
     "component_scores": [],
+    "component_report_url": null,
     "visibility": "public",
     "expires_at": null,
     "share_url": null,

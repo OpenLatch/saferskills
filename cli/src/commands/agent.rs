@@ -387,7 +387,15 @@ async fn print_skill(api: &Api, args: &AgentArgs, output: &OutputConfig) -> Resu
     let pow = super::capability::obtain_pow_if_needed(api, output).await?;
     // `--print-skill` is the manual paste path — no local-capability capture.
     let boot = api
-        .bootstrap_agent_scan("universal", &agent_name, "other", "public", None, None, &pow)
+        .bootstrap_agent_scan(
+            "universal",
+            &agent_name,
+            "other",
+            "public",
+            None,
+            None,
+            &pow,
+        )
         .await?;
     let body = skill_md(&boot);
     if output.is_json() {

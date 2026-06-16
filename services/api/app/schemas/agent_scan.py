@@ -8,7 +8,7 @@ Non-generated wrappers around the generated `AgentScanReport` entity shape
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -22,6 +22,21 @@ from app.services.agent_compat import AgentName
 _KIND_TALLY_KEYS = frozenset({"skill", "hook", "mcp", "plugin", "rules"})
 
 
+def _coerce_count(value: Any) -> int | None:
+    """A best-effort non-negative-able int from a raw JSON tally value (no excepts —
+    `int(...)` parsing is replaced with explicit checks so a malformed value is
+    simply dropped, never raised)."""
+    if isinstance(value, bool):  # bool is an int subclass — count True/False as 1/0
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
+
+
 def _normalize_kind_tally(value: Any) -> dict[str, int] | None:
     """Fold a (best-effort, CLI-supplied) per-kind tally onto the directory key set.
 
@@ -31,14 +46,14 @@ def _normalize_kind_tally(value: Any) -> dict[str, int] | None:
     """
     if not isinstance(value, dict):
         return None
+    raw = cast("dict[Any, Any]", value)
     out: dict[str, int] = {}
-    for raw_key, raw_count in value.items():
+    for raw_key, raw_count in raw.items():
         key = "mcp" if raw_key == "mcp_server" else str(raw_key)
         if key not in _KIND_TALLY_KEYS:
             continue
-        try:
-            count = int(raw_count)
-        except TypeError, ValueError:
+        count = _coerce_count(raw_count)
+        if count is None:
             continue
         out[key] = out.get(key, 0) + max(0, count)
     return out or None

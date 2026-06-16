@@ -312,6 +312,7 @@ impl Api {
     /// prompt. Carries the solved PoW (empty `pow` ⇒ no header; loopback-exempt).
     /// `component_scan_run_id` + `kind_tally` are the best-effort component capture
     /// (both `None` on the manual `--print-skill` path).
+    #[allow(clippy::too_many_arguments)] // a flat 1:1 HTTP-body wrapper, not a unit to refactor
     pub async fn bootstrap_agent_scan(
         &self,
         platform: &str,
@@ -739,6 +740,43 @@ mod tests {
         assert!(p.contains(&("sort", "most_installed".to_string())));
         assert!(p.contains(&("limit", "25".to_string())));
         assert!(p.contains(&("showLowQuality", "true".to_string())));
+    }
+
+    #[test]
+    fn bootstrap_body_omits_component_fields_when_none() {
+        // A web/manual mint (no local capture) must omit both fields entirely, so
+        // the server treats them as absent (== no components), not null.
+        let body = BootstrapBody {
+            platform: "claude-code",
+            agent_name: "swift-otter",
+            runtime: "claude-code",
+            visibility: "public",
+            component_scan_run_id: None,
+            kind_tally: None,
+        };
+        let v = serde_json::to_value(&body).unwrap();
+        assert!(v.get("component_scan_run_id").is_none());
+        assert!(v.get("kind_tally").is_none());
+        assert_eq!(v["platform"], "claude-code");
+    }
+
+    #[test]
+    fn bootstrap_body_includes_component_fields_when_present() {
+        let mut tally = BTreeMap::new();
+        tally.insert("skill".to_string(), 3u32);
+        tally.insert("mcp_server".to_string(), 1u32);
+        let body = BootstrapBody {
+            platform: "universal",
+            agent_name: "swift-otter",
+            runtime: "other",
+            visibility: "unlisted",
+            component_scan_run_id: Some("run-123"),
+            kind_tally: Some(&tally),
+        };
+        let v = serde_json::to_value(&body).unwrap();
+        assert_eq!(v["component_scan_run_id"], "run-123");
+        assert_eq!(v["kind_tally"]["skill"], 3);
+        assert_eq!(v["kind_tally"]["mcp_server"], 1);
     }
 
     #[test]
