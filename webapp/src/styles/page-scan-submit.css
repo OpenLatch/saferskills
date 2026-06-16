@@ -469,9 +469,15 @@ html.dark .pcf-note b {
 .pcf-link {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--brand-primary);
+  /* P2-3 a11y: teal --brand-primary on the light form pane is ~3.6:1 (fails AA).
+     --brand-primary-dark clears AA on light (~5.2:1); the bright theme-flipped
+     --brand-primary (~7:1 on dark) is restored below for dark mode. */
+  color: var(--brand-primary-dark);
   text-decoration: none;
   border-bottom: 1px solid currentColor;
+}
+html.dark .pcf-link {
+  color: var(--brand-primary);
 }
 
 /* CLI alternative line under the card. */
@@ -502,9 +508,14 @@ html.dark .cli-alt .cli-cmd {
   color: var(--fg-3);
 }
 .cli-alt .cli-note a {
-  color: var(--brand-primary);
+  /* P2-3 a11y: --brand-primary-dark clears AA on the light form pane (~5.2:1);
+     the bright theme-flipped --brand-primary (~7:1) is restored on dark. */
+  color: var(--brand-primary-dark);
   border-bottom: 1px solid currentColor;
   text-decoration: none;
+}
+html.dark .cli-alt .cli-note a {
+  color: var(--brand-primary);
 }
 
 /* /agents/scan picker page glue — center the surface, picker prominent. */
@@ -710,9 +721,16 @@ html.dark .scan-method-pane {
      with the WeightBars rows directly below it (wider than the old 52ch). */
 }
 .method-intro .link {
-  color: var(--brand-primary);
+  /* P2-3 a11y: this link sits on the method pane's --color-paper-deep. Light
+     --brand-primary is ~3.4:1 (fails AA) → --brand-primary-dark (~5:1). On dark,
+     --brand-primary-dark would be only ~3.9:1 on paper-deep, so the bright
+     theme-flipped --brand-primary (~5.9:1) is restored below. */
+  color: var(--brand-primary-dark);
   border-bottom: 1px solid currentColor;
   text-decoration: none;
+}
+html.dark .method-intro .link {
+  color: var(--brand-primary);
 }
 
 /* Agent risk-family body — orange accent (mockup .method-cats.agent).
