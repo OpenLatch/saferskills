@@ -60,9 +60,10 @@ const CheckGlyph = () => (
 
 /**
  * Code-editor-chrome prompt block (I-5.7 Module 5) — head row with a file
- * glyph + title + Copy button; body of line-numbered mono text on an
- * always-dark surface (the `.ex` terminal-palette precedent). Shared by the
- * homepage "Scan a Running Agent" card and the activation island.
+ * glyph + title + Copy button; body of line-numbered mono text on a code-editor
+ * surface (dark in dark mode, a light editor skin in light mode — see the
+ * `.pc-*` light skin in components.css). Shared by the homepage "Scan a Running
+ * Agent" card and the activation island.
  *
  * Fully presentational: `copyState` is a controlled prop and `onCopy` is a
  * plain callback — NO fetch / Turnstile / clipboard logic in here. The

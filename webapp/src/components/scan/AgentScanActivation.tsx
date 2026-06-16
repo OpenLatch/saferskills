@@ -104,25 +104,34 @@ export default function AgentScanActivation({ surface, initialPlatform = 'univer
 
   return (
     <div className={`agent-activation${surface === 'picker' ? ' agent-activation--picker' : ''}`}>
-      {/* biome-ignore lint/a11y/useSemanticElements: toggle-button row — role=group is the correct ARIA (the .cap-filter precedent); a fieldset would impose form chrome */}
-      <div className="plat-picker" role="group" aria-label="Agent platform">
-        {AGENT_PLATFORMS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className={`pp${platform === p.id ? ' on' : ''}`}
-            aria-pressed={platform === p.id}
-            // The minted prompt is platform-specific — lock the picker while a
-            // prompt is live so the chip/hint can never disagree with what a
-            // re-copy puts in the clipboard ("Generate a new prompt" unlocks).
-            disabled={ready && p.id !== platform}
-            onClick={() => setPlatform(p.id)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-      <p className="plat-hint">{active.hint}</p>
+      {/* The platform picker + per-platform hint render ONLY on the dedicated
+          /agents/scan activation page (surface='picker'). On the /scan agent
+          pane (surface='scan') it is omitted — too prominent for the umbrella
+          page, and the minted prompt falls back to the universal template,
+          which works in every agent. */}
+      {surface === 'picker' && (
+        <>
+          {/* biome-ignore lint/a11y/useSemanticElements: toggle-button row — role=group is the correct ARIA (the .cap-filter precedent); a fieldset would impose form chrome */}
+          <div className="plat-picker" role="group" aria-label="Agent platform">
+            {AGENT_PLATFORMS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`pp${platform === p.id ? ' on' : ''}`}
+                aria-pressed={platform === p.id}
+                // The minted prompt is platform-specific — lock the picker while a
+                // prompt is live so the chip/hint can never disagree with what a
+                // re-copy puts in the clipboard ("Generate a new prompt" unlocks).
+                disabled={ready && p.id !== platform}
+                onClick={() => setPlatform(p.id)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="plat-hint">{active.hint}</p>
+        </>
+      )}
 
       <PromptCodeCard
         title="SaferSkills Agent Scan Prompt"

@@ -35,6 +35,7 @@ from app.agent_scan import pack as pack_mod
 from app.agent_scan import signing
 from app.agent_scan import telemetry as telemetry_mod
 from app.agent_scan.canary import derive_seed, load_master_key
+from app.agent_scan.components import render_agent_report
 from app.agent_scan.grading import grade
 from app.agent_scan.naming import resolve_agent_name
 from app.agent_scan.pasteback import decode_pasteback
@@ -45,7 +46,7 @@ from app.agent_scan.persistence import (
     persist_grade,
     store_evidence,
 )
-from app.agent_scan.report import build_agent_report, report_urls
+from app.agent_scan.report import report_urls
 from app.agent_scan.run_token import (
     RunTokenError,
     mint_submit_token,
@@ -57,6 +58,7 @@ from app.core.rate_limit import enforce_ip_rate_limit
 from app.db.session import get_session
 from app.models.agent_evidence import AgentEvidence
 from app.models.generated.agent_run import AgentRun
+from app.models.generated.scan_run import ScanRun
 from app.observability import events
 from app.routers.scans import (
     enforce_captcha,
@@ -141,6 +143,19 @@ async def _parse_submission(request: Request, settings: Settings) -> AgentScanRe
         ) from exc
 
 
+async def _resolve_component_run(
+    session: AsyncSession, component_scan_run_id: UUID | None
+) -> UUID | None:
+    """Accept a CLI-supplied component scan_run link only if the run actually exists.
+
+    Best-effort hardening (keeps the mint resilient): a dangling / forged id is
+    silently ignored (-> None) rather than dropping a broken FK or failing the mint."""
+    if component_scan_run_id is None:
+        return None
+    exists = await session.get(ScanRun, component_scan_run_id)
+    return component_scan_run_id if exists is not None else None
+
+
 def _submit_opted_out(request: Request) -> bool:
     """The submitter declined telemetry (CLI `--no-telemetry` / universal opt-out)."""
     return request.headers.get("x-saferskills-no-telemetry", "").strip().lower() in {
@@ -201,6 +216,8 @@ async def create_run(
         agent_name=resolve_agent_name(body.agent_name),
         runtime=body.runtime,
         visibility=body.visibility,
+        component_scan_run_id=await _resolve_component_run(session, body.component_scan_run_id),
+        kind_tally=body.kind_tally,
     )
     token = mint_submit_token(str(run.id))
     await session.commit()
@@ -236,6 +253,8 @@ async def _bootstrap(
         agent_name=resolve_agent_name(body.agent_name),
         runtime=body.runtime,
         visibility=body.visibility,
+        component_scan_run_id=await _resolve_component_run(session, body.component_scan_run_id),
+        kind_tally=body.kind_tally,
     )
     token = mint_submit_token(str(run.id))
     await session.commit()
@@ -383,8 +402,13 @@ async def submit_run(
     # report (the single-use token blocks a second *distinct* submit).
     if run.status in _GRADED_STATES:
         findings = await load_findings(session, run_id)
-        return build_agent_report(
-            run, findings, settings=settings, private=run.visibility == "unlisted", evidence=None
+        return await render_agent_report(
+            session,
+            run,
+            findings,
+            settings=settings,
+            private=run.visibility == "unlisted",
+            evidence=None,
         )
     if run.status not in _SUBMITTABLE_STATES:
         raise HTTPException(status_code=409, detail={"error": "run_not_submittable"})
@@ -413,8 +437,13 @@ async def submit_run(
 
     # Build the response BEFORE telemetry so a telemetry failure can never corrupt it.
     findings = await load_findings(session, run_id)
-    report = build_agent_report(
-        run, findings, settings=settings, private=run.visibility == "unlisted", evidence=None
+    report = await render_agent_report(
+        session,
+        run,
+        findings,
+        settings=settings,
+        private=run.visibility == "unlisted",
+        evidence=None,
     )
 
     # Best-effort telemetry - NEVER fails the request.
@@ -491,8 +520,8 @@ async def get_unlisted_run(
     findings = await load_findings(session, run.id)
     evidence_row = await session.get(AgentEvidence, run.id)
     evidence = evidence_row.result_json if evidence_row is not None else None
-    return build_agent_report(
-        run, findings, settings=get_settings(), private=True, evidence=evidence
+    return await render_agent_report(
+        session, run, findings, settings=get_settings(), private=True, evidence=evidence
     )
 
 
@@ -518,7 +547,7 @@ async def promote_unlisted_run(
         await session.refresh(run)
     set_unlisted_headers(response)
     findings = await load_findings(session, run.id)
-    return build_agent_report(run, findings, settings=get_settings(), private=False)
+    return await render_agent_report(session, run, findings, settings=get_settings(), private=False)
 
 
 @router.delete("/r/{token}", status_code=status.HTTP_204_NO_CONTENT)
@@ -571,7 +600,9 @@ async def reply_unlisted_run(
     await session.refresh(run)
     set_unlisted_headers(response)
     findings = await load_findings(session, run.id)
-    return build_agent_report(run, findings, settings=get_settings(), private=True, evidence=None)
+    return await render_agent_report(
+        session, run, findings, settings=get_settings(), private=True, evidence=None
+    )
 
 
 # ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
@@ -633,7 +664,7 @@ async def get_run(
     if run is None or run.visibility != "public":
         raise HTTPException(status_code=404, detail="not found")
     findings = await load_findings(session, run.id)
-    return build_agent_report(run, findings, settings=get_settings(), private=False)
+    return await render_agent_report(session, run, findings, settings=get_settings(), private=False)
 
 
 @router.get("/{run_id}/status", response_model=AgentScanStatusResponse)

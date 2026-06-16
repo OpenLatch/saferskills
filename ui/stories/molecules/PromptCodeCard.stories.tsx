@@ -52,6 +52,14 @@ export const LongContent: Story = () => {
   )
 }
 
+/** `tinted` — the SaferSkills Agent-Scan syntax coloring (placeholders, URLs,
+ *  HTTP verbs, headers, the bold title, the privacy paragraph). */
+export const Tinted: Story = () => (
+  <div style={{ padding: 40, maxWidth: 640 }}>
+    <PromptCodeCard title={TITLE} lines={PROMPT_LINES} tinted copyState="idle" onCopy={() => {}} />
+  </div>
+)
+
 export const WithFootSlot: Story = () => (
   <div style={{ padding: 40, maxWidth: 640 }}>
     <PromptCodeCard

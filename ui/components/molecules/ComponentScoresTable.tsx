@@ -39,6 +39,13 @@ export interface ComponentScoresTableProps {
   rows: ComponentScoreRowData[]
   /** Deep-link base; defaults to `/items` (the catalog item report, D-5.6-10). */
   basePath?: string
+  /**
+   * Single report URL every row links to instead of its own `/items/<slug>` — set
+   * only for an unlisted agent scan, whose per-capability catalog rows are shadow
+   * items that 404 on the public catalog, so all rows point at the unlisted
+   * component scan_run's `/scans/r/<token>` report. Unset (public) → per-row slugs.
+   */
+  runReportUrl?: string | null
 }
 
 /**
@@ -54,6 +61,7 @@ export interface ComponentScoresTableProps {
 export default function ComponentScoresTable({
   rows,
   basePath = '/items',
+  runReportUrl,
 }: ComponentScoresTableProps) {
   if (rows.length === 0) {
     return (
@@ -119,7 +127,7 @@ export default function ComponentScoresTable({
                 </span>
               </div>
               <div className="cap-action">
-                <a className="open" href={`${basePath}/${r.slug}`}>
+                <a className="open" href={runReportUrl ?? `${basePath}/${r.slug}`}>
                   View report →
                 </a>
               </div>

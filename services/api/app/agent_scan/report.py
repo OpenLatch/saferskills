@@ -190,12 +190,18 @@ def build_agent_report(
     settings: Settings,
     private: bool,
     evidence: dict[str, Any] | None = None,
+    component_scores: list[dict[str, Any]] | None = None,
+    component_report_url: str | None = None,
 ) -> AgentScanReportDetail:
     """Project a run (+ its findings) to the wire report.
 
     `private=False` (public route) MUST pass `evidence=None` - the public path never
     reads `agent_evidence`. `private=True` (token route) passes the raw
     `result_json`; the transcript window is resolved per finding at request time.
+
+    `component_scores` (the assembled-capability rows) + `component_report_url` (the
+    unlisted deep-link target) are loaded async by `components.load_component_scores`
+    and threaded in by `components.render_agent_report`; absent -> an empty tab.
     """
     report_url, share_url = report_urls(run, settings, private=private)
     seed = (
@@ -229,7 +235,8 @@ def build_agent_report(
             "family_tally": run.family_tally or {},
             "checks": _build_checks(run, vulnerable_ids),
             "findings": finding_dtos,
-            "component_scores": [],
+            "component_scores": component_scores or [],
+            "component_report_url": component_report_url,
             "visibility": run.visibility,
             "expires_at": run.expires_at,
             "share_url": share_url,

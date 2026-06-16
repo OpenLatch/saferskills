@@ -41,12 +41,20 @@ async def create_agent_run(
     agent_name: str,
     runtime: str,
     visibility: str,
+    component_scan_run_id: UUID | None = None,
+    kind_tally: dict[str, int] | None = None,
 ) -> AgentRun:
     """Insert a fresh `agent_runs` row in `status='created'`.
 
     Mints the per-run `nonce` (canary seed input) + `decoy`; an unlisted run also
     mints an unguessable `share_token` + a 90-day `expires_at`. Records the pack
     identity so the run is reproducible.
+
+    `component_scan_run_id` links a best-effort CLI-captured component scan_run (the
+    `scan --local` upload of the scanned platform's installed capabilities) so the
+    report can project its per-capability `scans` into the Component Scores tab;
+    `kind_tally` is the per-kind capability inventory backing the `/agents` dossier
+    icons. Both are null on web/`--print-skill` paths (no local filesystem).
     """
     source = load_pack_source()
     settings = get_settings()
@@ -75,6 +83,8 @@ async def create_agent_run(
         expires_at=expires_at,
         nonce=secrets.token_urlsafe(16),
         decoy=canary_mod.new_decoy(),
+        component_scan_run_id=component_scan_run_id,
+        kind_tally=kind_tally,
     )
     session.add(run)
     await session.flush()

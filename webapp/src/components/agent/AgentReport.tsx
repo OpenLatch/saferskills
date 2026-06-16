@@ -239,7 +239,10 @@ export default function AgentReport({ run, unlisted = false, token }: Props) {
             className="ar-panel"
             hidden={tab !== 'component'}
           >
-            <ComponentScoresTable rows={run.component_scores} />
+            <ComponentScoresTable
+              rows={run.component_scores}
+              runReportUrl={run.component_report_url}
+            />
           </div>
 
           {/* an existing vendor right-of-reply renders read-only on every report */}

@@ -487,6 +487,34 @@
             "description": "Display name for the scanned agent; omit for a generated codename.",
             "title": "Agent Name"
           },
+          "component_scan_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Best-effort CLI-captured component scan_run id (the local-capability scan whose per-capability scores feed the Component Scores tab). Null on web paths.",
+            "title": "Component Scan Run Id"
+          },
+          "kind_tally": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Per-kind capability inventory (skill/mcp/hook/plugin/rules -> count) backing the /agents dossier icons. Null on web paths.",
+            "title": "Kind Tally"
+          },
           "platform": {
             "anyOf": [
               {
@@ -623,6 +651,34 @@
             ],
             "description": "Display name for the scanned agent; omit for a generated codename.",
             "title": "Agent Name"
+          },
+          "component_scan_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Best-effort CLI-captured component scan_run id (the local-capability scan whose per-capability scores feed the Component Scores tab). Null on web paths.",
+            "title": "Component Scan Run Id"
+          },
+          "kind_tally": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Per-kind capability inventory (skill/mcp/hook/plugin/rules -> count) backing the /agents dossier icons. Null on web paths.",
+            "title": "Kind Tally"
           },
           "runtime": {
             "anyOf": [
@@ -806,6 +862,17 @@
             },
             "title": "Checks",
             "type": "array"
+          },
+          "component_report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Report Url"
           },
           "component_scores": {
             "items": {

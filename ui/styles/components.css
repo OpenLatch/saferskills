@@ -3582,14 +3582,14 @@ html.dark .p1-progress .row b {
   border-bottom: 1px dashed var(--color-line);
   text-decoration: none;
   color: var(--color-ink);
-  transition:
-    padding var(--dur-xs) var(--ease-std),
-    background var(--dur-md) var(--ease-std);
+  transition: background var(--dur-md) var(--ease-std);
 }
 
+/* Hover is a colour-only cue (background + the keyword/arrow below) — it must
+   NOT shift padding: the description column is `1fr`, so any horizontal nudge
+   re-wraps the text and changes the row height, pushing the other rows (the
+   reported flicker). Keep the text position fixed across hover. */
 .reason-row:hover {
-  padding-left: 10px;
-  padding-right: 22px;
   background: var(--color-paper);
 }
 
@@ -8869,9 +8869,9 @@ html.dark .transcript { border-color: var(--color-line); }
   padding-right: 16px;
 }
 
-/* syntax tint (PromptCodeCard `tinted`) — dark editor palette, restores the v3
-   mockup `.tok-*` coloring. Always-dark surface, so no light variant. The card
-   is the sanctioned terminal-palette surface (intentional raw hex). */
+/* syntax tint (PromptCodeCard `tinted`) — dark editor palette (the light-mode
+   skin below re-tints these). Restores the v3 mockup `.tok-*` coloring; the card
+   is the sanctioned code-editor surface (intentional raw hex). */
 .pc-line .pc-lc .pc-tok-c {
   color: #5c6b7a;
   font-style: italic;
@@ -8897,4 +8897,73 @@ html.dark .transcript { border-color: var(--color-line); }
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: #9ca0a8;
+}
+
+/* Light-mode skin — the v3 mockup rendered the prompt as a LIGHT code editor in
+   light mode (white surface, slate text, softer syntax tints); the always-dark
+   port read too heavy on the light page. Applies wherever the card renders in
+   light mode (homepage / scan / picker / Ladle), not just `body.va`. */
+html:not(.dark) .prompt-card {
+  background: #ffffff;
+}
+html:not(.dark) .pc-head {
+  background: #eef2f7;
+  border-bottom-color: #dce3ec;
+}
+html:not(.dark) .pc-name {
+  color: #64748b;
+}
+html:not(.dark) .pc-name svg {
+  stroke: #94a3b8;
+}
+/* :not(.is-copied) so the teal "Copied" confirmation keeps its brand fill + white
+   label in light mode (this light skin is more specific than `.pc-copy.is-copied`). */
+html:not(.dark) .pc-copy:not(.is-copied) {
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+}
+@media (hover: hover) {
+  html:not(.dark) .pc-copy:not(.is-copied):not(:disabled):hover {
+    background: rgba(15, 23, 42, 0.12);
+  }
+}
+html:not(.dark) .pc-body {
+  background: #ffffff;
+  scrollbar-color: #cbd5e1 #ffffff;
+}
+html:not(.dark) .pc-body::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+html:not(.dark) .pc-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-color: #ffffff;
+}
+html:not(.dark) .pc-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+html:not(.dark) .pc-line .pc-ln {
+  color: #b6becb;
+}
+html:not(.dark) .pc-line .pc-lc {
+  color: #334155;
+}
+html:not(.dark) .pc-line .pc-lc .pc-tok-c {
+  color: #7a8694;
+}
+html:not(.dark) .pc-line .pc-lc .pc-tok-k {
+  color: #1d4ed8;
+}
+html:not(.dark) .pc-line .pc-lc .pc-tok-s {
+  color: #b45309;
+}
+html:not(.dark) .pc-line .pc-lc .pc-tok-f {
+  color: #0f766e;
+}
+html:not(.dark) .pc-line .pc-lc .pc-tok-m {
+  color: #7c3aed;
+}
+html:not(.dark) .pc-foot {
+  background: #eef2f7;
+  border-top-color: #dce3ec;
+  color: #64748b;
 }

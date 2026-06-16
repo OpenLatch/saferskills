@@ -1,3 +1,4 @@
+import CopyIconButton from '@ui/components/atoms/CopyIconButton'
 import Toast, { flashToast } from '@ui/components/atoms/Toast'
 import Toggle from '@ui/components/atoms/Toggle'
 import DropZone from '@ui/components/molecules/DropZone'
@@ -12,6 +13,11 @@ import { useUploadFlow } from '@/lib/hooks/useUploadFlow'
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 
 type Action = 'upload' | 'url'
+
+// The CLI split `scan` into `capability` + `agent` commands (#90) — the static
+// capability scan is `saferskills capability` (cli/README.md). Mirrors the
+// agent pane's `.cli-alt` affordance (AgentScanActivation).
+const CLI_COMMAND = 'npx saferskills capability'
 
 function navigateWithHandoff(dest: string, onFade: () => void) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -213,6 +219,14 @@ export default function ScanConsole() {
         By scanning you confirm you can share this content. Public results are published
         permanently. <a href="/privacy">See Privacy</a>.
       </p>
+
+      <div className="cli-alt">
+        <code className="cli-cmd">{CLI_COMMAND}</code>
+        <CopyIconButton value={CLI_COMMAND} label="Copy the CLI command" />
+        <span className="cli-note">
+          Prefer the terminal? Same scan, CI-ready. <a href="/docs">Read the docs</a>
+        </span>
+      </div>
 
       {gate.siteKey && (
         <TurnstileGate

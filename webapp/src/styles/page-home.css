@@ -116,8 +116,12 @@
   padding: 0 26px;
   background: var(--color-ink);
   color: var(--color-paper);
-  font-family: var(--font-mono);
+  /* Match the DS hex-cap button vocabulary (DM Sans 600) — was mono, which read
+     inconsistent against every other button on the page. */
+  font-family: var(--font-sans);
   font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   -webkit-mask:
     var(--mask-hex-cap-left) left center / var(--cap-w) var(--btn-h) no-repeat,
     var(--mask-hex-cap-right) right center / var(--cap-w) var(--btn-h) no-repeat,
@@ -248,8 +252,10 @@ html.dark body.va .docs-side .pill:hover {
 }
 /* DS override — PromptCodeCard peek window on hero card 02 (mirrors the
    mockup's .ce-body max-height; the DS default is 300px). */
+/* Taller prompt peek — absorbs the slack card 02 had below the toggle (card 03's
+   dropzone sets the row height); kept under that height so the hero never regrows. */
 .vb-grid .p1-card.assess .pc-body {
-  max-height: 58px;
+  max-height: 96px;
 }
 
 /* ============================================================
@@ -493,7 +499,7 @@ html.dark body.va .nav-links a.active:hover {
   text-align: center;
   padding-top: 18px;
   padding-bottom: 14px;
-  gap: 12px;
+  gap: 18px;
   justify-content: center;
 }
 
@@ -520,7 +526,7 @@ html.dark body.va .nav-links a.active:hover {
 .hero-band h1 {
   /* Sized so line 2 ("Scan the whole agent against <noun>.") stays ONE line for
      every rotating noun within the container — keeps the headline to 2 lines. */
-  font-size: clamp(30px, 3.1vw, 46px);
+  font-size: clamp(28px, 2.9vw, 42px);
   font-weight: 800;
   line-height: 1.06;
   letter-spacing: -0.045em;
@@ -983,7 +989,9 @@ html.dark body.va .nav-links a.active:hover {
 .p1-input:focus-within .caret {
   background: var(--brand-primary);
 }
-.p1-card.audit .p1-input:focus-within .caret {
+/* Scan-repo lives in the audit card's orange mode — its blinking caret is orange
+   ALWAYS (not only on focus), matching the orange "Make results public" toggle. */
+.p1-card.audit .p1-input .caret {
   background: var(--brand-accent);
 }
 .p1-input.has-value .caret {
@@ -1544,6 +1552,9 @@ html.dark body.va .p1-input input {
 html.dark body.va .p1-input .caret {
   background: var(--fg-1);
 }
+html.dark body.va .p1-card.audit .p1-input .caret {
+  background: var(--brand-accent);
+}
 html.dark body.va .p1-input .p1-enter {
   background: rgba(255, 255, 255, 0.04);
   color: var(--fg-1);
@@ -1638,7 +1649,9 @@ html.dark body.va .p1-progress .row b {
    ============================================================ */
 .hero-cards.vb-grid {
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  /* row-gap = the card-01 ↔ cards-02/03 spacing; column-gap (02↔03) stays tight */
+  row-gap: 24px;
+  column-gap: 16px;
 }
 .hero-cards.vb-grid .b-wide {
   grid-column: 1 / -1;
@@ -1685,7 +1698,7 @@ html.dark body.va .p1-progress .row b {
   gap: 10px;
 }
 .vb-grid .p1-card.audit .p1-drop .drop-main {
-  padding: 18px 16px;
+  padding: 10px 16px;
 }
 /* in this layout the source switch sits inline above the panes (not floated) */
 .vb-grid .p1-card.audit .scan-seg {
@@ -1910,7 +1923,7 @@ html:not(.dark) body.va .vb-grid .p1-card.assess .code-editor .ce-body {
   color: var(--fg-3);
 }
 .hero-band .supported-band .marquee {
-  padding: 28px 0 14px;
+  padding: 24px 0 10px;
 }
 
 /* ----- TOPOGRAPHIC RIDGE DIVIDER ----- */
@@ -3438,12 +3451,12 @@ html:not(.dark) body.va .agentscan-band .as-cols::before {
   border-bottom: 1px dashed var(--color-line);
   text-decoration: none;
   color: var(--color-ink);
-  transition:
-    padding var(--dur-xs) var(--ease-std),
-    background var(--dur-xs) var(--ease-std);
+  transition: background var(--dur-xs) var(--ease-std);
 }
+/* Colour-only hover — NO padding-left shift: it narrowed the `1fr` description
+   column and re-wrapped the text (taller row → the reported push-down flicker).
+   Text position stays fixed across hover. */
 .reason-row:hover {
-  padding-left: 10px;
   background: var(--color-paper);
 }
 .reason-row:hover .k {

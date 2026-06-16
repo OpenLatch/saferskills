@@ -1,12 +1,20 @@
 ---
 import BandPill from '@ui/components/atoms/BandPill'
+import { AGENT_OPTIONS } from '@/components/catalog/constants'
+import type { AgentScanSummary } from '@/lib/api/agent-scans'
 import type { ScanReportSummary, ScanTier } from '@/lib/api/scans'
 
 interface Props {
   recentScans?: ScanReportSummary[]
+  recentAgents?: AgentScanSummary[]
 }
 
-const { recentScans = [] } = Astro.props
+const { recentScans = [], recentAgents = [] } = Astro.props
+
+// Runtime id → display label, reusing the catalog filter's canonical map.
+const RUNTIME_LABEL: Record<string, string> = Object.fromEntries(
+  AGENT_OPTIONS.map((o) => [o.value, o.label])
+)
 
 function relAge(iso: string): string {
   const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
@@ -20,32 +28,72 @@ function tierBand(tier: ScanTier): 'green' | 'yellow' | 'orange' | 'red' | null 
 }
 
 const recent = recentScans.slice(0, 4)
+const agents = recentAgents.slice(0, 4)
+const hasAny = recent.length > 0 || agents.length > 0
 ---
 
-{recent.length > 0 && (
+{hasAny && (
   <section class="scan-recents page-section page-section--grid">
     <div class="container">
       <div class="sub-eyebrow" data-reveal>Recents · 03</div>
-      <h2 data-reveal style="--reveal-delay: 60ms">Recently scanned capabilities</h2>
-      <div class="rec-grid">
-        {recent.map((scan) => {
-          const band = tierBand(scan.tier)
-          const orgRepo = scan.slug.replace('--', '/')
-          return (
-            <a class="rec-cell" href={`/scans/${scan.id}`} data-reveal>
-              <div class="top">
-                <span class="nm">{scan.title ?? orgRepo}</span>
-                {band ? <BandPill tier={band} /> : <span class="band-pill">Unscoped</span>}
-              </div>
-              <div class="mid">
-                <span class="scn">{scan.aggregate_score}</span>
-                <span class="ago">{relAge(scan.scanned_at)}</span>
-              </div>
-              <div class="bot">scn_{scan.id.slice(0, 8)}… · {orgRepo}</div>
-            </a>
-          )
-        })}
-      </div>
+
+      {recent.length > 0 && (
+        <Fragment>
+          <h2 data-reveal style="--reveal-delay: 60ms">Recently scanned capabilities</h2>
+          <div class="rec-grid">
+            {recent.map((scan) => {
+              const band = tierBand(scan.tier)
+              const orgRepo = scan.slug.replace('--', '/')
+              return (
+                <a class="rec-cell" href={`/scans/${scan.id}`} data-reveal>
+                  <div class="top">
+                    <span class="nm">{scan.title ?? orgRepo}</span>
+                    {band ? <BandPill tier={band} /> : <span class="band-pill">Unscoped</span>}
+                  </div>
+                  <div class="mid">
+                    <span class="scn">{scan.aggregate_score}</span>
+                    <span class="ago">{relAge(scan.scanned_at)}</span>
+                  </div>
+                  <div class="bot">scn_{scan.id.slice(0, 8)}… · {orgRepo}</div>
+                </a>
+              )
+            })}
+          </div>
+        </Fragment>
+      )}
+
+      {agents.length > 0 && (
+        <Fragment>
+          <h2 class:list={['', recent.length > 0 && 'rec-h2-2']} data-reveal style="--reveal-delay: 60ms">
+            Recently scanned agents
+          </h2>
+          <div class="rec-grid">
+            {agents.map((agent) => {
+              const band = agent.band === 'unscoped' ? null : agent.band
+              const t = agent.capability_tally
+              const caps = t.skill + t.hook + t.mcp + t.plugin + t.rules
+              const runtime = RUNTIME_LABEL[agent.runtime] ?? agent.runtime
+              return (
+                <a class="rec-cell" href={`/agents/${agent.id}`} data-reveal>
+                  <div class="top">
+                    <span class="nm">{agent.agent_name}</span>
+                    {band ? <BandPill tier={band} /> : <span class="band-pill">Unscoped</span>}
+                  </div>
+                  <div class="mid">
+                    <span class="scn sm">{agent.score ?? '—'}<span class="o100">/100</span></span>
+                    {agent.scanned_at ? <span class="ago">{relAge(agent.scanned_at)}</span> : null}
+                  </div>
+                  <div class="plat">
+                    <span class="rt">{runtime}</span>
+                    <span>{caps} {caps === 1 ? 'capability' : 'capabilities'}</span>
+                  </div>
+                  <div class="bot">scn_agt_{agent.id.slice(0, 8)}…</div>
+                </a>
+              )
+            })}
+          </div>
+        </Fragment>
+      )}
     </div>
   </section>
 )}

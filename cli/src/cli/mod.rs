@@ -338,6 +338,11 @@ pub struct AgentArgs {
     #[arg(long = "no-telemetry")]
     pub no_telemetry: bool,
 
+    /// Skip the best-effort local-capability scan that populates the report's
+    /// Component Scores tab (no upload of your installed skills/MCP/hooks).
+    #[arg(long = "no-components")]
+    pub no_components: bool,
+
     /// Print a static SKILL.md bootstrap (with a freshly-minted run + token) and exit.
     #[arg(long = "print-skill")]
     pub print_skill: bool,

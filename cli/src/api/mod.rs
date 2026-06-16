@@ -6,6 +6,8 @@
 
 pub mod dto;
 
+use std::collections::BTreeMap;
+
 use dto::{
     AgentScanReport, AgentStatusResponse, BootstrapResponse, CatalogItemSummary,
     CatalogListEnvelope, ChallengeResponse, HealthResponse, ItemDetailResponse,
@@ -53,12 +55,19 @@ pub struct InstallReport<'a> {
 }
 
 /// Body for `POST /api/v1/agent-scans/bootstrap` (mint a run + render the prompt).
+/// `component_scan_run_id` + `kind_tally` are the best-effort local-capability
+/// capture (omitted entirely when absent — the server treats a *missing* field as
+/// "no components", same as a web mint).
 #[derive(Debug, Serialize)]
 struct BootstrapBody<'a> {
     platform: &'a str,
     agent_name: &'a str,
     runtime: &'a str,
     visibility: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    component_scan_run_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kind_tally: Option<&'a BTreeMap<String, u32>>,
 }
 
 /// The faceted query for [`Api::list_items`] — the `search` command's filter
@@ -301,12 +310,16 @@ impl Api {
 
     /// `POST /api/v1/agent-scans/bootstrap` — mint a run + render the bootstrap
     /// prompt. Carries the solved PoW (empty `pow` ⇒ no header; loopback-exempt).
+    /// `component_scan_run_id` + `kind_tally` are the best-effort component capture
+    /// (both `None` on the manual `--print-skill` path).
     pub async fn bootstrap_agent_scan(
         &self,
         platform: &str,
         agent_name: &str,
         runtime: &str,
         visibility: &str,
+        component_scan_run_id: Option<&str>,
+        kind_tally: Option<&BTreeMap<String, u32>>,
         pow: &str,
     ) -> Result<BootstrapResponse, SsError> {
         let headers = pow_headers(pow);
@@ -318,6 +331,8 @@ impl Api {
                     agent_name,
                     runtime,
                     visibility,
+                    component_scan_run_id,
+                    kind_tally,
                 },
                 &headers,
             )

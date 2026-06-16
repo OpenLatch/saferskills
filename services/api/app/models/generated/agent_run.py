@@ -209,6 +209,12 @@ class AgentRun(Base):
         nullable=True,
     )
 
+    component_scan_run_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        sa.ForeignKey("scan_runs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,

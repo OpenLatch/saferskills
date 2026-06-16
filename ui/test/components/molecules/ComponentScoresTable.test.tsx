@@ -20,6 +20,16 @@ describe('ComponentScoresTable', () => {
     expect(container.querySelector('.ar-panel-lead')?.textContent).toContain('never fused')
   })
 
+  it('points every row at the run report when runReportUrl is set (unlisted scan)', () => {
+    render(<ComponentScoresTable rows={ROWS} runReportUrl="/scans/r/tok123" />)
+    const links = screen.getAllByRole('link')
+    // Both rows deep-link to the single unlisted component scan_run report, NOT
+    // their own (404-ing shadow) `/items/<slug>`.
+    expect(links).toHaveLength(2)
+    expect(links[0]).toHaveAttribute('href', '/scans/r/tok123')
+    expect(links[1]).toHaveAttribute('href', '/scans/r/tok123')
+  })
+
   it('renders the not-in-this-scan explainer panel when there are no capabilities', () => {
     const { container } = render(<ComponentScoresTable rows={[]} />)
     expect(container.querySelector('.ar-empty--na')).not.toBeNull()

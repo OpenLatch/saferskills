@@ -74,32 +74,15 @@ html.dark .scan-form-pane {
   flex-direction: column;
   gap: 18px;
 }
-/* Repo mode (Scan-repo tab) accents the input ORANGE — but ONLY while it is
-   selected (`:focus-within`); unfocused it keeps the DS-neutral chrome. The DS
-   teal focus rules tie these on specificity in light mode and outrank them in
-   dark (via the extra `html.dark` element+class), so the selectors below raise
-   specificity by one class to win the focused state deterministically. */
-.scan-console .p1-input:focus-within {
-  border-color: var(--brand-accent);
-}
-.scan-console .p1-input:focus-within .p1-icon {
-  background: var(--brand-accent);
-  color: #fff;
-  border-right-color: var(--brand-accent);
-}
-.scan-console .p1-input:focus-within .caret {
-  background: var(--brand-accent);
-}
-html.dark .scan-console .p1-input:focus-within {
-  border-color: var(--brand-accent);
-}
-html.dark .scan-console .p1-input:focus-within .p1-icon {
-  background: var(--brand-accent);
-  color: #fff;
-  border-right-color: var(--brand-accent);
-}
-html.dark .scan-console .p1-input:focus-within .caret {
-  background: var(--brand-accent);
+/* The capability URL input uses the brand GREEN accent (not the repo-mode
+   orange): the DS-default :focus-within chrome (border + icon + caret) is
+   already teal in both themes, so the only override needed is recoloring the
+   resting blinking caret — `--color-ink` (light) / `--fg-1` (dark) by default —
+   to match. Both selectors are listed so each outranks the DS caret rule at its
+   own specificity tier (the `html.dark` element+class lifts the dark default). */
+.scan-console .p1-input .caret,
+html.dark .scan-console .p1-input .caret {
+  background: var(--brand-primary);
 }
 .scan-console .p1-submit {
   cursor: pointer;
@@ -651,6 +634,43 @@ html.dark .rec-cell .scn {
   letter-spacing: 0.02em;
 }
 
+/* Second recents group ("Recently scanned agents") — extra top gap below the
+   first grid (mockup .rec-h2-2). */
+.scan-recents .rec-h2-2 {
+  margin-top: 52px;
+}
+
+/* Agent recents card extras — the platform/runtime line + the /100 score suffix
+   (mockup .rec-cell .plat / .scn .o100). */
+.rec-cell .plat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.rec-cell .plat .rt {
+  flex: none;
+  white-space: nowrap;
+  border: 1px solid var(--color-line);
+  padding: 2px 7px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+html.dark .rec-cell .plat .rt {
+  color: var(--fg-1);
+}
+.rec-cell .scn .o100 {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--fg-3);
+}
+
 /* ============================================================
    METHODOLOGY PANE
    ============================================================ */
@@ -686,7 +706,8 @@ html.dark .scan-method-pane {
   line-height: 1.6;
   color: var(--fg-2);
   letter-spacing: 0.01em;
-  max-width: 52ch;
+  /* No max-width — the intro fills the pane width, so its wrap edge lines up
+     with the WeightBars rows directly below it (wider than the old 52ch). */
 }
 .method-intro .link {
   color: var(--brand-primary);
@@ -694,10 +715,15 @@ html.dark .scan-method-pane {
   text-decoration: none;
 }
 
-/* Agent risk-family body — orange fill accent (mockup .method-cats.agent).
-   A single-page override of the DS WeightBars fill. */
+/* Agent risk-family body — orange accent (mockup .method-cats.agent).
+   A single-page override of the DS WeightBars: the teal (--brand-primary) fill +
+   percent are reserved for the Capability scan; the Agent scan recolors both to
+   orange. */
 .method-body--agent .weight-bars .wb-fill {
   background: var(--brand-accent);
+}
+.method-body--agent .weight-bars .wb-wt {
+  color: var(--brand-accent);
 }
 
 /* ============================================================
