@@ -89,4 +89,46 @@ describe('PromptCodeCard', () => {
     const results = await axe(container)
     expect(results.violations).toHaveLength(0)
   })
+
+  // Regression: the v3 prompt body lost its syntax tint when `.code-editor`
+  // became this generic block — `tinted` restores it (placeholders, verbs,
+  // headers, the bold title, the privacy paragraph).
+  describe('tinted', () => {
+    const TINTED = [
+      'Run a **SaferSkills Agent Scan** on this agent.',
+      '1. Fetch the signed test pack: GET {{PACK_URL}}',
+      '   with HTTP header  X-SaferSkills-Run-Token: {{RUN_TOKEN}}',
+      'Privacy: SaferSkills records company-level signal only.',
+    ]
+
+    it('wraps placeholders, verbs, headers, the bold title and privacy line in token spans', () => {
+      const { container } = render(
+        <PromptCodeCard title="Prompt" lines={TINTED} tinted copyState="idle" onCopy={() => {}} />,
+      )
+      expect(container.querySelector('.pc-tok-m')?.textContent).toBe('**SaferSkills Agent Scan**')
+      expect(container.querySelector('.pc-tok-k')?.textContent).toBe('1.')
+      expect([...container.querySelectorAll('.pc-tok-s')].map((e) => e.textContent)).toContain(
+        '{{PACK_URL}}',
+      )
+      expect(container.querySelector('.pc-tok-f')?.textContent).toBe('X-SaferSkills-Run-Token')
+      expect(container.querySelector('.pc-tok-c')?.textContent).toBe(TINTED[3])
+      // The prompt text is still selectable as plain runs between tokens.
+      expect(screen.getByText(/Fetch the signed test pack/)).toBeInTheDocument()
+    })
+
+    it('renders plain text (no token spans) when not tinted', () => {
+      const { container } = render(
+        <PromptCodeCard title="Prompt" lines={TINTED} copyState="idle" onCopy={() => {}} />,
+      )
+      expect(container.querySelector('[class^="pc-tok-"]')).toBeNull()
+    })
+
+    it('has no a11y violations when tinted', async () => {
+      const { container } = render(
+        <PromptCodeCard title="Prompt" lines={TINTED} tinted copyState="idle" onCopy={() => {}} />,
+      )
+      const results = await axe(container)
+      expect(results.violations).toHaveLength(0)
+    })
+  })
 })

@@ -105,18 +105,6 @@ export async function deleteAgentUnlisted(token: string): Promise<void> {
   if (!res.ok) throw new Error(`API ${res.status}`)
 }
 
-/** POST /api/v1/agent-scans/verify-waitlist — records verify-tier demand (D-5.6-08).
- * Account-free, email-OPTIONAL. Tolerates a dev 404 so the UI scaffold works. */
-export async function requestVerifyWaitlist(email: string | null): Promise<void> {
-  const res = await fetch(`${env.PUBLIC_API_URL}/api/v1/agent-scans/verify-waitlist`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email }),
-  })
-  if (res.ok || res.status === 404) return
-  throw new Error(`API ${res.status}`)
-}
-
 /** POST /api/v1/agent-scans/r/{token}/reply — the capability-token holder attaches a
  * ≤500-char public reply (D-5.6-08, token-gated). Tolerates a dev 404 like waitlist. */
 export async function submitAgentReply(token: string, text: string): Promise<void> {
@@ -135,6 +123,7 @@ export async function submitAgentReply(token: string, text: string): Promise<voi
 // ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
 
 export interface AgentListParams {
+  q?: string
   scoreMin?: number
   scoreMax?: number
   period?: string[]
@@ -147,6 +136,7 @@ export interface AgentListParams {
 
 function listQuery(p: AgentListParams): string {
   const qs = new URLSearchParams()
+  if (p.q) qs.set('q', p.q)
   if (p.scoreMin != null) qs.set('score_min', String(p.scoreMin))
   if (p.scoreMax != null) qs.set('score_max', String(p.scoreMax))
   for (const v of p.period ?? []) qs.append('period', v)

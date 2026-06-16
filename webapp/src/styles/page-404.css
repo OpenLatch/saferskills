@@ -93,15 +93,26 @@ html.dark .nf-band::before {
   text-wrap: pretty;
 }
 
-/* ---------- cards grid (each card is supplied by HeroActionCards) ---------- */
+/* ---------- cards stack (each card is supplied by HeroActionCards) ----------
+ * Unlike the homepage (FIND full-width, SCAN+AUDIT side by side), the 404 stacks
+ * all three cards in ONE centered column — card 02 (agent prompt) is much taller
+ * than 01/03, so a 2-col grid staggered them raggedly. A single column keeps them
+ * vertically aligned, same width, with `gap` as the margin between them. */
 .nf-cards {
   width: 100%;
-  max-width: 1100px;
+  max-width: 920px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 28px;
   text-align: left;
   margin-top: 14px;
+}
+
+/* Card 02 (Scan a Running Agent) is the tallest card — its prompt code block
+ * caps at 300px on the homepage. The 404 doesn't need the full preview, so
+ * shorten the scroll-capped body here (404-scoped — homepage is untouched). */
+.nf-cards .p1-card.assess .pc-body {
+  max-height: 180px;
 }
 
 /* ---------- take-me-home row — DS Button atom (.btn) + arrow slide ---------- */

@@ -9,21 +9,32 @@ const ROWS = [
 ]
 
 describe('ComponentScoresTable', () => {
-  it('renders one deep-linked cell per capability with a tier-derived chip', () => {
+  it('renders one deep-linked row per capability with a tier-derived chip', () => {
     const { container } = render(<ComponentScoresTable rows={ROWS} />)
     const links = screen.getAllByRole('link')
     expect(links).toHaveLength(2)
     expect(links[0]).toHaveAttribute('href', '/items/a--b--skill-pdf-extract')
-    // green → all-clear; orange → needs review (derived from tier)
-    expect(screen.getByText('all-clear')).toBeInTheDocument()
+    // green → all clear; orange → needs review (derived from tier)
+    expect(screen.getByText('all clear')).toBeInTheDocument()
     expect(screen.getByText('needs review')).toBeInTheDocument()
-    expect(container.querySelector('.cs-note')?.textContent).toContain('never fused')
+    expect(container.querySelector('.ar-panel-lead')?.textContent).toContain('never fused')
   })
 
-  it('renders a clean empty-state when there are no capabilities', () => {
+  it('points every row at the run report when runReportUrl is set (unlisted scan)', () => {
+    render(<ComponentScoresTable rows={ROWS} runReportUrl="/scans/r/tok123" />)
+    const links = screen.getAllByRole('link')
+    // Both rows deep-link to the single unlisted component scan_run report, NOT
+    // their own (404-ing shadow) `/items/<slug>`.
+    expect(links).toHaveLength(2)
+    expect(links[0]).toHaveAttribute('href', '/scans/r/tok123')
+    expect(links[1]).toHaveAttribute('href', '/scans/r/tok123')
+  })
+
+  it('renders the not-in-this-scan explainer panel when there are no capabilities', () => {
     const { container } = render(<ComponentScoresTable rows={[]} />)
-    expect(container.querySelector('.cs-empty')).not.toBeNull()
-    expect(container.querySelector('.cs-grid')).toBeNull()
+    expect(container.querySelector('.ar-empty--na')).not.toBeNull()
+    expect(screen.getByText('Behavior graded as one system.')).toBeInTheDocument()
+    expect(container.querySelector('.cap-list')).toBeNull()
   })
 
   it('has no critical a11y violations', async () => {

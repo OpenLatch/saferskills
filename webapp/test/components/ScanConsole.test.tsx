@@ -46,6 +46,13 @@ describe('ScanConsole', () => {
     expect(screen.getByText(/published permanently/i)).toBeTruthy()
   })
 
+  it('offers the CLI alternative — the `saferskills capability` command + docs link', () => {
+    render(<ScanConsole />)
+    expect(screen.getByText('npx saferskills capability')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /copy the cli command/i })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /read the docs/i }).getAttribute('href')).toBe('/docs')
+  })
+
   it('reveals the unlisted note when toggled private', () => {
     render(<ScanConsole />)
     fireEvent.click(screen.getByRole('switch', { name: /make results public/i }))

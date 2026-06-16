@@ -11,6 +11,16 @@ describe('RuntimeMonogram', () => {
     expect(screen.getByText('Cursor')).toBeInTheDocument()
   })
 
+  it('renders the agent brand logo for a known runtime, monogram for other', () => {
+    const { container, rerender } = render(<RuntimeMonogram runtime="claude-code" />)
+    // Known agent → an inline SVG brand mark inside the hairline box (no 2-letter text).
+    expect(container.querySelector('.rt-mark--logo svg')).not.toBeNull()
+    rerender(<RuntimeMonogram runtime="totally-unknown" />)
+    // Unknown → the `··` monogram fallback, no logo box.
+    expect(container.querySelector('.rt-mark--logo')).toBeNull()
+    expect(container.querySelector('.rt-mark')?.textContent).toBe('··')
+  })
+
   it('falls back to Other for an unknown runtime', () => {
     expect(asRuntimeId('totally-unknown')).toBe('other')
     expect(runtimeLabel('totally-unknown')).toBe('Other')

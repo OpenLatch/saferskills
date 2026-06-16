@@ -53,8 +53,8 @@ describe('AgentScanActivation — platform picker + mint (no site key)', () => {
     }) as unknown as typeof window.matchMedia
   })
 
-  it('pre-mint: template with visible placeholders, Universal selected, its hint shown', () => {
-    render(<AgentScanActivation surface="scan" />)
+  it('picker surface — pre-mint: template, Universal selected, its hint shown', () => {
+    render(<AgentScanActivation surface="picker" />)
     expect(screen.getAllByText(/\{\{PACK_URL\}\}/).length).toBeGreaterThan(0)
     const universal = screen.getByRole('button', { name: 'Universal' })
     expect(universal.getAttribute('aria-pressed')).toBe('true')
@@ -64,9 +64,20 @@ describe('AgentScanActivation — platform picker + mint (no site key)', () => {
     expect(screen.queryByRole('tablist')).toBeNull()
   })
 
+  it('scan surface — NO platform picker or hint, but the template + generate action render', () => {
+    render(<AgentScanActivation surface="scan" />)
+    // The picker + per-platform hint are picker-page-only (omitted on /scan).
+    expect(screen.queryByRole('group', { name: /agent platform/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Universal' })).toBeNull()
+    expect(screen.queryByText(/paste into your agent's chat/i)).toBeNull()
+    // The universal template + the mint action are still present.
+    expect(screen.getAllByText(/\{\{PACK_URL\}\}/).length).toBeGreaterThan(0)
+    expect(generateBtn()).toBeTruthy()
+  })
+
   it('platform selection flows into the mint payload + swaps the hint line', async () => {
     mockMintOk()
-    render(<AgentScanActivation surface="scan" />)
+    render(<AgentScanActivation surface="picker" />)
     fireEvent.click(screen.getByRole('button', { name: 'Codex CLI' }))
     expect(screen.getByText(/paste into codex/i)).toBeTruthy()
     fireEvent.click(generateBtn())
@@ -162,7 +173,7 @@ describe('AgentScanActivation — platform picker + mint (no site key)', () => {
 
   it('locks the platform picker while a minted prompt is live; reset unlocks it', async () => {
     mockMintOk()
-    render(<AgentScanActivation surface="scan" />)
+    render(<AgentScanActivation surface="picker" />)
     fireEvent.click(generateBtn())
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     // every non-selected platform is disabled — the chip/hint can never

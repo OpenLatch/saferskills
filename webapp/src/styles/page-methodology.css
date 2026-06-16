@@ -65,6 +65,28 @@ html.dark .page-section--flat .rule-card {
 }
 
 /* ============================================================
+   TAB PANELS (MethodologyTabs.tsx) — Capability rules / Agent pack
+   Both panels share the one --flat band; the island toggles `hidden`.
+   ============================================================ */
+/* Mirror .ar-panel[hidden] on the Agent Report — a hidden panel collapses. */
+.method-panel[hidden] {
+  display: none;
+}
+/* The rule catalog leads the panel flush under the tab strip (the .sk-tabs
+   control carries its own 24px bottom margin). The scoring formula now trails
+   the catalog — re-establish the vertical rhythm the old inter-section ridges
+   used to provide so it reads as a distinct closing reference. */
+.method-panel #scoring-formula {
+  margin-top: 44px;
+}
+/* Agent scoring lead: separate the band ladder from the pack-meta line (the
+   FormulaPanel's own ladder is spaced by its flex gap — scope to the agent
+   panel so that is untouched). */
+#agent-pack .tier-ladder {
+  margin-top: 16px;
+}
+
+/* ============================================================
    §01 FORMULA PANEL (FormulaPanel.astro) — the boxed scoring spec
    ============================================================ */
 .formula-panel {

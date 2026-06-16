@@ -4,10 +4,10 @@ The ten **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
 VendorVerification, VendorResponse (the original six) plus IngestionEvent and
 MergeCandidate (I-04) plus AgentRun and AgentFinding (I-5.5) — are GENERATED from
 `schemas/*.schema.json` via the codegen pipeline (`app/models/generated/`, native
-PG enum columns). The eighteen **internal** models — ItemSource, RateLimit,
+PG enum columns). The seventeen **internal** models — ItemSource, RateLimit,
 UploadFile, ArtifactBlob, ScanEvent, Author, CrawlerCursor, PopularityFormula,
 AccessLog, AdminAuditLog, IngestionRun, RepoFetchState, InstallEvent, CliPowSpent,
-AgentEvidence, AgentRunTokenSpent, AgentScanTelemetry, AgentVerifyWaitlist — have no JSON-Schema source
+AgentEvidence, AgentRunTokenSpent, AgentScanTelemetry — have no JSON-Schema source
 and no wire DTO (never serialized over the API), so they stay hand-written
 under `app/models/*.py`. (A table that IS serialized over the API must be
 schema-driven/generated — see `.claude/rules/database.md` + `schema-driven-development.md`.)
@@ -29,7 +29,6 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.agent_evidence import AgentEvidence
 from app.models.agent_run_token_spent import AgentRunTokenSpent
 from app.models.agent_scan_telemetry import AgentScanTelemetry
-from app.models.agent_verify_waitlist import AgentVerifyWaitlist
 from app.models.artifact_blob import ArtifactBlob
 from app.models.author import Author
 from app.models.base import Base
@@ -64,7 +63,6 @@ __all__ = [
     "AgentRun",
     "AgentRunTokenSpent",
     "AgentScanTelemetry",
-    "AgentVerifyWaitlist",
     "ArtifactBlob",
     "Author",
     "Base",

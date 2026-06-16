@@ -103,6 +103,7 @@
 
 html.dark .docs-cta-grid {
   background: var(--color-line);
+  border-color: var(--color-line);
 }
 html.dark .docs-cta-card {
   background: var(--bg-page-alt);

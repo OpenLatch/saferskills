@@ -54,7 +54,7 @@ async function fetchPopularChips(): Promise<PopularChip[] | null> {
       score: i.latest_scan_score as number,
       tier: (i.latest_scan_tier ?? 'green') as PopularChip['tier'],
       // Live chips link to the real item page; the fallback constants carry
-      // href '/catalog' (D-5.7-13 — href is resolved on the view-model).
+      // href '/capabilities' (D-5.7-13 — href is resolved on the view-model).
       href: `/items/${i.slug}`,
     }))
 }

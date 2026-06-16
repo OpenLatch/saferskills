@@ -4,16 +4,18 @@ export const prerender = false
 import Base from '@/layouts/Base.astro'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
-import Breadcrumb from '@ui/components/atoms/Breadcrumb.tsx'
-import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import { runtimeLabel } from '@ui/components/atoms/RuntimeMonogram.tsx'
+import ExpiryCountdown from '@/components/scan/ExpiryCountdown.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
 import AgentReport from '@/components/agent/AgentReport.tsx'
+import AgentReportActions from '@/components/agent/AgentReportActions.tsx'
 import AgentScanPollBoard from '@/components/agent/AgentScanPollBoard.tsx'
 
 import { fetchAgentScanUnlistedReport } from '@/lib/api/agent-scans'
 import { isPreGrade, isReportable } from '@/lib/api/agent-scan-types'
+import { formatScannedAt } from '@/lib/agent/format'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
@@ -66,25 +68,64 @@ if (!preGrade && !reportable) {
 const stats = await fetchOrNull(fetchPlatformStats)
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 const capCount = run.capabilities_present.length
+const runtimeName = runtimeLabel(run.runtime)
 ---
 
 <Base title={`Private agent scan — ${run.agent_name} — SaferSkills`} noindex={true}>
   <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath="/agents" />
 
-  <section class="page-head">
+  <section class="private-banner" data-screen-label="Private banner">
     <div class="container">
-      <Breadcrumb items={[{ label: 'Agents', href: '/agents' }, { label: run.agent_name }]} />
-      <div class="ph-eyebrow">Report · Private · /agents/r/&lt;token&gt;</div>
-      <h1 class="ph-title">{run.agent_name}<span class="script"> — agent scan complete</span></h1>
-      <p class="ph-lede">
-        we ran an open adversarial pack against the whole assembled agent — model, harness, all {capCount}
-        {' '}capabilities, identity and permissions. This report is private — only people with this link
-        {' '}can see it.
-      </p>
+      <div class="pb-inner">
+        <span class="pb-lock" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10"></rect><path d="M7.5 11 V7.5 a4.5 4.5 0 0 1 9 0 V11"></path></svg>
+        </span>
+        <p class="pb-text"><b>Private — only people with this link can see this.</b> Not listed in the index or search. Anyone with the link can also delete or publish it.</p>
+      </div>
     </div>
   </section>
 
-  <PageRidge variant="contour" label="— PRIVATE —" />
+  <header class="page-head sr-head">
+    <div class="container">
+      <span class="ph-eyebrow">Report · Private · /agents/r/&lt;token&gt;</span>
+      <div class="sr-head-row">
+        <div class="sr-head-l">
+          {preGrade ? (
+            <h1 class="ph-title">Auditing {run.agent_name}<span class="script"> — in progress</span></h1>
+          ) : (
+            <h1 class="ph-title">{run.agent_name}<span class="script"> — agent scan complete</span></h1>
+          )}
+          <p class="ph-lede">
+            We ran an open adversarial pack against the whole assembled agent — model, harness,
+            all {capCount} capabilities, identity and permissions. This report is private — only
+            people with this link can see it.
+          </p>
+          <div class="sr-head-meta">
+            <span class="by">scanned <b>{formatScannedAt(run.scanned_at)}</b></span>
+            <span class="dot">·</span>
+            <span>{runtimeName} · {capCount} capabilities</span>
+            {run.expires_at && (
+              <>
+                <span class="dot">·</span>
+                <ExpiryCountdown client:idle expiresAt={run.expires_at} variant="pill" />
+              </>
+            )}
+          </div>
+        </div>
+        <div class="sr-head-r">
+          {!preGrade && (
+            <AgentReportActions
+              client:load
+              run={run}
+              shareUrl={Astro.url.href}
+              unlisted={true}
+              token={token}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  </header>
 
   {preGrade ? (
     <AgentScanPollBoard client:load token={token} target={run.agent_name} ruleCount={ruleCount} />
@@ -112,10 +153,10 @@ const capCount = run.capabilities_present.length
 
   <CtaBand
     client:visible
-    title="Scan your agent. Read the report. Decide."
+    title="Point the scanner at your own agent."
     lead="Public reports are published permanently; unlisted ones expire in 90 days."
-    primaryAction={{ label: 'Browse the agent index →', href: '/agents' }}
-    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+    primaryAction={{ label: 'Browse the agent index', href: '/agents' }}
+    secondaryAction={{ label: 'Browse capabilities', href: '/capabilities' }}
   />
 
   <Footer />

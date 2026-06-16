@@ -1,8 +1,8 @@
 """Agent Report directory endpoints (I-5.6 Phase C, D-5.6-05).
 
 Covers `GET /agent-scans` (public-only list + filters + sort + pagination),
-`GET /agent-scans/aggregate-stats` (the gated corpus meter), `POST
-/agent-scans/verify-waitlist`, and `POST /agent-scans/r/{token}/reply`.
+`GET /agent-scans/aggregate-stats` (the gated corpus meter), and `POST
+/agent-scans/r/{token}/reply`.
 """
 
 from __future__ import annotations
@@ -11,12 +11,10 @@ from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_scan.canary import canary, derive_seed, load_master_key
 from app.core.config import get_settings
-from app.models.agent_verify_waitlist import AgentVerifyWaitlist
 from app.models.generated.agent_run import AgentRun
 
 
@@ -51,13 +49,14 @@ async def _make_run(
     visibility: str,
     runtime: str = "claude-code",
     leak: bool = False,
+    agent_name: str = "a",
 ) -> dict[str, object]:
     """Create + submit a run so it ends graded/published. `leak=True` plants the
     canary (→ a vulnerable finding + a low capped score)."""
     body = (
         await db_client.post(
             "/api/v1/agent-scans",
-            json={"agent_name": "a", "runtime": runtime, "visibility": visibility},
+            json={"agent_name": agent_name, "runtime": runtime, "visibility": visibility},
         )
     ).json()
     run_id, token = body["run_id"], body["submit_token"]
@@ -132,6 +131,60 @@ async def test_list_runtime_filter(db_client: AsyncClient, db_session: AsyncSess
 
 
 @pytest.mark.asyncio
+async def test_list_q_search_filters_by_agent_name(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`?q=` matches agent_name case-insensitively; LIKE wildcards are literal."""
+    hit = await _make_run(
+        db_client, db_session, visibility="public", agent_name="payments-reconciler"
+    )
+    miss = await _make_run(db_client, db_session, visibility="public", agent_name="lint-fixer")
+
+    rows = (await db_client.get("/api/v1/agent-scans?q=RECONCILER")).json()["data"]
+    ids = {r["id"] for r in rows}
+    assert hit["run_id"] in ids
+    assert miss["run_id"] not in ids
+
+    # A wildcard in the needle is matched literally, never as LIKE syntax.
+    none = (await db_client.get("/api/v1/agent-scans?q=%25")).json()["data"]
+    assert all(r["id"] not in (hit["run_id"], miss["run_id"]) for r in none)
+
+
+@pytest.mark.asyncio
+async def test_capability_tally_projects_kind_tally(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`agent_runs.kind_tally` JSONB projects onto the summary `capability_tally`;
+    a NULL/absent kind_tally coalesces to an all-zero tally (no icons)."""
+    with_caps = await _make_run(db_client, db_session, visibility="public", agent_name="caps")
+    without = await _make_run(db_client, db_session, visibility="public", agent_name="nocaps")
+
+    run = await db_session.get(AgentRun, UUID(str(with_caps["run_id"])))
+    assert run is not None
+    run.kind_tally = {"skill": 2, "mcp": 1, "hook": 3}
+    await db_session.commit()
+
+    data = (await db_client.get("/api/v1/agent-scans")).json()["data"]
+    caps_row = next(r for r in data if r["id"] == with_caps["run_id"])
+    zero_row = next(r for r in data if r["id"] == without["run_id"])
+
+    assert caps_row["capability_tally"] == {
+        "skill": 2,
+        "hook": 3,
+        "mcp": 1,
+        "plugin": 0,
+        "rules": 0,
+    }
+    assert zero_row["capability_tally"] == {
+        "skill": 0,
+        "hook": 0,
+        "mcp": 0,
+        "plugin": 0,
+        "rules": 0,
+    }
+
+
+@pytest.mark.asyncio
 async def test_aggregate_stats_gate(
     db_client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -159,23 +212,6 @@ async def test_aggregate_stats_route_ordering(db_client: AsyncClient) -> None:
     res = await db_client.get("/api/v1/agent-scans/aggregate-stats")
     assert res.status_code == 200
     assert "corpus_count" in res.json()
-
-
-@pytest.mark.asyncio
-async def test_verify_waitlist(db_client: AsyncClient, db_session: AsyncSession) -> None:
-    before = (
-        await db_session.execute(select(func.count()).select_from(AgentVerifyWaitlist))
-    ).scalar_one()
-    r1 = await db_client.post("/api/v1/agent-scans/verify-waitlist", json={})
-    r2 = await db_client.post(
-        "/api/v1/agent-scans/verify-waitlist", json={"email": "me@example.com"}
-    )
-    assert r1.status_code == 200 and r1.json()["recorded"] is True
-    assert r2.status_code == 200
-    after = (
-        await db_session.execute(select(func.count()).select_from(AgentVerifyWaitlist))
-    ).scalar_one()
-    assert after == before + 2
 
 
 @pytest.mark.asyncio

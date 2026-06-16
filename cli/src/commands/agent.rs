@@ -37,6 +37,7 @@ use crate::api::Api;
 use crate::cli::color;
 use crate::cli::output::{OutputConfig, OutputFormat};
 use crate::cli::{AgentArgs, Interaction};
+use crate::core::agent_name::resolve_agent_name;
 use crate::core::baseline::{self, Fingerprint};
 use crate::core::config::{atomic_write, saferskills_dir, Config};
 use crate::core::error::{
@@ -62,7 +63,7 @@ pub async fn run_agent(
         return submit_blob(&api, output, args, path).await;
     }
     if args.print_skill {
-        return print_skill(&api, output).await;
+        return print_skill(&api, args, output).await;
     }
 
     let platforms = resolve_agents_to_scan(args, inter, output)?;
@@ -89,7 +90,7 @@ pub async fn run_agent(
                 color::dim(&format!("({}/{})", i + 1, platforms.len()), output.color),
             ));
         }
-        match scan_one_agent(&api, args, output, platform).await {
+        match scan_one_agent(&api, args, output, platform, multi).await {
             Ok(summary) => summaries.push(summary),
             Err(e) => fails.push((platform.clone(), e)),
         }
@@ -206,8 +207,9 @@ async fn scan_one_agent(
     args: &AgentArgs,
     output: &OutputConfig,
     platform: &str,
+    multi: bool,
 ) -> Result<AgentSummary, SsError> {
-    let boot = bootstrap_and_verify(api, args, output, platform).await?;
+    let boot = bootstrap_and_verify(api, args, output, platform, multi).await?;
 
     // Present the paste-able prompt in a clearly delimited copy block (prompt body
     // → stdout, all framing/notes → stderr) so the user knows exactly what to copy.
@@ -248,6 +250,7 @@ async fn bootstrap_and_verify(
     args: &AgentArgs,
     output: &OutputConfig,
     platform: &str,
+    multi: bool,
 ) -> Result<BootstrapResponse, SsError> {
     let visibility = if args.private { "unlisted" } else { "public" };
     let runtime = if platform == "universal" {
@@ -255,9 +258,32 @@ async fn bootstrap_and_verify(
     } else {
         platform
     };
+    let agent_name = resolve_agent_name(platform, args.name.as_deref(), multi);
+
+    // Best-effort: scan the platform's installed capabilities so the report's
+    // Component Scores tab is populated (skippable with --no-components). Both link
+    // fields stay None when nothing is captured (the tab keeps its empty state).
+    let components = if args.no_components {
+        None
+    } else {
+        super::capability::capture_local_components(api, output, platform, visibility).await
+    };
+    let (component_scan_run_id, kind_tally) = match &components {
+        Some((id, tally)) => (Some(id.as_str()), Some(tally)),
+        None => (None, None),
+    };
+
     let pow = super::capability::obtain_pow_if_needed(api, output).await?;
     let boot = api
-        .bootstrap_agent_scan(platform, "my-agent", runtime, visibility, &pow)
+        .bootstrap_agent_scan(
+            platform,
+            &agent_name,
+            runtime,
+            visibility,
+            component_scan_run_id,
+            kind_tally,
+            &pow,
+        )
         .await?;
     write_pending(&boot.run_id, &boot.submit_token)?;
     verify_pack(api, output, &boot).await?;
@@ -272,9 +298,10 @@ async fn run_agent_json(
     output: &OutputConfig,
     platforms: &[String],
 ) -> Result<(), SsError> {
+    let multi = platforms.len() > 1;
     let mut arr: Vec<Value> = Vec::with_capacity(platforms.len());
     for platform in platforms {
-        let boot = bootstrap_and_verify(api, args, output, platform).await?;
+        let boot = bootstrap_and_verify(api, args, output, platform, multi).await?;
         arr.push(bootstrap_json(&boot));
     }
     output.print_json(&Value::Array(arr));
@@ -355,10 +382,20 @@ async fn submit_blob(
 
 /// `--print-skill` — mint a run + emit a static `SKILL.md` body whose prompt is
 /// already filled with the fresh run id + token (the manual AE-1 activation path).
-async fn print_skill(api: &Api, output: &OutputConfig) -> Result<(), SsError> {
+async fn print_skill(api: &Api, args: &AgentArgs, output: &OutputConfig) -> Result<(), SsError> {
+    let agent_name = resolve_agent_name("universal", args.name.as_deref(), false);
     let pow = super::capability::obtain_pow_if_needed(api, output).await?;
+    // `--print-skill` is the manual paste path — no local-capability capture.
     let boot = api
-        .bootstrap_agent_scan("universal", "my-agent", "other", "public", &pow)
+        .bootstrap_agent_scan(
+            "universal",
+            &agent_name,
+            "other",
+            "public",
+            None,
+            None,
+            &pow,
+        )
         .await?;
     let body = skill_md(&boot);
     if output.is_json() {

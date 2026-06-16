@@ -30,13 +30,8 @@ const scClass = (tier: PopularChip['tier']): string =>
     <span class="pulse">Indexing</span>
   </div>
   <div class="p1-body">
-    <div>
-      <p class="p1-blurb">
-        <span data-live-stat="catalog_total">{formatCount(data.catalogTotal)}</span> skills, MCPs,
-        and plugins indexed from <span data-live-stat="registries">{data.registriesCount}</span>+
-        registries. One search instead of twelve.
-      </p>
-    </div>
+    {/* No blurb label — the count + registries already live in the card foot
+        below, so the search input itself is the invitation (D-5.7 fix). */}
     <div class="b-find-search">
       <HeroInputBar
         client:idle
@@ -59,7 +54,7 @@ const scClass = (tier: PopularChip['tier']): string =>
     </div>
   </div>
   <div class="p1-foot">
-    <a class="p1-cta" href="/catalog">Browse catalog <span class="p1-cta-arrow" aria-hidden="true">→</span></a>
+    <a class="p1-cta" href="/capabilities">Browse capabilities <span class="p1-cta-arrow" aria-hidden="true">→</span></a>
     <span class="meta"><b data-live-stat="catalog_total">{formatCount(data.catalogTotal)}</b> indexed · <b data-live-stat="registries">{data.registriesCount}</b> registries</span>
   </div>
 </div>

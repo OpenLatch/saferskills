@@ -21,9 +21,40 @@ interface Props {
   initialFilters: AgentFilters
   initialData: AgentScanListEnvelope
   initialStats: AgentAggregateStats
+  /** Behavioral tests in the active pack (AS-NN count) — the collecting-state
+   *  methodology instrument's "tests, every scan" cell. Build-time constant. */
+  packTestCount: number
+  /** Epoch ms captured once by the page render — drives the relative card times
+   *  (SSR + hydration agree, mirrors the mockup `NOW`). */
+  now: number
 }
 
-export default function AgentDirectoryApp({ initialFilters, initialData, initialStats }: Props) {
+/** The mockup's 6-card loading skeleton (bar layout per `.sk-card`). */
+function SkeletonCard() {
+  return (
+    <div className="sk-card" aria-hidden="true">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+        <div className="sk-bar" style={{ width: '50%' }} />
+        <div className="sk-bar sm" style={{ width: '22%' }} />
+      </div>
+      <div className="sk-bar tall" style={{ width: '40%' }} />
+      <div style={{ display: 'flex', gap: 6 }}>
+        <div className="sk-bar sm" style={{ width: '20%' }} />
+        <div className="sk-bar sm" style={{ width: '20%' }} />
+        <div className="sk-bar sm" style={{ width: '20%' }} />
+      </div>
+      <div className="sk-bar sm" style={{ width: '60%', marginTop: 'auto' }} />
+    </div>
+  )
+}
+
+export default function AgentDirectoryApp({
+  initialFilters,
+  initialData,
+  initialStats,
+  packTestCount,
+  now,
+}: Props) {
   const [filters, setFilters] = useState<AgentFilters>(initialFilters)
   const [items, setItems] = useState<AgentScanSummary[]>(initialData.data)
   const [total, setTotal] = useState(initialData.total_count)
@@ -147,46 +178,93 @@ export default function AgentDirectoryApp({ initialFilters, initialData, initial
 
   const isEmpty = !loading && items.length === 0
   const newestIsLive = filters.sort === 'newest'
+  const q = filters.q.trim()
+
+  // Below the publish gate the corpus rate (and the band thermometer beside it) is
+  // premature, so the header drops to a single full-width methodology instrument; at
+  // or above the gate it's the published rate + the risk thermometer (mockup layout).
+  const published = initialStats.gate_met && initialStats.pct_with_critical !== null
+  const meter = (
+    <CorpusRiskMeter
+      pctWithCritical={initialStats.pct_with_critical}
+      gateMet={initialStats.gate_met}
+      corpusCount={initialStats.corpus_count}
+      gateTarget={initialStats.gate_target}
+      packTestCount={packTestCount}
+    />
+  )
 
   return (
     <>
-      <section className="obs-head">
+      <header className="obs-head">
         <div className="container">
-          <div className="obs-grid">
-            <CorpusRiskMeter
-              pctWithCritical={initialStats.pct_with_critical}
-              gateMet={initialStats.gate_met}
-              corpusCount={initialStats.corpus_count}
-              gateTarget={initialStats.gate_target}
-            />
-            <RiskThermometer
-              distribution={initialStats.band_distribution}
-              windowLabel={initialStats.window_label}
-              corpusCount={initialStats.corpus_count}
-            />
-          </div>
+          <span className="obs-eyebrow">
+            {published ? (
+              'Agents · the public corpus'
+            ) : (
+              <span>
+                The public corpus ·{' '}
+                <span className="obs-live">
+                  <i aria-hidden="true" /> live
+                </span>
+              </span>
+            )}
+          </span>
+          {published ? (
+            <div className="obs-grid">
+              {meter}
+              <RiskThermometer
+                distribution={initialStats.band_distribution}
+                windowLabel={initialStats.window_label}
+                corpusCount={initialStats.corpus_count}
+              />
+            </div>
+          ) : (
+            meter
+          )}
         </div>
-      </section>
+      </header>
 
-      <section className="obs-body">
+      <AgentFilterBar value={filters} onChange={onFilterChange} />
+
+      <div className="obs-body">
         <div className="container">
-          <AgentFilterBar value={filters} onChange={onFilterChange} />
-
           {loading ? (
-            <div className="card-grid" role="status" aria-busy="true" aria-label="Loading agents">
+            <div
+              className="obs-skeleton"
+              role="status"
+              aria-busy="true"
+              aria-label="Loading agents"
+            >
               {SKELETON_KEYS.map((k) => (
-                <div key={k} className="sk-card" aria-hidden="true" />
+                <SkeletonCard key={k} />
               ))}
             </div>
           ) : isEmpty ? (
             <div className="obs-empty">
-              <span className="ee-glyph" aria-hidden="true">
-                ⌕
-              </span>
-              <p className="ee-q">No agents match</p>
+              <div className="ee-glyph" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </div>
+              <h3>No agents match</h3>
+              <p>
+                Nothing in the index matches{' '}
+                <span className="ee-q">{q ? `“${q}”` : 'your filters'}</span>. Try widening the
+                score range, clearing the date, or scanning the agent yourself.
+              </p>
               {!isDefaultFilters(filters) && (
                 <button type="button" className="ee-clear" onClick={onClear}>
-                  Clear all
+                  Clear all filters
                 </button>
               )}
             </div>
@@ -201,9 +279,9 @@ export default function AgentDirectoryApp({ initialFilters, initialData, initial
                     score={it.score}
                     band={it.band}
                     scannedAt={it.scanned_at}
+                    now={now}
                     capabilityTally={it.capability_tally}
                     findings={it.findings_summary}
-                    trustTier={it.trust_tier}
                     href={`/agents/${it.id}`}
                     isNewest={newestIsLive && i === 0}
                   />
@@ -211,23 +289,28 @@ export default function AgentDirectoryApp({ initialFilters, initialData, initial
               </div>
 
               {hasMore ? (
-                <div ref={sentinelRef} className="obs-sentinel">
-                  <span className="obs-more">{loadingMore ? 'Loading more agents…' : ''}</span>
-                </div>
+                <>
+                  <div className="obs-more">
+                    <span className="sp" aria-hidden="true" />
+                    <span>Loading more agents…</span>
+                  </div>
+                  <div ref={sentinelRef} className="obs-sentinel" />
+                </>
               ) : (
                 items.length > 0 && (
-                  <>
-                    <p className="obs-more obs-all">
-                      All {total.toLocaleString()} matching agents shown
-                    </p>
-                    <RidgeStars label="— END OF INDEX —" />
-                  </>
+                  <div className="obs-more done">
+                    <span>All {total.toLocaleString()} matching agents shown</span>
+                  </div>
                 )
               )}
             </>
           )}
         </div>
-      </section>
+      </div>
+
+      <div className="obs-ridge">
+        <RidgeStars label="— END OF INDEX —" />
+      </div>
     </>
   )
 }

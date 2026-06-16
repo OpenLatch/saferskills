@@ -11,9 +11,9 @@ export const Critical: Story = () => (
       score={34}
       band="red"
       scannedAt="2026-06-09T12:00:00Z"
+      now={Date.parse('2026-06-09T16:00:00Z')}
       capabilityTally={{ ...EMPTY_TALLY, skill: 2, mcp: 1 }}
       findings={{ critical: 1, high: 2, info: 0, total: 3 }}
-      trustTier="cloud-validated"
       href="/agents/demo"
       isNewest
     />
@@ -28,9 +28,9 @@ export const Clean: Story = () => (
       score={92}
       band="green"
       scannedAt="2026-06-08T12:00:00Z"
+      now={Date.parse('2026-06-09T16:00:00Z')}
       capabilityTally={EMPTY_TALLY}
       findings={{ critical: 0, high: 0, info: 0, total: 0 }}
-      trustTier="cloud-validated"
       href="/agents/demo2"
     />
   </div>

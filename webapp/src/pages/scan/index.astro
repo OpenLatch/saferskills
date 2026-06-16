@@ -11,6 +11,7 @@ import ScanModeShell from '@/components/scan/ScanModeShell.tsx'
 import ScanMethodologyPreview from '@/components/scan/ScanMethodologyPreview.astro'
 import ScanRecents from '@/components/scan/ScanRecents.astro'
 import { listRecentSubmissionScans } from '@/lib/api/scans'
+import { listAgentScans } from '@/lib/api/agent-scans'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
@@ -22,10 +23,12 @@ import '@/styles/page-scan-submit.css'
 // ScanModeShell island AND the static methodology aside.
 const initialMode = Astro.url.searchParams.get('mode') === 'agent' ? 'agent' : 'capability'
 
-const [recentScans, stats] = await Promise.all([
+const [recentScans, recentAgentsRes, stats] = await Promise.all([
   listRecentSubmissionScans({ limit: 4 }).catch(() => []),
+  listAgentScans({ sort: 'newest', pageSize: 4 }).catch(() => null),
   fetchOrNull(fetchPlatformStats),
 ])
+const recentAgents = recentAgentsRes?.data ?? []
 
 // Live detection-rule count with the generated-methodology count as fallback.
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
@@ -66,7 +69,7 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
     </aside>
   </div>
 
-  <ScanRecents recentScans={recentScans} />
+  <ScanRecents recentScans={recentScans} recentAgents={recentAgents} />
 
   <Footer />
 

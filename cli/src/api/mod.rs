@@ -6,6 +6,8 @@
 
 pub mod dto;
 
+use std::collections::BTreeMap;
+
 use dto::{
     AgentScanReport, AgentStatusResponse, BootstrapResponse, CatalogItemSummary,
     CatalogListEnvelope, ChallengeResponse, HealthResponse, ItemDetailResponse,
@@ -53,12 +55,19 @@ pub struct InstallReport<'a> {
 }
 
 /// Body for `POST /api/v1/agent-scans/bootstrap` (mint a run + render the prompt).
+/// `component_scan_run_id` + `kind_tally` are the best-effort local-capability
+/// capture (omitted entirely when absent — the server treats a *missing* field as
+/// "no components", same as a web mint).
 #[derive(Debug, Serialize)]
 struct BootstrapBody<'a> {
     platform: &'a str,
     agent_name: &'a str,
     runtime: &'a str,
     visibility: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    component_scan_run_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kind_tally: Option<&'a BTreeMap<String, u32>>,
 }
 
 /// The faceted query for [`Api::list_items`] — the `search` command's filter
@@ -301,12 +310,17 @@ impl Api {
 
     /// `POST /api/v1/agent-scans/bootstrap` — mint a run + render the bootstrap
     /// prompt. Carries the solved PoW (empty `pow` ⇒ no header; loopback-exempt).
+    /// `component_scan_run_id` + `kind_tally` are the best-effort component capture
+    /// (both `None` on the manual `--print-skill` path).
+    #[allow(clippy::too_many_arguments)] // a flat 1:1 HTTP-body wrapper, not a unit to refactor
     pub async fn bootstrap_agent_scan(
         &self,
         platform: &str,
         agent_name: &str,
         runtime: &str,
         visibility: &str,
+        component_scan_run_id: Option<&str>,
+        kind_tally: Option<&BTreeMap<String, u32>>,
         pow: &str,
     ) -> Result<BootstrapResponse, SsError> {
         let headers = pow_headers(pow);
@@ -318,6 +332,8 @@ impl Api {
                     agent_name,
                     runtime,
                     visibility,
+                    component_scan_run_id,
+                    kind_tally,
                 },
                 &headers,
             )
@@ -724,6 +740,43 @@ mod tests {
         assert!(p.contains(&("sort", "most_installed".to_string())));
         assert!(p.contains(&("limit", "25".to_string())));
         assert!(p.contains(&("showLowQuality", "true".to_string())));
+    }
+
+    #[test]
+    fn bootstrap_body_omits_component_fields_when_none() {
+        // A web/manual mint (no local capture) must omit both fields entirely, so
+        // the server treats them as absent (== no components), not null.
+        let body = BootstrapBody {
+            platform: "claude-code",
+            agent_name: "swift-otter",
+            runtime: "claude-code",
+            visibility: "public",
+            component_scan_run_id: None,
+            kind_tally: None,
+        };
+        let v = serde_json::to_value(&body).unwrap();
+        assert!(v.get("component_scan_run_id").is_none());
+        assert!(v.get("kind_tally").is_none());
+        assert_eq!(v["platform"], "claude-code");
+    }
+
+    #[test]
+    fn bootstrap_body_includes_component_fields_when_present() {
+        let mut tally = BTreeMap::new();
+        tally.insert("skill".to_string(), 3u32);
+        tally.insert("mcp_server".to_string(), 1u32);
+        let body = BootstrapBody {
+            platform: "universal",
+            agent_name: "swift-otter",
+            runtime: "other",
+            visibility: "unlisted",
+            component_scan_run_id: Some("run-123"),
+            kind_tally: Some(&tally),
+        };
+        let v = serde_json::to_value(&body).unwrap();
+        assert_eq!(v["component_scan_run_id"], "run-123");
+        assert_eq!(v["kind_tally"]["skill"], 3);
+        assert_eq!(v["kind_tally"]["mcp_server"], 1);
     }
 
     #[test]

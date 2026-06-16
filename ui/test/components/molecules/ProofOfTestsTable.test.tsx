@@ -14,7 +14,9 @@ describe('ProofOfTestsTable', () => {
   it('shows the applied-tests header + passed count', () => {
     render(<ProofOfTestsTable checks={CHECKS} />)
     expect(screen.getByText('Rules & checks applied · 4 total')).toBeInTheDocument()
-    expect(screen.getByText('Passed 2 of 4 tests')).toBeInTheDocument()
+    // pass rows carry the PASS chip; vulnerable rows the View-finding button
+    expect(screen.getAllByText('Pass')).toHaveLength(1)
+    expect(screen.getAllByText('View finding →')).toHaveLength(2)
   })
 
   it('renders a View-finding button per vulnerable check and fires onViewFinding', () => {
@@ -26,11 +28,11 @@ describe('ProofOfTestsTable', () => {
     expect(onView).toHaveBeenCalledWith('AS-06')
   })
 
-  it('flips to the celebratory full-pass header when nothing is vulnerable', () => {
+  it('flips to the pass variant when nothing is vulnerable', () => {
     const clean = CHECKS.map((c) => ({ ...c, verdict: 'not_observed' as const }))
     const { container } = render(<ProofOfTestsTable checks={clean} />)
-    expect(screen.getByText('Passed all 4 tests')).toBeInTheDocument()
     expect(container.querySelector('.ar-tests.pass')).not.toBeNull()
+    expect(screen.getAllByText('Pass')).toHaveLength(4)
     expect(screen.queryByText('View finding →')).toBeNull()
   })
 

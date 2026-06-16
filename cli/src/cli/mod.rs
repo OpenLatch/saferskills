@@ -314,6 +314,12 @@ pub struct AgentArgs {
     #[arg(long = "to", value_name = "AGENT")]
     pub to: Vec<String>,
 
+    /// Display name for the scanned agent (default: a stable memorable codename
+    /// generated per machine + platform, e.g. `swift-otter`). On a multi-agent
+    /// run the platform is appended (`my-bot-cursor`) so the reports stay distinct.
+    #[arg(long, value_name = "NAME")]
+    pub name: Option<String>,
+
     /// Keep the report unlisted (token URL + expiry).
     #[arg(long)]
     pub private: bool,
@@ -331,6 +337,11 @@ pub struct AgentArgs {
     /// Opt this run out of anonymous company-level telemetry.
     #[arg(long = "no-telemetry")]
     pub no_telemetry: bool,
+
+    /// Skip the best-effort local-capability scan that populates the report's
+    /// Component Scores tab (no upload of your installed skills/MCP/hooks).
+    #[arg(long = "no-components")]
+    pub no_components: bool,
 
     /// Print a static SKILL.md bootstrap (with a freshly-minted run + token) and exit.
     #[arg(long = "print-skill")]

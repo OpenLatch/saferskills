@@ -19,6 +19,13 @@
     { "name": "submit_token_sha256", "type": "varchar", "length": 64, "nullable": true },
     { "name": "vendor_reply", "type": "varchar", "length": 1000, "nullable": true },
     { "name": "vendor_reply_at", "type": "timestamp", "nullable": true },
+    { "name": "kind_tally", "type": "jsonb", "nullable": true },
+    {
+      "name": "component_scan_run_id",
+      "type": "uuid",
+      "nullable": true,
+      "foreign_key": { "table": "scan_runs", "column": "id", "ondelete": "SET NULL" }
+    },
     { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
     { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
   ],

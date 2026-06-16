@@ -15,6 +15,7 @@ export const Default: Story = () => {
     <div style={{ padding: 40 }}>
       <MultiSelect
         label="Findings"
+        allLabel="Any"
         ariaLabel="Filter by findings severity"
         options={OPTIONS}
         selected={selected}

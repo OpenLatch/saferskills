@@ -10,6 +10,7 @@ import Eyebrow from '@ui/components/atoms/Eyebrow.tsx'
 import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
+import { panelId } from '@ui/components/atoms/SegmentedTabs.tsx'
 
 import MethodologyIndex from '@/generated/methodology/index.mdx'
 import { ruleCount, ruleStats } from '@/generated/methodology/rule-count'
@@ -17,8 +18,15 @@ import { ruleRows } from '@/generated/methodology/rules-table'
 import FormulaPanel from '@/components/methodology/FormulaPanel.astro'
 import RuleFilter from '@/components/methodology/RuleFilter.tsx'
 import AgentPackSection from '@/components/methodology/AgentPackSection.astro'
+import MethodologyTabs from '@/components/methodology/MethodologyTabs.tsx'
 
 import '@/styles/page-methodology.css'
+
+// Prerendered page → this reflects the build-time URL (no query), so it is
+// effectively always 'capability'. The live first-paint authority is the
+// inline script below + the island's own URL read; this is only a hint.
+const tabParam = Astro.url.searchParams.get('tab')
+const initialTab = tabParam === 'agent' ? 'agent' : 'capability'
 ---
 <Base
   title="Methodology — SaferSkills"
@@ -37,47 +45,91 @@ import '@/styles/page-methodology.css'
   />
   <PageRidge variant="mesh" label="— /METHODOLOGY —" />
 
-  {/* ─────────── §01 Scoring formula ─────────── */}
-  <section class="page-section page-section--grid methodology-band" id="scoring-formula">
+  {/* ─────────── Capability rules / Agent pack — ONE shared band ───────────
+      Both panels render on the same --flat surface so switching modes never
+      changes the background. The island toggles the SSR'd panels' `hidden`. */}
+  <section class="page-section page-section--flat" id="methodology-tabs">
     <div class="container">
-      <FormulaPanel />
-    </div>
-  </section>
+      <MethodologyTabs client:idle initialTab={initialTab} />
 
-  <RidgeStars label="— RULES · 02 —" />
+      {/* Capability rules — 55-rule catalog → scoring formula reference */}
+      <div
+        class="method-panel"
+        data-tab="capability"
+        role="tabpanel"
+        id={panelId('methodtab', 'capability')}
+        aria-labelledby="methodtab-tab-capability"
+      >
+        <article class="methodology-prose" id="rules">
+          <Eyebrow withRule>RULES</Eyebrow>
+          <h2 class="prose-h2">The rules.</h2>
+          <p>
+            Every check we run is spelled out here — what it looks for, why it
+            matters, how serious it is, and how to fix it, with each rule mapped to
+            the OWASP LLM Top 10, MITRE ATLAS, and CWE where it applies. Search by
+            name, severity, or framework, then export the list as CSV.
+          </p>
+        </article>
+        <RuleFilter client:idle groups={ruleStats} total={ruleCount} rows={ruleRows} targetId="rules-index" />
+        <div class="rules-index" id="rules-index">
+          <MethodologyIndex />
+        </div>
 
-  {/* ─────────── §02 Rules — auto-rendered from rubric/ ─────────── */}
-  <section class="page-section page-section--flat methodology-band" id="rules">
-    <div class="container">
-      <article class="methodology-prose">
-        <Eyebrow withRule>RULES · 02</Eyebrow>
-        <h2 class="prose-h2">The rules.</h2>
-        <p>
-          Every check we run is spelled out here — what it looks for, why it
-          matters, how serious it is, and how to fix it, with each rule mapped to
-          the OWASP LLM Top 10, MITRE ATLAS, and CWE where it applies. Search by
-          name, severity, or framework, then export the list as CSV.
-        </p>
-      </article>
-      <RuleFilter client:idle groups={ruleStats} total={ruleCount} rows={ruleRows} targetId="rules-index" />
-      <div class="rules-index" id="rules-index">
-        <MethodologyIndex />
+        {/* Scoring formula — the "how it's weighted" reference, trailing the catalog */}
+        <div id="scoring-formula">
+          <FormulaPanel />
+        </div>
       </div>
+
+      {/* Agent pack — scoring lead → AS-NN behavioral catalog */}
+      <div
+        class="method-panel"
+        data-tab="agent"
+        role="tabpanel"
+        id={panelId('methodtab', 'agent')}
+        aria-labelledby="methodtab-tab-agent"
+        hidden
+      >
+        <AgentPackSection />
+      </div>
+
+      {/* Pre-paint first-paint authority. The page is prerendered → the static
+          HTML defaults to the Capability panel; this corrects panels + control
+          BEFORE paint for a `?tab=agent` / `#agent-pack` deep-link (no flash).
+          Placed AFTER the panels + control so both exist when it runs; the
+          island re-asserts the same split idempotently on hydration. */}
+      <script is:inline>
+        ;(function () {
+          try {
+            var params = new URLSearchParams(window.location.search)
+            var active =
+              params.get('tab') === 'agent' || window.location.hash === '#agent-pack'
+                ? 'agent'
+                : 'capability'
+            var panels = document.querySelectorAll('.method-panel[data-tab]')
+            for (var i = 0; i < panels.length; i++) {
+              panels[i].hidden = panels[i].getAttribute('data-tab') !== active
+            }
+            var tabs = document.querySelectorAll('#methodology-tabs [role="tab"]')
+            for (var j = 0; j < tabs.length; j++) {
+              var on = tabs[j].id === 'methodtab-tab-' + active
+              tabs[j].setAttribute('aria-selected', on ? 'true' : 'false')
+              tabs[j].setAttribute('tabindex', on ? '0' : '-1')
+              tabs[j].classList.toggle('on', on)
+            }
+          } catch (e) {}
+        })()
+      </script>
     </div>
   </section>
 
-  <RidgeStars label="— AGENT SCAN PACK · 03 —" />
+  <RidgeStars label="— REPRODUCIBILITY —" />
 
-  {/* ─────────── §03 Agent Scan pack — behavioral AS-NN tests ─────────── */}
-  <AgentPackSection />
-
-  <RidgeStars label="— REPRODUCIBILITY · 04 —" />
-
-  {/* ─────────── §04 Reproducibility ─────────── */}
-  <section class="page-section page-section--grid methodology-band" id="reproducibility">
+  {/* ─────────── Reproducibility (shared — applies to either mode) ─────────── */}
+  <section class="page-section page-section--grid" id="reproducibility">
     <div class="container">
       <article class="methodology-prose">
-        <Eyebrow withRule>REPRODUCIBILITY · 04</Eyebrow>
+        <Eyebrow withRule>REPRODUCIBILITY</Eyebrow>
         <h2 class="prose-h2">Reproducibility.</h2>
         <p>
           Run the same code through SaferSkills twice and you get the same result —
@@ -94,13 +146,13 @@ import '@/styles/page-methodology.css'
     </div>
   </section>
 
-  <RidgeStars label="— VENDOR APPEALS · 05 —" />
+  <RidgeStars label="— VENDOR APPEALS —" />
 
-  {/* ─────────── §05 Vendor right-of-reply ─────────── */}
-  <section class="page-section page-section--flat methodology-band" id="vendor-appeals">
+  {/* ─────────── Vendor right-of-reply (shared — applies to either mode) ─────────── */}
+  <section class="page-section page-section--flat" id="vendor-appeals">
     <div class="container">
       <article class="methodology-prose">
-        <Eyebrow withRule>VENDOR APPEALS · 05</Eyebrow>
+        <Eyebrow withRule>VENDOR APPEALS</Eyebrow>
         <h2 class="prose-h2">Vendor right-of-reply.</h2>
         <p>
           Every public verdict is appealable. Maintainers commit a verification
@@ -122,8 +174,8 @@ import '@/styles/page-methodology.css'
     client:visible
     title="Audit the pieces. Scan the whole. Decide."
     lead="Try the methodology on your own code — ~30 seconds, no account, full report at a permalink."
-    primaryAction={{ label: 'Scan a GitHub repo →', href: '/scan' }}
-    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+    primaryAction={{ label: 'Scan a GitHub repo', href: '/scan' }}
+    secondaryAction={{ label: 'Browse capabilities', href: '/capabilities' }}
   />
 
   <Footer />

@@ -1,15 +1,18 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 
 export interface MultiSelectOption {
+  /** Option value; the empty string means "no filter" (radio variant only). */
   value: string
   label: string
-  /** Optional leading affordance (e.g. a runtime monogram). */
+  /** Optional leading affordance (e.g. a runtime monogram / severity square). */
   icon?: ReactNode
 }
 
 interface Props {
-  /** Trigger label prefix (e.g. `Runtime`, `Findings`, `Period`). */
+  /** Trigger key prefix (e.g. `Period`, `Agent`, `Findings`). */
   label: string
+  /** Trigger value shown when nothing is selected (e.g. `All time`, `All`, `Any`). */
+  allLabel: string
   options: MultiSelectOption[]
   /** Currently-selected values. */
   selected: string[]
@@ -17,26 +20,37 @@ interface Props {
   onChange: (next: string[]) => void
   /** Accessible name for the trigger + listbox. */
   ariaLabel: string
+  /**
+   * `check` (default) — multi-select checkboxes; `radio` — single-select presets
+   * (the mockup Period/Sort `.pr-opt` rows; an empty-value option clears).
+   */
+  variant?: 'check' | 'radio'
+  /** Render the leading checkbox square (check variant; the mockup Findings rows drop it). */
+  showBox?: boolean
   className?: string
 }
 
 /**
- * MultiSelect — a keyboard-accessible multi-select listbox popover for the
- * `/agents` filter toolbar (I-5.6 §12.2). A DOM-rendered `aria-multiselectable`
- * listbox (NOT native `<select multiple>`, which can't carry the DS type stack /
- * icons). Trigger shows the label + a selected-count badge.
+ * MultiSelect — the `/agents` filter-toolbar dropdown (I-5.6 §12.2). Markup
+ * mirrors the locked mockup `.ms` vocabulary: a `Key: Value ▾` trigger + a
+ * popover panel of checkbox rows (`.box`/`.nm`) or single-select preset rows
+ * (`.pr-opt`), with a Clear foot on the multi-select variants.
  *
- * A11y: trigger opens on Enter/Space/ArrowDown; the open list handles Up/Down/
- * Home/End to move the active option, Space/Enter to toggle, Escape to close.
- * Closes on outside-click + restores focus to the trigger. CSS (`.ms-*`) is in
- * `page-agent-directory.css`.
+ * A11y: a DOM-rendered `aria-multiselectable` listbox (NOT native `<select>`,
+ * which can't carry the DS type stack / icons). Trigger opens on Enter/Space/
+ * ArrowDown; the open list handles Up/Down/Home/End, Space/Enter to toggle,
+ * Escape to close; closes on outside-click + restores focus. CSS (`.ms-*`) is
+ * in `page-agent-directory.css`.
  */
 export default function MultiSelect({
   label,
+  allLabel,
   options,
   selected,
   onChange,
   ariaLabel,
+  variant = 'check',
+  showBox = true,
   className = '',
 }: Props) {
   const [open, setOpen] = useState(false)
@@ -64,7 +78,17 @@ export default function MultiSelect({
     triggerRef.current?.focus()
   }
 
+  function isSelected(value: string): boolean {
+    if (variant === 'radio' && value === '') return selected.length === 0
+    return selected.includes(value)
+  }
+
   function toggleValue(value: string) {
+    if (variant === 'radio') {
+      onChange(value === '' ? [] : [value])
+      close()
+      return
+    }
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
   }
 
@@ -99,24 +123,31 @@ export default function MultiSelect({
     }
   }
 
+  // Trigger value: all-label when untouched, the option label when single,
+  // `N selected` past that (mockup `updateMsLabel`).
   const count = selected.length
+  const valueLabel =
+    count === 0
+      ? allLabel
+      : count === 1
+        ? (options.find((o) => o.value === selected[0])?.label ?? allLabel)
+        : `${count} selected`
   const optionId = (i: number) => `${listId}-opt-${i}`
 
   return (
-    <div ref={rootRef} className={`ms ${className}`.trim()}>
+    <div ref={rootRef} className={`ms ${open ? 'open' : ''} ${className}`.trim()}>
       <button
         ref={triggerRef}
         type="button"
-        className={`ms-btn ${count > 0 ? 'is-active' : ''}`.trim()}
+        className="ms-btn"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onTriggerKey}
       >
-        <span className="ms-label">{label}</span>
-        {count > 0 && <span className="ms-count">{count}</span>}
-        <span className="ms-caret" aria-hidden="true">
+        <span className="k">{label}:</span> <b>{valueLabel}</b>{' '}
+        <span className="car" aria-hidden="true">
           ▾
         </span>
       </button>
@@ -124,40 +155,40 @@ export default function MultiSelect({
         <div className="ms-panel">
           <ul
             ref={listRef}
-            className="ms-list"
+            className={`ms-list ${variant === 'radio' ? 'pr' : ''}`.trim()}
             role="listbox"
-            aria-multiselectable="true"
+            aria-multiselectable={variant === 'check'}
             aria-label={ariaLabel}
             aria-activedescendant={optionId(activeIndex)}
             tabIndex={-1}
             onKeyDown={onListKey}
           >
             {options.map((opt, i) => {
-              const isSelected = selected.includes(opt.value)
+              const on = isSelected(opt.value)
               return (
                 <li
                   key={opt.value}
                   id={optionId(i)}
                   role="option"
-                  aria-selected={isSelected}
-                  className={`ms-opt ${i === activeIndex ? 'is-active' : ''} ${
-                    isSelected ? 'is-selected' : ''
-                  }`.trim()}
+                  aria-selected={on}
+                  className={`ms-opt ${variant === 'radio' ? 'pr-opt' : ''} ${
+                    i === activeIndex ? 'is-active' : ''
+                  } ${on ? 'is-selected' : ''}`
+                    .replace(/\s+/g, ' ')
+                    .trim()}
                   onClick={() => {
                     setActiveIndex(i)
                     toggleValue(opt.value)
                   }}
                 >
-                  <span className="ms-check" aria-hidden="true">
-                    {isSelected ? '✓' : ''}
-                  </span>
-                  {opt.icon && <span className="ms-ic">{opt.icon}</span>}
-                  <span className="ms-opt-label">{opt.label}</span>
+                  {variant === 'check' && showBox && <span className="box" aria-hidden="true" />}
+                  {opt.icon}
+                  <span className="nm">{opt.label}</span>
                 </li>
               )
             })}
           </ul>
-          {count > 0 && (
+          {variant === 'check' && (
             <div className="ms-foot">
               <button type="button" className="ms-clear" onClick={() => onChange([])}>
                 Clear

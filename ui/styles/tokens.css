@@ -25,6 +25,7 @@
   --ol-brand-primary-tint:   #CCFBF1;
   --ol-brand-accent:         #F97316;
   --ol-brand-accent-light:   #FB923C;
+  --ol-brand-accent-dark:    #C2410C;
 
   --ol-slate-50:   #F8FAFC;
   --ol-slate-100:  #F1F5F9;
@@ -99,6 +100,11 @@
   --brand-cta: var(--ol-brand-primary);
   --brand-cta-fg: #FFFFFF;
   --brand-accent: var(--ol-brand-accent);
+  /* Theme-aware accessible orange (parallels --brand-primary-dark): the bright
+     --brand-accent is only ~2.6:1 on light paper, so small/large orange text on
+     a light surface uses this darker burnt-orange (~4.7:1 on light); dark mode
+     flips it back to the bright accent (which already clears AA on dark). */
+  --brand-accent-dark: var(--ol-brand-accent-dark);
   --brand-highlight: var(--ol-brand-primary-tint);
 
   --status-success: var(--ol-success);
@@ -123,6 +129,11 @@
      contrast on the tinted row). Dark-mode pair below. */
   --score-green-text: #0A7A55;
   --score-red-text:   #B4302B;
+
+  /* Legible ink ON a yellow band fill (the only band whose fill is too light
+     for white text) — e.g. the /agents risk-thermometer segment %. Same in
+     both themes (the fill never flips). */
+  --score-yellow-ink: #5B4708;
 
   /* ============================================================
      TYPOGRAPHY — FAMILIES
@@ -337,6 +348,8 @@ html.dark {
 
   --brand-primary: var(--ol-brand-primary-light);
   --brand-primary-dark: var(--ol-brand-primary);
+  /* On dark surfaces the bright accent already clears AA, so flip back to it. */
+  --brand-accent-dark: var(--ol-brand-accent);
   --brand-cta: var(--ol-brand-primary-light);
   --brand-cta-fg: var(--ol-slate-900);
 

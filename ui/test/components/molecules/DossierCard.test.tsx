@@ -9,8 +9,8 @@ const base = {
   agentName: 'acme-agent',
   runtime: 'claude-code',
   scannedAt: '2026-06-09T12:00:00Z',
+  now: Date.parse('2026-06-09T16:00:00Z'),
   capabilityTally: EMPTY_TALLY,
-  trustTier: 'cloud-validated',
   href: '/agents/demo',
 }
 
@@ -39,7 +39,8 @@ describe('DossierCard', () => {
         findings={{ critical: 0, high: 0, info: 0, total: 0 }}
       />
     )
-    expect(screen.getByText('✓ No findings')).toBeInTheDocument()
+    expect(screen.getByText('No findings')).toBeInTheDocument()
+    expect(screen.getByText('4h ago')).toBeInTheDocument()
     expect(container.querySelector('.dossier')?.classList.contains('crit-row')).toBe(false)
   })
 

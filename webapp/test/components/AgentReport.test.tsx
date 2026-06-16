@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import AgentReport from '@/components/agent/AgentReport'
+import AgentReportActions from '@/components/agent/AgentReportActions'
 import { track } from '@/lib/analytics'
 import type { AgentScanReportDetail } from '@/lib/api/agent-scan-types'
 
@@ -144,20 +145,27 @@ describe('AgentReport', () => {
       <AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />
     )
     expect(container.querySelector('.sr-big')?.textContent).toContain('10')
-    expect(screen.getByText('Do-Not-Deploy')).toBeTruthy()
-    expect(screen.getByText('Capped to Red — 1 critical finding observed.')).toBeTruthy()
+    expect(container.querySelector('.cap-reason p')?.textContent).toBe(
+      'Capped to Red — 1 critical finding observed.'
+    )
     expect(screen.getByRole('tab', { name: /Report/ })).toBeTruthy()
     expect(screen.getByText('Rules & checks applied · 3 total')).toBeTruthy()
     expect(screen.getAllByText('View finding →')).toHaveLength(2)
-    expect(screen.getByText('Want a second opinion?')).toBeTruthy()
   })
 
-  it('public report shows the share/export bar but NO delete', () => {
-    render(<AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />)
-    expect(screen.getByText('⧉ Share with your security team')).toBeTruthy()
+  it('public manage bar (page-head island) shows share/export but NO delete', () => {
+    render(<AgentReportActions run={RED} shareUrl="http://x/agents/r1" />)
+    expect(screen.getByText('⧉ Copy Report Link')).toBeTruthy()
     expect(screen.getByText('↧ Export Markdown')).toBeTruthy()
     expect(screen.queryByText('Delete')).toBeNull()
     expect(screen.queryByText('↥ Promote to public')).toBeNull()
+  })
+
+  it('unlisted manage bar adds Promote + Delete', () => {
+    render(<AgentReportActions run={RED} shareUrl="http://x/agents/r/tok" unlisted token="tok" />)
+    expect(screen.getByText('⧉ Copy private link')).toBeTruthy()
+    expect(screen.getByText('↥ Promote to public')).toBeTruthy()
+    expect(screen.getByText('Delete')).toBeTruthy()
   })
 
   it('Findings tab renders OWASP groups, ref chips, score-math and the public evidence note', () => {
@@ -187,8 +195,8 @@ describe('AgentReport', () => {
     render(<AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />)
     fireEvent.click(screen.getByRole('tab', { name: /Component Scores/ }))
     expect(screen.getByText(/never fused/)).toBeTruthy()
-    const link = screen.getByRole('link', { name: /View report for pdf-extract/ })
-    expect(link.getAttribute('href')).toBe('/items/a--b--skill-pdf-extract')
+    const links = screen.getAllByRole('link', { name: 'View report →' })
+    expect(links[0].getAttribute('href')).toBe('/items/a--b--skill-pdf-extract')
   })
 
   it('renders the README badge band with the agent badge path', () => {
@@ -196,11 +204,11 @@ describe('AgentReport', () => {
       <AgentReport run={RED} shareUrl="http://x/agents/r1" ruleCount={42} />
     )
     expect(screen.getByText('Embed the badge in your README')).toBeTruthy()
-    const code = container.querySelector('.ar-badge-band .bt-body code')?.textContent ?? ''
+    const code = container.querySelector('.badge-band .bt-body code')?.textContent ?? ''
     expect(code).toContain('badge/agent/r1/10.svg')
   })
 
-  it('unlisted report adds manage actions, right-of-reply and the redacted transcript', () => {
+  it('unlisted report adds right-of-reply and the redacted transcript', () => {
     const unlisted = {
       ...RED,
       visibility: 'unlisted',
@@ -226,8 +234,6 @@ describe('AgentReport', () => {
         token="tok"
       />
     )
-    expect(screen.getByText('↥ Promote to public')).toBeTruthy()
-    expect(screen.getByText('Delete')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add a public reply' })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: /Findings/ }))
     expect(screen.getByText('transcript:AS-06')).toBeTruthy()

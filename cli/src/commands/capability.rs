@@ -194,6 +194,63 @@ pub(crate) async fn run_local_audit(
     Ok(())
 }
 
+/// Best-effort capture of the scanned platform's installed capabilities for the
+/// Agent Report's **Component Scores** tab. Enumerates the platform's agents,
+/// bundles their capabilities, and `scan --local`-uploads them (mirroring the agent
+/// run's visibility — `--private` ⇒ unlisted), returning the component `scan_run`
+/// id + the per-kind tally to link onto the agent run.
+///
+/// Entirely best-effort: no installed capabilities, an enumeration / bundle error, a
+/// PoW failure, or an upload error all yield `None` — the Agent Scan then proceeds
+/// behavior-only and the tab keeps its honest empty state.
+pub(crate) async fn capture_local_components(
+    api: &Api,
+    output: &OutputConfig,
+    platform: &str,
+    visibility: &str,
+) -> Option<(String, BTreeMap<String, u32>)> {
+    // Scope to the scanned platform's agents (universal = everything on the machine).
+    let all = detect_all(Scope::Global);
+    let agents: Vec<DetectedAgent> = if platform == "universal" {
+        all
+    } else {
+        let want = AgentId::from_canonical(platform)?;
+        all.into_iter().filter(|a| a.id == want).collect()
+    };
+    if agents.is_empty() {
+        return None;
+    }
+    let enm = enumerate::enumerate_from(&agents);
+    if enm.capabilities.is_empty() {
+        return None;
+    }
+    let built = build_local_bundle(enm, &agents).ok()?;
+
+    // Surface clearly BEFORE the upload — a public scan publishes these bytes.
+    output.print_step("Scanning your installed capabilities for the report's Component Scores…");
+    if visibility == "public" {
+        output.print_substep(
+            "These are uploaded and published as public catalog items (same as `scan --local`).",
+        );
+    }
+    print_preflight(output, &built.summary, &built.skips);
+
+    let pow = obtain_pow_if_needed(api, output).await.ok()?;
+    let up = api
+        .submit_scan_upload(built.zip, "agent-components.zip", visibility, None, &pow)
+        .await
+        .ok()?;
+    // Per-kind tally (keys skill/mcp_server/hook/rules/plugin — the backend folds
+    // `mcp_server` → `mcp` for the /agents dossier icons).
+    let tally: BTreeMap<String, u32> = built
+        .summary
+        .kinds
+        .iter()
+        .map(|(k, v)| (k.clone(), *v as u32))
+        .collect();
+    Some((up.id, tally))
+}
+
 /// Scope the detected agents to the `--to` filter (a pure client-side filter — no
 /// backend change). Empty `to` keeps every detected agent. Otherwise each token is
 /// parsed (canonical id, or a legacy alias that warns; an unknown token is

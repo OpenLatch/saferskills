@@ -7,7 +7,7 @@ describe('CapabilityStack', () => {
   it('renders a chip per non-zero kind with the count', () => {
     render(<CapabilityStack tally={{ skill: 2, mcp: 1, hook: 0, plugin: 0, rules: 0 }} />)
     expect(screen.getByText('2 Skill')).toBeInTheDocument()
-    expect(screen.getByText('1 MCP server')).toBeInTheDocument()
+    expect(screen.getByText('1 MCP')).toBeInTheDocument()
   })
 
   it('renders nothing when every kind is zero', () => {

@@ -229,7 +229,7 @@ export default function HeroInputBar({
         search={search}
         onSelect={handleSelect}
         bottomBoundaryRef={bottomBoundaryRef}
-        fallbackHref={(q) => `/catalog?q=${encodeURIComponent(q)}`}
+        fallbackHref={(q) => `/capabilities?q=${encodeURIComponent(q)}`}
       />
     </div>
   )

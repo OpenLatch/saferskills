@@ -15,10 +15,10 @@ describe('RiskThermometer', () => {
     render(
       <RiskThermometer distribution={DIST} windowLabel="Whole corpus · Last 3 months" corpusCount={812} />
     )
-    expect(screen.getByText('Whole corpus · Last 3 months')).toBeInTheDocument()
-    expect(screen.getByText('812 scans')).toBeInTheDocument()
-    expect(screen.getByText('Red 0–39')).toBeInTheDocument()
-    expect(screen.getByText('Green 80–100')).toBeInTheDocument()
+    expect(screen.getByText('Risk distribution · Whole corpus · Last 3 months')).toBeInTheDocument()
+    expect(screen.getByText('812')).toBeInTheDocument()
+    expect(screen.getByText(/Red · 0–39/)).toBeInTheDocument()
+    expect(screen.getByText(/Green · 80–100/)).toBeInTheDocument()
   })
 
   it('has no critical a11y violations', async () => {

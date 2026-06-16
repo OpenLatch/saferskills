@@ -8,13 +8,56 @@ Non-generated wrappers around the generated `AgentScanReport` entity shape
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.schemas.orm_base import OrmBaseModel
 from app.services.agent_compat import AgentName
+
+# The `/agents` dossier capability stack (`directory._capability_tally`) reads these
+# exact keys. The CLI enumerates kinds as skill/mcp_server/hook/rules/plugin, so a
+# submitted tally folds `mcp_server` -> `mcp` (the directory has no `mcp_server`).
+_KIND_TALLY_KEYS = frozenset({"skill", "hook", "mcp", "plugin", "rules"})
+
+
+def _coerce_count(value: Any) -> int | None:
+    """A best-effort non-negative-able int from a raw JSON tally value (no excepts —
+    `int(...)` parsing is replaced with explicit checks so a malformed value is
+    simply dropped, never raised)."""
+    if isinstance(value, bool):  # bool is an int subclass — count True/False as 1/0
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
+
+
+def _normalize_kind_tally(value: Any) -> dict[str, int] | None:
+    """Fold a (best-effort, CLI-supplied) per-kind tally onto the directory key set.
+
+    Maps `mcp_server` -> `mcp` (summing if both are present), drops unknown keys,
+    and coerces every count to a non-negative int. A non-dict / empty tally -> None.
+    Lenient by construction (mode='before'): a malformed tally never 422s the mint.
+    """
+    if not isinstance(value, dict):
+        return None
+    raw = cast("dict[Any, Any]", value)
+    out: dict[str, int] = {}
+    for raw_key, raw_count in raw.items():
+        key = "mcp" if raw_key == "mcp_server" else str(raw_key)
+        if key not in _KIND_TALLY_KEYS:
+            continue
+        count = _coerce_count(raw_count)
+        if count is None:
+            continue
+        out[key] = out.get(key, 0) + max(0, count)
+    return out or None
+
 
 # Runtime = the canonical agent set (`agent_compat.AgentName`, the maintained
 # single source - do NOT re-list the agents here) plus `other` for an unrecognized
@@ -36,9 +79,28 @@ _Tier = Literal["green", "yellow", "orange", "red", "unscoped"]
 class AgentScanCreateRequest(OrmBaseModel):
     """`POST /api/v1/agent-scans` body - mint a run + one-time submit token."""
 
-    agent_name: str = Field(..., max_length=200, description="Display name for the scanned agent.")
+    agent_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Display name for the scanned agent; omit for a generated codename.",
+    )
     runtime: _Runtime = Field(..., description="Declared agent runtime (8 ids + `other`).")
     visibility: _Visibility = Field(default="public", description="public (default) | unlisted.")
+    component_scan_run_id: UUID | None = Field(
+        default=None,
+        description="Best-effort CLI-captured component scan_run id (the local-capability "
+        "scan whose per-capability scores feed the Component Scores tab). Null on web paths.",
+    )
+    kind_tally: dict[str, int] | None = Field(
+        default=None,
+        description="Per-kind capability inventory (skill/mcp/hook/plugin/rules -> count) "
+        "backing the /agents dossier icons. Null on web paths.",
+    )
+
+    @field_validator("kind_tally", mode="before")
+    @classmethod
+    def _norm_kind_tally(cls, v: Any) -> dict[str, int] | None:
+        return _normalize_kind_tally(v)
 
 
 class AgentScanCreateResponse(OrmBaseModel):
@@ -70,13 +132,30 @@ class AgentScanBootstrapRequest(OrmBaseModel):
     platform: _Platform = Field(
         ..., description="Target platform template (8 agent ids + `universal` fallback)."
     )
-    agent_name: str = Field(
-        default="my-agent", max_length=200, description="Display name for the scanned agent."
+    agent_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Display name for the scanned agent; omit for a generated codename.",
     )
     runtime: _Runtime = Field(
         default="other", description="Declared agent runtime (8 ids + `other`)."
     )
     visibility: _Visibility = Field(default="public", description="public (default) | unlisted.")
+    component_scan_run_id: UUID | None = Field(
+        default=None,
+        description="Best-effort CLI-captured component scan_run id (the local-capability "
+        "scan whose per-capability scores feed the Component Scores tab). Null on web paths.",
+    )
+    kind_tally: dict[str, int] | None = Field(
+        default=None,
+        description="Per-kind capability inventory (skill/mcp/hook/plugin/rules -> count) "
+        "backing the /agents dossier icons. Null on web paths.",
+    )
+
+    @field_validator("kind_tally", mode="before")
+    @classmethod
+    def _norm_kind_tally(cls, v: Any) -> dict[str, int] | None:
+        return _normalize_kind_tally(v)
 
 
 class AgentScanBootstrapResponse(OrmBaseModel):
@@ -232,6 +311,11 @@ class AgentScanReportDetail(OrmBaseModel):
     checks: list[AgentCheckRow]
     findings: list[AgentFindingRow]
     component_scores: list[AgentComponentScoreRow]
+    # When set (unlisted runs only), every Component-Scores row deep-links here (the
+    # unlisted component scan_run's `/scans/r/<token>` report) instead of `/items/
+    # <slug>` — the per-capability shadow items 404 on the public catalog. Null for
+    # public runs (rows link to their real `/items/<slug>`).
+    component_report_url: str | None = None
     visibility: _Visibility
     expires_at: datetime | None = None
     share_url: str | None = None
@@ -263,7 +347,9 @@ class AgentFindingsSummary(OrmBaseModel):
 
 
 class AgentCapabilityTally(OrmBaseModel):
-    """Per-kind capability counts (derived from `component_scores[].kind`)."""
+    """Per-kind capability counts (stored per-run on `agent_runs.kind_tally`;
+    populated by the seed today, by the grader/submit flow when the component
+    inventory is captured)."""
 
     skill: int = Field(default=0, ge=0)
     hook: int = Field(default=0, ge=0)
@@ -324,18 +410,6 @@ class AgentAggregateStats(OrmBaseModel):
     pct_with_critical: float | None = None
     band_distribution: AgentBandDistribution = Field(default_factory=AgentBandDistribution)
     window_label: str = "Whole corpus · Last 3 months"
-
-
-class AgentVerifyWaitlistRequest(OrmBaseModel):
-    """`POST /api/v1/agent-scans/verify-waitlist` — account-free demand signal."""
-
-    email: str | None = Field(default=None, max_length=320, description="Optional contact email.")
-
-
-class AgentVerifyWaitlistResponse(OrmBaseModel):
-    """`POST /api/v1/agent-scans/verify-waitlist` ack (records demand only)."""
-
-    recorded: bool = True
 
 
 class AgentReplyRequest(OrmBaseModel):

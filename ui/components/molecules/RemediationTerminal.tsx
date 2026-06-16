@@ -56,9 +56,9 @@ export default function RemediationTerminal({
   }
 
   return (
-    <div className="ar-remediation">
+    <div className="fc-fix ar-remediation">
       <div className="fc-lbl">How to fix</div>
-      <p className="ar-rem-action">{action}</p>
+      <p className="fc-action ar-rem-action">{action}</p>
       {steps && steps.length > 0 ? (
         <ol className="ar-rem-steps">
           {steps.map((s, i) => (

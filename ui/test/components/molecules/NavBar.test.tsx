@@ -9,7 +9,7 @@ describe('NavBar', () => {
     // The mobile drawer duplicates these links but is `hidden` while closed,
     // so each accessible link resolves uniquely.
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Catalog' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Capabilities' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Agents' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Scan' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Docs' })).toBeInTheDocument()
@@ -33,8 +33,8 @@ describe('NavBar', () => {
   })
 
   it('marks the active link from activePath (SSR-safe, no window read)', () => {
-    render(<NavBar activePath="/catalog" />)
-    expect(screen.getByRole('link', { name: 'Catalog' })).toHaveAttribute(
+    render(<NavBar activePath="/capabilities" />)
+    expect(screen.getByRole('link', { name: 'Capabilities' })).toHaveAttribute(
       'aria-current',
       'page',
     )

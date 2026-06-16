@@ -118,6 +118,10 @@ export interface AgentScanReportDetail {
   checks: AgentCheckRow[]
   findings: AgentFindingRow[]
   component_scores: AgentComponentScoreRow[]
+  /** Unlisted runs only: every Component-Scores row deep-links here (the unlisted
+   * component scan_run's `/scans/r/<token>` report) instead of `/items/<slug>`,
+   * whose shadow items 404 on the public catalog. Null for public runs. */
+  component_report_url: string | null
   visibility: AgentVisibility
   expires_at: string | null
   /** Token route only; never logged. */

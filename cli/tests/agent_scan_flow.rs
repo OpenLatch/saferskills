@@ -87,7 +87,15 @@ async fn bootstrap_returns_prompt_and_token() {
 
     let api = Api::new(server.url()).unwrap();
     let boot = api
-        .bootstrap_agent_scan("claude-code", "my-agent", "claude-code", "public", "")
+        .bootstrap_agent_scan(
+            "claude-code",
+            "my-agent",
+            "claude-code",
+            "public",
+            None,
+            None,
+            "",
+        )
         .await
         .unwrap();
     assert_eq!(boot.run_id, "run-1");
