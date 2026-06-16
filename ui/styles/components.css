@@ -8859,7 +8859,9 @@ html.dark .transcript { border-color: var(--color-line); }
 .pc-line .pc-ln {
   text-align: right;
   padding-right: 14px;
-  color: #454a54;
+  /* P2-3 a11y: the aria-hidden gutter is still visible text axe checks; #454a54
+     was 2.05:1 on the dark #14151a body (fails AA). #7a8089 clears 4.5:1. */
+  color: #7a8089;
   user-select: none;
 }
 .pc-line .pc-lc {
@@ -8911,7 +8913,9 @@ html:not(.dark) .pc-head {
   border-bottom-color: #dce3ec;
 }
 html:not(.dark) .pc-name {
-  color: #64748b;
+  /* P2-3 a11y: #64748b was 4.23:1 on the light #eef2f7 head (fails AA); #5e6a7b
+     clears 4.5:1. */
+  color: #5e6a7b;
 }
 html:not(.dark) .pc-name svg {
   stroke: #94a3b8;
@@ -8942,7 +8946,9 @@ html:not(.dark) .pc-body::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 html:not(.dark) .pc-line .pc-ln {
-  color: #b6becb;
+  /* P2-3 a11y: #b6becb was 1.87:1 on the light #ffffff body (fails AA); #6d7585
+     clears 4.5:1. */
+  color: #6d7585;
 }
 html:not(.dark) .pc-line .pc-lc {
   color: #334155;

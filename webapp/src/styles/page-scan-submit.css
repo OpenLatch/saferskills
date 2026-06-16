@@ -741,7 +741,10 @@ html.dark .method-intro .link {
   background: var(--brand-accent);
 }
 .method-body--agent .weight-bars .wb-wt {
-  color: var(--brand-accent);
+  /* P2-3 a11y: the bright --brand-accent percent is only ~2.6:1 on the light
+     method pane (fails even the 3:1 large-text bar). --brand-accent-dark is the
+     theme-aware accessible orange (~3.3:1 light / bright accent on dark). */
+  color: var(--brand-accent-dark);
 }
 
 /* ============================================================

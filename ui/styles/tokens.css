@@ -25,6 +25,7 @@
   --ol-brand-primary-tint:   #CCFBF1;
   --ol-brand-accent:         #F97316;
   --ol-brand-accent-light:   #FB923C;
+  --ol-brand-accent-dark:    #C2410C;
 
   --ol-slate-50:   #F8FAFC;
   --ol-slate-100:  #F1F5F9;
@@ -99,6 +100,11 @@
   --brand-cta: var(--ol-brand-primary);
   --brand-cta-fg: #FFFFFF;
   --brand-accent: var(--ol-brand-accent);
+  /* Theme-aware accessible orange (parallels --brand-primary-dark): the bright
+     --brand-accent is only ~2.6:1 on light paper, so small/large orange text on
+     a light surface uses this darker burnt-orange (~4.7:1 on light); dark mode
+     flips it back to the bright accent (which already clears AA on dark). */
+  --brand-accent-dark: var(--ol-brand-accent-dark);
   --brand-highlight: var(--ol-brand-primary-tint);
 
   --status-success: var(--ol-success);
@@ -342,6 +348,8 @@ html.dark {
 
   --brand-primary: var(--ol-brand-primary-light);
   --brand-primary-dark: var(--ol-brand-primary);
+  /* On dark surfaces the bright accent already clears AA, so flip back to it. */
+  --brand-accent-dark: var(--ol-brand-accent);
   --brand-cta: var(--ol-brand-primary-light);
   --brand-cta-fg: var(--ol-slate-900);
 

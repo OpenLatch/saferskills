@@ -22,6 +22,7 @@ All visual tokens live in `ui/styles/tokens.css` — colors, radii, spacing, typ
 | `--ol-brand-primary` | `#0D9488` (emerald teal) | SaferSkills brand color; kinship-by-color with OpenLatch master palette per Wordmark Spec lock 2026-05-27 |
 | `--ol-brand-primary-dark` | `#0F766E` | Hover / active state |
 | `--ol-brand-accent` | `#F97316` (warm orange) | Script-pen accents, ridge-pixel tick markers, hand-written decorations |
+| `--ol-brand-accent-dark` | `#C2410C` (burnt orange) | Accessible orange **text** on light surfaces (the bright accent is only ~2.6:1 there). Exposed as the theme-aware `--brand-accent-dark` (light → burnt, dark → bright accent), mirroring `--brand-primary-dark` |
 | `--score-green` / `--score-yellow` / `--score-orange` / `--score-red` | OpenSSF-style 4-band semantic colors | Tier color language: ≥80 / 60-79 / 40-59 / 0-39 |
 | `--score-yellow-ink` | `#5B4708` | Legible ink ON a yellow band fill (white fails contrast there) — e.g. the `/agents` risk-thermometer segment % |
 | `--radius-0` | `0` | Squared corners across the entire system — never round a button |
