@@ -74,7 +74,7 @@ export default function CatalogApp({ initialState, initialData, initialFacets }:
     const token = ++reqToken.current
     if (push) {
       const qs = stateToSearchParams(next).toString()
-      window.history.pushState(null, '', qs ? `/catalog?${qs}` : '/catalog')
+      window.history.pushState(null, '', qs ? `/capabilities?${qs}` : '/capabilities')
     }
     setLoading(true)
     try {

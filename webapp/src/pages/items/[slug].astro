@@ -81,8 +81,8 @@ const installsTotal = install_activity.all_time
     <div class="container">
       <Breadcrumb
         items={[
-          { label: 'Catalog', href: '/catalog' },
-          { label: kindPlural, href: `/catalog?kind=${item.kind}` },
+          { label: 'Capabilities', href: '/capabilities' },
+          { label: kindPlural, href: `/capabilities?kind=${item.kind}` },
           { label: item.display_name },
         ]}
       />
@@ -245,7 +245,7 @@ const installsTotal = install_activity.all_time
     title="Audit the pieces. Scan the whole. Decide."
     lead="~30 seconds. Free. No account. Every finding cites a rule and a line of evidence."
     primaryAction={{ label: 'Scan a GitHub repo', href: '/scan' }}
-    secondaryAction={{ label: 'Browse catalog', href: '/catalog' }}
+    secondaryAction={{ label: 'Browse capabilities', href: '/capabilities' }}
   />
 
   <Footer />

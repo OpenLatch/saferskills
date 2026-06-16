@@ -31,7 +31,7 @@ export type PopularChip = {
   /**
    * Chip destination, resolved at view-model construction (D-5.7-13):
    * live chips link to the real `/items/<slug>` page; fallback chips link to
-   * `/catalog` (their slugs are placeholders — a 404 would betray the
+   * `/capabilities` (their slugs are placeholders — a 404 would betray the
    * fallback). `pickList` erases live-vs-fallback provenance, so the href
    * MUST ride on the chip itself.
    */
@@ -39,10 +39,28 @@ export type PopularChip = {
 }
 
 export const FALLBACK_POPULAR: PopularChip[] = [
-  { slug: 'anthropic--claude-pdf', name: 'claude-pdf', score: 95, tier: 'green', href: '/catalog' },
-  { slug: 'github--github-mcp', name: 'github-mcp', score: 87, tier: 'green', href: '/catalog' },
-  { slug: 'alice--slack-bot', name: 'slack-bot', score: 71, tier: 'yellow', href: '/catalog' },
-  { slug: 'linear--linear-mcp', name: 'linear-mcp', score: 92, tier: 'green', href: '/catalog' },
+  {
+    slug: 'anthropic--claude-pdf',
+    name: 'claude-pdf',
+    score: 95,
+    tier: 'green',
+    href: '/capabilities',
+  },
+  {
+    slug: 'github--github-mcp',
+    name: 'github-mcp',
+    score: 87,
+    tier: 'green',
+    href: '/capabilities',
+  },
+  { slug: 'alice--slack-bot', name: 'slack-bot', score: 71, tier: 'yellow', href: '/capabilities' },
+  {
+    slug: 'linear--linear-mcp',
+    name: 'linear-mcp',
+    score: 92,
+    tier: 'green',
+    href: '/capabilities',
+  },
 ]
 
 // ── Feeds mosaic (recently-scanned + trending) ───────────────────────────────

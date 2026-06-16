@@ -17,7 +17,7 @@ SaferSkills public website. Astro 6 (output: server) + React 19 islands + Tailwi
 - `methodology.astro` — auto-generated rule index (restyled in A2)
 - `privacy.astro`, `terms.astro` — legal pages
 
-A2 adds: `about.astro`, `docs/index.astro`, `404.astro`. Phase B adds: `catalog/index.astro`, `scan/index.astro`, `scans/[id].astro`. Phase C adds: `items/[slug].astro`, `items/[slug]/respond.astro`, `badge/[scan_id]/[score].svg.ts`, `og/{scan,item}/[id].png.ts`.
+A2 adds: `about.astro`, `docs/index.astro`, `404.astro`. Phase B adds: `capabilities/index.astro` (the browse surface — renamed from `/catalog`; `catalog/index.astro` is now a thin 301 redirect that preserves the query string), `scan/index.astro`, `scans/[id].astro`. Phase C adds: `items/[slug].astro`, `items/[slug]/respond.astro`, `badge/[scan_id]/[score].svg.ts`, `og/{scan,item}/[id].png.ts`.
 
 I-5.6 adds the Agent Report: `agents/[id].astro` (public) + `agents/r/[token].astro` (unlisted, noindex/no-store/no-referrer). Both SSR (`prerender=false`), mirror the `/scans` pair, and render the shared island `components/agent/AgentReport.tsx`. The page is `/agents/*`; the API stays `/api/v1/agent-scans/*`. See `.claude/rules/frontend-patterns.md` § Routing.
 

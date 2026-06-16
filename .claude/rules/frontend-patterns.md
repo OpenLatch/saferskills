@@ -15,8 +15,8 @@ Routes live under `webapp/src/pages/` as `.astro` files. The path on disk maps d
 ```
 webapp/src/pages/
 ├── index.astro            → /
-├── catalog/index.astro    → /catalog
-├── catalog/[id].astro     → /catalog/:id
+├── capabilities/index.astro → /capabilities     (browse surface — SSR, URL-driven filters; was /catalog)
+├── catalog/index.astro    → /catalog            (legacy → 301 → /capabilities, preserves the query string)
 ├── scan/index.astro       → /scan               (umbrella scan page — SSR; `?mode=agent` deep-link, I-5.7)
 ├── scans/[id].astro       → /scans/:id          (public run report; 404s unlisted runs)
 ├── scans/r/[token].astro  → /scans/r/:token     (unlisted capability URL — SSR, noindex, no-store)

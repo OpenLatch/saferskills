@@ -212,7 +212,7 @@ export default function ScanReportView({ run, shareUrl }: Props) {
           </div>
           <div className="cl-r">
             <ButtonPair>
-              <Button as="a" variant="primary" size="lg" href="/catalog">
+              <Button as="a" variant="primary" size="lg" href="/capabilities">
                 View {run.capability_count} in catalog →
               </Button>
               <Button variant="paper" size="lg" onClick={copyShare}>

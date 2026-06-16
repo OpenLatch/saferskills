@@ -68,8 +68,8 @@ const kindPlural = KIND_PLURAL[item.kind] ?? 'Catalog'
       ? 'Your response appears publicly on the report alongside findings. It is not moderated, except for spam or illegal content.'
       : 'Confirm you control the GitHub repo by committing a one-time token to .saferskills/verify.txt.'}
     breadcrumbItems={[
-      { label: 'Catalog', href: '/catalog' },
-      { label: kindPlural, href: `/catalog?kind=${item.kind}` },
+      { label: 'Capabilities', href: '/capabilities' },
+      { label: kindPlural, href: `/capabilities?kind=${item.kind}` },
       { label: titleName, href: `/items/${slug}` },
       { label: 'Respond' },
     ]}
