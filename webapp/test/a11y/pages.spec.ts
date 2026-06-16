@@ -10,7 +10,12 @@ const PAGES = ['/', '/catalog', '/scan', '/about', '/docs', '/methodology', '/40
 
 for (const path of PAGES) {
   test(`a11y: ${path}`, async ({ page }) => {
-    await page.goto(path, { waitUntil: 'networkidle' })
+    await page.goto(path, { waitUntil: 'load' })
+    // The homepage runs live-polling islands (HomepageLive / NavStars refresh on
+    // an interval), so its network never goes idle and `networkidle` flakes out
+    // at the 30s test timeout. Give islands a bounded moment to settle, then run
+    // axe against the rendered DOM regardless of ongoing background fetches.
+    await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {})
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
     expect(results.violations).toEqual([])
   })
