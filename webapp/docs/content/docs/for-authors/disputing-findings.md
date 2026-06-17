@@ -35,7 +35,7 @@ Every state transition is an audit event. Whatever the outcome, you get a **subs
 
 If the issue is not a misfire on your repo but a gap or a design flaw in the rule corpus itself, the path is to propose the change directly. New rules and rule amendments go through a public rule-RFC with a comment window before a maintainer decision. See [Contribute a rule](/docs/security-and-methodology/contribute-a-rule/) for how to open one. When an appeal succeeds because the rule needed adjustment, it resolves as `resolved_rule_changed` and follows that same RFC process — your dispute and a rule contribution converge on the same governance.
 
-## Related
+## Where do I go next?
 
 - [Claim your repo](/docs/for-authors/claim-your-repo/) — prove ownership and post your reply
 - [Contribute a rule](/docs/security-and-methodology/contribute-a-rule/) — propose a new or amended rule

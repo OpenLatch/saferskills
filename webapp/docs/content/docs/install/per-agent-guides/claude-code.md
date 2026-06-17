@@ -55,7 +55,7 @@ A few boundary facts to keep in mind:
 
 If you maintain a skill and a finding is wrong, you have a [right of reply](/docs/for-authors/disputing-findings/): prove ownership of the repository and post a public response, which triggers a re-scan.
 
-## Related
+## Where do I go next?
 
 - [Install a skill](/docs/install/install-a-skill/) — the cross-agent install walkthrough.
 - [CLI reference: install](/docs/install/cli-reference/install/) — every flag and the score gate.

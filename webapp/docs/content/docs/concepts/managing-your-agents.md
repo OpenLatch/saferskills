@@ -33,7 +33,7 @@ Point `capability` at a specific path or URL to scan one artifact instead. See t
 
 The audit is the read side of the same loop that governs installs. When you install with `saferskills install <name>`, the CLI gates on the [aggregate score](/docs/concepts/glossary/#aggregate-score) — the default minimum is 90 (`SAFERSKILLS_MIN_SCORE`) — so a low-scoring capability is held back unless you choose otherwise. Auditing with `saferskills capability` then lets you re-check what is already installed against the current rubric.
 
-## Related reading
+## Where do I go next?
 
 - [`saferskills list`](/docs/install/cli-reference/list/) — enumerate installed capabilities.
 - [Scan a capability (`capability`)](/docs/install/cli-reference/scan/) — static scan of a path, URL, or your whole local install.

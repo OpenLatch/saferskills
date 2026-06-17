@@ -1,6 +1,7 @@
 ---
 title: "How Scoring Works (Overview)"
 description: "A SaferSkills score is a deterministic 0–100 number from five weighted sub-scores, bucketed into four color bands — here is the overview."
+author: "SaferSkills Team"
 updated: 2026-06-16
 ---
 A SaferSkills score is a single 0–100 number computed deterministically from five weighted sub-scores, then bucketed into one of four color bands. It is methodology, not opinion: every point of penalty traces to a documented rule and a quotable line of evidence, with no LLM in the verdict path. This page is the overview; the [full methodology](/docs/security-and-methodology/how-scoring-works/) carries the exact math.

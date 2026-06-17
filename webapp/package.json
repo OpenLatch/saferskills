@@ -7,7 +7,7 @@
     "dev": "astro dev --port 5173 --host",
     "dev:docs": "astro dev --config docs.astro.config.mjs --port 5174 --host",
     "build": "astro build",
-    "build:docs": "astro build --config docs.astro.config.mjs && node ./scripts/copy-docs.cjs",
+    "build:docs": "astro build --config docs.astro.config.mjs && node ./scripts/generate-llms-txt.cjs && node ./scripts/copy-docs.cjs",
     "preview:docs": "astro preview --config docs.astro.config.mjs --port 5174 --host",
     "start": "node ./dist/server/entry.mjs",
     "astro": "astro",

@@ -3,7 +3,7 @@ title: "About"
 description: "What SaferSkills is — a free, open-source, deterministic trust-scoring service for AI capabilities — and who stewards it."
 updated: 2026-06-16
 ---
-SaferSkills is a public, free, Apache-2.0 service that independently scans every AI capability — skills, MCP servers, hooks, plugins, and rules — across every agent platform. Anyone submits a GitHub URL or uploads files, a deterministic scan runs in about thirty seconds, and the result is a public report with a 0–100 trust score, a full rule trace, a quotable line of evidence for each finding, a vendor right-of-reply, and a permanent permalink. There is no LLM in the verdict path: every finding has a static rule and a reproducible math.
+SaferSkills is a public, free, Apache-2.0 service that independently scans every AI capability — skills, MCP servers, hooks, plugins, and rules — across every agent platform. Anyone submits a GitHub URL or uploads files, a deterministic scan runs in about thirty seconds, and the result is a public report: a 0–100 trust score, a full rule trace, a quotable line of evidence per finding, a vendor right-of-reply, and a permanent permalink. No LLM sits in the verdict path.
 
 ## What does SaferSkills actually do?
 
@@ -17,7 +17,7 @@ Three principles shape every page and every verdict. **Methodology over opinion*
 
 SaferSkills is an OpenLatch project, run brand-independently. The code is open source under the Apache License 2.0, the methodology is contributed and disputed in public, and the live service runs at [saferskills.ai](https://saferskills.ai). The source, the rule corpus, and the contribution and appeal templates all live in the public repository at [github.com/OpenLatch/saferskills](https://github.com/OpenLatch/saferskills).
 
-## Related pages
+## Where do I go next?
 
 - New here: [what is SaferSkills](/docs/getting-started/what-is-saferskills/) · [why scanning matters](/docs/getting-started/why-scanning-matters/)
 - Common questions: [FAQ](/docs/reference/faq/)

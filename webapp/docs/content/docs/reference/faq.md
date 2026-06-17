@@ -34,7 +34,7 @@ The difference is *behavioral versus static*. A [component scan](/docs/concepts/
 
 Because SaferSkills is a transparent public record, not a gatekeeper. A low score means *review before use*, not *banned* — the catalog publishes methodology, not endorsements, and it never tells you which capability to pick. Removing low-scoring items would hide exactly the information a developer needs: the score, the findings, the evidence, and the permalink a vendor can dispute. A red verdict is most useful when it stays visible next to its full rule trace. SaferSkills is **anti-recommendation by design** — it gives you a reproducible verdict and the reasoning behind it, and leaves the decision with you. The install CLI does add a per-user score gate (it refuses to install below a configurable minimum), but that is your choice to set, not a catalog-wide removal.
 
-## Related pages
+## Where do I go next?
 
 - Start here: [what is SaferSkills](/docs/getting-started/what-is-saferskills/) · [why scanning matters](/docs/getting-started/why-scanning-matters/)
 - The deep methodology: [how scoring works](/docs/security-and-methodology/how-scoring-works/) · [detection categories](/docs/security-and-methodology/detection-categories/)

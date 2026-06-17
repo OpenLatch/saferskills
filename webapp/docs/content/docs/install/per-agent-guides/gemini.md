@@ -55,7 +55,7 @@ A few boundary facts:
 
 If you maintain a capability and a finding is wrong, the [right of reply](/docs/for-authors/disputing-findings/) lets you prove ownership and post a public response that triggers a re-scan.
 
-## Related
+## Where do I go next?
 
 - [Install a skill](/docs/install/install-a-skill/) — the cross-agent install walkthrough.
 - [CLI reference: install](/docs/install/cli-reference/install/) — every flag and the score gate.

@@ -31,7 +31,7 @@ This page is the overview. The deeper documentation covers the mechanics:
 - [Behavioral scoring](/docs/agent-scan/behavioral-scoring/) — the score model applied to behavior.
 - The live [/methodology](/methodology) page — the rendered Agent-pack alongside the component rubric.
 
-## Related reading
+## Where do I go next?
 
 - [How scoring works](/docs/concepts/how-scoring-works/) — the shared 0–100 model.
 - [Glossary](/docs/concepts/glossary/) — including [Agent Scan](/docs/concepts/glossary/#agent-scan) and [finding](/docs/concepts/glossary/#finding).
