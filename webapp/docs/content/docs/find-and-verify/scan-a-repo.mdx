@@ -3,7 +3,14 @@ title: "Scan a Repo"
 description: "Submit a GitHub URL or upload files at /scan and get a deterministic report in about 30 seconds."
 updated: 2026-06-16
 ---
+import Screenshot from '../../../components/Screenshot.astro'
+
 To scan any AI capability, submit its public GitHub URL — or upload its files — at [/scan](/scan). SaferSkills runs the same deterministic engine the catalog uses, discovers every capability in the repo, scores each one, and returns a public report in roughly 30 seconds. A human-verification gate and a per-IP daily cap keep the submission surface anti-abuse, and a live progress stream shows the scan as it runs.
+
+<Screenshot
+  name="scan-form"
+  alt="The /scan page: a Capability/Agent mode toggle above a submission panel for pasting a public GitHub URL or dropping files to upload."
+/>
 
 ## How do I submit a scan?
 

@@ -3,7 +3,21 @@ title: "Read a Scan Report"
 description: "Make sense of the aggregate score, the five sub-scores, findings, evidence, the severity ceiling, and the right-of-reply."
 updated: 2026-06-16
 ---
+import Screenshot from '../../../components/Screenshot.astro'
+
 A scan report shows one aggregate score from 0 to 100, the five weighted sub-scores it rolls up from, and a list of findings — each with a `rule_id`, a severity, a quotable line of evidence, and a remediation. A severity ceiling caps the aggregate when a serious finding fires, every verdict is appealable by the repo owner, and a low score means *review before use*, not *avoid*. The whole report is deterministic and reproducible.
+
+<Screenshot
+  name="scan-report"
+  alt="A repo scan report: a consolidated 0–100 score with its color band and per-scan facts, above the list of discovered capabilities and their individual scores."
+/>
+
+A repository fans out into one report per discovered capability. Opening a single capability shows its own item report — the aggregate score, the latest-scan facts, install activity, and the per-category score breakdown:
+
+<Screenshot
+  name="item-report"
+  alt="A capability item report: the aggregate score and band, the latest-scan facts, SaferSkills install activity, and the per-category score-breakdown table."
+/>
 
 ## What is the aggregate score?
 

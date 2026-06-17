@@ -2,7 +2,7 @@ import mdx from '@astrojs/mdx'
 import react from '@astrojs/react'
 import starlight from '@astrojs/starlight'
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'astro/config'
+import { defineConfig, passthroughImageService } from 'astro/config'
 
 // SaferSkills Documentation — Starlight SSG build (I-06 Plan 1, D-2/D-3).
 //
@@ -31,6 +31,14 @@ export default defineConfig({
   srcDir: './docs',
   outDir: './dist-docs',
   output: 'static',
+  // Product screenshots (PR2) are embedded via `astro:assets` (Screenshot.astro).
+  // The default Sharp image service can't run in the `node:24-alpine` (musl)
+  // webapp Docker builder — the non-Docker docs-build lane (glibc) is fine, but
+  // the docker-build (webapp) lane, which folds the docs in, fails on Sharp.
+  // The shots are pre-sized PNGs that need no build-time transform, so serve
+  // them as-is with the Sharp-free passthrough service. Keeps the build portable
+  // (no Dockerfile/libvips change) and the docs Lighthouse lane is observe-warn.
+  image: { service: passthroughImageService() },
   // React island hydration (the shared NavBar + footer ThemeToggle + NavStars)
   // and the Tailwind v4 Vite plugin (parity with the main config). The chrome
   // CSS never `@import "tailwindcss"`, so Preflight is never injected into the

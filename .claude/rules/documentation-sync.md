@@ -50,6 +50,7 @@
 | New route/page in `webapp/` | `webapp/src/lib/nav-config.tsx`, root `CLAUDE.md` if structural |
 | New non-homepage page in `webapp/` | Must use the template: `PageHead` + `PageRidge` (new `variant`) + alternating `.page-section` bands — see `design-system.md` § Section surfaces |
 | New CLI command/script | Root `CLAUDE.md` + `scripts/README.md` |
+| Docs product screenshot added / refreshed | Regenerate via `pnpm --filter @saferskills/webapp capture:screenshots` (`webapp/scripts/capture-docs-screenshots.mjs`); embed through `docs/components/Screenshot.astro` (theme-aware, requires descriptive `alt`); never hand-edit the PNGs. New surface → `webapp/docs/assets/screenshots/README.md` table. Not a CI lane — on-demand refresh. |
 | New service in `services/` | `tech-stack.md`, `environment-config.md`, root `CLAUDE.md` |
 | DB schema/migration change | `database.md` + the model under `app/models/` + the registry import in `app/models/__init__.py` |
 | New stored-content table/column (e.g. `artifact_blobs`) | `database.md` + `security.md` § Vendor-data isolation (retention tier) — re-verify the trace stays no-raw-payload |

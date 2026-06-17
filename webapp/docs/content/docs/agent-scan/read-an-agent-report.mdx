@@ -3,8 +3,14 @@ title: "Read an Agent Report"
 description: "Read an Agent Report — the score hero and band verb, findings by OWASP family, the evidence split, and confidence versus score."
 updated: 2026-06-16
 ---
+import Screenshot from '../../../components/Screenshot.astro'
 
 An Agent Report opens with a score hero — the 0–100 behavioral score and its color band verb (Approved, Watch, Caution, Block) — then lists the findings grouped by their OWASP threat family. Evidence is split: the public report shows each finding's test id, severity, and threat mappings, while the raw agent transcript stays token-gated. A separate confidence label (high / medium / low) is **not** the score, and a verified vendor may attach a public reply.
+
+<Screenshot
+  name="agent-report"
+  alt="An Agent Report: the behavioral score hero with its band, the per-scan facts (agent, capabilities assembled, tests passed, findings), and the Report / Findings / Component-scores tabs."
+/>
 
 ## How do I read the score hero?
 
