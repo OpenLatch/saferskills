@@ -29,6 +29,7 @@ jobs:
       ci: ${{ steps.filter.outputs.ci }}
       e2e: ${{ steps.filter.outputs.e2e }}
       cli: ${{ steps.filter.outputs.cli }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
@@ -45,6 +46,7 @@ jobs:
             ci:         [ '.github/**', 'ci/**', 'docker-compose*.yml' ]
             e2e:        [ 'tools/e2e/**' ]
             cli:        [ 'cli/**', '.github/actions/setup-rust/**' ]
+            docs:       [ 'webapp/docs/**', 'webapp/docs.astro.config.mjs', 'webapp/src/data/homepage-constants.ts', 'scripts/validate-docs-frontmatter.cjs', 'scripts/check-internal-docs-links.cjs' ]
 
   validate:
     name: PR - Codegen drift gate
@@ -433,6 +435,27 @@ jobs:
           name: lighthouse-reports
           path: .lighthouseci/
 
+  docs-build:
+    name: PR - Docs build (frontmatter + links)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-saferskills-build
+      # Hard frontmatter gate (D-8) — fast, fails before the build runs.
+      - name: Frontmatter validation
+        run: node scripts/validate-docs-frontmatter.cjs
+      # Starlight SSG build → webapp/dist-docs (D-3). Pagefind index is built
+      # in-process by the Starlight integration.
+      - name: Build docs (Starlight SSG)
+        run: pnpm --filter @saferskills/webapp exec astro build --config docs.astro.config.mjs
+      # Build-time internal-link gate (D-9) over the emitted HTML.
+      - name: Internal link check
+        run: node scripts/check-internal-docs-links.cjs
+
   cli-fmt:
     name: PR - cargo fmt (cli)
     needs: detect-changes
@@ -516,7 +539,7 @@ jobs:
 
   all-checks:
     name: PR - All checks
-    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y, ingestion-smoke, cli-fmt, cli-clippy, cli-test, cli-build, cli-rustls]
+    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y, ingestion-smoke, docs-build, cli-fmt, cli-clippy, cli-test, cli-build, cli-rustls]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -537,6 +560,7 @@ jobs:
             "${{ needs.dep-scan.result }}"
             "${{ needs.lighthouse-a11y.result }}"
             "${{ needs.ingestion-smoke.result }}"
+            "${{ needs.docs-build.result }}"
             "${{ needs.cli-fmt.result }}"
             "${{ needs.cli-clippy.result }}"
             "${{ needs.cli-test.result }}"
