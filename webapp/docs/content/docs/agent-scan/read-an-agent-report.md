@@ -1,14 +1,35 @@
 ---
 title: "Read an Agent Report"
-description: "The score hero and band verb, findings grouped by OWASP family, and how evidence is split."
+description: "Read an Agent Report — the score hero and band verb, findings by OWASP family, the evidence split, and confidence versus score."
 updated: 2026-06-16
 ---
-The score hero and band verb, findings grouped by OWASP family, and how evidence is split. [TK]
 
-## Overview
+An Agent Report opens with a score hero — the 0–100 behavioral score and its color band verb (Approved, Watch, Caution, Block) — then lists the findings grouped by their OWASP threat family. Evidence is split: the public report shows each finding's test id, severity, and threat mappings, while the raw agent transcript stays token-gated. A separate confidence label (high / medium / low) is **not** the score, and a verified vendor may attach a public reply.
 
-Content forthcoming — authored in I-06 Plan 2 (content authorship). [TK]
+## How do I read the score hero?
 
-## Details
+The hero shows the aggregate behavioral score and the band it falls into. The same color bands as a component scan apply: **Green ≥80** (Approved), **Yellow 60–79** (Watch), **Orange 40–59** (Caution), **Red 0–39** (Block). The band verb is a posture, not a stamp of approval — a low score means "review before use," not "do not use." How that number is computed, including the worst-finding caps, is covered in [behavioral scoring](/docs/agent-scan/behavioral-scoring/).
 
-Content forthcoming. [TK]
+## How are findings grouped?
+
+Findings are grouped by OWASP threat family, so related failures sit together. Each test in the pack carries one or more framework references — OWASP Agentic Security Initiative ids like `ASI01:2026`, OWASP LLM Top 10 ids like `LLM01:2025`, plus MITRE ATLAS and NIST — and the report clusters findings by those families (direct injection, excessive agency, secret disclosure, tool-description poisoning, and so on). Each finding renders its test id (`AS-NN`), a plain-English title, severity, the threat mappings, and the test's stated `limitations` — there are no black-box findings.
+
+## What is the evidence split?
+
+The public report carries no raw agent output; the full transcript is token-gated. Each public finding shows its `rule_id`/test id, `severity`, framework references, and — for a leak-style test — only the canary *slot*, never the raw transcript, tool calls, or prompts. The private submitted evidence lives in an internal store and is **never** placed on the public projection. The full transcript is served only as a report-DTO projection on the token-gated unlisted route, the same way a component report's matched-line excerpt is resolved at request time. This preserves the no-raw-payload trace invariant: an `agent_findings` row records the result, not the agent's words.
+
+:::note
+A finding tells you a behavior was observed and points to the threat it maps to. It does not reproduce the agent's full reply on the public page — that detail is reachable only through the run's own token-gated view.
+:::
+
+## How does confidence differ from the score?
+
+Confidence answers "how much of the pack could we exercise," not "how vulnerable is the agent." A report carries a **confidence** label — `high`, `medium`, or `low` — driven by how many optional capabilities were present during the run. A missing optional capability lowers *confidence*, **never the score**: the affected test is recorded `n_a` (not applicable), not penalized. So a high-scoring run at low confidence means few tests could be exercised, while a high-confidence run exercised most of the pack. Confidence is a coverage signal; the score is the behavioral verdict.
+
+## What does the verdict language mean, and can a vendor reply?
+
+Verdicts use observation language only — a test reports "observed vulnerable" or "not observed under pack v\<version\>", never "secure", "safe", or "certified". A clean run means the pack did not observe the behavior at that pack version, not a guarantee. Every Agent Report is appealable: the capability-token holder can attach a public, read-only **vendor reply** that renders alongside the findings. Transparency over erasure — findings are annotated, not silently removed.
+
+## Where do I go next?
+
+To browse published Agent Reports, see the [agents directory](/agents). To understand the math behind the hero score, read [how behavioral scoring works](/docs/agent-scan/behavioral-scoring/), and for the test pack itself, the live [methodology page](/methodology).
