@@ -38,6 +38,7 @@ const SHELL_FILES = [
   'webapp/src/styles/page-scan-submit.css',
   'webapp/src/styles/page-agent-report.css',
   'webapp/src/styles/page-agent-directory.css',
+  'webapp/src/styles/page-docs.css',
 ]
 // Custom properties set at runtime (never declared with `:` in CSS) — allow.
 // `--wb-frac`: per-row fill fraction set inline by the WeightBars molecule

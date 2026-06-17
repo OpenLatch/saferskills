@@ -1,0 +1,148 @@
+---
+/**
+ * DocsLayout (I-06 native rebuild) — the reskinned 3-column docs shell:
+ * NavBar → [ sidebar | content + page-foot | in-page ToC ] → Footer. The whole
+ * body is the design system (no Starlight). CSS: `webapp/src/styles/page-docs.css`.
+ */
+import type { MarkdownHeading } from 'astro'
+import type { CollectionEntry } from 'astro:content'
+import DocsPagination from '@/components/docs/DocsPagination.astro'
+import DocsSearch from '@/components/docs/DocsSearch.tsx'
+import DocsSidebar from '@/components/docs/DocsSidebar.astro'
+import DocsToc from '@/components/docs/DocsToc.astro'
+import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
+import Base from '@/layouts/Base.astro'
+import { buildDocsNav, docsHref, flattenNav } from '@/lib/docs/nav'
+import Footer from '@ui/components/atoms/Footer.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import '@/styles/page-docs.css'
+
+interface Props {
+  entry: CollectionEntry<'docs'>
+  headings: MarkdownHeading[]
+}
+const { entry, headings } = Astro.props
+const pathname = Astro.url.pathname
+
+const nav = await buildDocsNav()
+const flat = flattenNav(nav)
+const norm = (p: string) => (p.endsWith('/') ? p : `${p}/`)
+const currentHref = norm(docsHref(entry.id))
+const idx = flat.findIndex((i) => norm(i.href) === currentHref)
+const prev = idx > 0 ? flat[idx - 1] : null
+const next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null
+
+const editUrl = entry.filePath
+  ? `https://github.com/OpenLatch/saferskills/edit/main/webapp/${entry.filePath}`
+  : null
+const updatedLabel = entry.data.updated
+  ? entry.data.updated.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  : null
+---
+
+<Base title={`${entry.data.title} — SaferSkills Docs`} description={entry.data.description}>
+  <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath="/docs" />
+
+  <div class="docs-shell" data-nav-open="false">
+    <button type="button" class="docs-nav-toggle" aria-expanded="false" aria-controls="docs-sidebar">
+      <span class="dnt-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span>Docs menu</span>
+    </button>
+
+    <aside class="docs-sidebar-col" id="docs-sidebar">
+      <DocsSearch client:idle />
+      <DocsSidebar nav={nav} pathname={pathname} />
+    </aside>
+
+    <article class="doc-prose">
+      <slot />
+      <footer class="doc-page-foot">
+        <div class="doc-meta">
+          {
+            editUrl && (
+              <a class="doc-edit" href={editUrl} rel="noopener" target="_blank">
+                Edit this page on GitHub ↗
+              </a>
+            )
+          }
+          {updatedLabel && <p class="doc-updated">Last updated: {updatedLabel}</p>}
+        </div>
+        <DocsPagination prev={prev} next={next} />
+      </footer>
+    </article>
+
+    <DocsToc headings={headings} />
+  </div>
+
+  <Footer />
+
+  {/* Mobile sidebar drawer toggle. */}
+  <script is:inline>
+    ;(function () {
+      var shell = document.querySelector('.docs-shell')
+      var toggle = document.querySelector('.docs-nav-toggle')
+      if (!shell || !toggle) return
+      function set(open) {
+        shell.setAttribute('data-nav-open', String(open))
+        toggle.setAttribute('aria-expanded', String(open))
+      }
+      toggle.addEventListener('click', function () {
+        set(shell.getAttribute('data-nav-open') !== 'true')
+      })
+      shell.querySelectorAll('.docs-nav-link').forEach(function (a) {
+        a.addEventListener('click', function () {
+          set(false)
+        })
+      })
+    })()
+  </script>
+
+  {/* In-page ToC scroll-spy — highlights the heading nearest the top. */}
+  <script is:inline>
+    ;(function () {
+      var links = document.querySelectorAll('.docs-toc [data-toc-link]')
+      var heads = document.querySelectorAll('.doc-prose h2[id], .doc-prose h3[id]')
+      if (!links.length || !heads.length || !('IntersectionObserver' in window)) return
+      var byId = {}
+      links.forEach(function (l) {
+        byId[l.getAttribute('data-toc-link')] = l
+      })
+      var visible = new Set()
+      function sync() {
+        var active = null
+        heads.forEach(function (h) {
+          if (!active && visible.has(h.id)) active = h.id
+        })
+        if (!active) {
+          var passed = null
+          heads.forEach(function (h) {
+            if (h.getBoundingClientRect().top < 120) passed = h.id
+          })
+          active = passed
+        }
+        links.forEach(function (l) {
+          l.classList.remove('is-active')
+        })
+        if (active && byId[active]) byId[active].classList.add('is-active')
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) visible.add(e.target.id)
+            else visible.delete(e.target.id)
+          })
+          sync()
+        },
+        { rootMargin: '-80px 0px -70% 0px', threshold: 0 }
+      )
+      heads.forEach(function (h) {
+        io.observe(h)
+      })
+      sync()
+    })()
+  </script>
+</Base>

@@ -3,7 +3,7 @@
  * the docs (I-06 docs UI, PR2).
  *
  * Captures the real product surfaces in BOTH themes (light + dark) and writes
- * them to `webapp/docs/assets/screenshots/<surface>.<theme>.png`, where the
+ * them to `webapp/src/assets/docs-screenshots/<surface>.<theme>.png`, where the
  * `Screenshot.astro` component embeds them theme-aware. Re-run any time to keep
  * the shots current — they never go stale because nothing is hand-edited.
  *
@@ -19,7 +19,7 @@
  *       node webapp/scripts/capture-docs-screenshots.mjs
  *
  * NOT a CI lane — it needs a running deployment and is slow; it is an on-demand
- * refresh (see webapp/docs/assets/screenshots/README.md). The committed PNGs are
+ * refresh (see webapp/src/assets/docs-screenshots/README.md). The committed PNGs are
  * what the docs build embeds; this script regenerates them.
  */
 import { mkdir, readdir, stat } from 'node:fs/promises'
@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const OUT_DIR = path.resolve(HERE, '../docs/assets/screenshots')
+const OUT_DIR = path.resolve(HERE, '../src/assets/docs-screenshots')
 const BASE = (
   process.env.SAFERSKILLS_SCREENSHOT_BASE || 'https://saferskills-webapp-staging.fly.dev'
 ).replace(/\/$/, '')
@@ -176,7 +176,7 @@ async function main() {
 
   const before = await readdir(OUT_DIR).then((f) => f.filter((x) => x.endsWith('.png')).length)
   console.log(
-    `[screenshots] captured ${captured} image(s); ${before} PNG(s) now in docs/assets/screenshots/`
+    `[screenshots] captured ${captured} image(s); ${before} PNG(s) now in src/assets/docs-screenshots/`
   )
 }
 

@@ -6,7 +6,10 @@
         "http://localhost:5173/catalog",
         "http://localhost:5173/scan",
         "http://localhost:5173/about",
-        "http://localhost:5173/methodology"
+        "http://localhost:5173/methodology",
+        "http://localhost:5173/docs/",
+        "http://localhost:5173/docs/getting-started/quickstart/",
+        "http://localhost:5173/docs/security-and-methodology/how-scoring-works/"
       ],
       "numberOfRuns": 1,
       "settings": {

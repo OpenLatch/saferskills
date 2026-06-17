@@ -1,0 +1,35 @@
+---
+title: "What Agent Scan Is"
+description: "Agent Scan grades a whole running agent's behavior with dynamic tests — observed, not certified — versus a static component audit."
+updated: 2026-06-16
+---
+import Screenshot from '@/components/docs/Screenshot.astro'
+
+Agent Scan grades a whole *running* agent's behavior, not the files of a single capability. Where a component scan statically reads a Skill or MCP server and scores its source against rules, Agent Scan runs a pack of adversarial tests against the live agent — using mock tools only, with zero real side effects — and grades the evidence in the cloud. Because the agent runs the tests but SaferSkills grades them, a vendor cannot self-attest.
+
+Published Agent Reports collect in the [agents directory](/agents), each a dossier card with its behavioral score and capability stack:
+
+<Screenshot
+  name="agent-directory"
+  alt="The agents directory: a corpus risk band above a grid of Agent Report dossier cards, each showing a behavioral score, a clean-or-flagged verdict, and its runtime."
+/>
+
+## What does Agent Scan actually test?
+
+Agent Scan probes how an agent *behaves* under attack, not what its files contain. A [component scan](/docs/security-and-methodology/how-scoring-works/) reads source bytes — a `SKILL.md` body, an MCP tool description, a hook command — and fires deterministic [`rule_id`](/docs/concepts/glossary/#rule_id) detectors against them. Agent Scan instead drives the running agent through a sequence of adversarial prompts — [prompt injection](/docs/concepts/glossary/#prompt-injection), tool-description poisoning, secret-disclosure pretexts — and observes what the agent does. The two are complementary: one audits the artifact, the other audits the behavior that artifact produces once it is wired into a real agent.
+
+## How is behavioral testing different from a static audit?
+
+A static audit is reproducible from bytes alone; a behavioral test requires the agent to run. The component engine can re-derive any verdict offline from the same source bytes and `rubric_version`. Agent Scan is dynamic — the assessment pack drives the agent through its behavioral tests (`AS-01` … `AS-22`, with two ids reserved, 20 tests in total), each anchored to a recognized threat taxonomy. Grading stays deterministic: the cloud re-derives each per-run canary and decides vulnerable-or-not over the submitted evidence, so identical evidence at the same pack version produces an identical verdict. There is no LLM in the verdict path on either side.
+
+## Does the scan touch anything real?
+
+No. Every test runs against **mock tools only — zero real side effects.** When a test needs a tool — a `read_file`, a destructive action, a finance relay — the pack supplies a mock that records the call without performing it. A secret-disclosure test plants a per-run honeytoken, never a real credential, and checks whether the agent reads it back. Nothing on your disk is read, written, sent, or deleted; the scan exercises decisions, not consequences.
+
+## Why does the agent run the tests but SaferSkills grade them?
+
+So the verdict cannot be self-attested. The agent under test runs the pack and returns raw evidence, but the submission carries **no verdict field** — grading happens cloud-side, where the canary is re-derived deterministically and matched against the evidence. A vendor can run an Agent Scan on their own agent and still cannot decide its own result. That split is why Agent Scan reports use **observation language, never assurance language**: a test reports "observed vulnerable" or "not observed under pack v\<version\>" — never "secure", "safe", or "certified". A clean run means the pack did not observe the behavior at that version, not a guarantee of safety.
+
+## Where do I go next?
+
+To run one, see [Run an Agent Scan](/docs/agent-scan/run-an-agent-scan/). To understand the 0–100 score and its caps, see [how behavioral scoring works](/docs/agent-scan/behavioral-scoring/). The full test pack, with each test's OWASP and MITRE ATLAS mappings, is auto-rendered from the rubric on the live [methodology page](/methodology).

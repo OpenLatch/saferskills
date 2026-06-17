@@ -1,32 +1,34 @@
 #!/usr/bin/env node
 /* generate-llms-txt.cjs — emit /docs/llms.txt + /docs/llms-full.txt (I-06 Plan 3).
  *
- * Two machine-readable manifests for LLM consumers, auto-generated at every docs
- * build (NEVER hand-curated, NEVER committed — `dist-docs/` is gitignored):
+ * Two machine-readable manifests for LLM consumers, auto-generated at every
+ * build (NEVER hand-curated, NEVER committed — emitted into the gitignored
+ * `dist/client/docs/`):
  *   • llms.txt      — the llms.txt spec shape (https://llmstxt.org): an H1, a
  *                     blockquote summary, then one `## Section` list per IA group
  *                     of `- [title](url): description` links.
  *   • llms-full.txt — every page's body concatenated as plain Markdown, so a model
  *                     can ingest the whole site in one fetch.
  *
- * Source of truth is the content frontmatter under `docs/content/docs/**`, read
+ * Source of truth is the content frontmatter under `src/content/docs/**`, read
  * directly (no built-HTML parse, no dependency) so the output is correct
- * regardless of Astro's `base`/`outDir` layout. Files land in `dist-docs/` (the
- * Starlight outDir); `copy-docs.cjs` then folds them into `dist/client/docs/`, so
- * they are served at `/docs/llms.txt` + `/docs/llms-full.txt`.
+ * regardless of Astro's `base`/`outDir` layout. Files land directly in
+ * `dist/client/docs/` (the native docs output), so they are served at
+ * `/docs/llms.txt` + `/docs/llms-full.txt`.
  *
- * Pipeline order (build:docs): astro build → THIS → copy-docs. */
+ * Pipeline order (build): astro build → THIS → build-pagefind. */
 'use strict'
 const fs = require('node:fs')
 const path = require('node:path')
 
 const WEBAPP = path.resolve(__dirname, '..')
-const CONTENT = path.join(WEBAPP, 'docs', 'content', 'docs')
-const OUT_DIR = path.join(WEBAPP, 'dist-docs')
+const CONTENT = path.join(WEBAPP, 'src', 'content', 'docs')
+const OUT_DIR = path.join(WEBAPP, 'dist', 'client', 'docs')
 const SITE = 'https://saferskills.ai'
 
-// IA section order + labels mirror the sidebar in docs.astro.config.mjs. A
-// directory not listed here still ships under its own title-cased heading.
+// IA section order + labels — KEEP IN LOCKSTEP with the mirror in
+// src/lib/docs/sections.ts (a .cjs can't import the .ts). A directory not listed
+// here still ships under its own title-cased heading.
 const SECTIONS = [
   ['getting-started', 'Getting Started'],
   ['concepts', 'Concepts'],
@@ -128,5 +130,5 @@ fs.mkdirSync(OUT_DIR, { recursive: true })
 fs.writeFileSync(path.join(OUT_DIR, 'llms.txt'), llmsTxt)
 fs.writeFileSync(path.join(OUT_DIR, 'llms-full.txt'), llmsFull)
 console.log(
-  `[generate-llms-txt] wrote dist-docs/llms.txt (${pages.length} pages indexed) + dist-docs/llms-full.txt (${llmsFull.length} bytes)`
+  `[generate-llms-txt] wrote dist/client/docs/llms.txt (${pages.length} pages indexed) + llms-full.txt (${llmsFull.length} bytes)`
 )

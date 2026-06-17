@@ -72,8 +72,6 @@ tools/e2e/**/artifacts/
 # Astro
 /webapp/.astro/
 /webapp/dist/
-# Starlight docs SSG build (I-06) — copied into dist/client/docs by build:docs
-/webapp/dist-docs/
 
 # Local Docker overrides
 docker-compose.override.yml

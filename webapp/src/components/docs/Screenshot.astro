@@ -1,0 +1,67 @@
+---
+/**
+ * Theme-aware product screenshot (I-06 native docs).
+ *
+ * Renders the light + dark capture of one surface and shows the one matching the
+ * reader's theme. The pair is produced by `scripts/capture-docs-screenshots.mjs`
+ * into `src/assets/docs-screenshots/<name>.{light,dark}.png`; here they go through
+ * `astro:assets`.
+ *
+ * Theme toggle keys on `html.dark` — the site's native theme class (no Starlight,
+ * no data-theme mirror), so the shot flips with the footer ThemeToggle. The hidden
+ * image is `display:none` (out of the a11y tree), so only the visible one's `alt`
+ * is announced.
+ */
+import { Image } from 'astro:assets'
+
+interface Props {
+  /** Surface base name, e.g. "catalog" → catalog.{light,dark}.png */
+  name: string
+  /** Required, descriptive alt text (axe gate). */
+  alt: string
+}
+const { name, alt } = Astro.props
+
+const shots = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/docs-screenshots/*.png',
+  { eager: true }
+)
+const light = shots[`../../assets/docs-screenshots/${name}.light.png`]?.default
+const dark = shots[`../../assets/docs-screenshots/${name}.dark.png`]?.default
+if (!light || !dark) {
+  throw new Error(
+    `<Screenshot name="${name}"> — missing light/dark pair in src/assets/docs-screenshots/. ` +
+      'Run `pnpm --filter @saferskills/webapp capture:screenshots`.'
+  )
+}
+// Served via the passthrough image service (Sharp-free — see astro.config.mjs),
+// so no `widths`/`sizes` transform: the intrinsic dimensions come from the
+// imported metadata and CSS scales to the content width.
+---
+
+<figure class="ss-shot">
+  <Image class="ss-img ss-light" src={light} alt={alt} loading="lazy" />
+  <Image class="ss-img ss-dark" src={dark} alt={alt} loading="lazy" />
+</figure>
+
+<style is:global>
+  .ss-shot {
+    margin: 1.5rem 0;
+  }
+  .ss-shot .ss-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--color-line);
+    border-radius: 0;
+  }
+  .ss-shot .ss-dark {
+    display: none;
+  }
+  html.dark .ss-shot .ss-light {
+    display: none;
+  }
+  html.dark .ss-shot .ss-dark {
+    display: block;
+  }
+</style>

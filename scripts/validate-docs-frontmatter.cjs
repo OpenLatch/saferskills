@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /* validate-docs-frontmatter.cjs — Zod-equivalent frontmatter gate for the docs
- * (I-06 Plan 1, D-8). Mirrors the build-time `docsSchema` extension in
- * webapp/docs/content.config.ts, but as a fast standalone CI lane that fails a
- * PR with a precise file/line before the (slower) Starlight build runs.
+ * (I-06, D-8). Mirrors the `docs` collection schema in webapp/src/content.config.ts,
+ * but as a fast standalone CI lane that fails a PR with a precise file/line
+ * before the (slower) app build runs.
  *
- * Contract (the hard gate): every page under webapp/docs/content/docs carries
- *   - title       (required, non-empty string)
+ * Contract (the hard gate): every page under webapp/src/content/docs carries
+ *   - title        (required, non-empty string)
  *   - description  (required, non-empty string)   ← SEO + meta
- *   - author       (optional, string)             ← byline (Plan 2 SEO-D3)
+ *   - author       (optional, string)             ← byline
  *   - updated      (optional, YYYY-MM-DD date)
+ *   - order        (optional, number)             ← sidebar sort key
+ *   - sidebarLabel (optional, string)             ← sidebar label override
  *
  * Run by the `docs-build` CI lane and available locally:
  *   node scripts/validate-docs-frontmatter.cjs
@@ -20,7 +22,7 @@ const path = require('node:path')
 const YAML = require('yaml')
 
 const ROOT = path.resolve(__dirname, '..')
-const DOCS = path.join(ROOT, 'webapp', 'docs', 'content', 'docs')
+const DOCS = path.join(ROOT, 'webapp', 'src', 'content', 'docs')
 
 if (!fs.existsSync(DOCS)) {
   console.error(`[docs-frontmatter] content dir not found: ${DOCS}`)
@@ -80,6 +82,12 @@ for (const rel of files) {
     } else {
       fail(gitRel, '`updated` must be a date (YYYY-MM-DD).')
     }
+  }
+  if ('order' in data && typeof data.order !== 'number') {
+    fail(gitRel, '`order` must be a number when present.')
+  }
+  if ('sidebarLabel' in data && typeof data.sidebarLabel !== 'string') {
+    fail(gitRel, '`sidebarLabel` must be a string when present.')
   }
 }
 
