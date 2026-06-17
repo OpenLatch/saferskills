@@ -1,0 +1,31 @@
+---
+/**
+ * Docs PageFrame override — places the real site Footer full-width BELOW the
+ * whole layout (PR1, docs chrome integration).
+ *
+ * Starlight's `Footer` slot is the IN-CONTENT footer (prev/next, edit-on-GitHub,
+ * last-updated) and is NOT full width — so we keep it (it's useful and gets
+ * themed by the chrome CSS) and instead wrap the default `PageFrame` here to
+ * append the 5-column site `Footer` after the entire `.page` flex column.
+ *
+ * Forwarding ALL THREE slots is mandatory: the `sidebar` slot carries
+ * Starlight's `<MobileMenuToggle>` (the mobile sidebar hamburger), so dropping
+ * it would break mobile navigation. The default slot is the main content; the
+ * `header` slot is our NavBar Header override.
+ *
+ * `NavStars` (client:only — it is effect-only and returns null; SSR-ing it
+ * throws an "Invalid hook call") is mounted once here so the NavBar GhStar count
+ * goes live, identical to the main site (`Base.astro` mounts it the same way).
+ */
+import Default from '@astrojs/starlight/components/PageFrame.astro'
+import Footer from '@ui/components/atoms/Footer.astro'
+import NavStars from '@/components/NavStars.tsx'
+---
+
+<Default>
+  <slot />
+  <slot name="header" slot="header" />
+  <slot name="sidebar" slot="sidebar" />
+</Default>
+<Footer />
+<NavStars client:only="react" />
