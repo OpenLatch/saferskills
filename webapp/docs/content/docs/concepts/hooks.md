@@ -25,7 +25,7 @@ Remote-code-execution patterns like these are why a hook deserves more scrutiny 
 
 The HOOKS detection category exists in the rubric today — its rules map to the [detection categories](/docs/security-and-methodology/detection-categories/) and use the same [`rule_id`](/docs/concepts/glossary/#rule_id) grammar (`SS-HOOKS-<NAME>-NN`) and the same [severity tiers](/docs/concepts/glossary/#severity-tier) as every other category. Skills and MCP servers are the fully scanned capabilities in v1; broader hook coverage is a forward-looking item on the v1.2 roadmap. The scoring model is unchanged when it lands: an active `critical` finding such as a `curl | bash` hook caps the whole aggregate at ≤15, and a low score means **review the command before you let it run**.
 
-## Related reading
+## Where do I go next?
 
 - [Detection categories](/docs/security-and-methodology/detection-categories/) — the closed set of five, including HOOKS.
 - [Glossary](/docs/concepts/glossary/) — definitions for [hook](/docs/concepts/glossary/#hook), [severity tier](/docs/concepts/glossary/#severity-tier), and [finding](/docs/concepts/glossary/#finding).

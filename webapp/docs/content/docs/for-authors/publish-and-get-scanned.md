@@ -37,7 +37,7 @@ Yes. A scan of a public GitHub repo produces a public catalog entry indexed at `
 
 Once you have a score you are happy with, embed the live badge in your README so installers see the current grade at a glance. See [Embed your badge](/docs/find-and-verify/embed-your-badge/).
 
-## Related
+## Where do I go next?
 
 - [SKILL.md spec](/docs/for-authors/skill-md-spec/) — author a repo that scores well
 - [How scoring works](/docs/security-and-methodology/how-scoring-works/) — the deterministic scoring model

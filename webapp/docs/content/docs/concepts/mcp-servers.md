@@ -27,7 +27,7 @@ SaferSkills runs the same deterministic static scan it runs for every [capabilit
 
 A low score means **review before use** — read the findings and the evidence, then decide. See [How scoring works](/docs/concepts/how-scoring-works/) for the full model, or the [live methodology page](/methodology) for every MCP rule.
 
-## Related reading
+## Where do I go next?
 
 - [How scoring works](/docs/concepts/how-scoring-works/) — the 0–100 model in one page.
 - [Glossary](/docs/concepts/glossary/) — including [tool poisoning](/docs/concepts/glossary/#tool-poisoning) and [prompt injection](/docs/concepts/glossary/#prompt-injection).

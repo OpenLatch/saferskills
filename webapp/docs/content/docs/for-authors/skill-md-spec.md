@@ -75,7 +75,7 @@ These are three of the security rules that apply to skills; SaferSkills also che
 
 Re-submit the repo at [/scan](/scan) and read the updated report. Because scoring is deterministic, the same bytes against the same `rubric_version` always produce the same score, so you can iterate locally and verify each change lands. The report renders the per-finding penalty and the running sub-score, so you can see exactly which file or pattern moved the number. To install your scanner-clean skill into an agent, or to gate installs on a minimum score, see [Install a skill](/docs/install/install-a-skill/).
 
-## Related
+## Where do I go next?
 
 - [Publish and get scanned](/docs/for-authors/publish-and-get-scanned/) — submit your repo
 - [How scoring works](/docs/security-and-methodology/how-scoring-works/) — the deterministic model behind these signals

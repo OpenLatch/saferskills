@@ -27,7 +27,7 @@ SaferSkills runs a deterministic static scan and produces a 0–100 [aggregate s
 
 An active `critical` finding caps the whole aggregate at ≤15, and an active `high` caps it at ≤45 — so a serious skill-body flaw can never be diluted by clean docs or a healthy star count. A low score is an instruction to **review before use**, not a verdict that the skill is unusable. For the full breakdown, read [How scoring works](/docs/concepts/how-scoring-works/).
 
-## Related reading
+## Where do I go next?
 
 - [How scoring works](/docs/concepts/how-scoring-works/) — the score model in one page.
 - [Install a skill](/docs/install/install-a-skill/) — per-agent install paths for all eight supported agents.

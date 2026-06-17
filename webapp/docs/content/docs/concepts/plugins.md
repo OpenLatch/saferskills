@@ -25,7 +25,7 @@ On top of those, a plugin's broad reach makes it a natural target for credential
 
 The PLUGIN detection category exists in the rubric today and uses the same [`rule_id`](/docs/concepts/glossary/#rule_id) grammar and [scoring model](/docs/concepts/how-scoring-works/) as every other [detection category](/docs/security-and-methodology/detection-categories/). Skills and MCP servers are the fully scanned capabilities in v1; broader plugin coverage — scoring the bundle as the union of its parts — is a forward-looking item on the v1.2 roadmap. As always, an active `critical` finding caps the whole aggregate at ≤15, and a low score means **review every capability the plugin bundles before you install it**.
 
-## Related reading
+## Where do I go next?
 
 - [Skills](/docs/concepts/skills/), [MCP servers](/docs/concepts/mcp-servers/), [Hooks](/docs/concepts/hooks/) — the capabilities a plugin can bundle.
 - [Glossary](/docs/concepts/glossary/) — including [plugin](/docs/concepts/glossary/#plugin) and [capability](/docs/concepts/glossary/#capability).

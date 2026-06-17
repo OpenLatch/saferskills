@@ -46,7 +46,7 @@ jobs:
             ci:         [ '.github/**', 'ci/**', 'docker-compose*.yml' ]
             e2e:        [ 'tools/e2e/**' ]
             cli:        [ 'cli/**', '.github/actions/setup-rust/**' ]
-            docs:       [ 'webapp/docs/**', 'webapp/docs.astro.config.mjs', 'webapp/src/data/homepage-constants.ts', 'scripts/validate-docs-frontmatter.cjs', 'scripts/check-internal-docs-links.cjs' ]
+            docs:       [ 'webapp/docs/**', 'webapp/docs.astro.config.mjs', 'webapp/package.json', 'webapp/src/data/homepage-constants.ts', 'webapp/scripts/generate-llms-txt.cjs', 'webapp/scripts/copy-docs.cjs', 'webapp/test/a11y/docs.spec.ts', 'webapp/playwright.config.ts', '.lighthouserc.docs.json', 'scripts/validate-docs-frontmatter.cjs', 'scripts/check-internal-docs-links.cjs' ]
 
   validate:
     name: PR - Codegen drift gate
@@ -425,7 +425,10 @@ jobs:
       - name: Lighthouse CI
         run: npx --yes @lhci/cli@0.14.x autorun --config=.lighthouserc.json
       - name: axe (WCAG 2 A/AA)
-        run: cd webapp && npx playwright test
+        # Main-site SSR pages only. The docs (Starlight SSG) a11y smoke is a
+        # separate static lane (docs-a11y) — /docs is not folded into this :5173
+        # server, so its spec must not run here.
+        run: cd webapp && npx playwright test test/a11y/pages.spec.ts
       - name: Stop webapp
         if: always()
         run: kill "$(cat /tmp/webapp.pid)" || true
@@ -452,9 +455,60 @@ jobs:
       # in-process by the Starlight integration.
       - name: Build docs (Starlight SSG)
         run: pnpm --filter @saferskills/webapp exec astro build --config docs.astro.config.mjs
+      # Auto-generate the LLM manifests into dist-docs and assert both are
+      # non-empty (Plan 3). They are gitignored — generated fresh every build.
+      - name: Generate + verify llms.txt
+        run: |
+          node webapp/scripts/generate-llms-txt.cjs
+          test -s webapp/dist-docs/llms.txt || { echo "::error::llms.txt missing/empty"; exit 1; }
+          test -s webapp/dist-docs/llms-full.txt || { echo "::error::llms-full.txt missing/empty"; exit 1; }
       # Build-time internal-link gate (D-9) over the emitted HTML.
       - name: Internal link check
         run: node scripts/check-internal-docs-links.cjs
+
+  docs-a11y:
+    name: PR - Docs Lighthouse + axe (a11y)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-saferskills-build
+      - name: Install Chromium
+        run: cd webapp && npx playwright install --with-deps chromium
+      # Pure-static docs build — no API/Docker needed (vs the SSR lighthouse-a11y
+      # lane). astro preview serves dist-docs at :5174/docs/ (base applied).
+      - name: Build docs (Starlight SSG)
+        run: pnpm --filter @saferskills/webapp exec astro build --config docs.astro.config.mjs
+      - name: Start docs preview (static)
+        run: |
+          pnpm --filter @saferskills/webapp exec astro preview --config docs.astro.config.mjs --port 5174 --host &
+          echo $! > /tmp/docs.pid
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5174/docs/ >/dev/null; then echo "docs up"; break; fi
+            sleep 2
+          done
+          # Hard-fail if the preview never became healthy — otherwise Lighthouse
+          # + axe run against a dead server and report confusing failures.
+          curl -fsS http://localhost:5174/docs/ >/dev/null || { echo "::error::docs preview never came up on :5174"; exit 1; }
+      - name: Lighthouse CI (P0 docs pages, observe-mode warn)
+        run: npx --yes @lhci/cli@0.14.x autorun --config=.lighthouserc.docs.json
+      - name: axe (WCAG 2 A/AA, hard gate)
+        env:
+          PUBLIC_SITE_URL: http://localhost:5174
+        run: cd webapp && npx playwright test test/a11y/docs.spec.ts
+      - name: Stop docs preview
+        if: always()
+        run: kill "$(cat /tmp/docs.pid)" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lighthouse-docs-reports
+          path: .lighthouseci/
 
   cli-fmt:
     name: PR - cargo fmt (cli)
@@ -539,7 +593,7 @@ jobs:
 
   all-checks:
     name: PR - All checks
-    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y, ingestion-smoke, docs-build, cli-fmt, cli-clippy, cli-test, cli-build, cli-rustls]
+    needs: [validate, lint-fe, lint-be, typecheck-fe, typecheck-be, test-fe, test-be, ladle-build, docker-build, docker-smoke, trivy-scan, dep-scan, lighthouse-a11y, ingestion-smoke, docs-build, docs-a11y, cli-fmt, cli-clippy, cli-test, cli-build, cli-rustls]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -561,6 +615,7 @@ jobs:
             "${{ needs.lighthouse-a11y.result }}"
             "${{ needs.ingestion-smoke.result }}"
             "${{ needs.docs-build.result }}"
+            "${{ needs.docs-a11y.result }}"
             "${{ needs.cli-fmt.result }}"
             "${{ needs.cli-clippy.result }}"
             "${{ needs.cli-test.result }}"

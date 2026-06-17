@@ -35,7 +35,7 @@ Directly uploaded artifacts have **no right-of-reply**. The right-of-reply is a 
 
 If you want a response channel, scan the public GitHub repo instead of uploading the files. See [Publish and get scanned](/docs/for-authors/publish-and-get-scanned/).
 
-## Related
+## Where do I go next?
 
 - [Disputing findings](/docs/for-authors/disputing-findings/) — challenge the rule, not just the score
 - [Publish and get scanned](/docs/for-authors/publish-and-get-scanned/) — submit a repo so you can reply

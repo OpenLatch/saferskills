@@ -25,22 +25,23 @@ const cols = [
   {
     label: 'AGENTS',
     links: [
-      // Per-runtime install pages moved to /docs/agent/<runtime> (I-5.6 D-5.6-01/DEV-2)
-      // so the /agents, /agents/[id], /agents/r/[token] namespace is free for the
-      // Agent Report + directory. The /docs/agent/* pages themselves are I-06's concern.
-      { label: 'Claude Code', href: '/docs/agent/claude-code' },
-      { label: 'Cursor', href: '/docs/agent/cursor' },
-      { label: 'Codex', href: '/docs/agent/codex' },
-      { label: 'Copilot', href: '/docs/agent/copilot' },
-      { label: 'Windsurf', href: '/docs/agent/windsurf' },
+      // The per-agent install guides live in the I-06 docs IA at
+      // /docs/install/per-agent-guides/<id>/ (the `/agents*` app namespace is the
+      // Agent Report + directory, NOT install docs). Keep these in lockstep with
+      // the docs IA — the docs-build internal-link gate covers the docs side.
+      { label: 'Claude Code', href: '/docs/install/per-agent-guides/claude-code/' },
+      { label: 'Cursor', href: '/docs/install/per-agent-guides/cursor/' },
+      { label: 'Codex', href: '/docs/install/per-agent-guides/codex/' },
+      { label: 'Copilot', href: '/docs/install/per-agent-guides/copilot/' },
+      { label: 'Windsurf', href: '/docs/install/per-agent-guides/windsurf/' },
     ],
   },
   {
     label: 'DOCS',
     links: [
       { label: 'Overview', href: '/docs' },
-      { label: 'CLI', href: '/docs#cli' },
-      { label: 'API', href: '/docs#api' },
+      { label: 'CLI', href: '/docs/install/cli-reference/' },
+      { label: 'API', href: '/docs/reference/api/' },
       { label: 'Methodology', href: '/methodology' },
       { label: 'Detection rules', href: '/methodology#rules' },
     ],

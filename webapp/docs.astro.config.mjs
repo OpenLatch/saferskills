@@ -56,6 +56,11 @@ export default defineConfig({
       // own theme script; also seeds `starlight-theme` so the built-in
       // ThemeSelect reflects the inherited choice.
       head: [
+        // E-E-A-T authorship signal (Plan 3 SEO-D3). Authorship is uniformly the
+        // "SaferSkills Team" (see the `author` frontmatter on analytical pages), so
+        // a single global meta tag is accurate for every page — no per-page render
+        // fork. The about page (/docs/reference/about/) is the team bio surface.
+        { tag: 'meta', attrs: { name: 'author', content: 'SaferSkills Team' } },
         {
           tag: 'script',
           content: [

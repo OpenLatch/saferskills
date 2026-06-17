@@ -73,7 +73,7 @@ A few support endpoints round out the surface:
 
 Endpoints under `/api/v1/admin/*` and the GitHub webhook intake are operator-only and not part of the public surface.
 
-## Related pages
+## Where do I go next?
 
 - Up: [Reference](/docs/reference/about/) · [FAQ](/docs/reference/faq/)
 - The CLI that wraps these flows: [CLI reference](/docs/install/cli-reference/)
