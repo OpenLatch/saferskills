@@ -3,8 +3,16 @@ title: "What Agent Scan Is"
 description: "Agent Scan grades a whole running agent's behavior with dynamic tests — observed, not certified — versus a static component audit."
 updated: 2026-06-16
 ---
+import Screenshot from '../../../components/Screenshot.astro'
 
 Agent Scan grades a whole *running* agent's behavior, not the files of a single capability. Where a component scan statically reads a Skill or MCP server and scores its source against rules, Agent Scan runs a pack of adversarial tests against the live agent — using mock tools only, with zero real side effects — and grades the evidence in the cloud. Because the agent runs the tests but SaferSkills grades them, a vendor cannot self-attest.
+
+Published Agent Reports collect in the [agents directory](/agents), each a dossier card with its behavioral score and capability stack:
+
+<Screenshot
+  name="agent-directory"
+  alt="The agents directory: a corpus risk band above a grid of Agent Report dossier cards, each showing a behavioral score, a clean-or-flagged verdict, and its runtime."
+/>
 
 ## What does Agent Scan actually test?
 

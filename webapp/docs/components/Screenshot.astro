@@ -1,0 +1,66 @@
+---
+/**
+ * Theme-aware product screenshot (I-06 docs UI, PR2).
+ *
+ * Renders the light + dark capture of one surface and shows the one matching the
+ * reader's theme. The pair is produced by `scripts/capture-docs-screenshots.mjs`
+ * into `docs/assets/screenshots/<name>.{light,dark}.png`; here they go through
+ * `astro:assets` so they are optimized + base-aware at build.
+ *
+ * Theme toggle keys on `html.dark` — the same class the site chrome + the docs
+ * `data-theme` mirror observer drive (see saferskills-docs-chrome.css), so the
+ * shot flips in lockstep with everything else. The hidden image is `display:none`
+ * (out of the a11y tree), so only the visible one's `alt` is announced.
+ */
+import { Image } from 'astro:assets'
+
+interface Props {
+  /** Surface base name, e.g. "catalog" → catalog.{light,dark}.png */
+  name: string
+  /** Required, descriptive alt text (axe gate). */
+  alt: string
+}
+const { name, alt } = Astro.props
+
+const shots = import.meta.glob<{ default: ImageMetadata }>('../assets/screenshots/*.png', {
+  eager: true,
+})
+const light = shots[`../assets/screenshots/${name}.light.png`]?.default
+const dark = shots[`../assets/screenshots/${name}.dark.png`]?.default
+if (!light || !dark) {
+  throw new Error(
+    `<Screenshot name="${name}"> — missing light/dark pair in docs/assets/screenshots/. ` +
+      'Run `pnpm --filter @saferskills/webapp capture:screenshots`.'
+  )
+}
+// Served via the passthrough image service (Sharp-free — see docs.astro.config.mjs),
+// so no `widths`/`sizes` transform: the intrinsic dimensions come from the
+// imported metadata and CSS scales to the content width.
+---
+
+<figure class="ss-shot">
+  <Image class="ss-img ss-light" src={light} alt={alt} loading="lazy" />
+  <Image class="ss-img ss-dark" src={dark} alt={alt} loading="lazy" />
+</figure>
+
+<style is:global>
+  .ss-shot {
+    margin: 1.5rem 0;
+  }
+  .ss-shot .ss-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0;
+  }
+  .ss-shot .ss-dark {
+    display: none;
+  }
+  html.dark .ss-shot .ss-light {
+    display: none;
+  }
+  html.dark .ss-shot .ss-dark {
+    display: block;
+  }
+</style>

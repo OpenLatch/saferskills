@@ -13,7 +13,8 @@
     "astro": "astro",
     "test": "vitest run",
     "test:watch": "vitest",
-    "subset-fonts": "node ./scripts/subset-fonts.cjs"
+    "subset-fonts": "node ./scripts/subset-fonts.cjs",
+    "capture:screenshots": "node ./scripts/capture-docs-screenshots.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^6.0.3",
