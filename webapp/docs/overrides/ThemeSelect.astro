@@ -1,0 +1,17 @@
+---
+/**
+ * Docs ThemeSelect override — renders nothing (PR1, docs chrome integration).
+ *
+ * The single canonical theme control site-wide is the 3-state `ThemeToggle` in
+ * the footer (rendered by the PageFrame override). Starlight's stock
+ * `<ThemeSelect>` is a SECOND, foreign control that keys on `data-theme` +
+ * `localStorage['starlight-theme']` rather than the site's `html.dark` +
+ * `localStorage['ss-theme']`, so leaving it (in the header OR the mobile menu)
+ * would (a) look like a different site and (b) desync the chrome from the body.
+ *
+ * Overriding it with an empty component removes both the markup AND its inline
+ * `customElements.define('starlight-theme-select', …)` script, so no competing
+ * theme authority runs. `data-theme` is kept in lockstep with `html.dark` by the
+ * mirror observer in `docs.astro.config.mjs` head[]. Do NOT add any markup here.
+ */
+---
