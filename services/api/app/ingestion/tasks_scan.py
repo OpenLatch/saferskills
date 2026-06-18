@@ -619,29 +619,6 @@ async def auto_scan_reconcile(timestamp: int) -> dict[str, Any]:
     return {"enqueued": enqueued}
 
 
-@procrastinate_app.periodic(cron="*/15 * * * *")
-@procrastinate_app.task(
-    name="scan_stalled_retrier",
-    queue="periodic",
-    queueing_lock="scan_stalled_retrier_lock",
-    priority=PERIODIC_MAINTENANCE_PRIORITY,
-)
-async def scan_stalled_retrier(timestamp: int) -> dict[str, int]:
-    """Re-queue `scan`-queue jobs the worker abandoned on a restart (durability)."""
-    jm = procrastinate_app.job_manager
-    retried = 0
-    try:
-        stalled = await jm.get_stalled_jobs(nb_seconds=_STALLED_SECONDS, queue="scan")
-        for job in stalled:
-            await jm.retry_job(job)
-            retried += 1
-    except Exception:
-        logger.exception("scan_stalled_retrier.failed")
-    if retried:
-        logger.info("scan_stalled_retrier.requeued", retried=retried)
-    return {"retried": retried}
-
-
 # The ingest + periodic-maintenance queues `scan_stalled_retrier` does NOT cover.
 # A worker restart orphaned a `doing` cycle on one of these forever (the known
 # ~1-orphaned-cycle/hour leak), since the scan retrier is `queue="scan"` only (WS-7).
@@ -653,6 +630,72 @@ _INGEST_QUEUES = (
     "ingest_pypi",
     "periodic",
 )
+# Every queue a stalled `doing` job can live on — the boot-time recovery sweeps all.
+_ALL_STALLED_QUEUES = ("scan", *_INGEST_QUEUES)
+
+
+async def _requeue_stalled_jobs(queues: tuple[str, ...], nb_seconds: int) -> dict[str, int]:
+    """Re-queue `doing` jobs a dead worker abandoned, across `queues`.
+
+    Resilient PER JOB and PER QUEUE: a single `retry_job` failure — notably the
+    `queueing_lock` partial-unique `UniqueViolation`, raised when a stalled job's
+    lock is already held by a sibling `todo` (the stalled one is a duplicate) — must
+    NOT abort the whole sweep. The previous loop wrapped every queue + every job in
+    one `try/except`, so one collision on `ingest_cycle_mcp_registry_lock` left every
+    OTHER stalled job orphaned and crash-looped the retrier (WS-7 follow-up). A
+    skipped duplicate self-heals on a later tick once the sibling frees the slot.
+    """
+    jm = procrastinate_app.job_manager
+    retried = 0
+    skipped = 0
+    for queue in queues:
+        try:
+            stalled = await jm.get_stalled_jobs(nb_seconds=nb_seconds, queue=queue)
+        except Exception:
+            logger.exception("requeue_stalled.list_failed", queue=queue)
+            continue
+        for job in stalled:
+            try:
+                await jm.retry_job(job)
+                retried += 1
+            except Exception as exc:
+                skipped += 1
+                logger.warning(
+                    "requeue_stalled.retry_skipped",
+                    queue=queue,
+                    job_id=getattr(job, "id", None),
+                    error=str(exc)[:160],
+                )
+    if retried or skipped:
+        logger.info("requeue_stalled.done", retried=retried, skipped=skipped)
+    return {"retried": retried, "skipped": skipped}
+
+
+async def recover_orphaned_jobs_at_boot() -> dict[str, int]:
+    """Boot-time recovery of orphaned `doing` Procrastinate jobs (called from
+    `app.worker_main`, after the connector opens, before the supervisor starts).
+
+    At worker boot the *previous* worker process is gone, so EVERY `doing` job is an
+    orphan whose `queueing_lock` blocks fresh cycles. `nb_seconds=0` selects them all
+    and re-queues them immediately. Without this, an orphan left by a deploy/restart
+    blocked its source for up to `ingestion_stalled_seconds` (4h) — which is what
+    stalled staging ingestion after each worker redeploy (the lock on
+    `ingest_cycle_mcp_registry` was held by the cycle the restart abandoned). The
+    periodic `*_stalled_retrier`s remain the steady-state net for mid-run restarts.
+    """
+    return await _requeue_stalled_jobs(_ALL_STALLED_QUEUES, 0)
+
+
+@procrastinate_app.periodic(cron="*/15 * * * *")
+@procrastinate_app.task(
+    name="scan_stalled_retrier",
+    queue="periodic",
+    queueing_lock="scan_stalled_retrier_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
+)
+async def scan_stalled_retrier(timestamp: int) -> dict[str, int]:
+    """Re-queue `scan`-queue jobs the worker abandoned on a restart (durability)."""
+    return await _requeue_stalled_jobs(("scan",), _STALLED_SECONDS)
 
 
 @procrastinate_app.periodic(cron="*/15 * * * *")
@@ -665,23 +708,9 @@ _INGEST_QUEUES = (
 async def ingestion_stalled_retrier(timestamp: int) -> dict[str, int]:
     """Re-queue ingest-queue (+ `periodic`) jobs a worker abandoned on a restart.
 
-    Sibling to `scan_stalled_retrier`, which only covers `queue="scan"` — so an
-    ingest cycle (`ingest_github`/`ingest_aggregator`/…) left `doing` by a restart
-    would otherwise stay orphaned forever. Uses a generous `ingestion_stalled_seconds`
-    (default 4h) — comfortably above mcp_registry's worst-case full-feed cycle, so a
-    legitimately-long in-flight crawl is never re-queued out from under itself.
+    Sibling to `scan_stalled_retrier` (which is `queue="scan"` only). Uses a generous
+    `ingestion_stalled_seconds` (default 4h) so a legitimately-long in-flight crawl
+    (mcp_registry full feed) is never re-queued out from under itself. Immediate
+    post-restart recovery is handled separately by `recover_orphaned_jobs_at_boot`.
     """
-    nb_seconds = get_settings().ingestion_stalled_seconds
-    jm = procrastinate_app.job_manager
-    retried = 0
-    try:
-        for queue in _INGEST_QUEUES:
-            stalled = await jm.get_stalled_jobs(nb_seconds=nb_seconds, queue=queue)
-            for job in stalled:
-                await jm.retry_job(job)
-                retried += 1
-    except Exception:
-        logger.exception("ingestion_stalled_retrier.failed")
-    if retried:
-        logger.info("ingestion_stalled_retrier.requeued", retried=retried)
-    return {"retried": retried}
+    return await _requeue_stalled_jobs(_INGEST_QUEUES, get_settings().ingestion_stalled_seconds)
