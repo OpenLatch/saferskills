@@ -5586,6 +5586,26 @@
         ]
       }
     },
+    "/api/v1/community/slack/redirect": {
+      "get": {
+        "description": "302 to the configured Slack invite, or 503 when it is unset.",
+        "operationId": "slack_redirect_api_v1_community_slack_redirect_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Redirect to the community Slack invite",
+        "tags": [
+          "community"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "health_api_v1_health_get",
