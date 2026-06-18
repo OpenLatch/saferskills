@@ -39,7 +39,7 @@ jobs:
         id: filter
         with:
           filters: |
-            backend:    [ 'services/api/**', 'schemas/**', 'scripts/**' ]
+            backend:    [ 'services/api/**', 'schemas/**', 'scripts/**', 'rubric/**' ]
             frontend:   [ 'webapp/**', 'ui/**' ]
             ui:         [ 'ui/**' ]
             schemas:    [ 'schemas/**', 'scripts/generate-*.cjs', 'scripts/validate-schemas.cjs', 'scripts/_run-generators.cjs' ]
@@ -230,7 +230,9 @@ jobs:
       matrix:
         include:
           - service: api
-            context: services/api
+            # Repo-root context so the API image can COPY the repo-root rubric/
+            # tree the scan engine loads at runtime (matches webapp's root context).
+            context: .
             dockerfile: services/api/Dockerfile
           - service: webapp
             context: .
@@ -286,11 +288,24 @@ jobs:
       - name: Curl /api/v1/health
         run: |
           for i in {1..30}; do
-            if curl -fsS http://localhost:8000/api/v1/health; then exit 0; fi
+            if curl -fsS http://localhost:8000/api/v1/health; then break; fi
             sleep 2
+            if [ "$i" = "30" ]; then docker compose -f ci/docker-compose.smoke.yml logs; exit 1; fi
           done
-          docker compose -f ci/docker-compose.smoke.yml logs
-          exit 1
+      - name: Assert the scan engine loaded its rubric (image packages rubric/)
+        # Regression guard: the rubric/ tree lives at the repo root, so the API
+        # image must build from a root context + COPY it. If it ever stops being
+        # packaged, _load_all_rules() returns 0 and every scan trivially scores
+        # 100 (empty findings) — invisible to /health. Fail the smoke instead.
+        run: |
+          n=$(docker compose -f ci/docker-compose.smoke.yml exec -T api \
+            python -c "from app.scan.rubric import _load_all_rules; print(len(_load_all_rules()))")
+          echo "rubric rules loaded in image: $n"
+          if [ "$n" -lt 1 ]; then
+            echo "::error::API image loaded 0 rubric rules — rubric/ is not packaged (see services/api/Dockerfile root context)"
+            docker compose -f ci/docker-compose.smoke.yml logs api
+            exit 1
+          fi
 
   trivy-scan:
     name: PR - Trivy ${{ matrix.service }}

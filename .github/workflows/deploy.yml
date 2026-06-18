@@ -43,9 +43,9 @@ jobs:
         if: github.event_name == 'push'
         with:
           filters: |
-            api:    [ 'services/api/**', 'schemas/**' ]
+            api:    [ 'services/api/**', 'schemas/**', 'rubric/**' ]
             webapp: [ 'webapp/**', 'ui/**' ]
-            worker: [ 'services/api/**', 'schemas/**', 'services/worker/**' ]
+            worker: [ 'services/api/**', 'schemas/**', 'services/worker/**', 'rubric/**' ]
       - id: resolve
         env:
           EVENT: ${{ github.event_name }}
@@ -88,7 +88,9 @@ jobs:
       matrix:
         include:
           - service: api
-            context: services/api
+            # Repo-root context so the API image can COPY the repo-root rubric/
+            # tree the scan engine loads at runtime (matches webapp's root context).
+            context: .
             dockerfile: services/api/Dockerfile
           - service: webapp
             context: .
@@ -119,6 +121,11 @@ jobs:
           sha=$(git rev-parse --short HEAD)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "tag=main-$sha" >> "$GITHUB_OUTPUT"
+          # Subtree SHAs stamped onto the API image as RUBRIC_VERSION/ENGINE_VERSION
+          # (app/scan stamps them on every scan). They change ONLY when rules / the
+          # engine change, so the reconcile re-evals from stored blobs exactly then.
+          echo "rubric_version=$(git rev-parse HEAD:rubric)" >> "$GITHUB_OUTPUT"
+          echo "engine_version=$(git rev-parse HEAD:services/api/app/scan)" >> "$GITHUB_OUTPUT"
 
       - name: Build & push dual-registry
         id: build
@@ -142,6 +149,8 @@ jobs:
           # project key both are. See ci-cd.md § Build-time public config.
           build-args: |
             GIT_SHA=${{ steps.meta.outputs.sha }}
+            RUBRIC_VERSION=${{ steps.meta.outputs.rubric_version }}
+            ENGINE_VERSION=${{ steps.meta.outputs.engine_version }}
             # Build-arg name stays PUBLIC_*-prefixed (Astro/Vite requires it to
             # inline into the bundle); the value comes from the TURNSTILE_-grouped
             # GH Actions secret. Renaming the build-arg would disable the gate.
