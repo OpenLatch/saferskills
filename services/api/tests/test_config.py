@@ -13,6 +13,7 @@ validator handles two such quirks:
     staging e2e doctor probe.
 """
 
+import base64
 from typing import Literal
 
 import pytest
@@ -244,3 +245,44 @@ def test_agent_scan_secrets_optional_in_dev() -> None:
     settings = Settings(env="development")
     assert settings.saferskills_agent_master_key is None
     assert settings.saferskills_pack_signing_key is None
+
+
+# ── GitHub App private key (base64-in-secret) normalization ──────────────────
+#
+# Regression: the key is stored base64-encoded in the `GITHUB_APP_PRIVATE_KEY_B64`
+# Fly secret, but nothing decoded it — so `github_app_private_key` was always None,
+# `get_github_app_installation_token` returned None, and every API + worker GitHub
+# call ran ANONYMOUS (60 req/h). That throttled ingestion enrichment (empty-tier
+# items hidden from the catalog) and 429'd the auto-scan pipeline.
+
+_FAKE_PEM = "-----BEGIN RSA PRIVATE KEY-----\nMIIfake\n-----END RSA PRIVATE KEY-----\n"
+_FAKE_PEM_B64 = base64.b64encode(_FAKE_PEM.encode()).decode()
+
+
+def test_github_app_key_b64_secret_is_decoded_to_pem() -> None:
+    """The deployed shape: a base64 `GITHUB_APP_PRIVATE_KEY_B64` secret → raw PEM."""
+    settings = Settings(github_app_private_key_b64=_FAKE_PEM_B64)
+    assert settings.github_app_private_key == _FAKE_PEM
+
+
+def test_github_app_key_raw_pem_is_kept_as_is() -> None:
+    """A raw multi-line PEM in the main field is used verbatim (no decode)."""
+    settings = Settings(github_app_private_key=_FAKE_PEM)
+    assert settings.github_app_private_key == _FAKE_PEM
+
+
+def test_github_app_key_base64_in_main_field_is_decoded() -> None:
+    """A base64 value placed in the main field is decoded too (lenient)."""
+    settings = Settings(github_app_private_key=_FAKE_PEM_B64)
+    assert settings.github_app_private_key == _FAKE_PEM
+
+
+def test_github_app_key_invalid_value_degrades_to_none() -> None:
+    """A non-PEM, non-base64 value resets to None so token minting fails gracefully."""
+    settings = Settings(github_app_private_key="not-a-key-and-not-base64-$$$")
+    assert settings.github_app_private_key is None
+
+
+def test_github_app_key_unset_stays_none() -> None:
+    settings = Settings()
+    assert settings.github_app_private_key is None
