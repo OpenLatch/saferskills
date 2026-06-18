@@ -27,3 +27,7 @@ Start with [Getting Started](/docs/getting-started/) if SaferSkills is new to yo
 ## How can you check the rules yourself?
 
 Every detection rule is documented and auto-rendered on the live [methodology page](/methodology), with its severity, sub-score, framework references, and a permalink to the rule source. You can [browse the catalog](/catalog), [submit a scan](/scan), or open the [Agent Report directory](/agents) on the main site at any time — the docs and the running service share one source of truth.
+
+## Where can you get help?
+
+Have a question these docs don't answer? [Join our community Slack](/slack) to ask the maintainers and other users, or open a thread in [GitHub Discussions](https://github.com/OpenLatch/saferskills/discussions).

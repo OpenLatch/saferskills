@@ -1,6 +1,20 @@
-# webapp — SaferSkills public site
+<div align="center">
 
-Astro 6 + React 19 islands + Tailwind v4 SSG. The W1 surface is the placeholder homepage at `/` plus `/privacy`, `/terms`, `/methodology` stubs.
+<a href="../README.md">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../webapp/public/logos/saferskills-dark-wordmark.svg">
+    <img alt="SaferSkills" src="../webapp/public/logos/saferskills-light-wordmark.svg" height="38">
+  </picture>
+</a>
+
+<h3>Public website</h3>
+<p>The Astro 6 + React 19 catalog, scan reports, and docs at saferskills.ai.</p>
+
+</div>
+
+## What it is
+
+The public SaferSkills website — the catalog, scan + agent reports, the native docs, and the marketing surfaces at [saferskills.ai](https://saferskills.ai). Astro 6 (`output: 'server'`, with per-page `prerender`) + React 19 islands + Tailwind v4 via `@tailwindcss/vite`. It consumes the [`ui/`](../ui/README.md) design system and reaches the [API](../services/api/README.md) same-origin through an in-app `/api/*` reverse proxy — no CORS, no API URL baked into the bundle.
 
 ## Run locally
 
@@ -10,42 +24,42 @@ pnpm install
 pnpm dev               # http://localhost:5173
 ```
 
-## Build
+`pnpm dev` expects the API reachable at `API_ORIGIN` (default `http://localhost:8000`); the simplest full stack is `docker compose up` from the repo root.
+
+## Build & test
 
 ```bash
-pnpm build             # → dist/
-```
-
-## Tests
-
-```bash
+pnpm build             # SSR build → dist/server/entry.mjs
+pnpm preview           # serve the built bundle
 pnpm test              # Vitest unit + axe smoke
 ```
 
-Coverage gate: ≥70% on shipped components (W1: just the email-capture island).
+The container runs `node ./dist/server/entry.mjs`.
 
 ## Layout
 
 ```
 src/
-├── pages/                  # Astro routes (file-based)
-│   ├── index.astro         # Placeholder homepage + email capture
-│   ├── privacy.astro
-│   ├── terms.astro
-│   └── methodology.astro
-├── layouts/
-│   └── Base.astro          # HTML shell, fonts, OG + Twitter meta
-├── styles/
-│   └── global.css          # Tailwind v4 entry + token import
-└── generated/              # ← codegen output (never hand-edit)
-    ├── openapi/types.gen.ts
-    └── zod/index.ts
-public/                     # banner.png (light) + banner-dark.png — README hero
-                            # + OG/Twitter card; favicon.svg; robots.txt
+├── pages/            # Astro routes (file-based) — home, capabilities, scan,
+│   │                 # scans/[id], agents/[id], items/[slug], methodology, docs/**,
+│   │                 # badge + OG endpoints, api/[...path].ts (same-origin API proxy)
+│   └── ...
+├── components/       # page-specific React/Astro compositions (consume ui/)
+├── content/docs/**   # the native I-06 docs (markdown/MDX → /docs/*)
+├── layouts/          # Base.astro (HTML shell, fonts, theme, OG/meta) + DocsLayout
+├── styles/           # global.css (imports @ui/styles) + reset + page-*.css shells
+├── lib/              # api client, hooks (useScanProgress, useUploadFlow), fallbacks
+└── generated/        # ← codegen output (never hand-edit): openapi types + Zod
+public/               # logos, favicons, PWA manifest, OG image
 ```
 
 ## See also
 
-- `.claude/rules/design-system.md`
-- `.claude/rules/frontend-patterns.md`
-- `../ui/CLAUDE.md`
+- [`webapp/CLAUDE.md`](./CLAUDE.md) — hard rules (SSG opt-in, theme, aliases, API proxy)
+- [`.claude/rules/frontend-patterns.md`](../.claude/rules/frontend-patterns.md) — routing, islands, data fetching
+- [`.claude/rules/design-system.md`](../.claude/rules/design-system.md) — tokens + components
+- [`../ui/README.md`](../ui/README.md) — the design system it consumes
+
+---
+
+<sub>Part of **[SaferSkills](../README.md)** — every AI capability, independently scanned. · An [OpenLatch](https://openlatch.ai) project · [saferskills.ai](https://saferskills.ai)</sub>

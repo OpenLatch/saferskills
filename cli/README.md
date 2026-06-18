@@ -1,4 +1,16 @@
-# saferskills
+<div align="center">
+
+<a href="https://github.com/OpenLatch/saferskills">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenLatch/saferskills/main/webapp/public/logos/saferskills-dark-wordmark.svg">
+    <img alt="SaferSkills" src="https://raw.githubusercontent.com/OpenLatch/saferskills/main/webapp/public/logos/saferskills-light-wordmark.svg" height="38">
+  </picture>
+</a>
+
+<h3>saferskills CLI</h3>
+<p>Install and scan AI capabilities from any terminal — with an independent trust score checked at install time.</p>
+
+</div>
 
 **Every AI capability, independently scanned.** Install Skills and MCP servers to any AI agent with a verified SaferSkills trust score checked at install time.
 
@@ -143,4 +155,4 @@ Published via [npm Trusted Publishers (OIDC)](https://docs.npmjs.com/trusted-pub
 
 ---
 
-An OpenLatch project · <https://saferskills.ai>
+<sub>Part of **[SaferSkills](https://github.com/OpenLatch/saferskills)** — every AI capability, independently scanned. · An [OpenLatch](https://openlatch.ai) project · [saferskills.ai](https://saferskills.ai)</sub>

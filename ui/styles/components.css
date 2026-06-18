@@ -695,6 +695,63 @@ html.dark .nav-drawer-cta {
   margin-left: 0;
 }
 
+/* ============================================================
+   SLACK-HEX — icon-only half-cap community chip (rhymes with GhStar)
+   ============================================================ */
+.slack-hex {
+  --slk-h: 36px;
+  --slk-cap-w: 16px;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: var(--slk-h);
+  /* Small gap before the Star pill (the chip is NOT a .btn, so the btn-pair
+     interlock rules never touch it). */
+  margin-right: 7px;
+  /* No chip by default — just the glyph, in theme-aware ink so it reads on the
+     nav (slate-900 on light, slate-50 on dark). The half-cap hex is a HOVER
+     reveal: the mask shapes the teal fill that appears on hover; with a
+     transparent base it clips nothing visible, and the centered 15px glyph
+     sits well inside the mask's opaque region either way. */
+  background: transparent;
+  color: var(--color-ink);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--dur-xs) var(--ease-std),
+    color var(--dur-xs) var(--ease-std),
+    transform var(--dur-xs) var(--ease-std);
+  -webkit-mask:
+    var(--mask-half-cap-left) left center / var(--slk-cap-w) var(--slk-h) no-repeat,
+    var(--mask-half-cap-right) right center / var(--slk-cap-w) var(--slk-h) no-repeat,
+    linear-gradient(#000, #000) calc(var(--slk-cap-w) - 1px) center /
+    calc(100% - var(--slk-cap-w) * 2 + 2px) var(--slk-h) no-repeat;
+  mask:
+    var(--mask-half-cap-left) left center / var(--slk-cap-w) var(--slk-h) no-repeat,
+    var(--mask-half-cap-right) right center / var(--slk-cap-w) var(--slk-h) no-repeat,
+    linear-gradient(#000, #000) calc(var(--slk-cap-w) - 1px) center /
+    calc(100% - var(--slk-cap-w) * 2 + 2px) var(--slk-h) no-repeat;
+}
+.slack-hex svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+/* Hover reveals the half-cap hex filled teal, glyph flipped to contrast,
+   theme-aware via the brand tokens: light → #0D9488 + white glyph; dark →
+   brand-primary-light + ink glyph (--brand-cta-fg flips to ink). */
+.slack-hex:hover {
+  background: var(--brand-primary);
+  color: var(--brand-cta-fg);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .slack-hex:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 640px) {
   .btn-pair {
     gap: 12px;

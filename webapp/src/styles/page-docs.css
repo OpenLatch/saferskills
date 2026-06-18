@@ -205,6 +205,22 @@ html.dark .docs-search-modal {
 .dsm-input::placeholder {
   color: var(--fg-3);
 }
+/* Field-row loading spinner — shows while Pagefind loads/searches (the first
+   keystroke pays the one-time dynamic-import latency). Token-only ring. */
+.dsm-spinner {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--color-line);
+  border-top-color: var(--brand-primary);
+  border-radius: var(--radius-pill);
+  animation: dsm-spin 0.6s linear infinite;
+}
+@keyframes dsm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .dsm-results {
   overflow-y: auto;
   padding: 8px;
@@ -714,5 +730,10 @@ html.dark .docs-pager-link:hover {
   .docs-search-trigger,
   .dsm-result {
     transition: none;
+  }
+  /* No spin — a frozen partial ring reads as broken; show a static full ring. */
+  .dsm-spinner {
+    animation: none;
+    border-color: var(--brand-primary);
   }
 }

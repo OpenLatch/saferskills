@@ -651,6 +651,51 @@ class Settings(BaseSettings):
         default=None,
         description="Slack incoming-webhook URL for #saferskills-alerts (Phase C; outbox 03).",
     )
+    slack_invite_url: str | None = Field(
+        default=None,
+        description=(
+            "Public Slack shared-invite URL for the shared openlatch-community "
+            "workspace — the GET /api/v1/community/slack/redirect target. A "
+            "Slack-native never-expire link (public, NOT a secret). Unset → the "
+            "redirect 503s and the health-check loop no-ops."
+        ),
+    )
+    slack_invite_health_interval_seconds: int = Field(
+        default=21_600,  # 6h
+        ge=60,
+        description=(
+            "Interval (s) of the in-process Slack-invite health probe loop "
+            "(advisory lock 0x5AFE5C14). On a broken invite it alerts via "
+            "SLACK_ALERTS_WEBHOOK_URL + Sentry."
+        ),
+    )
+
+    @field_validator("slack_invite_url", mode="after")
+    @classmethod
+    def _validate_slack_invite_url(cls, value: str | None) -> str | None:
+        """Restrict the invite URL to an `https://*.slack.com` host.
+
+        The redirect endpoint 302s to whatever this holds, so an env misconfig
+        (or a typo'd domain) must never become an open redirect. Host-based, so
+        it accepts `join.slack.com/t/<ws>/shared_invite/zt-…`.
+
+        A blank value (the `.env.example` placeholder / docker-compose
+        `${SLACK_INVITE_URL:-}` empty default) normalizes to `None` — the same
+        "effectively unset" behaviour as the other optional URL fields, so an
+        unconfigured deploy boots (redirect 503s, health loop no-ops) instead of
+        crashing on `urlsplit("")`.
+        """
+        if value is None or not value.strip():
+            return None
+        value = value.strip()
+        parts = urlsplit(value)
+        host = (parts.hostname or "").lower()
+        if parts.scheme != "https" or not (host == "slack.com" or host.endswith(".slack.com")):
+            raise ValueError(
+                "SLACK_INVITE_URL must be an https://*.slack.com URL (e.g. "
+                "https://join.slack.com/t/openlatch-community/shared_invite/zt-…)."
+            )
+        return value
 
     @field_validator("ingestion_source_blocklist", mode="before")
     @classmethod

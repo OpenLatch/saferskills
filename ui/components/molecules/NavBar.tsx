@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import GhStar from '../atoms/GhStar'
+import SlackHexButton from '../atoms/SlackHexButton'
 
 interface NavLink {
   label: string
@@ -10,6 +11,11 @@ interface Props {
   links?: NavLink[]
   ghCount?: number
   scanHref?: string
+  /**
+   * Stable redirect to the community Slack invite. Defaults to `/slack` so
+   * every page inherits the chip with no per-route wiring.
+   */
+  slackHref?: string
   /**
    * Current route path, passed from the Astro route (`Astro.url.pathname`) so
    * the active link is computed identically on the server and the client.
@@ -43,6 +49,7 @@ export default function NavBar({
   links = DEFAULT_LINKS,
   ghCount,
   scanHref = '/scan',
+  slackHref = '/slack',
   activePath,
 }: Props) {
   const [scrolled, setScrolled] = useState(false)
@@ -108,6 +115,9 @@ export default function NavBar({
         </ul>
 
         <div className="nav-right btn-pair">
+          {/* Slack community chip — left of the GhStar (not a .btn, so the
+              btn-pair interlock rules are unaffected). */}
+          <SlackHexButton href={slackHref} />
           {/* GhStar is ALWAYS present — never gate it on a count. A page that
               doesn't compute a count renders an empty chip that NavStars fills
               live. This is the single top bar; do not hand-roll another. */}
@@ -153,6 +163,7 @@ export default function NavBar({
           ))}
         </ul>
         <div className="nav-drawer-cta">
+          <SlackHexButton href={slackHref} />
           <GhStar count={ghCount} />
           <a href={scanHref} className="btn primary sm" onClick={() => setOpen(false)}>
             Run a scan

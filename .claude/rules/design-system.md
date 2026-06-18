@@ -46,7 +46,7 @@ Fonts ship via `@fontsource/*` packages (DM Sans, Space Mono, Onest, Nanum Pen S
 ```
 ui/
 ├── components/
-│   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, Chip, Badge, BandPill,
+│   ├── atoms/        # Wordmark, Logo, Footer, Button, ButtonPair, GhStar, SlackHexButton, Chip, Badge, BandPill,
 │   │                 # ScoreNumber, DotStrip, Sparkline (inline trend line — catalog Activity column),
 │   │                 # Eyebrow, Breadcrumb, BracketLabel, Input, PageHead, RidgeStars,
 │   │                 # RidgeFlow, RidgePixel, ThemeToggle, RotatingHeadline, Toast, CopyButton,
@@ -131,6 +131,7 @@ The signature button silhouette is a chamfered hexagonal cap shape rendered via 
 - **`Chip`** — 24px h, 10px caps, mono font 11px — filter tags + scan-tier labels.
 - **`Badge`** — 28px h, 12px caps, mono uppercase 700 — status flags ("LIVE", "INDEXED").
 - **`GhStar`** — GitHub star CTA, paired half-cap segments.
+- **`SlackHexButton`** — icon-only community-Slack glyph (`currentColor`, theme-aware `--color-ink`) with **no background by default** — just the logo. On hover a **half-cap-twin** hex (the GhStar's own shallow 16px caps, point both ends; 36px tall) fills teal (`--brand-primary`) and the glyph flips to contrast (`--brand-cta-fg`) — the hex is a hover reveal. Placed left of `GhStar` in the NavBar; defaults its `href` to `/slack`. CSS: `.slack-hex` in `components.css`.
 
 ### Brutalist offset shadows — never on buttons OR overlays/modals
 
@@ -279,6 +280,7 @@ SaferSkills is an **independent public service**. Catalog content — scan-resul
 - Catalog item pages, methodology page, rule pages, scan-report pages MUST NOT cross-link to OpenLatch products.
 - Email risk-alerts (I-06) get a single closing line about OpenLatch's runtime enforcement — the lone exception.
 - **Outbound email From: `notifications.openlatch.ai`** — single Resend verified sending domain shared with OpenLatch (cost decision 2026-05-28). Display name is `SaferSkills`; reply-to is `@openlatch.ai`. Disclosed on `/about` and `/privacy`. This is the third disclosed shared-stewardship surface (alongside footer + About-page disclosure).
+- **Community Slack: the shared `openlatch-community` workspace** — the NavBar `SlackHexButton` + footer "Join Slack Community" link both resolve (via `/slack`) to a single Slack workspace co-stewarded with OpenLatch. The **4th** disclosed shared-stewardship surface (alongside footer attribution, the About-page disclosure, and the sending domain). Button labels stay neutral ("Slack" / "Join Slack Community") — the shared-stewardship fact is disclosed on `/about`, never surfaced as a cross-recommendation. The scanning service itself stays brand-independent.
 
 Enforced in code review on every PR that adds catalog content. Violations are a brand-policy regression, not a style suggestion.
 

@@ -1,21 +1,26 @@
-# services/worker
+<div align="center">
 
-The deployed **ingestion + bulk-scan worker** — a config-only deploy unit. There
-is **no code here**: the worker runs the exact same Docker image as the API
-(`services/api/Dockerfile`) with a different command, `python -m app.worker_main`.
+<a href="../../README.md">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../webapp/public/logos/saferskills-dark-wordmark.svg">
+    <img alt="SaferSkills" src="../../webapp/public/logos/saferskills-light-wordmark.svg" height="38">
+  </picture>
+</a>
+
+<h3>Ingestion + scan worker</h3>
+<p>The deploy-only worker process — the same image as the API, run as the Procrastinate worker.</p>
+
+</div>
+
+## What it is
+
+The deployed **ingestion + bulk-scan worker** — a config-only deploy unit. There is **no code here**: the worker runs the exact same Docker image as the [API](../api/README.md) (`services/api/Dockerfile`) with a different command, `python -m app.worker_main`.
 
 ## Why a separate process
 
-The API and the Procrastinate worker used to run in one process. The worker's
-ingestion crawls + bulk scan jobs are memory-heavy; sharing a process (and a
-512 MB machine) with the web tier is what produced the staging OOM-loop. Splitting
-them lets each be sized independently and means a worker OOM never takes the API
-(or `/health`) down with it. The API tier deploys with
-`INGESTION_WORKER_ENABLED=false` (in `services/api/fly.*.toml`); this app sets it
-`true`.
+The API and the Procrastinate worker used to run in one process. The worker's ingestion crawls + bulk scan jobs are memory-heavy; sharing a process (and a 512 MB machine) with the web tier is what produced the staging OOM-loop. Splitting them lets each be sized independently and means a worker OOM never takes the API (or `/health`) down with it. The API tier deploys with `INGESTION_WORKER_ENABLED=false` (in `services/api/fly.*.toml`); this app sets it `true`.
 
-Local dev + `docker compose up` are unchanged — there `INGESTION_WORKER_ENABLED`
-keeps its default (`true`), so everything still runs in one process.
+Local dev + `docker compose up` are unchanged — there `INGESTION_WORKER_ENABLED` keeps its default (`true`), so everything still runs in one process.
 
 ## What runs where
 
@@ -26,29 +31,17 @@ keeps its default (`true`), so everything still runs in one process.
 | | Unlisted-expiry **sweep loop** (advisory lock `0x5AFE5C12`) |
 | | The Procrastinate **connector** (opened so the API's defer paths work) |
 
-Both processes run migrations on boot (idempotent under lock `0x5AFE5C11`); the
-worker exits non-zero if the DB is unmigrated and lets Fly's `[restart]` retry
-(it has no HTTP surface, so no degraded-mode serving).
+Both processes run migrations on boot (idempotent under lock `0x5AFE5C11`); the worker exits non-zero if the DB is unmigrated and lets Fly's `[restart]` retry (it has no HTTP surface, so no degraded-mode serving).
 
 ## Deploy
 
-Deployed by `.github/workflows/deploy.yml` (`deploy-staging-worker` /
-`deploy-production-worker`) against `registry.fly.io/saferskills-api:main-<sha>` —
-the same image bytes as the API, never a separate build. The deploy job stages the
-boot-guard secrets (see below) then `flyctl deploy --config fly.<env>.toml --image …`.
+Deployed by `.github/workflows/deploy.yml` (`deploy-staging-worker` / `deploy-production-worker`) against `registry.fly.io/saferskills-api:main-<sha>` — the same image bytes as the API, never a separate build. The deploy job stages the boot-guard secrets (below) then `flyctl deploy --config fly.<env>.toml --image …`.
 
 ## Secrets (one-time operator setup)
 
-The worker loads the same `Settings`, so `ENV=staging|production` hard-fails boot
-without the four guard secrets. `deploy.yml` stages these via `flyctl secrets set
---stage`: `TURNSTILE_SECRET_KEY`, `SAFERSKILLS_CLI_POW_SECRET`,
-`SAFERSKILLS_AGENT_MASTER_KEY`, `SAFERSKILLS_PACK_SIGNING_KEY` (+ `SENTRY_DSN`,
-`POSTHOG_PROJECT_KEY`, `POSTHOG_SERVER_KEY`, `SLACK_ALERTS_WEBHOOK_URL`). The
-HTTP-route-only `SAFERSKILLS_ADMIN_KEY` / `SAFERSKILLS_PROXY_SHARED_SECRET` are
-**not** set here.
+The worker loads the same `Settings`, so `ENV=staging|production` hard-fails boot without the four guard secrets. `deploy.yml` stages these via `flyctl secrets set --stage`: `TURNSTILE_SECRET_KEY`, `SAFERSKILLS_CLI_POW_SECRET`, `SAFERSKILLS_AGENT_MASTER_KEY`, `SAFERSKILLS_PACK_SIGNING_KEY` (+ `SENTRY_DSN`, `POSTHOG_PROJECT_KEY`, `POSTHOG_SERVER_KEY`, `SLACK_ALERTS_WEBHOOK_URL`). The HTTP-route-only `SAFERSKILLS_ADMIN_KEY` / `SAFERSKILLS_PROXY_SHARED_SECRET` are **not** set here.
 
-Not staged by CI (set once manually, as on the API app): `DATABASE_URL`,
-`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`.
+Not staged by CI (set once manually, as on the API app): `DATABASE_URL`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`.
 
 ```bash
 # First-time app creation (operator):
@@ -60,7 +53,13 @@ flyctl secrets set --app saferskills-worker-staging \
 
 ## Memory budget
 
-`worker RSS ≈ ~200 MB baseline + SCAN_MAX_CONCURRENCY × (~40 MB per scan job) +
-INGESTION_WORKER_CONCURRENCY × (~25-item batch incl. metadata_files)`. Staging runs
-`2 + 2` to fit the 512 MB box (see `.claude/rules/ingestion.md` § memory budget).
-`memory.rss_mb` is logged per scan job + ingestion cycle for headroom tracking.
+`worker RSS ≈ ~200 MB baseline + SCAN_MAX_CONCURRENCY × (~40 MB per scan job) + INGESTION_WORKER_CONCURRENCY × (~25-item batch incl. metadata_files)`. Staging runs `2 + 2` to fit the 512 MB box (see [`.claude/rules/ingestion.md`](../../.claude/rules/ingestion.md) § Procrastinate worker). `memory.rss_mb` is logged per scan job + ingestion cycle for headroom tracking.
+
+## See also
+
+- [`../api/README.md`](../api/README.md) — the API that shares this image
+- [`.claude/rules/ingestion.md`](../../.claude/rules/ingestion.md) — worker, queues, and auto-scan pipeline
+
+---
+
+<sub>Part of **[SaferSkills](../../README.md)** — every AI capability, independently scanned. · An [OpenLatch](https://openlatch.ai) project · [saferskills.ai](https://saferskills.ai)</sub>

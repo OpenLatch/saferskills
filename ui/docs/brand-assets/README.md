@@ -1,6 +1,16 @@
-# SaferSkills Brand Assets
+<div align="center">
 
-Canonical SaferSkills logo + wordmark assets, modelled on the Firecrawl brand-assets folder structure for parity.
+<a href="../../../README.md">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../../webapp/public/logos/saferskills-dark-wordmark.svg">
+    <img alt="SaferSkills" src="../../../webapp/public/logos/saferskills-light-wordmark.svg" height="38">
+  </picture>
+</a>
+
+<h3>Brand assets</h3>
+<p>Canonical SaferSkills logo and wordmark files, with usage rules.</p>
+
+</div>
 
 > **Scope.** SaferSkills only. Do not mix with OpenLatch master-brand assets in the same lockup. The only OpenLatch acknowledgement on a SaferSkills surface is the `An OpenLatch project` footer attribution — see the [Brand Posture doc](https://github.com/openlatch/saferskills/blob/main/docs/brand-posture.md) (or in the vault: `05-GTM/Launch/SaferSkills - Brand Posture`).
 
@@ -80,3 +90,7 @@ To rebuild after editing the master logo or wordmark spec, re-run these in order
 - Canonical spec: `05-GTM/Launch/SaferSkills - Wordmark Spec.md` in the vault
 - Project index: `03-Product/SaferSkills.md` in the vault
 - Brand voice: `05-GTM/Launch/SaferSkills - Brand Posture.md` in the vault
+
+---
+
+<sub>Part of **[SaferSkills](../../../README.md)** — every AI capability, independently scanned. · An [OpenLatch](https://openlatch.ai) project · [saferskills.ai](https://saferskills.ai)</sub>

@@ -23,6 +23,8 @@ I-5.6 adds the Agent Report: `agents/[id].astro` (public) + `agents/r/[token].as
 
 I-5.7 (plan 03) rebuilds `scan/index.astro` as the umbrella scan page — the `[01 Capability | 02 Agent]` mode control lives in ONE island (`components/scan/ScanModeShell.tsx`), `?mode=agent` is SSR-respected — and adds `agents/scan.astro` (the prerendered platform-picker activation page, `PageRidge variant="circuit"`; the static segment beats `/agents/[id]`). Both render the shared `components/scan/AgentScanActivation.tsx` island. See `.claude/rules/frontend-patterns.md` § Routing.
 
+`slack.astro` → `/slack` (SSR, `prerender=false`) is the stable, shareable community-Slack URL: it 302s through the same-origin `/api/*` proxy to `GET /api/v1/community/slack/redirect`, which holds the live invite. Backs the NavBar `SlackHexButton` + the footer "Join Slack Community" link.
+
 ## Brand-asset assets
 
 - `public/logos/` — 9 SVG variants of the locked S-monogram + wordmark. Source for inline use.
