@@ -1,0 +1,66 @@
+---
+title: "Teach Your Agent to Use SaferSkills"
+description: "Install the saferskills skill so your AI agent runs SaferSkills itself — scanning and scoring any capability before it installs or trusts it, across all eight agents."
+updated: 2026-06-18
+order: 1
+sidebarLabel: "The SaferSkills Skill"
+---
+
+import AgentTabs from '@/components/docs/AgentTabs.tsx';
+import { SUPPORTED_AGENTS } from '@/data/homepage-constants';
+
+The **SaferSkills skill** is a small, installable capability that teaches your agent to use SaferSkills on its own. Once it is installed, the agent knows what SaferSkills is and reaches for it at the right moment: before it installs, adds, or trusts any capability — a skill, MCP server, hook, plugin, or rule — it runs `npx saferskills` to scan and score that capability first, and tells you the verdict. You install it once with `npx saferskills install saferskills`, and it lands in your agent's native skill format. It works across all eight supported agents.
+
+:::note[Rolling out with launch]
+The `saferskills` skill ships as part of the public launch. If `npx saferskills install saferskills` does not yet resolve on your machine, run `npx saferskills update` to pull the latest CLI and catalog, then try again.
+:::
+
+## What is the SaferSkills skill?
+
+Most of these docs teach *you* to use SaferSkills. This skill teaches your *agent* — it is the agent-readable counterpart to the human docs. It is one capability you install, distinct from two things it is easy to confuse it with:
+
+- It is **not** [installing a capability](/docs/install/install-a-skill/). That command (`install <name>`) puts a third-party skill or MCP server into your agent. This skill is the one that teaches the agent to *run that command safely* in the first place.
+- It is **not** the [agent scan](/docs/agent-scan/what-agent-scan-is/). The agent scan is a behavioral assessment of a whole running agent. This skill is a lightweight set of instructions; when a behavioral scan is what you want, it hands off to the agent scan rather than repeating it.
+
+The skill body carries three things: a short, scope-honest explanation of what SaferSkills is and why it exists, an opinionated **scan-before-you-trust** workflow, and the exact `npx saferskills` commands to run.
+
+## How do I install it?
+
+Run one command — no global install needed, because `npx` fetches the prebuilt binary:
+
+```bash
+npx saferskills install saferskills
+```
+
+Like any install, the CLI detects your agents, discloses which ones it will write to, and asks before it writes. Because the SaferSkills skill is itself a scanned catalog item, the CLI shows its own trust score and badge before installing — SaferSkills' own helper passes through SaferSkills. To inspect it without installing, run `npx saferskills info saferskills`.
+
+## What does it teach the agent to do?
+
+The skill encodes a workflow, not just syntax. When your agent is about to install, add, or recommend a capability, it:
+
+1. **Finds it** — `npx saferskills search <query>` to browse the catalog, or `npx saferskills info <name>` (alias `check`) to resolve one item.
+2. **Scans it** — `npx saferskills capability <path-or-url>` to scan a single artifact, or `npx saferskills capability` with no argument to audit everything already installed.
+3. **Reads the verdict** — the agent surfaces the [aggregate score](/docs/security-and-methodology/how-scoring-works/) and band, and **warns or declines below the trust threshold** (default `90`, set via `SAFERSKILLS_MIN_SCORE`). A low score is a prompt to read the report, not an automatic block.
+4. **Installs only after** — `npx saferskills install <name>`, which re-checks the score gate before writing.
+5. **Keeps it honest over time** — `npx saferskills list` shows the local inventory with live scores; `npx saferskills update` re-verifies them.
+
+For a behavioral assessment of the whole running agent, the skill points to the [agent scan](/docs/agent-scan/run-an-agent-scan/) (the separate `saferskills-agent-scan` flow) — it links to it, it does not duplicate it.
+
+## How does it work on each agent?
+
+The skill is authored once and installed in each agent's **native format** — a `SKILL.md` where the agent supports the [Agent Skills](https://agentskills.io) standard (Claude Code and OpenClaw load it directly), and the agent's own rules or instructions file everywhere else. Pick your agent below; the choice syncs across every agent-tabbed block on the site, and each tab shows the install path the CLI writes to.
+
+<AgentTabs client:visible agents={SUPPORTED_AGENTS} />
+
+On agents that load instructions on a description match (such as Claude Code and Cursor), the skill stays out of context until it is relevant. On agents that load their instruction file once per session (such as Codex), it is a lightweight always-on pointer that hands off to the CLI on demand — either way, the agent ends up running the same `npx saferskills` commands.
+
+## What about agents that can't run a shell?
+
+If your agent has no shell or exec tool, the skill falls back to the SaferSkills **HTTP API** (`https://saferskills.ai/api/v1/…`): submit a capability for scanning, poll for the result, and read the score — the same verdict the CLI prints, over plain HTTP. The CLI path stays the default; the API fallback exists so a sandboxed or hosted agent can still scan before it trusts.
+
+## Where do I go next?
+
+- [Install a skill](/docs/install/install-a-skill/) — install a third-party capability, with the score gate explained.
+- [CLI reference](/docs/install/cli-reference/) — every `saferskills` command, flag, and exit code.
+- [Run an agent scan](/docs/agent-scan/run-an-agent-scan/) — the behavioral whole-agent scan this skill hands off to.
+- [Managing your agents](/docs/concepts/managing-your-agents/) — what lives where across all eight agents.
