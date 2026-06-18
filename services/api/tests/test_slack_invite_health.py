@@ -67,7 +67,8 @@ async def test_broken_invite_fires_slack_alert(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.asyncio
-async def test_http_error_status_is_broken(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_gone_status_is_broken(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 404 / 410 = the token is definitively gone → broken + alert.
     _patch_httpx(monkeypatch, _FakeResp(404, "Not Found"))
     calls = _record_post_slack(monkeypatch)
     settings = Settings(slack_invite_url=_INVITE, slack_alerts_webhook_url=_WEBHOOK)
@@ -76,6 +77,23 @@ async def test_http_error_status_is_broken(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert alive is False
     assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_bot_gate_403_is_not_broken(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Regression: a VALID Slack invite 302s to the workspace join URL, which
+    # returns 403 to a cookie-less/JS-less server-side client (even with a
+    # browser UA) — Slack's normal login chrome, no dead-invite marker. The old
+    # `status_code >= 400` rule paged on this every tick (the false positive).
+    # A 403 with no marker must be treated as alive — no alert.
+    _patch_httpx(monkeypatch, _FakeResp(403, "<html>… Sign in … slack-edge …</html>"))
+    calls = _record_post_slack(monkeypatch)
+    settings = Settings(slack_invite_url=_INVITE, slack_alerts_webhook_url=_WEBHOOK)
+
+    alive = await slack_invite_health.probe_and_alert(settings)
+
+    assert alive is True
+    assert calls == []
 
 
 @pytest.mark.asyncio

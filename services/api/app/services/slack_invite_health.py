@@ -45,14 +45,29 @@ _BROKEN_MARKERS = (
 
 
 async def _probe_invite(url: str) -> bool:
-    """GET the invite; return ``True`` if it looks live, ``False`` if broken.
+    """GET the invite; return ``True`` if live, ``False`` only if *positively* broken.
 
-    Broken = HTTP >= 400, OR a 2xx/3xx body carrying one of `_BROKEN_MARKERS`
-    (Slack serves the "no longer active" page with a 200).
+    Slack **bot-gates** server-side requests: a VALID invite 302-redirects to
+    ``<workspace>.slack.com/join/shared_invite/…`` which then returns **403** to
+    any cookie-less / JS-less client — confirmed it 403s even with a browser
+    User-Agent (the body is Slack's normal login chrome, not a dead-invite page).
+    So a 4xx — 403 in particular — is NOT a dead-invite signal; the old
+    ``status_code >= 400`` rule pages on *every healthy invite* (the false
+    positive this fixes).
+
+    An invite is called broken only on a **positive** dead signal:
+      - status ``404`` / ``410`` — the token is definitively gone; or
+      - a dead-invite copy marker in the body (Slack serves the "no longer
+        active" page with a 200 on `join.slack.com`).
+
+    A 403 / 401 / JS-gated response with no marker is treated as **alive**
+    (inconclusive — never page on it). This trades a rare false-negative (a dead
+    invite Slack also 403s, with no marker) for eliminating the false-positive
+    storm; for a pager, that bias is the right one.
     """
     async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS, follow_redirects=True) as client:
         resp = await client.get(url)
-    if resp.status_code >= 400:
+    if resp.status_code in (404, 410):
         return False
     body = resp.text.lower()
     return not any(marker in body for marker in _BROKEN_MARKERS)
