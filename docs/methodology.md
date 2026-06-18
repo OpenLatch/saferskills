@@ -178,12 +178,12 @@ Every finding carries: `rule_id`, `severity`, `file_path`, `line_start`/`line_en
 
 Each catalog item carries an `agent_compatibility` list — the agent platforms the artifact can run on. It is **catalog metadata, not a scoring input**: it never affects a score, only the catalog's *Agent compatibility* filter. Because it is metadata (not a verdict), it is derived by a documented deterministic mapping rather than the rule-RFC process.
 
-At W2 there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill — the `skill` set later widened by `0017_skill_compat_codex`):
+At W2 there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill — the `skill` set later widened by `0017_skill_compat_codex`, then to all eight agents by `0024_skill_compat_all_agents`):
 
 | `kind` | `agent_compatibility` | Rationale |
 |---|---|---|
 | `mcp_server` | `claude-code, cursor, codex, copilot, windsurf, cline, gemini, openclaw` | MCP is a cross-agent transport standard — every supported agent can consume it |
-| `skill` | `claude-code, codex, copilot, gemini, openclaw` | The Claude Skills (`SKILL.md`) format — the agents that natively load a `skills/` directory (Claude Code + Claude-compatible OpenClaw, plus OpenAI Codex, GitHub Copilot, and Gemini, which have each shipped a `skills/` surface) |
+| `skill` | `claude-code, cursor, codex, copilot, windsurf, cline, gemini, openclaw` | The Claude Skills (`SKILL.md`) format — the install CLI's general renderer deposits a native form for every supported agent: the `SKILL.md` verbatim for the skills-dir agents (Claude Code, OpenClaw, Codex, Copilot, Gemini), a rendered `.mdc`/rules file for the rules-dir editors (Cursor, Windsurf, Cline), and a shared `AGENTS.md`/`GEMINI.md` pointer block for Codex/Copilot/Gemini |
 | `plugin` | `claude-code, openclaw` | Claude Code plugin packaging |
 | `hook` | `claude-code, openclaw` | Claude Code lifecycle hooks |
 | `rules` | `cursor, windsurf, cline, copilot` | Editor rule-file format consumed by those editors |

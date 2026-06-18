@@ -52,6 +52,15 @@ pub enum InstallChange {
         #[serde(default)]
         prior: Option<serde_json::Value>,
     },
+    /// A marker-delimited block merged into a shared text file (AGENTS.md /
+    /// GEMINI.md). Uninstall restores `prior` (the verbatim block that occupied
+    /// the markers before our write, when present) or strips our block — deleting
+    /// the host file if it becomes empty/whitespace.
+    MarkerBlock {
+        file: String,
+        #[serde(default)]
+        prior: Option<String>,
+    },
 }
 
 /// Load the install registry, returning an empty list when the file is absent.
