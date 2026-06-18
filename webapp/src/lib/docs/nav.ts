@@ -38,6 +38,11 @@ export function docsHref(id: string): string {
   return slug ? `/docs/${slug}/` : '/docs/'
 }
 
+/** Section folder → display label (known section, else title-cased dir). */
+export function sectionLabel(dir: string): string {
+  return DOCS_SECTIONS.find((s) => s.dir === dir)?.label ?? titleCaseDir(dir)
+}
+
 function sortKey(entry: DocsEntry, slug: string, dir: string): [number, number, string] {
   // section index first, then frontmatter order, then slug (alpha)
   return [slug === dir ? 0 : 1, entry.data.order ?? Number.POSITIVE_INFINITY, slug]
@@ -63,7 +68,7 @@ export async function buildDocsNav(): Promise<DocsNavGroup[]> {
   for (const dir of orderedDirs) {
     const list = byDir.get(dir)
     if (!list?.length) continue
-    const label = DOCS_SECTIONS.find((s) => s.dir === dir)?.label ?? titleCaseDir(dir)
+    const label = sectionLabel(dir)
     const items = list
       .map((e) => ({ e, slug: idToSlug(e.id) }))
       .sort((a, b) => {

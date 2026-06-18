@@ -4,7 +4,7 @@ SaferSkills is **"every AI capability, independently scanned"** — a public, fr
 
 **Architecture (post-W3, Track A/B/D shipped)**: catalog ingestion (`services/api/app/ingestion/`) → scan engine (`services/api/app/scan/` + detector rules under `rubric/`) → public report surface (`webapp/` Astro SSG, indexed by `saferskills.ai/items/<slug>`) → CLI gate (`cli/` npx). Until W3, this repo is the **foundation shell** — codegen pipeline, FastAPI `/health`, Astro placeholder homepage with email capture, design-system tokens.
 
-**Submission front-ends (I-3.5)**: besides `POST /api/v1/scans` (GitHub URL), artifacts can be **uploaded directly** via `POST /api/v1/scans/upload` (multipart; one file, one `.zip`, or N loose files combined ≤10 MiB; `visibility` public|unlisted) — same deterministic engine, second front-end. The upload affordance is a single multi-file control (DropZone) that accumulates files, collapses when populated, and submits **inline** from any surface (homepage, 404, `/scan`) via `webapp/src/lib/hooks/useUploadFlow.ts`. **Unlisted** runs are reached only by an unguessable `share_token`: `GET/DELETE /api/v1/scans/r/{token}` (view / self-delete) + `POST /api/v1/scans/r/{token}/promote` (one-way unlisted→public) + `GET …/download` (token-gated `.zip`). `GET /api/v1/items` gained an `artifact_source` (github|upload) filter; every public catalog query hard-filters `visibility='public'`. **Frontend**: the unlisted page is `webapp/src/pages/scans/r/[token].astro` (SSR, page-level noindex/no-store/no-referrer); single **or** multi-file uploads render the rich score/source report — a multi-file upload fans its loose files into per-file capabilities (backend `discover_capabilities(source_kind="upload")`) shown as tabs (`components/scan/UploadReport.tsx` + `FileTabStrip.tsx`), one rich report per file; one file = no tabs (the catalog UPLOAD badge + the `artifact_source` filter live on `/catalog`). The report body is shared by `/scans/:id` + `/scans/r/:token` via `components/scan/ScanRunReport.astro`, which branches: upload → `UploadReport`, repo scan → the cap-table `ScanReportView`. See `.claude/rules/database.md` § Upload + visibility + `frontend-patterns.md` § Routing.
+**Submission front-ends (I-3.5)**: artifacts reach the same deterministic engine two ways — `POST /api/v1/scans` (GitHub URL) **or** direct upload `POST /api/v1/scans/upload` (one file / one `.zip` / N loose files, ≤10 MiB; `visibility` public|unlisted), surfaced as a single inline DropZone (`webapp/src/lib/hooks/useUploadFlow.ts`) usable from any page. **Unlisted** runs are reached only by an unguessable `share_token` (`/api/v1/scans/r/{token}` view/delete/promote/download); every public catalog query hard-filters `visibility='public'`. The full storage / visibility / shadow-row / multi-file-fan-out / report-routing contract lives in `.claude/rules/database.md` § Upload + visibility + `frontend-patterns.md` § Routing.
 
 **Stewardship**: SaferSkills is an OpenLatch project, brand-independent. Footer attribution only — never cross-recommend OpenLatch from a SaferSkills surface. See `.claude/rules/design-system.md` § Anti-recommendation.
 
@@ -25,7 +25,7 @@ cd services/api && uv sync && uv run uvicorn app.main:app --reload
 cd webapp && pnpm install && pnpm dev
 
 # Codegen
-pnpm run generate                       # runs all 8 generators
+pnpm run generate                       # runs all 9 generators
 ```
 
 ---
@@ -46,7 +46,7 @@ uv run ruff check . --fix && uv run ruff format .   # Lint + format
 uv run pyright                          # Type check
 
 # Monorepo (root)
-pnpm run generate                       # 8 generators (ingestion source-registry from config/sources/*.yaml + Pydantic + SQLAlchemy + openapi.json + TS DTO + Zod + methodology MDX from rubric/)
+pnpm run generate                       # 9 generators (ingestion source-registry from config/sources/*.yaml + Pydantic + SQLAlchemy + openapi.json + TS DTO + Zod + methodology MDX from rubric/ + agent-pack from rubric/AGENT/)
 pnpm run lint                           # Biome on all TS/JS/JSON
 ```
 
@@ -88,7 +88,7 @@ schemas/           # JSON Schema source-of-truth for all data contracts
 scripts/           # The 6 codegen scripts + validate-schemas.cjs
 services/api/      # FastAPI backend (W1 shell + scan engine from W2). Entrypoints: `app.main:app` (uvicorn web tier) + `python -m app.worker_main` (the Procrastinate worker, deployed separately)
 services/worker/   # Procrastinate worker DEPLOY CONFIG (no code) — the same services/api image run with `app.worker_main`; split out so a worker OOM can't take the API down (fixes the staging OOM-loop). API deploys set INGESTION_WORKER_ENABLED=false; dev/compose stay in-process
-webapp/            # Astro 6 + React 19 public catalog (placeholder W1, real W3). Agent Report at /agents/[id] + /agents/r/[token] + the /agents directory (I-5.6 Phase C — corpus risk meter + dossier grid + infinite scroll), the agent badge /badge/agent/[id]/[score].svg, and the /methodology Agent-pack section (mirrors /scans; API stays /api/v1/agent-scans/* incl. GET list + GET aggregate-stats + r/{token}/reply). The I-06 **docs** are NATIVE to this app (the separate Starlight build was retired): markdown/MDX under `webapp/src/content/docs/**` (a `docs` content collection, `webapp/src/content.config.ts`), rendered by the prerendered catch-all `webapp/src/pages/docs/[...slug].astro` through `webapp/src/layouts/DocsLayout.astro` (the design-system 3-column shell — sidebar + content + ToC — `webapp/src/components/docs/*` + `webapp/src/styles/page-docs.css`). Sidebar auto-derived from folders (`webapp/src/lib/docs/`), `:::note`/`:::tip` asides via `remark-directive` (`remark-asides.mjs`), full-text search via Pagefind (`scripts/build-pagefind.cjs`, indexes the prerendered HTML post-build). Built by the main `pnpm build` (which also runs `generate-llms-txt` + `build-pagefind`); served at `/docs/*` by the Node app.
+webapp/            # Astro 6 + React 19 public catalog. Agent Report (/agents/[id], /agents/r/[token], the /agents directory — I-5.6 Phase C), the agent badge /badge/agent/[id]/[score].svg, and the /methodology Agent-pack section (API at /api/v1/agent-scans/*). The I-06 **docs** are NATIVE to this app (the separate Starlight build was retired): markdown/MDX under `webapp/src/content/docs/**`, served at `/docs/*` via the prerendered catch-all `webapp/src/pages/docs/[...slug].astro`. Docs authoring contract (IA, asides, Pagefind, llms.txt): `documentation-sync.md` § Same-PR (New docs page) + `frontend-patterns.md`.
 ui/                # Design system & shared components (atoms/molecules/organisms)
 rubric/            # Detection rules (W2+ — placeholder dir at W1)
 cli/               # `saferskills` Rust CLI (install + `capability` static scan/audit + `agent` behavioral Agent Scan, I-5.5: mint→signed-pack-verify→bootstrap-prompt→poll→verdict; multi-agent sequential, worst-exit)
@@ -138,9 +138,9 @@ SaferSkills and OpenLatch share stewardship and (deliberately) share teal — di
 
 ## Domain-Specific Rules
 
-`.claude/rules/*.md` files load contextually via `paths:` frontmatter — only when files matching the patterns are read. Always-on (no `paths:`): `security.md`, `naming-conventions.md`, `ci-cd.md`, `documentation-sync.md`, `tech-stack.md`.
+`.claude/rules/*.md` files load contextually via `paths:` frontmatter — only when files matching the patterns are read. Always-on (no `paths:`): `security.md`, `naming-conventions.md`, `ci-cd.md`, `documentation-sync.md`, `tech-stack.md`, `privacy.md`.
 
 Deferred rules (added when the corresponding feature lands — see `.claude/rules/documentation-sync.md`):
-- `multi-tenancy.md` / `database.md` / `security-auth.md` (W5 with auth)
+- `multi-tenancy.md` / `security-auth.md` (W5 with auth)
 - `routing-engine.md` / `config-plane.md` (NEVER — these are OpenLatch-Platform-specific)
 - `client-schemas-sync.md` (if cross-repo schemas arrive)
