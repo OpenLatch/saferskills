@@ -12,8 +12,10 @@ import DocsSidebar from '@/components/docs/DocsSidebar.astro'
 import DocsToc from '@/components/docs/DocsToc.astro'
 import { FALLBACK_GITHUB_STARS } from '@/data/launch-fallbacks'
 import Base from '@/layouts/Base.astro'
-import { buildDocsNav, docsHref, flattenNav } from '@/lib/docs/nav'
+import { buildDocsNav, docsHref, flattenNav, idToSlug, sectionLabel } from '@/lib/docs/nav'
 import Footer from '@ui/components/atoms/Footer.astro'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
 import NavBar from '@ui/components/molecules/NavBar.tsx'
 import '@/styles/page-docs.css'
 
@@ -23,6 +25,11 @@ interface Props {
 }
 const { entry, headings } = Astro.props
 const pathname = Astro.url.pathname
+
+// Section-path eyebrow for the page-head (e.g. "DOCS · GETTING STARTED"). Derive
+// the section from the entry's top-level folder; the root overview has none.
+const sectionDir = idToSlug(entry.id).split('/')[0]
+const eyebrow = sectionDir ? `DOCS · ${sectionLabel(sectionDir)}` : 'DOCS'
 
 const nav = await buildDocsNav()
 const flat = flattenNav(nav)
@@ -44,8 +51,20 @@ const updatedLabel = entry.data.updated
   : null
 ---
 
-<Base title={`${entry.data.title} — SaferSkills Docs`} description={entry.data.description}>
+<Base
+  title={`${entry.data.title} — SaferSkills Docs`}
+  description={entry.data.description}
+  bodyClass="docs-body"
+>
   <NavBar client:idle ghCount={FALLBACK_GITHUB_STARS} activePath="/docs" />
+
+  <PageHead
+    className="docs-page-head"
+    eyebrow={eyebrow}
+    title={entry.data.title}
+    lede={entry.data.description}
+  />
+  <PageRidge variant="swell" label="— /DOCS —" />
 
   <div class="docs-shell" data-nav-open="false">
     <button type="button" class="docs-nav-toggle" aria-expanded="false" aria-controls="docs-sidebar">

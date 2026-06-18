@@ -281,6 +281,9 @@
   --bg-grid-soft: linear-gradient(90deg, rgba(100,116,139,0.10) 1px, transparent 1px),
                   linear-gradient(rgba(100,116,139,0.10) 1px, transparent 1px);
   --bg-dot-grid: radial-gradient(circle, rgba(15,23,42,0.12) 1px, transparent 1px);
+  /* Soft dot field — the quiet reading-surface texture (matches .page-section--flat's
+     dot recipe). Used full-bleed behind the /docs content body. Theme-aware. */
+  --bg-dot-grid-soft: radial-gradient(rgba(15,23,42,0.05) 1.3px, transparent 1.3px);
   --bg-plus-grid: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.18'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
   --bg-plus-grid-soft: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><g stroke='%230f172a' stroke-width='1' stroke-linecap='square' opacity='0.10'><line x1='24' y1='19' x2='24' y2='29'/><line x1='19' y1='24' x2='29' y2='24'/></g></svg>");
   --bg-plus-grid-paper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.16'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
@@ -361,6 +364,7 @@ html.dark {
 
   --bg-plus-grid: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.14'><line x1='20' y1='15' x2='20' y2='25'/><line x1='15' y1='20' x2='25' y2='20'/></g></svg>");
   --bg-plus-grid-soft: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><g stroke='%23f8fafc' stroke-width='1' stroke-linecap='square' opacity='0.08'><line x1='24' y1='19' x2='24' y2='29'/><line x1='19' y1='24' x2='29' y2='24'/></g></svg>");
+  --bg-dot-grid-soft: radial-gradient(rgba(248,250,252,0.04) 1.3px, transparent 1.3px);
 }
 
 /* ============================================================================

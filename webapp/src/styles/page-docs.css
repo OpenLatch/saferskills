@@ -12,6 +12,26 @@
  */
 
 /* ============================================================
+   PAGE HEAD + BODY SURFACE (I-06 header pass)
+   Docs adopt the non-homepage template — NavBar → PageHead → PageRidge
+   (variant="swell", the /docs-reserved ridge) → 3-column shell. The body
+   trades its default plus-grid for the quiet soft dot field (the
+   methodology reading-surface texture); the opaque PageHead + swell ridge
+   cover it in the header region, so only the content body shows the dots.
+   ============================================================ */
+body.docs-body {
+  background-image: var(--bg-dot-grid-soft);
+  background-size: 28px 28px;
+}
+/* Widen the page-head's container to the 3-column shell's max-width + gutter
+   so the eyebrow/title left edge aligns with the sidebar, not the 1280 band. */
+.docs-page-head > .container {
+  max-width: 1480px;
+  padding-left: var(--s-24);
+  padding-right: var(--s-24);
+}
+
+/* ============================================================
    SHELL — 3-column grid (sidebar | content | ToC)
    NavBar is sticky (72px); the rails stick just below it.
    ============================================================ */
