@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /* check-internal-docs-links.cjs — build-time broken-internal-link gate for the
- * docs (I-06 Plan 1, D-9). Runs AFTER `astro build --config docs.astro.config.mjs`
- * over the emitted HTML in webapp/dist-docs: collects every internal `href`
- * (the `/docs/*` base prefix) and asserts each resolves to a built file. A
- * broken `[link](/docs/nonexistent)` fails the PR.
+ * docs (I-06, D-9). Runs AFTER `astro build` over the prerendered docs HTML in
+ * webapp/dist/client/docs: collects every internal `href` (the `/docs/*` surface)
+ * and asserts each resolves to a built file. A broken `[link](/docs/nonexistent)`
+ * fails the PR. Main-site links (e.g. /methodology) are out of this gate's scope.
  *
- * Usage (defaults to webapp/dist-docs):
+ * Usage (defaults to webapp/dist/client/docs):
  *   node scripts/check-internal-docs-links.cjs [distDir]
  */
 'use strict'
@@ -14,8 +14,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..')
-const DIST = path.resolve(ROOT, process.argv[2] || 'webapp/dist-docs')
-const BASE = '/docs' // must match `base` in webapp/docs.astro.config.mjs
+const DIST = path.resolve(ROOT, process.argv[2] || 'webapp/dist/client/docs')
+const BASE = '/docs' // the docs URL surface (native /docs/[...slug] route)
 
 if (!fs.existsSync(DIST)) {
   console.error(`[docs-links] build output not found: ${DIST}\n  Run the docs build first.`)

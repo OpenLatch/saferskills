@@ -1,0 +1,42 @@
+---
+/**
+ * Docs sidebar (I-06 native rebuild) — the auto-derived section tree.
+ * Page-specific composition; CSS lives in `webapp/src/styles/page-docs.css`.
+ */
+import type { DocsNavGroup } from '@/lib/docs/nav'
+
+interface Props {
+  nav: DocsNavGroup[]
+  /** Current pathname (Astro.url.pathname) for the active-link highlight. */
+  pathname: string
+}
+const { nav, pathname } = Astro.props
+const norm = (p: string) => (p.endsWith('/') ? p : `${p}/`)
+const here = norm(pathname)
+---
+
+<nav class="docs-nav" aria-label="Documentation sections">
+  {
+    nav.map((group) => (
+      <div class="docs-nav-group">
+        <p class="docs-nav-label">{group.label}</p>
+        <ul>
+          {group.items.map((item) => {
+            const active = norm(item.href) === here
+            return (
+              <li>
+                <a
+                  href={item.href}
+                  class:list={['docs-nav-link', `dnl-d${item.depth}`, { 'is-active': active }]}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.title}
+                </a>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    ))
+  }
+</nav>

@@ -1,0 +1,37 @@
+---
+title: "What is SaferSkills?"
+description: "SaferSkills is a free, Apache-2.0 service that independently scans every AI capability and publishes a deterministic public trust score."
+updated: 2026-06-16
+---
+import Screenshot from '@/components/docs/Screenshot.astro'
+
+SaferSkills is a public, free, Apache-2.0 trust-scoring service: every AI capability, independently scanned. Submit a GitHub URL or upload files, and in about 30 seconds a deterministic scan returns a public report — an aggregate score from 0 to 100, every detection rule that fired, the exact line of evidence, and a permalink the vendor can dispute. There is no LLM in the verdict path, so any verdict is reproducible offline.
+
+<Screenshot
+  name="homepage"
+  alt="The SaferSkills homepage: a search-the-catalog field, a 'scan a running agent' bootstrap-prompt panel, and an 'audit a capability' upload panel."
+/>
+
+## What does SaferSkills scan?
+
+SaferSkills scans five kinds of AI capability across every supported agent platform: **skills** (the `SKILL.md` instruction format), **MCP servers** (Model Context Protocol tool servers), **hooks** (lifecycle shell scripts), **plugins** (packaged capability bundles), and **rules** (editor rule files). Skills and MCP servers are fully scanned today; the hooks, plugins, and rules categories exist in the rubric and are scored where coverage applies. Each capability is scored independently — one repository can hold several capabilities, and each gets its own report. The supported agents are Claude Code, Cursor, Codex, Copilot, Windsurf, Cline, Gemini, and OpenClaw.
+
+## How does a scan work?
+
+A scan walks the artifact's file tree, identifies each capability, and runs deterministic detector rules against it — no model, no random seed, no temperature. Every scan stamps three identifiers: `rubric_version` (the git SHA of the rule corpus), `engine_version` (the git SHA of the scan engine), and `ref_sha` (the scanned commit, or `content_hash_sha256` for an upload). A vendor can check out those exact versions and re-run the scan to re-derive the same verdict byte-for-byte. That reproducibility is the whole point: the score is a measurement, not an opinion.
+
+## Why is there no LLM in the verdict path?
+
+Because a verdict you cannot reproduce is not evidence. Every finding has a static `rule_id` and a quotable line of evidence, so a reader — or a vendor under appeal — can trace exactly why a rule fired without replaying any content through a model. A language model that scores differently on each run cannot be audited, cannot be appealed fairly, and cannot back a public claim about someone else's code. SaferSkills publishes [methodology, not endorsements](/docs/security-and-methodology/how-scoring-works/).
+
+## How is the trust score structured?
+
+The aggregate score runs 0–100 and is a weighted sum of five sub-scores — Security, Supply Chain, Maintenance, Transparency, and Community — bucketed into four color bands: Green (Approved, ≥80), Yellow (Watch, 60–79), Orange (Caution, 40–59), and Red (Block, 0–39). A single active critical finding caps the whole aggregate at ≤15, so a serious security flaw cannot be diluted by good docs or a popular star count. The full math, weights, and per-finding penalties live in [how scoring works](/docs/concepts/how-scoring-works/) and the [five sub-scores](/docs/security-and-methodology/5-sub-scores/) pages.
+
+## What is the difference between a component scan and an Agent Scan?
+
+A **component scan** is static — it analyzes the files of a capability (a skill body, an MCP tool description, a hook script) without running anything. An **Agent Scan** is behavioral — it grades a whole *running* agent against a pack of adversarial tests, using mock tools only so there are zero real side effects. Both use the identical scoring model: the same severity penalties, the same critical-floor ceiling, the same color bands. The [Agent Scan overview](/docs/concepts/agent-scan/) explains when to reach for each.
+
+## Where do you go from here?
+
+Read [core concepts](/docs/getting-started/core-concepts/) for a one-screen map of the capability kinds and the trust model, [how scoring works](/docs/concepts/how-scoring-works/) for the scoring overview, or [find and verify a capability](/docs/find-and-verify/browse-the-catalog/) to start using the running service. Unfamiliar terms are defined in the [glossary](/docs/concepts/glossary/).

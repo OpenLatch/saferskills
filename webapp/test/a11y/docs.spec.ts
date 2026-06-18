@@ -2,12 +2,11 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
 /**
- * WCAG 2 A/AA axe smoke over the docs P0 pages (I-06 Plan 3). The Starlight SSG
- * docs site is built + served by `astro preview` on :5174 in the `docs-a11y` CI
- * lane (PUBLIC_SITE_URL points the shared playwright.config baseURL there). This
- * file is invoked ONLY by that lane (`playwright test test/a11y/docs.spec.ts`);
- * the main `lighthouse-a11y` lane runs `pages.spec.ts` against the SSR site on
- * :5173, where /docs is not folded in. Fails on any violation.
+ * WCAG 2 A/AA axe smoke over the docs P0 pages (I-06). The native docs (I-06
+ * rebuild) prerender into dist/client/docs and are served by the main Node app
+ * on :5173, so the `lighthouse-a11y` CI lane runs this spec alongside
+ * `pages.spec.ts` against that same :5173 server (baseURL defaults to :5173).
+ * Fails on any violation.
  */
 const PAGES = [
   '/docs/',

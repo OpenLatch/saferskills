@@ -1,0 +1,32 @@
+---
+/**
+ * In-page table of contents (I-06 native rebuild) — the right rail.
+ * Headings come from `render(entry).headings`; the scroll-spy script in
+ * DocsLayout toggles `.is-active` on `[data-toc-link]`. Works no-JS (plain
+ * anchor links). CSS in `webapp/src/styles/page-docs.css`.
+ */
+import type { MarkdownHeading } from 'astro'
+
+interface Props {
+  headings: MarkdownHeading[]
+}
+const { headings } = Astro.props
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3)
+---
+
+{
+  toc.length > 0 && (
+    <nav class="docs-toc" aria-label="On this page">
+      <p class="docs-toc-label">On this page</p>
+      <ul>
+        {toc.map((h) => (
+          <li class={`toc-d${h.depth}`}>
+            <a href={`#${h.slug}`} data-toc-link={h.slug}>
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}

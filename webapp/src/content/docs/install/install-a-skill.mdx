@@ -1,0 +1,54 @@
+---
+title: "Install a Skill"
+description: "Install a verified capability with npx saferskills install — the CLI checks the trust score and gates on a default minimum of 90 first."
+updated: 2026-06-16
+---
+
+import AgentTabs from '@/components/docs/AgentTabs.tsx';
+import { SUPPORTED_AGENTS } from '@/data/homepage-constants';
+
+To install a verified capability, run `npx saferskills install <name>`. The CLI resolves the name to a catalog item, prints its trust score and a five-axis breakdown, discloses which agents it will write to, and gates on the [aggregate score](/docs/security-and-methodology/how-scoring-works/) before writing anything — by default it will not install an item scoring below 90 without your confirmation. Pick your agent below; the choice syncs to every agent-tabbed block on the site.
+
+## How do I install a capability?
+
+Run a single command — no global install needed, because `npx` fetches the prebuilt native binary:
+
+```bash
+npx saferskills install mcp-server-github
+```
+
+Before any files are written, the CLI shows you a digest: the global score, the five sub-score axes, and the list of detected agents it will write to. You confirm, and the install proceeds. To reverse exactly what an install wrote, run `npx saferskills uninstall <name>`; to refresh installed capabilities and re-verify their scores, run `npx saferskills update`. The full surface of each command lives in the [`install` reference](/docs/install/cli-reference/install/).
+
+The CLI installs Skills and MCP servers. You can browse other kinds — hooks, plugins, rules — in the [catalog](/docs/find-and-verify/browse-the-catalog/), but the CLI does not install them; it links you to their report instead.
+
+## Which agent does it install to?
+
+The tabs below are generated from the shared agent manifest
+(`webapp/src/data/homepage-constants.ts`, the same `SUPPORTED_AGENTS` the
+homepage uses). Add, remove, or rename an agent there and this list — and every other
+`<Tabs syncKey="agent">` on the site — updates automatically (D-7, the Prime
+Invariant). Each tab shows the install path the CLI writes to and the config file it reads for that agent.
+
+<AgentTabs client:visible agents={SUPPORTED_AGENTS} />
+
+By default `install` auto-targets every compatible detected agent. For per-agent specifics — where files land, how to verify the result, and platform quirks — see the [per-agent guides](/docs/install/per-agent-guides/claude-code/).
+
+## How does the score gate work?
+
+The CLI gates on the **aggregate trust score** before it installs, so the safe path is the easy path. The default minimum is **90**, configurable through `SAFERSKILLS_MIN_SCORE` (0–100) or the `min_score` key in `~/.saferskills/config.toml`. The gate has two levels:
+
+- **Below the minimum (or unscored):** the CLI warns and asks for confirmation. Pass `--yes` to accept a below-threshold install non-interactively.
+- **Red tier (score `< 40`, the [Block band](/docs/security-and-methodology/how-scoring-works/)):** the CLI requires you to type the item's name to proceed. Only `--force` bypasses that name gate.
+
+A low score is not an instruction to avoid a capability — it is a prompt to read the report first. SaferSkills publishes methodology, not endorsements. The score comes from five weighted sub-scores (Security carries the most weight), and a single critical finding caps the whole aggregate at 15, so a security failure can never be diluted by the non-security signals. To understand a number before you install, read the [public report](/docs/find-and-verify/read-a-scan-report/) for the item.
+
+:::tip
+Set `SAFERSKILLS_MIN_SCORE` once in your shell profile to raise or lower the bar across every install — useful in CI, where you may want a hard floor with no interactive prompt.
+:::
+
+## Where do I go next?
+
+- [`install` command reference](/docs/install/cli-reference/install/) — every flag and behavior of the install command.
+- [Global flags & exit codes](/docs/install/global-flags/) — `--json`, `--force`, `--yes`, and the environment variables that configure installs.
+- [Read a scan report](/docs/find-and-verify/read-a-scan-report/) — how to interpret a score before you install.
+- [How scoring works](/docs/security-and-methodology/how-scoring-works/) — the deterministic rubric behind every number.

@@ -38,13 +38,10 @@ ENV PUBLIC_POSTHOG_HOST=$PUBLIC_POSTHOG_HOST
 # so Astro inlines it into the client bundle (only PUBLIC_* is inlined).
 ARG GIT_SHA=""
 ENV PUBLIC_GIT_SHA=$GIT_SHA
+# `pnpm run build` runs `astro build` (which prerenders the native /docs/* pages
+# into dist/client/docs) + the llms.txt + Pagefind index steps — one build, no
+# separate docs server (I-06 native docs).
 RUN pnpm run build
-
-# Build the Starlight docs (I-06) and fold them into dist/client/docs so the
-# Node SSR server serves `/docs/*` as a static fall-through — one host, no
-# separate docs server. Must run AFTER the main build (which creates
-# dist/client). Docs are 100% static and have no API dependency at build time.
-RUN pnpm run build:docs
 
 # Upload source maps to Sentry, keyed to the GIT_SHA release. SENTRY_AUTH_TOKEN
 # is a BuildKit secret (never an image layer / build-cache metadata). No-op when

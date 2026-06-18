@@ -1,0 +1,36 @@
+---
+/**
+ * Prev / next docs pagination (I-06 native rebuild) — neighbors in the flat
+ * sidebar reading order. CSS in `webapp/src/styles/page-docs.css`.
+ */
+import type { DocsNavItem } from '@/lib/docs/nav'
+
+interface Props {
+  prev: DocsNavItem | null
+  next: DocsNavItem | null
+}
+const { prev, next } = Astro.props
+---
+
+{
+  (prev || next) && (
+    <nav class="docs-pager" aria-label="Page navigation">
+      {prev ? (
+        <a class="docs-pager-link prev" href={prev.href} rel="prev">
+          <span class="dpl-dir">← Previous</span>
+          <strong class="dpl-title">{prev.title}</strong>
+        </a>
+      ) : (
+        <span class="docs-pager-spacer" />
+      )}
+      {next ? (
+        <a class="docs-pager-link next" href={next.href} rel="next">
+          <span class="dpl-dir">Next →</span>
+          <strong class="dpl-title">{next.title}</strong>
+        </a>
+      ) : (
+        <span class="docs-pager-spacer" />
+      )}
+    </nav>
+  )
+}
