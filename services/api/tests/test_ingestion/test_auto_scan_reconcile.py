@@ -1,9 +1,12 @@
 """Reconciliation drainer selection (the durable auto-scan coverage net).
 
-`run_reconcile` selects public-github high/medium not-archived repos that are
-unscanned / stale-version / stale-freshness, popularity-first, deduped per repo
-URL, and defers a scan job for each (the deferrer is injected so we assert
-selection without spawning real scans).
+`run_reconcile` selects public-github **repo-resolved** not-archived repos
+(ANY quality tier — the high/medium gate was removed so every indexed,
+scannable capability is covered, matching the merger's tier-less on-add scan
+hook) that are unscanned / stale-version / stale-freshness, popularity-first,
+deduped per repo URL, and defers a scan job for each (the deferrer is injected
+so we assert selection without spawning real scans). Items with no `github_url`
+(uploads / unresolved registry listings) remain excluded — nothing to fetch.
 """
 
 from __future__ import annotations
@@ -49,12 +52,14 @@ async def test_selects_unscanned_excludes_fresh_and_offscope(db_session: AsyncSe
         scanned_engine_version=engine_v,
     )
     archived = make_item(popularity_score=95, archived=True, last_scanned_at=None)
+    # Low + empty tiers are now IN scope (gate widened) as long as they resolve a repo.
     low_quality = make_item(popularity_score=95, quality_tier="low", last_scanned_at=None)
+    empty_quality = make_item(popularity_score=40, quality_tier="empty", last_scanned_at=None)
     upload = make_item(
         popularity_score=95, source_kind="upload", github_url=None, last_scanned_at=None
     )
     unlisted = make_item(popularity_score=95, visibility="unlisted", last_scanned_at=None)
-    db_session.add_all([unscanned, fresh, archived, low_quality, upload, unlisted])
+    db_session.add_all([unscanned, fresh, archived, low_quality, empty_quality, upload, unlisted])
     await db_session.commit()
 
     rec = _Recorder()
@@ -63,8 +68,10 @@ async def test_selects_unscanned_excludes_fresh_and_offscope(db_session: AsyncSe
     assert unscanned.github_url in rec.urls
     assert fresh.github_url not in rec.urls
     assert archived.github_url not in rec.urls
-    assert low_quality.github_url not in rec.urls
-    assert upload.github_url not in rec.urls  # github_url is None anyway
+    # Widened gate: every repo-resolved tier is now covered (D: "each indexed skill scanned").
+    assert low_quality.github_url in rec.urls
+    assert empty_quality.github_url in rec.urls
+    assert upload.github_url not in rec.urls  # github_url is None → unscannable, excluded
     assert unlisted.github_url not in rec.urls
     assert n == len(rec.urls)
 

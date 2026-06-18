@@ -552,7 +552,6 @@ _RECONCILE_SELECT = text("""
     FROM catalog_items
     WHERE source_kind = 'github' AND visibility = 'public'
       AND archived = false
-      AND quality_tier IN ('high', 'medium')
       AND github_url IS NOT NULL
       AND (
           last_scanned_at IS NULL
