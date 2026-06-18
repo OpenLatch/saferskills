@@ -1,13 +1,18 @@
 ---
 paths:
-  - "services/api/app/**"
-  - "webapp/src/**"
-  - "ui/**"
+  - "services/api/app/observability/**"
+  - "services/api/app/core/observability.py"
+  - "services/api/app/core/feature_flags.py"
+  - "webapp/src/lib/analytics.ts"
+  - "webapp/src/lib/observability.ts"
+  - "webapp/src/lib/feature-flags.ts"
+  - "webapp/src/middleware.ts"
+  - "cli/src/core/telemetry.rs"
 ---
 
 # Telemetry
 
-> **Paths**: `services/api/app/**`, `webapp/src/**`, `ui/**`
+> **Paths**: the telemetry-authoring surfaces only — `app/observability/**` + `app/core/{observability,feature_flags}.py` (backend), `webapp/src/lib/{analytics,observability,feature-flags}.ts` + `webapp/src/middleware.ts` (webapp SSR Sentry), `cli/src/core/telemetry.rs`. (Emission is centralized — `app/observability/events.py` is the only sanctioned backend emit path and `webapp/src/lib/analytics.ts` the only event registry — so scoping to those files catches every event change without loading on unrelated app edits.)
 
 ## Purpose
 

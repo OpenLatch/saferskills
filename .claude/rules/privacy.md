@@ -56,9 +56,7 @@ URL, no PII.** The reported install is anonymous — closed-enum agent + kind on
 
 ### IP redaction (mandatory)
 
-Same contract as `access_log`: the submitter IP is redacted to `/24` (IPv4) or `/48`
-(IPv6) **at write time** in `app/routers/installs.py` (via
-`access_log_middleware.redact_ip`) — a raw IP is never stored.
+Same write-time `/24`-`/48` redaction as `access_log` (above) — in `app/routers/installs.py` via `access_log_middleware.redact_ip`; a raw IP is never stored.
 
 ### Automatic (no consent), legitimate interest
 
@@ -74,8 +72,7 @@ key / first-run prompt), which gates only the PostHog `command_invoked` event. S
 ### Retention
 
 **Retained** (redacted IP, closed-enum, no PII) so the `all_time` aggregate survives
-— distinct from `access_log`'s 30-day sweep. A future per-item rollup counter is an
-optimization, not required. See `security.md` § Vendor-data isolation.
+— distinct from `access_log`'s 30-day sweep. See `security.md` § Vendor-data isolation.
 
 ### No export
 
@@ -97,9 +94,7 @@ via the IPinfo Lite MMDB (`IPINFO_LITE_DB_PATH`).
 
 ### IP redaction (mandatory)
 
-Same contract as `access_log` / `install_events`: the submitter IP is **redacted at
-write time** — the writer **redacts-then-derives** the ASN (redaction precedes ASN
-lookup), so a raw IP is never stored. No downstream code ever sees a precise IP.
+Same write-time redaction as `access_log`, but **redact-then-derive**: the writer redacts the IP *before* the ASN/org/country lookup, so a raw IP is never stored or seen downstream.
 
 ### Automatic (no consent), legitimate interest
 
@@ -132,9 +127,8 @@ audit is skipped (and never prompts) in any non-interactive context
 (`--json`/`--quiet`/non-TTY/`--no-input`).
 
 The scanned bytes follow the **existing snapshot/upload retention tiers** — a public
-audit lands in the public `artifact_blobs` snapshot tier (indefinite, immutable per
-scan); a private audit lands in the per-run `upload_files` tier (90-day `expires_at`,
-reachable only via the unguessable `share_token`). No new store, no new retention
+audit → the public `artifact_blobs` tier (indefinite); a private audit → the per-run
+`upload_files` tier (90-day `expires_at`, token-only). No new store, no new retention
 rule. See `security.md` § Vendor-data isolation + `database.md` § Upload + visibility.
 
 ## Public disclosure
