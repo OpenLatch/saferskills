@@ -58,6 +58,7 @@ If you maintain a skill and a finding is wrong, you have a [right of reply](/doc
 ## Where do I go next?
 
 - [Install a skill](/docs/install/install-a-skill/) — the cross-agent install walkthrough.
+- [Teach your agent to use SaferSkills](/docs/install/saferskills-skill/) — install the skill so this agent runs SaferSkills on its own.
 - [CLI reference: install](/docs/install/cli-reference/install/) — every flag and the score gate.
 - [Managing your agents](/docs/concepts/managing-your-agents/) — what lives where across agents.
 - [How scoring works](/docs/security-and-methodology/how-scoring-works/) — the rubric behind the number.
