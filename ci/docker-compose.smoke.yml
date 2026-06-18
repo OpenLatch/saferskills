@@ -19,8 +19,10 @@ services:
   api:
     image: ${API_IMAGE:-saferskills-api:ci}
     build:
-      context: ../services/api
-      dockerfile: Dockerfile
+      # Repo-root context (one level up from ci/) so the Dockerfile can COPY the
+      # repo-root rubric/ tree the scan engine loads at runtime.
+      context: ..
+      dockerfile: services/api/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy

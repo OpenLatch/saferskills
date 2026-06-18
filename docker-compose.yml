@@ -16,8 +16,11 @@ services:
 
   api:
     build:
-      context: ./services/api
-      dockerfile: Dockerfile
+      # Repo-root context (not ./services/api) so the Dockerfile can COPY the
+      # repo-root rubric/ tree the scan engine loads at runtime. Dockerfile paths
+      # are repo-root-relative (services/api/… + rubric/).
+      context: .
+      dockerfile: services/api/Dockerfile
     container_name: saferskills-api
     depends_on:
       postgres:

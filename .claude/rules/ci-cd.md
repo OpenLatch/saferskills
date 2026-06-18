@@ -16,8 +16,8 @@ All checks must pass before merge. Every third-party action is **SHA-pinned** (n
 | 6 | `test-fe` | Vitest (≥70% line coverage) |
 | 7 | `test-be` | pytest (≥70% line coverage) |
 | 8 | `ladle-build` | `pnpm ladle:build` — catches broken stories, missing imports, render errors. Runs on PRs touching `ui/` or `webapp/src/components/` |
-| 9 | `docker-build` | Parallel matrix (api + webapp) with scoped GHA cache |
-| 10 | `docker-smoke` | `docker compose -f ci/docker-compose.smoke.yml up` — postgres + api + webapp boot + `/healthz` 200 |
+| 9 | `docker-build` | Parallel matrix (api + webapp) with scoped GHA cache. **Both** images build from a **repo-root context** — the API image needs it to `COPY rubric/` (the scan engine loads its rules from the repo-root `rubric/` tree at runtime; outside `services/api/`). CI stamps `RUBRIC_VERSION`/`ENGINE_VERSION` (rubric/ + scan-engine subtree SHAs) as build-args so the reconcile re-evals only on a rule/engine change. |
+| 10 | `docker-smoke` | `docker compose -f ci/docker-compose.smoke.yml up` — postgres + api + webapp boot + `/healthz` 200, **then asserts the API image loaded its rubric** (`_load_all_rules() ≥ 1`) — regression guard for the root-context `COPY rubric/` (a missing rubric loads 0 rules → every scan a fake 100, invisible to `/health`). |
 | 11 | `trivy-scan` | Trivy vulnerability scanner (CRITICAL/HIGH) with SARIF upload to GitHub Security tab |
 | 12 | `dep-scan` | `pip-audit` (`uv pip compile`) + `pnpm audit --audit-level=high` |
 | 13 | `pr-title-lint` | Conventional Commits format check |
