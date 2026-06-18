@@ -24,6 +24,7 @@ webapp/src/pages/
 ├── agents/[id].astro      → /agents/:id         (public Agent Report; 404s unlisted runs — I-5.6)
 ├── agents/r/[token].astro → /agents/r/:token    (unlisted Agent Report — SSR, noindex, no-store — I-5.6)
 ├── api/[...path].ts       → /api/*              (same-origin reverse proxy → backend; SSR)
+├── slack.astro            → /slack              (302 → /api/v1/community/slack/redirect → live Slack invite; SSR)
 ├── methodology.astro      → /methodology
 └── appeal.astro           → /appeal       (W6)
 ```

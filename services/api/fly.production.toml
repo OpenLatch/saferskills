@@ -30,6 +30,13 @@ POSTHOG_HOST = "https://eu.i.posthog.com"
 # opened (main.py) so the API's own defer paths work. Local dev + docker-compose
 # keep the default (true) → `docker compose up` runs everything in one process.
 INGESTION_WORKER_ENABLED = "false"
+# Community Slack invite health-probe interval (6h). The invite URL itself
+# (SLACK_INVITE_URL — the /slack redirect target) is a PUBLIC never-expire link
+# but is delivered as a SECRET: staged via `flyctl secrets set --stage` in
+# deploy.yml (API apps) from the repo-level GH secret SLACK_INVITE_URL, so the
+# join link stays out of git + is rotatable without a commit. Unset → the
+# redirect 503s + the health loop no-ops.
+SLACK_INVITE_HEALTH_INTERVAL_SECONDS = "21600"
 # Non-secret runtime config only. `SAFERSKILLS_PROXY_SHARED_SECRET` (the
 # trusted-proxy token read by scans.py::_rate_limit_ip) is a SECRET — staged via
 # `flyctl secrets set --stage` in deploy.yml, never committed here. See ci-cd.md.

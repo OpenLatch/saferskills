@@ -18,10 +18,12 @@ you install into Claude Code, Cursor, Windsurf, Copilot, Codex, Gemini, Cline &a
 [![npm](https://img.shields.io/npm/v/saferskills?color=0D9488&label=npm&logo=npm&logoColor=white)](https://www.npmjs.com/package/saferskills)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-0D9488.svg)](./LICENSE)
 [![Discussions](https://img.shields.io/github/discussions/OpenLatch/saferskills?color=F97316&logo=github&logoColor=white)](https://github.com/OpenLatch/saferskills/discussions)
+[![Join our Slack](https://img.shields.io/badge/Slack-Join%20community-0D9488?logo=slack&logoColor=white)](https://saferskills.ai/slack)
 
 <a href="https://saferskills.ai"><b>saferskills.ai</b></a> ·
 <a href="./docs/methodology.md">Methodology</a> ·
 <a href="https://github.com/OpenLatch/saferskills/discussions">Discussions</a> ·
+<a href="https://saferskills.ai/slack">Slack</a> ·
 <a href="./SECURITY.md">Security</a>
 
 </div>

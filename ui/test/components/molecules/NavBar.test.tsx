@@ -32,6 +32,24 @@ describe('NavBar', () => {
     expect(screen.getByRole('link', { name: /Star.*GitHub/i })).toBeInTheDocument()
   })
 
+  it('renders the Slack community chip defaulting to /slack', () => {
+    render(<NavBar />)
+    // The closed drawer is `hidden` (out of the a11y tree), so the visible
+    // desktop chip resolves uniquely — same pattern as the GhStar assertions.
+    expect(screen.getByRole('link', { name: 'Join our Slack community' })).toHaveAttribute(
+      'href',
+      '/slack',
+    )
+  })
+
+  it('honors a custom slackHref', () => {
+    render(<NavBar slackHref="/community" />)
+    expect(screen.getByRole('link', { name: 'Join our Slack community' })).toHaveAttribute(
+      'href',
+      '/community',
+    )
+  })
+
   it('marks the active link from activePath (SSR-safe, no window read)', () => {
     render(<NavBar activePath="/capabilities" />)
     expect(screen.getByRole('link', { name: 'Capabilities' })).toHaveAttribute(

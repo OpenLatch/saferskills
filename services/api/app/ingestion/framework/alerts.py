@@ -77,7 +77,11 @@ def cadence_seconds(cadence_cron: str | None) -> float | None:
         return None
 
 
-async def _post_slack(webhook_url: str, message: str) -> None:
+async def post_slack(webhook_url: str, message: str) -> None:
+    """POST a plain-text message to a Slack incoming-webhook.
+
+    Public — shared with `app/services/slack_invite_health.py` (the invite
+    health probe pages the same channel on a broken invite)."""
     async with httpx.AsyncClient(timeout=15) as client:
         await client.post(webhook_url, json={"text": message})
 
@@ -123,7 +127,7 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
                     msg += f"no successful cycle in {int(cadence_s * 2) // 3600}h "
                 msg += f"(fr_1h={fr_1h:.0%}, fr_24h={fr_24h:.0%})"
                 try:
-                    await _post_slack(settings.slack_alerts_webhook_url, msg)
+                    await post_slack(settings.slack_alerts_webhook_url, msg)
                 except Exception:
                     logger.warning("alert_evaluator.slack_post_failed", source=source)
 

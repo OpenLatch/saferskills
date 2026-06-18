@@ -56,6 +56,10 @@ services:
       # your .env — the interactive POST /scans path is unaffected either way.
       SCAN_AUTOSCAN_ENABLED: ${SCAN_AUTOSCAN_ENABLED:-true}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Community Slack invite (public, not a secret) — the /api/v1/community/slack/
+      # redirect target. Blank → the redirect 503s + the health loop no-ops, so a
+      # local box without it boots fine. Set in your .env to exercise the chain.
+      SLACK_INVITE_URL: ${SLACK_INVITE_URL:-}
       # NOTE: mcp_registry is paused at runtime via the admin halt-source endpoint
       # (crawler_cursors.status='paused', survives restarts in pgdata) — it is a
       # ~10k-item cursor crawl that enriches every item via api.github.com

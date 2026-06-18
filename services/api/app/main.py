@@ -32,6 +32,7 @@ from app.core.startup_state import startup_state
 from app.routers import (
     admin,
     agent_scans,
+    community,
     health,
     installs,
     items,
@@ -82,6 +83,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         from app.core.sweeps import run_sweep_loop
 
         sweep_task = asyncio.create_task(run_sweep_loop())
+
+    # Slack-invite health probe — same healthy-only guard as the sweep, plus a
+    # configured invite URL (nothing to probe otherwise). Alerts on a broken
+    # never-expire community-Slack link; cancelled cleanly on shutdown.
+    health_task: asyncio.Task[None] | None = None
+    if startup_state.is_healthy and settings.slack_invite_url:
+        from app.services.slack_invite_health import run_slack_invite_health_loop
+
+        health_task = asyncio.create_task(run_slack_invite_health_loop())
 
     # Procrastinate connector + (optionally) the in-process worker (I-04 D-04-03).
     # After migrations + pool init — mirrors the sweep guard above. Schema applied
@@ -153,6 +163,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             await bounded(procrastinate_app.close_async(), timeout=5.0, label="procrastinate close")
         # 3. Expiry sweep loop.
         await cancel_and_settle(sweep_task, timeout=5.0, label="expiry sweep")
+        # 3b. Slack-invite health probe loop.
+        await cancel_and_settle(health_task, timeout=5.0, label="slack invite health")
         # 4. PostHog — flush buffered events before the loop closes (bounded; the
         #    sync client.shutdown() runs in a thread so it can't hang teardown).
         await bounded(asyncio.to_thread(shutdown_observability), timeout=5.0, label="posthog flush")
@@ -220,5 +232,7 @@ app.include_router(vendor.router, prefix="/api/v1")
 app.include_router(installs.router, prefix="/api/v1")
 # Admin surface (I-04 Phase C) — X-Admin-Key gated; /api/v1/admin/*.
 app.include_router(admin.router, prefix="/api/v1")
+# Community — stable /slack redirect hop to the shared community Slack invite.
+app.include_router(community.router, prefix="/api/v1")
 # Webhook intake (I-04) — note: NO /api/v1 prefix; GitHub posts to /webhooks/github.
 app.include_router(webhooks.router)

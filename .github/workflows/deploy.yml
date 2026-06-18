@@ -192,6 +192,7 @@ jobs:
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
+          SLACK_INVITE_URL: ${{ secrets.SLACK_INVITE_URL }}
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
@@ -236,6 +237,14 @@ jobs:
           # Optional: unset → alerts degrade to Sentry/PostHog only, no Slack page.
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
+          fi
+          # SLACK_INVITE_URL is the /api/v1/community/slack/redirect target + the
+          # health-probe input (API web tier only). A PUBLIC value delivered as a
+          # repo-level GH secret — kept out of git, rotatable without a commit;
+          # same value both envs. Optional: unset → the redirect 503s + the health
+          # loop no-ops, never a boot failure.
+          if [ -n "$SLACK_INVITE_URL" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging SLACK_INVITE_URL="$SLACK_INVITE_URL"
           fi
           # SAFERSKILLS_CLI_POW_SECRET is the trust anchor of the stateless CLI Proof-of-Work
           # scan-submit gate (security.md #12). Without it the API startup guard
@@ -416,6 +425,7 @@ jobs:
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
           SAFERSKILLS_ADMIN_KEY: ${{ secrets.SAFERSKILLS_ADMIN_KEY }}
           SLACK_ALERTS_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_WEBHOOK_URL }}
+          SLACK_INVITE_URL: ${{ secrets.SLACK_INVITE_URL }}
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
@@ -459,6 +469,14 @@ jobs:
           # Optional: unset → alerts degrade to Sentry/PostHog only, no Slack page.
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-api SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
+          fi
+          # SLACK_INVITE_URL is the /api/v1/community/slack/redirect target + the
+          # health-probe input (API web tier only). A PUBLIC value delivered as a
+          # repo-level GH secret — kept out of git, rotatable without a commit;
+          # same value both envs. Optional: unset → the redirect 503s + the health
+          # loop no-ops, never a boot failure.
+          if [ -n "$SLACK_INVITE_URL" ]; then
+            flyctl secrets set --stage --app saferskills-api SLACK_INVITE_URL="$SLACK_INVITE_URL"
           fi
           # SAFERSKILLS_CLI_POW_SECRET anchors the stateless CLI Proof-of-Work scan-submit gate
           # (security.md #12). With ENV=production the API startup guard REQUIRES it —

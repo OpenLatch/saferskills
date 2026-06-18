@@ -1,0 +1,12 @@
+---
+// `/slack` — the stable, shareable pretty URL for the community Slack invite
+// (README / docs / footer / nav all point here). It 302s to the backend, which
+// holds the live invite URL, so rotating a dead link is a one-value `[env]`
+// change with no edit to anything that links to `/slack`.
+//
+// The hop goes through the same-origin `/api/*` reverse proxy
+// (`pages/api/[...path].ts`) → `GET /api/v1/community/slack/redirect` → the
+// Slack invite. 302 (not 301): the target rotates, and 301s get cached.
+export const prerender = false
+return Astro.redirect('/api/v1/community/slack/redirect', 302)
+---
