@@ -98,6 +98,17 @@ async def main() -> int:
     await procrastinate_app.open_async()
     await apply_procrastinate_schema_locked()
 
+    # Boot-time orphan recovery — the previous worker is gone, so any `doing`
+    # Procrastinate job is an orphan whose `queueing_lock` blocks fresh cycles.
+    # Re-queue them NOW (the periodic retriers' 4h grace is too slow after a deploy
+    # restart — that delay is what stalled staging ingestion post-redeploy). Runs
+    # after the connector opens (job_manager needs it) + before the supervisor.
+    with contextlib.suppress(Exception):
+        from app.ingestion.tasks_scan import recover_orphaned_jobs_at_boot
+
+        recovered = await recover_orphaned_jobs_at_boot()
+        logger.info("worker_main.orphan_recovery", **recovered)
+
     loop = asyncio.get_running_loop()
     stop = _install_shutdown_signal(loop)
     worker_task = asyncio.create_task(
