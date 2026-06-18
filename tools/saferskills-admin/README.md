@@ -1,27 +1,31 @@
-# saferskills-admin
+<div align="center">
 
-Operator CLI for SaferSkills production (I-04 Phase C, D-04-28). A thin Typer
-client over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints. Distinct
-from `tools/data-seed/` (dev fixtures) and `tools/fp-audit/` (rubric FP audit) —
-this one mutates **production** via the API, so every mutation is audit-logged
-server-side and dangerous verbs require confirmation.
+<a href="../../README.md">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../webapp/public/logos/saferskills-dark-wordmark.svg">
+    <img alt="SaferSkills" src="../../webapp/public/logos/saferskills-light-wordmark.svg" height="38">
+  </picture>
+</a>
+
+<h3>Operator CLI</h3>
+<p>Audit-logged admin client over the X-Admin-Key-gated <code>/admin/*</code> endpoints.</p>
+
+</div>
+
+## What it is
+
+The operator CLI for SaferSkills production (I-04 Phase C, D-04-28) — a thin Typer client over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints. Distinct from [`tools/data-seed/`](../data-seed/README.md) (dev fixtures) and [`tools/fp-audit/`](../fp-audit/README.md) (rubric FP audit): this one mutates **production** via the API, so every mutation is audit-logged server-side and dangerous verbs require confirmation.
 
 ## Auth
 
-Every command sends the `X-Admin-Key` header. Provide it via `--admin-key` or the
-`SAFERSKILLS_ADMIN_KEY` env var. Generate one with:
+Every command sends the `X-Admin-Key` header. Provide it via `--admin-key` or the `SAFERSKILLS_ADMIN_KEY` env var. Generate one with:
 
 ```bash
 uv run saferskills-admin auth gen-admin-key
 # → opk_admin_a9b3…  (set as the API's SAFERSKILLS_ADMIN_KEY Fly secret + your .env)
 ```
 
-**Local development needs no key.** A local API running with the default
-`ENV=development` and no `SAFERSKILLS_ADMIN_KEY` configured exempts the admin gate,
-so `uv run saferskills-admin sources list` (default `--api-url http://localhost:8000`)
-works out of the box — those mutations audit as `local-dev`. A key is only required
-when targeting **staging/production** (their `ENV` is set, so the gate stays
-mandatory). Set one there as an `X-Admin-Key` / `SAFERSKILLS_ADMIN_KEY` value.
+**Local development needs no key.** A local API running with the default `ENV=development` and no `SAFERSKILLS_ADMIN_KEY` configured exempts the admin gate, so `uv run saferskills-admin sources list` (default `--api-url http://localhost:8000`) works out of the box — those mutations audit as `local-dev`. A key is only required when targeting **staging/production** (their `ENV` is set, so the gate stays mandatory).
 
 ## Usage
 
@@ -53,23 +57,22 @@ uv run saferskills-admin popularity recompute-now --yes
 uv run saferskills-admin popularity top-n 500 --kind mcp_server
 ```
 
-`--json` emits CI-parseable output. Dangerous mutations require `--yes` or
-`SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it`.
+`--json` emits CI-parseable output. Dangerous mutations require `--yes` or `SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it`.
 
 ## Dashboard TUI (`sources dashboard`)
 
-`sources dashboard` launches an interactive [Textual](https://textual.textualize.io/)
-"eagle-eye" view over `GET /admin/sources` + `…/{source}/runs`:
+`sources dashboard` launches an interactive [Textual](https://textual.textualize.io/) "eagle-eye" view over `GET /admin/sources` + `…/{source}/runs`:
 
-- **Overview** — overall-status chip + counts, a `critical[]` banner, and a table of
-  every source (status · last run · added/updated · next run · fails). Auto-refreshes
-  every 5s. `↑/↓` select, `Enter` drills in, `r` refresh, `f` cycles the
-  all/critical/running filter, `c` force-cycles **all** sources (behind a confirm modal;
-  the inline status reports the acknowledged/failed tally so a partial failure never
-  hides the successes), `q` quits. A connection error shows a red bar and keeps the last
-  good snapshot.
-- **Drill-down** — live/last-run/schedule/health cards + run history. `Esc`/`backspace`
-  goes back; `c` force-cycle, `p` pause, `u` unpause — each behind a confirm modal, then
-  the same audit-logged admin endpoint + refresh.
+- **Overview** — overall-status chip + counts, a `critical[]` banner, and a table of every source (status · last run · added/updated · next run · fails). Auto-refreshes every 5s. `↑/↓` select, `Enter` drills in, `r` refresh, `f` cycles the all/critical/running filter, `c` force-cycles **all** sources (behind a confirm modal; the inline status reports the acknowledged/failed tally so a partial failure never hides the successes), `q` quits. A connection error shows a red bar and keeps the last good snapshot.
+- **Drill-down** — live/last-run/schedule/health cards + run history. `Esc`/`backspace` goes back; `c` force-cycle, `p` pause, `u` unpause — each behind a confirm modal, then the same audit-logged admin endpoint + refresh.
 
 Terminal-only (no browser). Needs the `textual` dependency (installed via `uv sync`).
+
+## See also
+
+- [`tools/saferskills-admin/CLAUDE.md`](./CLAUDE.md) — layout, conventions, adding a command
+- [`.claude/rules/ingestion.md`](../../.claude/rules/ingestion.md) § Admin endpoints + CLI — the backend surface
+
+---
+
+<sub>Part of **[SaferSkills](../../README.md)** — every AI capability, independently scanned. · An [OpenLatch](https://openlatch.ai) project · [saferskills.ai](https://saferskills.ai)</sub>
