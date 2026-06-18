@@ -55,6 +55,7 @@ export default function DocsSearch() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PagefindResult[]>([])
   const [available, setAvailable] = useState(true)
+  const [loading, setLoading] = useState(false)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -91,20 +92,29 @@ export default function DocsSearch() {
     const q = query.trim()
     if (!q) {
       setResults([])
+      setLoading(false)
       return
     }
+    setLoading(true)
     let cancelled = false
     const t = window.setTimeout(async () => {
       const pf = await loadPagefind()
       if (cancelled) return
       if (!pf) {
         setAvailable(false)
+        setLoading(false)
         return
       }
       setAvailable(true)
-      const search = await pf.search(q)
-      const data = await Promise.all(search.results.slice(0, 8).map((r) => r.data()))
-      if (!cancelled) setResults(data)
+      try {
+        const search = await pf.search(q)
+        const data = await Promise.all(search.results.slice(0, 8).map((r) => r.data()))
+        if (!cancelled) setResults(data)
+      } catch {
+        if (!cancelled) setResults([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }, 160)
     return () => {
       cancelled = true
@@ -164,13 +174,20 @@ export default function DocsSearch() {
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search the documentation"
             />
+            {loading && <span className="dsm-spinner" aria-hidden="true" />}
             <kbd className="docs-search-kbd">Esc</kbd>
           </div>
-          <div className="dsm-results">
+          <div className="dsm-results" aria-busy={loading}>
             {!available && (
               <p className="dsm-empty">Full-text search is available in the production build.</p>
             )}
-            {available && query.trim() && results.length === 0 && (
+            {available && !query.trim() && (
+              <p className="dsm-empty">Type to search the documentation.</p>
+            )}
+            {available && query.trim() && loading && results.length === 0 && (
+              <p className="dsm-empty">Searching…</p>
+            )}
+            {available && query.trim() && !loading && results.length === 0 && (
               <p className="dsm-empty">No results for “{query.trim()}”.</p>
             )}
             <ul>
