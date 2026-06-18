@@ -41,11 +41,13 @@ class _FakeJobManager:
 
 
 @pytest.mark.asyncio
-async def test_requeue_stalled_is_resilient_to_a_per_job_collision(monkeypatch) -> None:
+async def test_requeue_stalled_is_resilient_to_a_per_job_collision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake = _FakeJobManager({"scan": [_Job(1), _Job(2), _Job(3)]}, fail_job_ids={2})
     monkeypatch.setattr(procrastinate_app, "job_manager", fake)
 
-    out = await tasks_scan._requeue_stalled_jobs(("scan",), 0)
+    out = await tasks_scan._requeue_stalled_jobs(("scan",), 0)  # pyright: ignore[reportPrivateUsage]
 
     # The collision on job 2 did NOT abort the sweep — 1 and 3 still re-queued.
     assert fake.retried == [1, 3]
@@ -53,7 +55,9 @@ async def test_requeue_stalled_is_resilient_to_a_per_job_collision(monkeypatch) 
 
 
 @pytest.mark.asyncio
-async def test_requeue_stalled_survives_a_per_queue_list_failure(monkeypatch) -> None:
+async def test_requeue_stalled_survives_a_per_queue_list_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class _JM(_FakeJobManager):
         async def get_stalled_jobs(self, nb_seconds: int, queue: str | None = None, **_: object):
             if queue == "ingest_github":
@@ -63,7 +67,9 @@ async def test_requeue_stalled_survives_a_per_queue_list_failure(monkeypatch) ->
     fake = _JM({"ingest_npm": [_Job(9)]}, fail_job_ids=set())
     monkeypatch.setattr(procrastinate_app, "job_manager", fake)
 
-    out = await tasks_scan._requeue_stalled_jobs(("ingest_github", "ingest_npm"), 0)
+    out = await tasks_scan._requeue_stalled_jobs(  # pyright: ignore[reportPrivateUsage]
+        ("ingest_github", "ingest_npm"), 0
+    )
 
     # A queue whose listing raised is skipped; the rest are still processed.
     assert fake.retried == [9]
@@ -71,12 +77,12 @@ async def test_requeue_stalled_survives_a_per_queue_list_failure(monkeypatch) ->
 
 
 @pytest.mark.asyncio
-async def test_boot_recovery_sweeps_every_queue(monkeypatch) -> None:
+async def test_boot_recovery_sweeps_every_queue(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _FakeJobManager({}, fail_job_ids=set())
     monkeypatch.setattr(procrastinate_app, "job_manager", fake)
 
     await tasks_scan.recover_orphaned_jobs_at_boot()
 
     # Boot recovery covers the scan queue PLUS every ingest/periodic queue.
-    assert set(fake.listed_queues) == set(tasks_scan._ALL_STALLED_QUEUES)
+    assert set(fake.listed_queues) == set(tasks_scan._ALL_STALLED_QUEUES)  # pyright: ignore[reportPrivateUsage]
     assert "scan" in fake.listed_queues
