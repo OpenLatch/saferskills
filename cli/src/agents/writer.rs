@@ -80,6 +80,9 @@ pub struct ResolvedItem {
     pub mcp_entry: Option<Value>,
     /// The `.zip` bytes of the SKILL.md tree (skill kind).
     pub skill_zip: Option<Vec<u8>>,
+    /// The canonical `SKILL.md` text (skill kind) — extracted once from the
+    /// snapshot and rendered per-agent by [`super::writers::render`] (plan 02).
+    pub skill_md: Option<String>,
     /// The rules-file bytes to copy into the agent's rules dir (rules kind).
     pub rules_body: Option<Vec<u8>>,
     /// The `hooks` block to merge into the agent's settings.json (hook kind) —
@@ -586,6 +589,185 @@ pub fn install_rules_file(
     })
 }
 
+/// Atomically write `body` to `dest` (creating parents), recording the file as the
+/// reversible change. The single-file analogue of [`install_rules_file`] used by
+/// the per-agent skill renderer (plan 02) when it writes a verbatim `SKILL.md` /
+/// `.mdc` / rules `.md`.
+pub fn write_file_change(
+    dest: &Path,
+    body: &[u8],
+    dry_run: bool,
+) -> Result<InstallChange, SsError> {
+    if !dry_run {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                SsError::new(
+                    ERR_WRITE_ROLLBACK,
+                    format!("Failed to create {}: {e}", parent.display()),
+                )
+            })?;
+        }
+        atomic_write(dest, body)?;
+    }
+    Ok(InstallChange::File {
+        path: path_str(dest),
+    })
+}
+
+// ─── shared AGENTS.md / GEMINI.md marker-block merge ──────────────────────────
+
+fn malformed_marker_err(path: &Path) -> SsError {
+    SsError::new(
+        ERR_WRITE_ROLLBACK,
+        format!(
+            "{} contains a malformed SaferSkills marker block.",
+            path.display()
+        ),
+    )
+    .with_suggestion(
+        "Resolve the `<!-- saferskills:start/end -->` markers in that file manually, then retry.",
+    )
+}
+
+/// Classify the SaferSkills marker block in `text` — used by the merge/revert
+/// write paths so they never append-over or delete-through a hand-broken host
+/// file:
+/// - `Ok(None)` — neither marker present (clean append target).
+/// - `Ok(Some(range))` — exactly one well-formed `start..end` (start before end,
+///   no SECOND start after it).
+/// - `Err(malformed)` — a start with no following end; an end with no start; end
+///   before start; or a second start (an orphan from a prior corruption).
+fn marker_span(text: &str, path: &Path) -> Result<Option<std::ops::Range<usize>>, SsError> {
+    let start_marker = super::writers::render::MARKER_START;
+    let end_marker = super::writers::render::MARKER_END;
+    let first_start = text.find(start_marker);
+    let first_end = text.find(end_marker);
+    match (first_start, first_end) {
+        (None, None) => Ok(None),
+        // A start with no end, or an end with no start → broken.
+        (Some(_), None) | (None, Some(_)) => Err(malformed_marker_err(path)),
+        (Some(s), Some(e)) => {
+            // The end must close the START marker (end after the start marker's text).
+            if e < s + start_marker.len() {
+                return Err(malformed_marker_err(path));
+            }
+            let block_end = e + end_marker.len();
+            // A SECOND start anywhere after our block is an orphan → broken.
+            if text[block_end..].contains(start_marker) {
+                return Err(malformed_marker_err(path));
+            }
+            Ok(Some(s..block_end))
+        }
+    }
+}
+
+/// Whether `text` holds a COMPLETE, well-formed SaferSkills marker block (a start
+/// followed by an end). Used by the verify path so a lone orphan start is NOT a
+/// false "installed". A malformed file reports "not a complete block" (false) here
+/// — verify is read-only, so it must not error; the merge/revert paths are where
+/// the malformed file is refused.
+pub(crate) fn has_complete_marker_block(text: &str) -> bool {
+    let start_marker = super::writers::render::MARKER_START;
+    let end_marker = super::writers::render::MARKER_END;
+    match (text.find(start_marker), text.find(end_marker)) {
+        (Some(s), Some(e)) => e >= s + start_marker.len(),
+        _ => false,
+    }
+}
+
+/// Replace the well-formed marker block span in `text` with `block`, or append it
+/// (blank-line separated) when `span` is `None`. Idempotent: a second apply
+/// replaces the block it wrote, so applying twice == once.
+fn replace_block(text: &str, span: Option<std::ops::Range<usize>>, block: &str) -> String {
+    match span {
+        Some(range) => {
+            let mut out = String::with_capacity(text.len() + block.len());
+            out.push_str(&text[..range.start]);
+            out.push_str(block);
+            out.push_str(&text[range.end..]);
+            out
+        }
+        None => {
+            if text.trim().is_empty() {
+                format!("{block}\n")
+            } else {
+                let sep = if text.ends_with('\n') { "\n" } else { "\n\n" };
+                format!("{text}{sep}{block}\n")
+            }
+        }
+    }
+}
+
+/// Merge a SaferSkills marker `block` into the shared host file at `path`
+/// (`AGENTS.md` / `GEMINI.md`), preserving everything outside the markers and
+/// capturing the PRIOR block (when one already existed) so an uninstall restores
+/// it verbatim. Records a [`InstallChange::MarkerBlock`]. Idempotent (D15).
+///
+/// **Fail-safe:** if the host already holds a malformed marker block (e.g. an
+/// orphan start with no end), this REFUSES (returns an error) rather than append a
+/// second block or risk a later delete-through — the user's file is left untouched.
+pub fn merge_marker_block(
+    path: &Path,
+    block: &str,
+    dry_run: bool,
+) -> Result<InstallChange, SsError> {
+    let source = read_or_empty(path)?;
+    let span = marker_span(&source, path)?;
+    let prior = span.clone().map(|r| source[r].to_string());
+    if !dry_run {
+        let merged = replace_block(&source, span, block);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                SsError::new(
+                    ERR_WRITE_ROLLBACK,
+                    format!("Failed to create {}: {e}", parent.display()),
+                )
+            })?;
+        }
+        atomic_write(path, merged.as_bytes())?;
+    }
+    Ok(InstallChange::MarkerBlock {
+        file: path_str(path),
+        prior,
+    })
+}
+
+/// Reverse a marker-block merge: restore the `prior` block in place (when one was
+/// captured) or strip our block. If the host file becomes empty/whitespace, delete
+/// it (we created it). Idempotent — an already-stripped file is a no-op.
+///
+/// **Fail-safe:** a malformed marker block in the host (an orphan start, a second
+/// start, etc.) REFUSES rather than delete-through user content; the user resolves
+/// it manually.
+fn revert_marker_block(file: &str, prior: &Option<String>) -> Result<(), SsError> {
+    let path = PathBuf::from(file);
+    let source = match fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => {
+            return Err(SsError::new(
+                ERR_WRITE_ROLLBACK,
+                format!("Failed to read {file}: {e}"),
+            ))
+        }
+    };
+    let Some(range) = marker_span(&source, &path)? else {
+        // Our block is already gone — nothing to revert.
+        return Ok(());
+    };
+    let replacement = prior.clone().unwrap_or_default();
+    let mut out = String::with_capacity(source.len());
+    out.push_str(&source[..range.start]);
+    out.push_str(&replacement);
+    out.push_str(&source[range.end..]);
+    // When we appended into a previously-empty file (no prior) and stripping it
+    // leaves only whitespace, remove the host file we created.
+    if prior.is_none() && out.trim().is_empty() {
+        return remove_path(file);
+    }
+    atomic_write(&path, out.as_bytes())
+}
+
 // ─── hook settings.json merge ────────────────────────────────────────────────
 
 /// Merge a `hooks` block (`{event: [matcher-groups]}`) into `settings_path` under
@@ -820,6 +1002,7 @@ pub fn revert_changes(changes: &[InstallChange]) -> Result<(), SsError> {
                     restore_json_key(file, key, prior)?;
                 }
             }
+            InstallChange::MarkerBlock { file, prior } => revert_marker_block(file, prior)?,
         }
     }
     Ok(())
@@ -832,7 +1015,17 @@ pub fn revert_changes(changes: &[InstallChange]) -> Result<(), SsError> {
 pub fn kind_supported(kind: &str, agent: &DetectedAgent) -> bool {
     match kind {
         "mcp_server" => true,
-        "skill" => agent.skill_dir.is_some(),
+        // A skill is renderable for ANY agent with a target surface (plan 02): a
+        // skills dir (verbatim), a rules dir (.mdc / rules .md), or a shared
+        // AGENTS.md/GEMINI.md (codex/copilot/gemini). All 8 qualify.
+        "skill" => {
+            agent.skill_dir.is_some()
+                || agent.rules_dir.is_some()
+                || matches!(
+                    agent.id,
+                    AgentId::Codex | AgentId::Copilot | AgentId::Gemini
+                )
+        }
         "rules" => agent.rules_dir.is_some(),
         "hook" => agent.hooks_path.is_some(),
         "plugin" => agent.plugin_dir.is_some(),
@@ -994,5 +1187,206 @@ mod tests {
         let base = Path::new("/tmp/x");
         assert!(safe_join(base, "a/b.txt").is_some());
         assert!(safe_join(base, "../escape").is_none());
+    }
+
+    // ─── marker-block merge (plan 02, D15) ────────────────────────────────────
+
+    use super::super::writers::render::{MARKER_END, MARKER_START};
+
+    fn block(inner: &str) -> String {
+        format!("{MARKER_START}\n## SaferSkills\n\n{inner}\n{MARKER_END}")
+    }
+
+    #[test]
+    fn marker_block_appends_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        fs::write(&path, "# Repo guide\n\nKeep tests green.\n").unwrap();
+        let change = merge_marker_block(&path, &block("scan first"), false).unwrap();
+        let after = fs::read_to_string(&path).unwrap();
+        assert!(after.contains("# Repo guide"), "preexisting content kept");
+        assert!(after.contains("## SaferSkills"), "block appended");
+        assert!(matches!(
+            change,
+            InstallChange::MarkerBlock { prior: None, .. }
+        ));
+    }
+
+    #[test]
+    fn marker_block_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        fs::write(&path, "# Guide\n").unwrap();
+        merge_marker_block(&path, &block("scan first"), false).unwrap();
+        let once = fs::read_to_string(&path).unwrap();
+        // Applying the SAME block again is a no-op replace (twice == once).
+        merge_marker_block(&path, &block("scan first"), false).unwrap();
+        let twice = fs::read_to_string(&path).unwrap();
+        assert_eq!(once, twice, "second identical merge changes nothing");
+        assert_eq!(once.matches(MARKER_START).count(), 1, "exactly one block");
+    }
+
+    #[test]
+    fn marker_block_replaces_in_place_and_captures_prior() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("GEMINI.md");
+        fs::write(&path, "# Guide\n").unwrap();
+        merge_marker_block(&path, &block("v1"), false).unwrap();
+        let change = merge_marker_block(&path, &block("v2"), false).unwrap();
+        let after = fs::read_to_string(&path).unwrap();
+        assert!(after.contains("v2"), "block replaced");
+        assert!(!after.contains("v1"), "old block gone");
+        assert_eq!(after.matches(MARKER_START).count(), 1, "single block");
+        match change {
+            InstallChange::MarkerBlock { prior: Some(p), .. } => {
+                assert!(p.contains("v1"), "prior block captured for restore");
+            }
+            _ => panic!("expected MarkerBlock with prior"),
+        }
+    }
+
+    #[test]
+    fn marker_block_uninstall_restores_prior() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        fs::write(&path, "# Guide\n").unwrap();
+        let c1 = merge_marker_block(&path, &block("v1"), false).unwrap();
+        let c2 = merge_marker_block(&path, &block("v2"), false).unwrap();
+        // Revert the v2 write — the v1 block is restored verbatim.
+        revert_changes(&[c2]).unwrap();
+        let restored = fs::read_to_string(&path).unwrap();
+        assert!(restored.contains("v1"), "prior v1 block restored");
+        assert!(!restored.contains("v2"), "v2 block removed");
+        // Revert the v1 write — back to the original, no marker block left.
+        revert_changes(&[c1]).unwrap();
+        let original = fs::read_to_string(&path).unwrap();
+        assert_eq!(original.trim(), "# Guide", "host content intact");
+        assert!(!original.contains(MARKER_START), "no block remains");
+    }
+
+    #[test]
+    fn marker_block_uninstall_deletes_file_when_we_created_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        // No prior file → we create it with only our block.
+        let change = merge_marker_block(&path, &block("only us"), false).unwrap();
+        assert!(path.exists(), "host file created");
+        revert_changes(&[change]).unwrap();
+        assert!(
+            !path.exists(),
+            "host file we created is removed on uninstall"
+        );
+    }
+
+    #[test]
+    fn marker_block_dry_run_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        let change = merge_marker_block(&path, &block("x"), true).unwrap();
+        assert!(!path.exists(), "dry-run must not write");
+        assert!(matches!(change, InstallChange::MarkerBlock { .. }));
+    }
+
+    // ─── FIX 1: malformed-marker fail-safe (no data loss) ─────────────────────
+
+    #[test]
+    fn marker_block_refuses_orphan_start_leaving_file_untouched() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        // A user-authored file with an ORPHAN start marker (no matching end) +
+        // content below it that an append-then-uninstall would have deleted.
+        let original = format!("# Repo guide\n\n{MARKER_START}\n\nMy own important notes.\n");
+        fs::write(&path, &original).unwrap();
+
+        let err = merge_marker_block(&path, &block("scan first"), false).unwrap_err();
+        assert_eq!(err.code, ERR_WRITE_ROLLBACK);
+        // The file is byte-for-byte unchanged — no second block appended, no loss.
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        assert_eq!(
+            fs::read_to_string(&path)
+                .unwrap()
+                .matches(MARKER_START)
+                .count(),
+            1,
+            "no second block appended"
+        );
+    }
+
+    #[test]
+    fn marker_block_refuses_orphan_end() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        let original = format!("# Guide\n{MARKER_END}\nstray\n");
+        fs::write(&path, &original).unwrap();
+        let err = merge_marker_block(&path, &block("x"), false).unwrap_err();
+        assert_eq!(err.code, ERR_WRITE_ROLLBACK);
+        assert_eq!(fs::read_to_string(&path).unwrap(), original, "untouched");
+    }
+
+    #[test]
+    fn marker_block_refuses_second_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        // A well-formed block followed by an ORPHAN second start.
+        let original = format!("{}\n\n{MARKER_START}\nstray second start\n", block("v1"));
+        fs::write(&path, &original).unwrap();
+        let err = merge_marker_block(&path, &block("v2"), false).unwrap_err();
+        assert_eq!(err.code, ERR_WRITE_ROLLBACK);
+        assert_eq!(fs::read_to_string(&path).unwrap(), original, "untouched");
+    }
+
+    #[test]
+    fn marker_block_revert_refuses_malformed_host() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        // We recorded a clean install, but the host was later hand-broken into an
+        // orphan start. Reverting must REFUSE, not delete-through user content.
+        let original = format!("# Guide\n{MARKER_START}\nuser content\n");
+        fs::write(&path, &original).unwrap();
+        let change = InstallChange::MarkerBlock {
+            file: path.to_string_lossy().into_owned(),
+            prior: None,
+        };
+        let err = revert_changes(&[change]).unwrap_err();
+        assert_eq!(err.code, ERR_WRITE_ROLLBACK);
+        assert_eq!(fs::read_to_string(&path).unwrap(), original, "untouched");
+    }
+
+    #[test]
+    fn well_formed_block_still_round_trips_after_fix() {
+        // Regression guard: the fail-safe classifier must not break the happy path.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        fs::write(&path, "# Guide\n").unwrap();
+        let c1 = merge_marker_block(&path, &block("v1"), false).unwrap();
+        // Idempotent re-apply.
+        merge_marker_block(&path, &block("v1"), false).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path)
+                .unwrap()
+                .matches(MARKER_START)
+                .count(),
+            1
+        );
+        // Replace + capture prior + restore on revert.
+        let c2 = merge_marker_block(&path, &block("v2"), false).unwrap();
+        revert_changes(&[c2]).unwrap();
+        assert!(
+            fs::read_to_string(&path).unwrap().contains("v1"),
+            "prior restored"
+        );
+        revert_changes(&[c1]).unwrap();
+        let final_text = fs::read_to_string(&path).unwrap();
+        assert_eq!(final_text.trim(), "# Guide", "host intact");
+        assert!(!has_complete_marker_block(&final_text), "no block remains");
+    }
+
+    #[test]
+    fn has_complete_marker_block_rejects_lone_start() {
+        assert!(!has_complete_marker_block(&format!(
+            "x\n{MARKER_START}\ny\n"
+        )));
+        assert!(!has_complete_marker_block("nothing here"));
+        assert!(has_complete_marker_block(&block("ok")));
     }
 }
