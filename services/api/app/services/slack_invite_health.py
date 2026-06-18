@@ -35,9 +35,10 @@ _HEALTH_LOCK_KEY = 0x5AFE5C14
 _TIMEOUT_SECONDS = 10.0
 
 # Lowercased substrings Slack renders on a dead/expired shared-invite page.
+# (No "this link is no longer active" — the shorter "no longer active" already
+# matches it.)
 _BROKEN_MARKERS = (
     "no longer active",
-    "this link is no longer active",
     "isn't active",
     "couldn't find",
 )
@@ -90,8 +91,6 @@ async def probe_and_alert(settings: Settings) -> bool | None:
     alive = await _probe_invite(url)
     if not alive:
         await _alert_broken(settings, url)
-    else:
-        logger.debug("slack invite health: ok")
     return alive
 
 
