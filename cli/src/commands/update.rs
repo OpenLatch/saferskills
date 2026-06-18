@@ -1,10 +1,10 @@
-//! `saferskills update [name]` / `update --all` (D-05-18, D-05-23, D-05-25).
+//! `saferskills update [name]` / `update --all`.
 //!
 //! `update <name>` re-resolves the item, compares the recorded scan version to
 //! the current one, and re-runs the gated install when it changed. `update --all`
 //! re-verifies every installed item's score and, for any now-Red (or
 //! newly-critical) item, offers to prune it (interactive) — `--prune-red` does so
-//! non-interactively (D-05-23). Nothing is ever auto-deleted silently.
+//! non-interactively. Nothing is ever auto-deleted silently.
 
 use crate::agents::writer::revert_changes;
 use crate::api::dto::{Severity, Tier};

@@ -699,7 +699,7 @@ html.dark .sr-catalog .cl-l h4 {
   flex-wrap: wrap;
 }
 
-/* ============================================================ I-3.5 — UPLOAD + UNLISTED CHROME ============================================================ */
+/* ============================================================ UPLOAD + UNLISTED CHROME ============================================================ */
 /* Provenance chip in the head meta (mockups 3/4). Teal-on-paper, no new token. */
 .up-chip {
   display: inline-flex;
@@ -1041,7 +1041,7 @@ html.dark .badge-band .badge-locked p b {
 }
 
 /* ============================================================ MULTI-FILE UPLOAD — FILE TAB STRIP ============================================================ */
-/* Page-specific tablist for a multi-file upload report (I-3.5). Grounded in the
+/* Page-specific tablist for a multi-file upload report. Grounded in the
    DS underline-tabs look, extended per tab with a kind glyph + filename + tier
    dot + tier-colored score. A page-specific composition (rendered by the
    webapp-side UploadReport/FileTabStrip), so the CSS lives here, not in

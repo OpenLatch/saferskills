@@ -82,8 +82,8 @@ class NpmAdapter(RegistryAdapter):
                 if r.status_code != 200:
                     # A 429/5xx on the changes stream means we got NO data — leave
                     # `completed=False` so the `finally` records the cycle as failed
-                    # (success=False) rather than silently greening a no-op cycle
-                    # (WS-8b). The next tick retries from the same `seq`.
+                    # (success=False) rather than silently greening a no-op cycle.
+                    # The next tick retries from the same `seq`.
                     logger.warning("npm.stream_non_200", status=r.status_code, last_seq=last_seq)
                     return
                 async for line in r.aiter_lines():

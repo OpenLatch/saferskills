@@ -6,7 +6,7 @@
  *   - Sentry: errors only, `sendDefaultPii: false`, breadcrumbs stripped of
  *     any reference to rubric/, schemas/, or user-submitted URLs.
  *   - PostHog: anonymous (no `identify()`); event emission via the closed-enum
- *     allowlist in `webapp/src/lib/analytics.ts` (lands with Phase A2 pages).
+ *     allowlist in `webapp/src/lib/analytics.ts`.
  */
 
 let initialized = false
@@ -14,8 +14,8 @@ let initialized = false
 /**
  * Redact the unlisted capability / agent-run token from any `/{scans,agents,
  * agent-scans}/r/<token>` URL so it never reaches Sentry (pairs with the backend
- * access-log + Sentry scrub; D-UP-32 / I-5.6 Codex P0-2 / security.md
- * § Capability-URL anti-leakage). Possession of the token is full authorization —
+ * access-log + Sentry scrub; security.md § Capability-URL anti-leakage).
+ * Possession of the token is full authorization —
  * it must not leak into an error payload. The leading `/` anchors each alternative,
  * so `/agent-scans/r/` never mis-matches the bare `scans` branch.
  */
@@ -64,7 +64,7 @@ async function initSentry(): Promise<void> {
     replaysOnErrorSampleRate: 0,
     integrations: [],
     beforeBreadcrumb(breadcrumb) {
-      // Redact the capability token from any breadcrumb URL first (D-UP-32).
+      // Redact the capability token from any breadcrumb URL first.
       if (typeof breadcrumb.data?.url === 'string') {
         breadcrumb.data.url = redactCapabilityToken(breadcrumb.data.url)
       }
@@ -88,7 +88,7 @@ async function initSentry(): Promise<void> {
       if (event.request?.cookies) {
         event.request.cookies = undefined
       }
-      // Never let the unlisted capability token reach Sentry (D-UP-32).
+      // Never let the unlisted capability token reach Sentry.
       if (event.request?.url) {
         event.request.url = redactCapabilityToken(event.request.url)
       }

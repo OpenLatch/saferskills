@@ -14,7 +14,7 @@ from app.models.generated._base import Base
 
 
 class IngestionEvent(Base):
-    """One row per adapter fetch (outbox pattern, D-04-08). Immutable, append-only, replayable: re-deriving the..."""
+    """One row per adapter fetch (outbox pattern). Immutable, append-only, replayable: re-deriving the catalog..."""
 
     __tablename__ = "ingestion_events"
 

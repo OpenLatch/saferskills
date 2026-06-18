@@ -1,7 +1,7 @@
 """Per-source crawler cursor read/write (crawler_cursors table).
 
 The cursor is the resume marker (opaque per-source JSON) + the per-source health
-fields the /sources dashboard (Phase C) reads. Always written AFTER the events tx.
+fields the /sources dashboard reads. Always written AFTER the events tx.
 """
 
 from __future__ import annotations

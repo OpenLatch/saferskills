@@ -10,7 +10,7 @@ paths:
 
 > **Paths**: `services/api/migrations/**`, `services/api/app/models/**`, `services/api/app/db/**`, `services/api/alembic.ini`
 
-PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.md`). SQLAlchemy 2 async (`AsyncSession` everywhere), Alembic for migrations. This rule lands with the first real content-storage subsystem: `artifact_blobs` (Phase B).
+PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.md`). SQLAlchemy 2 async (`AsyncSession` everywhere), Alembic for migrations. This rule lands with the first real content-storage subsystem: `artifact_blobs`.
 
 ## Migrations
 
@@ -18,7 +18,7 @@ PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.m
 - **One revision per schema change**, named `YYYY_MM_DD_NNNN_<slug>.py`, `down_revision` chained to the prior head.
 - **Every migration is reversible** — `downgrade()` drops what `upgrade()` adds. Current head: `0023_agent_component_scan_link` (down-rev `0022_drop_agent_verify_waitlist`) — adds the nullable `agent_runs.component_scan_run_id` FK → `scan_runs(id)` `ON DELETE SET NULL` (DB-only `x-postgresql-extra-columns` on `agent-scan-report.schema.json`; the generated `AgentRun` model carries the `mapped_column`, NOT the wire entity), linking a best-effort CLI-captured component scan (the `scan --local` upload of the scanned platform's installed capabilities) onto the agent run so the Agent Report projects that run's per-capability `scans` into the **Component Scores** tab; NULL on web / `--print-skill` paths (no local filesystem); `SET NULL` (not CASCADE) so deleting the component scan never deletes the behavioral run; lineage …→0021→0022→0023. See § Agent directory surface. The per-revision DDL for the full `0001 → 0023` lineage lives in the migration files themselves (`services/api/migrations/versions/`) — read those / `git log` rather than mirroring the whole history here. Each feature-bearing revision has a dedicated section below: `§ Agent directory surface` (0020–0023), `§ Agent scan` (0019), `§ Install events` (0015), `§ CLI Proof-of-Work spent ledger` (0016), `§ Auto-scan queue-of-record` (0014), `§ Ingestion runs` (0013). Reversible downgrades throughout.
 - Naming follows `.claude/rules/naming-conventions.md` § Database (plural snake_case tables, `idx_`/`uq_`/`chk_` constraints, `<singular>_id` FKs).
-- **Models are codegen-driven (since `0009` / I-04 Phase A0).** The ten **schema-backed** models — the six original (`CatalogItem`, `Scan`, `Finding`, `ScanRun`, `VendorVerification`, `VendorResponse`) plus `IngestionEvent` + `MergeCandidate` (I-04) plus `AgentRun` + `AgentFinding` (I-5.5) — are **generated** from `schemas/` into `app/models/generated/` (full column projection, native PG enum columns — see `schema-driven-development.md` § SQLAlchemy generation + `docs/codegen.md`). The **seventeen internal stores** with no JSON-Schema source and no wire DTO stay **hand-written** under `app/models/*.py`: `ItemSource`, `RateLimit`, `UploadFile`, `ArtifactBlob`, `ScanEvent`, `Author`, `CrawlerCursor`, `PopularityFormula`, `AccessLog`, `AdminAuditLog`, `IngestionRun`, `RepoFetchState`, `InstallEvent`, `CliPowSpent`, `AgentEvidence`, `AgentRunTokenSpent`, `AgentScanTelemetry`. **Criterion**: a table with a JSON Schema that is serialized over the API is generated (Pydantic+Zod+TS+SQLAlchemy together — there is no DB-only codegen mode); a table never serialized over the API stays hand-written. All are registered + relationship-wired in `app/models/__init__.py` (+ `_relationships.py`) so `Base.metadata` sees every table.
+- **Models are codegen-driven (since migration `0009`).** The ten **schema-backed** models — the six original (`CatalogItem`, `Scan`, `Finding`, `ScanRun`, `VendorVerification`, `VendorResponse`) plus `IngestionEvent` + `MergeCandidate` plus `AgentRun` + `AgentFinding` — are **generated** from `schemas/` into `app/models/generated/` (full column projection, native PG enum columns — see `schema-driven-development.md` § SQLAlchemy generation + `contributor-docs/codegen.md`). The **seventeen internal stores** with no JSON-Schema source and no wire DTO stay **hand-written** under `app/models/*.py`: `ItemSource`, `RateLimit`, `UploadFile`, `ArtifactBlob`, `ScanEvent`, `Author`, `CrawlerCursor`, `PopularityFormula`, `AccessLog`, `AdminAuditLog`, `IngestionRun`, `RepoFetchState`, `InstallEvent`, `CliPowSpent`, `AgentEvidence`, `AgentRunTokenSpent`, `AgentScanTelemetry`. **Criterion**: a table with a JSON Schema that is serialized over the API is generated (Pydantic+Zod+TS+SQLAlchemy together — there is no DB-only codegen mode); a table never serialized over the API stays hand-written. All are registered + relationship-wired in `app/models/__init__.py` (+ `_relationships.py`) so `Base.metadata` sees every table.
 
 ## Native enum types (migration `0009`)
 
@@ -86,7 +86,7 @@ The stored-public-artifact-snapshot feature persists the raw bytes of scanned **
 
 ## Upload + visibility (`upload_files`, migration 0008)
 
-I-3.5 adds direct artifact upload + private (unlisted) scans. Uploads are a second front-end producing the same per-capability file index; visibility (`public` | `unlisted`) and `source_kind` (`github` | `upload`) are orthogonal columns on `scan_runs` + `catalog_items`. An upload may be **one file, one `.zip`, or N loose files** — all three resolve to the same combined `files_index` the engine scans like a repo, so the schema is unchanged. For a multi-file batch `scan_runs.original_filename` is the display label `"{n} files"` (the durable `content_hash_sha256` is computed from `files_index`, so the public-upload idempotency cache is unaffected by the label).
+Direct artifact upload + private (unlisted) scans. Uploads are a second front-end producing the same per-capability file index; visibility (`public` | `unlisted`) and `source_kind` (`github` | `upload`) are orthogonal columns on `scan_runs` + `catalog_items`. An upload may be **one file, one `.zip`, or N loose files** — all three resolve to the same combined `files_index` the engine scans like a repo, so the schema is unchanged. For a multi-file batch `scan_runs.original_filename` is the display label `"{n} files"` (the durable `content_hash_sha256` is computed from `files_index`, so the public-upload idempotency cache is unaffected by the label).
 
 **Multi-file fan-out (per-file tabs report) needs NO migration.** A **flat** multi-file upload (top-level files, no subdirectories) fans into **one capability per file** (`discover_capabilities(source_kind="upload")`, runtime-only) — even when one file is a recognized anchor like `SKILL.md`; a structured `.zip` with subdirectories keeps normal directory-based discovery. It persists as N `scans` + N `catalog_items` under one `scan_runs` row, exactly the existing fan-out `persist_completed_scan_run` already handles. The per-file source viewer + `.zip` are read from the pre-existing `scans.manifest_*` + `scans.file_hashes` columns (`_pick_manifest` gains a single-loose-file fallback); the report DTO carries them per-`CapabilityRow`. No new column, no head-revision bump (still `0008_add_upload_and_visibility`).
 
@@ -113,7 +113,7 @@ I-3.5 adds direct artifact upload + private (unlisted) scans. Uploads are a seco
 - **Per-run, NO dedup.** Unlike `artifact_blobs` (content-addressed, shared), `upload_files` rows are scoped to one `scan_run_id` — per-run isolation avoids dedup-induced privacy coupling between unlisted runs.
 - **`content` NULL = binary/oversize sentinel** (same heuristic as snapshots: null-byte detection + per-file cap).
 
-### Visibility-split storage rule (D-UP-12)
+### Visibility-split storage rule
 
 Where scanned bytes land depends on `source_kind × visibility`:
 
@@ -135,7 +135,7 @@ The `scans → scan_runs` FK **stays `ON DELETE SET NULL`** (not altered by 0008
 
 ### Expiry sweep
 
-`app/core/sweeps.py::run_sweep_loop` — an in-process asyncio loop every `SWEEP_INTERVAL_SECONDS` (default 3600) under a **NEW** advisory lock `0x5AFE5C12` (distinct from the migration lock `0x5AFE5C11`). Started from the FastAPI lifespan in `app/main.py` AFTER `run_startup` + pool init, only when `startup_state.is_healthy`, and cancelled on shutdown. `sweep_unlisted(session)` deletes `scan_runs WHERE visibility='unlisted' AND expires_at < now()` via `delete_run_cascade`. `sweep_ingestion_runs(session)` (same tick, same `0x5AFE5C12` lock) deletes `ingestion_runs WHERE started_at < now() - interval '90 days'`. `sweep_cli_pow(session)` (same tick, same `0x5AFE5C12` lock) deletes `cli_pow_spent WHERE expires_at < now()` (the spent single-use PoW ledger — a row is dead once its challenge has expired). `sweep_agent_runs(session)` (same tick, same lock) deletes expired unlisted Agent Reports — `agent_runs WHERE visibility='unlisted' AND expires_at < now()` via `delete_agent_run_cascade` (I-5.5, D-5.5-19). `sweep_agent_run_tokens(session)` (same tick, same lock) deletes `agent_run_token_spent WHERE expires_at < now()` (mirrors `sweep_cli_pow` — the one-time submit-token ledger). Coexists with the existing unreferenced-`artifact_blobs` sweep.
+`app/core/sweeps.py::run_sweep_loop` — an in-process asyncio loop every `SWEEP_INTERVAL_SECONDS` (default 3600) under a **NEW** advisory lock `0x5AFE5C12` (distinct from the migration lock `0x5AFE5C11`). Started from the FastAPI lifespan in `app/main.py` AFTER `run_startup` + pool init, only when `startup_state.is_healthy`, and cancelled on shutdown. `sweep_unlisted(session)` deletes `scan_runs WHERE visibility='unlisted' AND expires_at < now()` via `delete_run_cascade`. `sweep_ingestion_runs(session)` (same tick, same `0x5AFE5C12` lock) deletes `ingestion_runs WHERE started_at < now() - interval '90 days'`. `sweep_cli_pow(session)` (same tick, same `0x5AFE5C12` lock) deletes `cli_pow_spent WHERE expires_at < now()` (the spent single-use PoW ledger — a row is dead once its challenge has expired). `sweep_agent_runs(session)` (same tick, same lock) deletes expired unlisted Agent Reports — `agent_runs WHERE visibility='unlisted' AND expires_at < now()` via `delete_agent_run_cascade`. `sweep_agent_run_tokens(session)` (same tick, same lock) deletes `agent_run_token_spent WHERE expires_at < now()` (mirrors `sweep_cli_pow` — the one-time submit-token ledger). Coexists with the existing unreferenced-`artifact_blobs` sweep.
 
 ## Ingestion runs (`ingestion_runs`, migration 0013)
 
@@ -153,7 +153,7 @@ The eagle-eye observability table — **one row per ingestion cycle attempt**, w
 
 ## Install events (`install_events`, migration 0015)
 
-The opt-in install-telemetry store (I-05, D-05-31) — **one row per opt-in install reported by the `saferskills` CLI** (`POST /api/v1/installs`). Replaces the `items.py::_mock_install_activity` placeholder with a real GROUP-BY aggregate (this_week/this_month/all_time + agent distribution).
+The opt-in install-telemetry store — **one row per opt-in install reported by the `saferskills` CLI** (`POST /api/v1/installs`). Replaces the `items.py::_mock_install_activity` placeholder with a real GROUP-BY aggregate (this_week/this_month/all_time + agent distribution).
 
 | Piece | Shape | Role |
 |---|---|---|
@@ -166,8 +166,8 @@ The opt-in install-telemetry store (I-05, D-05-31) — **one row per opt-in inst
 
 ## CLI Proof-of-Work spent ledger (`cli_pow_spent`, migration 0016)
 
-The single-use ledger for the stateless CLI Proof-of-Work scan-submit gate (I-05,
-D-05-30). The install CLI can't solve a Turnstile CAPTCHA, so the API issues a
+The single-use ledger for the stateless CLI Proof-of-Work scan-submit gate. The
+install CLI can't solve a Turnstile CAPTCHA, so the API issues a
 stateless HMAC-signed challenge (`GET /api/v1/scans/cli-challenge`) that the CLI
 brute-forces and replays in the `X-SaferSkills-CLI-PoW` header. The challenge
 itself is stateless (no server storage); the **only** thing persisted is "this
@@ -184,7 +184,7 @@ exact solved challenge has been spent", to block replay.
 
 ## Agent scan (`agent_runs` + `agent_findings` + 3 internal stores, migration 0019)
 
-I-5.5 adds the behavioral **Agent Scan** subsystem — a per-run challenge/grade flow that probes an agent against the `rubric/AGENT/` pack (AS-NN tests) on a single behavioral axis. One scan = one `agent_runs` row fanning out to N `agent_findings` rows. The 2 schema-backed tables are **generated** (`AgentRun`/`AgentFinding`); the 3 internal stores are **hand-written**.
+The behavioral **Agent Scan** subsystem — a per-run challenge/grade flow that probes an agent against the `rubric/AGENT/` pack (AS-NN tests) on a single behavioral axis. One scan = one `agent_runs` row fanning out to N `agent_findings` rows. The 2 schema-backed tables are **generated** (`AgentRun`/`AgentFinding`); the 3 internal stores are **hand-written**.
 
 | Piece | Shape | Role |
 |---|---|---|
@@ -192,7 +192,7 @@ I-5.5 adds the behavioral **Agent Scan** subsystem — a per-run challenge/grade
 | `agent_findings` | `id` PK; `agent_run_id` FK → `agent_runs` (`CASCADE`); rule/test id (`AS-NN`); `verdict` (native `agent_test_verdict` enum — vulnerable/not_observed/n_a/error); `severity` (reuses `severity`); framework refs; the leaked-canary **slot** only | Per-test result. **No raw agent output** — hash/refs/leaked-canary-SLOT only (the no-raw-payload trace invariant, `security.md`). |
 | `agent_evidence` | per-run; raw submitted evidence + the exact served signed pack bytes; `agent_run_id` FK `CASCADE` | Internal store backing grading + pack-byte archival. Never on the public projection. Hand-written `app/models/agent_evidence.py`. |
 | `agent_run_token_spent` | single-use submit-token ledger keyed by token hash; `expires_at` | Mirrors `cli_pow_spent` — single-use one-time-token replay guard. Reaped by **expiry**, NOT cascade. Hand-written `app/models/agent_run_token_spent.py`. |
-| `agent_scan_telemetry` | write-only company-level ASN + fingerprint, no raw IP/PII; `agent_run_id` FK **`SET NULL`** | Anonymous aggregate (reader deferred to I-06). The FK is SET NULL at the DB layer, but `delete_agent_run_cascade` **fully erases** the run's telemetry rows on every app-level delete path. Hand-written `app/models/agent_scan_telemetry.py`. See `privacy.md` § agent_scan_telemetry. |
+| `agent_scan_telemetry` | write-only company-level ASN + fingerprint, no raw IP/PII; `agent_run_id` FK **`SET NULL`** | Anonymous aggregate (reader deferred). The FK is SET NULL at the DB layer, but `delete_agent_run_cascade` **fully erases** the run's telemetry rows on every app-level delete path. Hand-written `app/models/agent_scan_telemetry.py`. See `privacy.md` § agent_scan_telemetry. |
 
 - **Internal storage only** for the 3 hand-written stores — NOT part of the generated entity pipeline (no `schemas/*.schema.json`, no Pydantic/Zod/TS DTO, no wire model). All registered in `app/models/__init__.py`.
 - **Deletion cascade.** Run deletion goes through `app/agent_scan/persistence.py::delete_agent_run_cascade` (findings → telemetry → evidence → run), which **fully erases** the run's `agent_scan_telemetry` rows on every app-level delete path (unlisted self-delete, expiry sweep, admin delete) — the DB-level `SET NULL` FK is a constraint backstop, not the effective behavior. The `agent_run_token_spent` ledger is **NOT cascaded** — its rows die only by expiry sweep.
@@ -201,13 +201,13 @@ I-5.5 adds the behavioral **Agent Scan** subsystem — a per-run challenge/grade
 
 ## Agent directory surface (`agent_runs.vendor_reply`, migration 0020)
 
-I-5.6 Phase C adds the public `/agents` directory + the right-of-reply. One storage
+The public `/agents` directory + the right-of-reply. One storage
 change survives in head (the verify-tier demand-capture store that 0020 also added
 was dropped by 0022 — see below):
 
 - **`agent_runs.vendor_reply` (VARCHAR 1000, nullable) + `agent_runs.vendor_reply_at`
-  (TIMESTAMPTZ, nullable)** — the capability-token holder's ≤500-char public reply
-  (D-5.6-08, §13), set by `POST /agent-scans/r/{token}/reply` and rendered read-only
+  (TIMESTAMPTZ, nullable)** — the capability-token holder's ≤500-char public reply,
+  set by `POST /agent-scans/r/{token}/reply` and rendered read-only
   on the report. Added as **`x-postgresql-extra-columns`** on
   `agent-scan-report.schema.json` (DB-only — the SQLAlchemy generator adds the
   columns; they are NOT on the generated wire entity). Projected onto the
@@ -230,7 +230,7 @@ SQLAlchemy generator adds the column; it is NOT on the generated wire entity /
 `openapi.json`). `directory.py::_capability_tally` projects it onto the directory
 summary's `capability_tally` (coalescing NULL/absent → an all-zero tally → no
 icons). **NULL for real scans** until the submit/grade flow captures a component
-inventory (or Phase 2 populates `component_scores`); the `.local/design-fix`
+inventory (or a later pass populates `component_scores`); the local design-fixture
 seed populates mockup-faithful varied counts for localhost. Stored count map,
 NEVER a finding/trace field (`security.md` no-raw-payload invariant unaffected).
 

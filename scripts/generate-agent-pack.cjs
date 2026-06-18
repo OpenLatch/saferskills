@@ -2,13 +2,13 @@
 /**
  * generate-agent-pack.cjs — agent-scan behavioral pack emission from rubric/AGENT/.
  *
- * Step #9 of the codegen pipeline (I-5.5, D-5.5-14). Reads every
+ * Step #9 of the codegen pipeline. Reads every
  * `rubric/AGENT/AS-NN-<slug>.md`, parses YAML frontmatter, validates against
  * `schemas/agent-pack-test.schema.json` (ajv), hard-fails on any invalid file or
  * unknown `frameworks` code, sorts by testId, and emits TWO artifacts:
  *
  *   1. `webapp/src/generated/agent-pack/practice.json` — the PUBLIC practice pack
- *      for I-5.6 `/methodology`. Canaries scrubbed: no `promptTemplate`, no
+ *      for `/methodology`. Canaries scrubbed: no `promptTemplate`, no
  *      `mockTools` (those carry `{{CANARY}}` placeholders / planted directives),
  *      only a sanitized human `detectionDescription`.
  *   2. `services/api/app/generated/agent_pack.json` — the FULL backend source the

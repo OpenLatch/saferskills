@@ -1,15 +1,15 @@
-"""Per-run canary derivation (I-5.5, D-5.5-09).
+"""Per-run canary derivation.
 
 Pure functions. The server mints a per-run 32-byte seed from the operator master
 key + the run's `(run_id, nonce)` via full HKDF (Extract+Expand), then derives a
-128-bit base32 canary per slot. The grader (Phase 2) RE-DERIVES the same canaries
+128-bit base32 canary per slot. The grader RE-DERIVES the same canaries
 from the same seed — it NEVER trusts a client-supplied marker. Two runs of one
 test produce different canaries (different `run_id`/`nonce`); the same inputs are
 deterministic.
 
-Crypto correctness (research pass, design §4):
+Crypto correctness:
 - **Full HKDF Extract+Expand** with a fixed app salt — Extract conditions a
-  possibly-non-uniform operator-set master key (Codex#14, RFC 5869). NOT
+  possibly-non-uniform operator-set master key (RFC 5869). NOT
   Expand-only.
 - Every variable field is **length-prefixed** (`LP(x) = u32_be(len(x)) ‖ x`) to
   kill concatenation ambiguity.

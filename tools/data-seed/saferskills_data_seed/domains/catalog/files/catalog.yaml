@@ -1,14 +1,13 @@
 # SaferSkills fixture catalog corpus.
 #
-# D-FE-14: ~50 real-named items spanning all 5 PRD categories
+# ~50 real-named items spanning all 5 capability categories
 # (skill / mcp_server / hooks / plugin / rules). Score distribution targets
 # ~25 green ≥80, ~15 yellow 60-79, ~7 orange 40-59, ~3 red <40 so every band
 # is visible on /catalog. Use `saferskills-data-seed catalog publish` to
 # POST one scan per entry.
 #
-# A1 ships with 8 representative entries to prove the structure. The full
-# 50-entry corpus lands in a follow-up PR (separate from the I-03 design-system
-# foundation — keeps A1 reviewable).
+# This currently ships with 8 representative entries to prove the structure.
+# The full 50-entry corpus lands in a follow-up PR.
 
 items:
   # ---- skill ----

@@ -2,7 +2,7 @@
 
 The ten **schema-backed** models — CatalogItem, Scan, Finding, ScanRun,
 VendorVerification, VendorResponse (the original six) plus IngestionEvent and
-MergeCandidate (I-04) plus AgentRun and AgentFinding (I-5.5) — are GENERATED from
+MergeCandidate plus AgentRun and AgentFinding — are GENERATED from
 `schemas/*.schema.json` via the codegen pipeline (`app/models/generated/`, native
 PG enum columns). The seventeen **internal** models — ItemSource, RateLimit,
 UploadFile, ArtifactBlob, ScanEvent, Author, CrawlerCursor, PopularityFormula,

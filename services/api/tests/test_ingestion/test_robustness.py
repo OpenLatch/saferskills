@@ -1,19 +1,19 @@
 """Robustness guard tests — locks the "zero unhandled tracebacks" invariant.
 
-The ingestion + scan pipeline robustness overhaul (WS-1..WS-8) turns every
+The ingestion + scan pipeline robustness fixes turn every
 provider/transport/shape-drift failure into a clean WARN + a recorded
-skipped/failed result. This file is the acceptance bar (WS-9): it injects each
+skipped/failed result. This file is the acceptance bar: it injects each
 failure class and asserts NO exception propagates and the cycle/source is not
-wedged. Reverting any one fix (e.g. WS-3's permanent-dead-letter, WS-5's per-item
+wedged. Reverting any one fix (e.g. the permanent-dead-letter, the per-item
 skip) should turn one of these red.
 
 Covers:
-  - Retry taxonomy (WS-3): permanent → dead-letter now; transient → schedule.
-  - Shared failure classifier (WS-4).
-  - GitHub App token-mint failure → None, never a raised traceback (WS-1).
-  - Malformed Content-Length doesn't raise in the response hook (WS-8a).
-  - Per-item isolation: a poisoned item is skipped, the cycle completes (WS-5).
-  - npm non-200 stream → success=False cursor, no silent false-green (WS-8b).
+  - Retry taxonomy: permanent → dead-letter now; transient → schedule.
+  - Shared failure classifier.
+  - GitHub App token-mint failure → None, never a raised traceback.
+  - Malformed Content-Length doesn't raise in the response hook.
+  - Per-item isolation: a poisoned item is skipped, the cycle completes.
+  - npm non-200 stream → success=False cursor, no silent false-green.
   - Cycle-level provider failure (403/429/5xx) → clean failed result, no raise.
 """
 
@@ -31,7 +31,7 @@ from app.ingestion.framework.base_adapter import NormalizedItem, RawItem
 from app.ingestion.framework.registry_adapter import RegistryAdapter
 
 # ──────────────────────────────────────────────────────────────────────────
-# WS-3 — retry taxonomy
+# retry taxonomy
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -47,7 +47,7 @@ from app.ingestion.framework.registry_adapter import RegistryAdapter
 )
 def test_retry_permanent_dead_letters_immediately(exc: BaseException) -> None:
     """A permanent shape-drift error must dead-letter NOW (None), never schedule a
-    retry — a deterministic bug just re-fails 4x with a full refetch each (WS-3)."""
+    retry — a deterministic bug just re-fails 4x with a full refetch each."""
     from app.ingestion.framework.retry import IngestionRetry
 
     job = MagicMock()
@@ -76,7 +76,7 @@ def test_retry_pydantic_validation_error_is_permanent() -> None:
 @pytest.mark.parametrize("attempt", [1, 2, 3, 4])
 def test_retry_transient_schedules_within_window(attempt: int) -> None:
     """A transient error schedules a retry (non-None) for each of the 4 scheduled
-    attempts — the escalating 1m/5m/30m/6h window (WS-3). The exact backoff is the
+    attempts — the escalating 1m/5m/30m/6h window. The exact backoff is the
     `_SCHEDULE_SECONDS` tuple; here we lock that transient ≠ dead-letter."""
     from app.ingestion.framework.retry import IngestionRetry
 
@@ -97,7 +97,7 @@ def test_retry_transient_exhausts_to_dead_letter() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# WS-4 — shared failure classifier
+# shared failure classifier
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -127,7 +127,7 @@ def test_classify_failure(exc: BaseException, expected: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# WS-1 — GitHub App token-mint failure → None (never a raised traceback)
+# GitHub App token-mint failure → None (never a raised traceback)
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -136,7 +136,7 @@ async def test_token_mint_500_returns_none_and_negative_caches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A 500 from the installation-token endpoint must be swallowed → None (callers
-    fall back to anonymous), and the negative cache must stop a re-attempt (WS-1)."""
+    fall back to anonymous), and the negative cache must stop a re-attempt."""
     import jwt
 
     from app.core import github_app_token as gat
@@ -204,7 +204,7 @@ async def test_token_missing_creds_returns_none() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# WS-8a — malformed Content-Length must not raise in the response hook
+# malformed Content-Length must not raise in the response hook
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -216,7 +216,7 @@ async def test_malformed_content_length_does_not_raise() -> None:
 
     req = httpx.Request("GET", "https://api.github.com/x")
     resp = httpx.Response(200, headers={"content-length": "not-a-number"}, request=req)
-    # Must NOT raise (WS-8a) — malformed header treated as unknown size.
+    # Must NOT raise — malformed header treated as unknown size.
     await _body_size_cap_hook(resp)  # pyright: ignore[reportPrivateUsage]
 
 
@@ -234,7 +234,7 @@ async def test_oversize_content_length_still_raises() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# WS-5 — per-item isolation: a poisoned item is skipped, the cycle completes
+# per-item isolation: a poisoned item is skipped, the cycle completes
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -288,7 +288,7 @@ def _mock_settings() -> Any:
 @pytest.mark.asyncio
 async def test_poisoned_item_skipped_cycle_completes(db_session: AsyncSession) -> None:
     """A normalize() KeyError on one item is isolated: ONE skip, the good item still
-    upserts, the cycle returns clean counters with NO exception propagating (WS-5)."""
+    upserts, the cycle returns clean counters with NO exception propagating."""
     adapter = _PoisonNormalizeAdapter(_config(), [_raw("good/item"), _raw("poison/item")])
 
     mock_client = AsyncMock()
@@ -321,7 +321,7 @@ async def test_poisoned_item_skipped_cycle_completes(db_session: AsyncSession) -
 @pytest.mark.asyncio
 async def test_write_phase_error_skipped_via_savepoint(db_session: AsyncSession) -> None:
     """A shape-drift error during the DB-write phase (upsert) rolls back just that
-    item's SAVEPOINT — the batch survives, the cycle completes, no raise (WS-5)."""
+    item's SAVEPOINT — the batch survives, the cycle completes, no raise."""
 
     class _GoodAdapter(RegistryAdapter):
         def __init__(self, config: SourceConfig, items: list[RawItem]) -> None:
@@ -368,14 +368,14 @@ async def test_write_phase_error_skipped_via_savepoint(db_session: AsyncSession)
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# WS-8b — npm non-200 stream → success=False cursor (no silent false-green)
+# npm non-200 stream → success=False cursor (no silent false-green)
 # ──────────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_npm_non_200_writes_failure_cursor(monkeypatch: pytest.MonkeyPatch) -> None:
     """A 429/5xx on the npm changes stream records success=False and yields nothing,
-    instead of falling through to the success=True cursor write (WS-8b)."""
+    instead of falling through to the success=True cursor write."""
     from app.ingestion.config.loader import get_source_config
     from app.ingestion.framework import cursor as cursor_mod
     from app.ingestion.sources.npm import NpmAdapter

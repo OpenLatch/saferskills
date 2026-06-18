@@ -55,7 +55,7 @@
     "primaryTint": "#EFF6FF"
   },
   "score": {
-    "_description": "4-band scoring color language. See docs/methodology.md and rubric/. Each band MUST be paired with a text label — never color alone.",
+    "_description": "4-band scoring color language. See contributor-docs/methodology.md and rubric/. Each band MUST be paired with a text label — never color alone.",
     "green":  "#107A4F",
     "yellow": "#CA8A04",
     "orange": "#EA580C",

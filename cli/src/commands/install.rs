@@ -1,11 +1,11 @@
-//! `saferskills install <name>` — the cross-ecosystem wedge (D-05-18..25).
+//! `saferskills install <name>` — the cross-ecosystem wedge.
 //!
 //! Flow: detect agents → resolve + re-verify the score (+ `--seen-score` drift)
 //! → **digest** (global score + 5-axis breakdown) → select agents → **announce**
 //! the targets → **score gate** (installing below `min_score` confirms; red tier
 //! types the name) → conflict check → per-agent writer install with
-//! record-then-write + LIFO rollback (D-05-24) → registry row → anonymous install
-//! report (D-05-31).
+//! record-then-write + LIFO rollback → registry row → anonymous install
+//! report.
 
 use std::io::IsTerminal;
 
@@ -67,19 +67,19 @@ pub async fn run_install(
         ));
     }
 
-    // 5. Agent selection (D-05-20) + disclosure of the resolved targets.
+    // 5. Agent selection + disclosure of the resolved targets.
     let chosen = select_agents(args, inter, output, &selectable)?;
     let defaulted_all = args.to.is_empty() && chosen.len() == selectable.len();
     announce_agents(output, &chosen, defaulted_all);
 
-    // 6. Drift re-prompt (D-05-25) + the score gate (D-05-19, score-driven).
+    // 6. Drift re-prompt + the score gate (score-driven).
     drift_reprompt(output, inter, args.seen_score, score, &findings)?;
 
-    // Finding prose is inlined on the report findings (D-05-32 reversed) — no
-    // rule-corpus fetch; the gate renders straight from each finding.
+    // Finding prose is inlined on the report findings — no rule-corpus fetch;
+    // the gate renders straight from each finding.
     apply_score_gate(output, inter, &config, &detail.item, &findings, score, tier)?;
 
-    // 7. Conflict (D-05-22).
+    // 7. Conflict.
     let mut records = registry::load()?;
     if let Some(idx) = records.iter().position(|r| r.slug == summary.slug) {
         resolve_conflict(args, inter, output, &mut records, idx)?;
@@ -92,7 +92,7 @@ pub async fn run_install(
         return print_plan(output, &chosen, &resolved);
     }
 
-    // 9. Record-then-write across agents, rolling back on any failure (D-05-24).
+    // 9. Record-then-write across agents, rolling back on any failure.
     let applied = install_to_agents(output, &chosen, &resolved)?;
 
     // 10. Registry row (written only after all agents succeeded).
@@ -162,7 +162,7 @@ fn ranked_findings(detail: &ItemDetailResponse) -> Vec<FindingResponse> {
     f
 }
 
-// ─── agent targeting + selection (D-05-20) ───────────────────────────────────
+// ─── agent targeting + selection ───────────────────────────────────
 
 /// detected ∩ item.agent_compatibility ∩ writer-supports(kind).
 fn selectable_agents(
@@ -309,7 +309,7 @@ fn pad_axis_label(label: &str) -> String {
     }
 }
 
-// ─── agent disclosure (D-05-20) ───────────────────────────────────────────────
+// ─── agent disclosure ───────────────────────────────────────────────
 
 /// Disclose the resolved install targets: `Will install to: <names>`, noting when
 /// the selection defaulted to all detected & compatible agents. No-op in JSON.
@@ -330,7 +330,7 @@ fn announce_agents(output: &OutputConfig, chosen: &[DetectedAgent], defaulted_al
     output.print_info(&format!("Will install to: {names}{note}"));
 }
 
-// ─── drift re-prompt (D-05-25) ────────────────────────────────────────────────
+// ─── drift re-prompt ────────────────────────────────────────────────
 
 fn drift_reprompt(
     output: &OutputConfig,
@@ -354,7 +354,7 @@ fn drift_reprompt(
     confirm(output, inter, "Proceed anyway?", false)
 }
 
-// ─── score gate (D-05-19, score-driven) ──────────────────────────────────────
+// ─── score gate (score-driven) ──────────────────────────────────────
 
 /// The gate strength for an install, derived purely from the aggregate score.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -499,7 +499,7 @@ fn render_findings(output: &OutputConfig, findings: &[FindingResponse]) {
                 output.color,
             ));
         }
-        // Inlined remediation action, else the remediation link (D-05-32 reversed).
+        // Inlined remediation action, else the remediation link.
         let action = f
             .remediation
             .as_ref()
@@ -528,7 +528,7 @@ pub(crate) fn format_finding_line(f: &FindingResponse, color: bool) -> String {
     format!("  {badge}  {}  {}", f.rule_id, c::dim(title, color))
 }
 
-// ─── conflict (D-05-22) ──────────────────────────────────────────────────────
+// ─── conflict ──────────────────────────────────────────────────────
 
 fn resolve_conflict(
     args: &InstallArgs,
@@ -589,7 +589,7 @@ pub(crate) fn capability_name(slug: &str, kind: &str) -> String {
     tail.strip_prefix(&prefix).unwrap_or(tail).to_string()
 }
 
-/// Best-effort MCP launch entry from the catalog coordinates (D-05-16). The
+/// Best-effort MCP launch entry from the catalog coordinates. The
 /// command is a documented heuristic (`npx -y <org/repo>`); the per-agent
 /// key-name landmine (not the command) is the load-bearing contract.
 fn derive_mcp_entry(item: &CatalogItemSummary) -> Value {

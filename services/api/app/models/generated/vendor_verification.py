@@ -12,7 +12,7 @@ from app.models.generated._base import Base, vendor_verification_state_enum
 
 
 class VendorVerification(Base):
-    """Vendor maintainer-verification token lifecycle (D-05 / D-06 / D-07 / D-08). A maintainer claims a catalog..."""
+    """Vendor maintainer-verification token lifecycle. A maintainer claims a catalog item by committing the..."""
 
     __tablename__ = "vendor_verifications"
 

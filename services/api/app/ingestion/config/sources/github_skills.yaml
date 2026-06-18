@@ -1,4 +1,4 @@
-# anthropics/skills GitHub webhook adapter (D-04-05). Webhook-driven, no cadence.
+# anthropics/skills GitHub webhook adapter. Webhook-driven, no cadence.
 name: github_skills
 kind: webhook
 hosts:

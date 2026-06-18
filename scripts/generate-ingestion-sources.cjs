@@ -40,7 +40,7 @@ const INGESTION_EVENT_SCHEMA = path.join(ROOT, 'schemas', 'ingestion-event.schem
 const CATALOG_ITEM_SCHEMA = path.join(ROOT, 'schemas', 'catalog-item.schema.json')
 
 // The fixed non-adapter registry ids — endpoints / attributions that are never
-// crawled providers, so they have no YAML. Kept in sync with the I-3.5 contract
+// crawled providers, so they have no YAML. Kept in sync with the upload contract
 // (catalog-item.schema.json registryId description).
 const FIXED_REGISTRY_IDS = ['user_submission', 'vendor_verified', 'upload']
 

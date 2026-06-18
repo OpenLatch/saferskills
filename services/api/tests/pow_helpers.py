@@ -1,4 +1,4 @@
-"""Shared CLI Proof-of-Work test helpers (D-05-30).
+"""Shared CLI Proof-of-Work test helpers.
 
 The brute-force solver + leading-zero-bit counter are needed by both the service
 test (`tests/services/test_cli_pow.py`) and the gate route test

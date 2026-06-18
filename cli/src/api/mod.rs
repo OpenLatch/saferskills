@@ -1,4 +1,4 @@
-//! Typed endpoint wrappers + client-side name resolution (D-05-12, D-05-33).
+//! Typed endpoint wrappers + client-side name resolution.
 //!
 //! There is **no** server-side name resolver — resolution is client-side over
 //! `GET /items?q=<name>` (FTS + trigram), with a `strsim` jaro_winkler
@@ -45,7 +45,7 @@ struct ScanSubmitBody<'a> {
     visibility: &'a str,
 }
 
-/// The anonymous install-report body (`POST /api/v1/installs`, D-05-31).
+/// The anonymous install-report body (`POST /api/v1/installs`).
 #[derive(Debug, Serialize)]
 pub struct InstallReport<'a> {
     pub slug: &'a str,
@@ -127,7 +127,7 @@ impl CatalogQuery {
     }
 }
 
-/// jaro_winkler floor for a did-you-mean suggestion (D-05-12).
+/// jaro_winkler floor for a did-you-mean suggestion.
 const SUGGEST_THRESHOLD: f64 = 0.7;
 /// Max did-you-mean suggestions to show.
 const MAX_SUGGESTIONS: usize = 3;
@@ -200,7 +200,7 @@ impl Api {
     }
 
     /// `GET /api/v1/scans/cli-challenge` — a stateless Proof-of-Work challenge
-    /// for the CLI scan-submit gate (D-05-30). 503 when the server has no PoW
+    /// for the CLI scan-submit gate. 503 when the server has no PoW
     /// secret (dev/test) — the caller surfaces it.
     pub async fn get_cli_challenge(&self) -> Result<ChallengeResponse, SsError> {
         self.client.get("/api/v1/scans/cli-challenge", &[]).await
@@ -306,7 +306,7 @@ impl Api {
         result
     }
 
-    // ─── Agent Scan (I-5.5 Phase 3) ──────────────────────────────────────────
+    // ─── Agent Scan ──────────────────────────────────────────
 
     /// `POST /api/v1/agent-scans/bootstrap` — mint a run + render the bootstrap
     /// prompt. Carries the solved PoW (empty `pow` ⇒ no header; loopback-exempt).
@@ -479,14 +479,14 @@ impl Api {
     }
 
     /// `GET /api/v1/items/{slug}/download` — the stored snapshot `.zip` bytes,
-    /// the source for a skill folder copy (D-05-16).
+    /// the source for a skill folder copy.
     pub async fn download_item_zip(&self, slug: &str) -> Result<Vec<u8>, SsError> {
         self.client
             .get_bytes(&format!("/api/v1/items/{slug}/download"))
             .await
     }
 
-    /// `POST /api/v1/installs` — report an anonymous install (D-05-31). Fail-open:
+    /// `POST /api/v1/installs` — report an anonymous install. Fail-open:
     /// the caller swallows the error so a failed report never fails the install.
     pub async fn report_install(
         &self,

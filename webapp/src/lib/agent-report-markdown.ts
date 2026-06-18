@@ -2,15 +2,15 @@ import { groupFindingsByFamily } from './agent/findings-view'
 import type { AgentFindingRow, AgentScanReportDetail } from './api/agent-scan-types'
 
 /**
- * Export an Agent Report as Markdown (I-5.6 D-5.6-11) — the full client-side
+ * Export an Agent Report as Markdown — the full client-side
  * serializer. Emits identity + score/band/verdict + cap callout + trust labels +
  * per-OWASP-family findings (id, severity, refs, why-it-matters, score-math
  * summary, remediation) + provenance.
  *
- * Route-driven evidence split (D-5.6-03): a finding's transcript is serialized
+ * Route-driven evidence split: a finding's transcript is serialized
  * ONLY when `evidence_excerpt` is present — i.e. on the unlisted token route. A
  * PUBLIC export carries `evidence_excerpt: null` on every finding, so no
- * transcript is ever written. No OpenLatch mention anywhere (D-5.6-13).
+ * transcript is ever written. No OpenLatch mention anywhere.
  */
 
 function scoreLine(run: AgentScanReportDetail): string {
@@ -113,7 +113,7 @@ export function exportReportMarkdown(run: AgentScanReportDetail): string {
   return lines.filter((l) => l !== null).join('\n')
 }
 
-/** Remediation-only export — "export all fixes as checklist" (D-5.6-11 §B4). */
+/** Remediation-only export — "export all fixes as checklist". */
 export function exportRemediationChecklist(run: AgentScanReportDetail): string {
   const lines: string[] = [`# Agent Scan remediation checklist — ${run.agent_name}`, '']
   if (run.findings.length === 0) {

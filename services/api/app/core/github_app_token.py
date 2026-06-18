@@ -10,7 +10,7 @@ exchanging it for a ~1h installation token, and caching that in-process for
 50 minutes. Returns None when the App creds are absent (dev/test) — callers then
 fall back to a PAT or anonymous.
 
-Robustness (ingestion+scan robustness overhaul, WS-1): the mint is the SINGLE
+Robustness: the mint is the SINGLE
 point through which a GitHub-App outage reaches every outbound GitHub call — via
 the `http_client._github_app_token_hook` request hook AND via `fetch.resolve_ref`
 on the scan path (where a raised `httpx.HTTPStatusError`/`KeyError` is NOT a

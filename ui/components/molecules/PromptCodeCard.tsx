@@ -59,7 +59,7 @@ const CheckGlyph = () => (
 )
 
 /**
- * Code-editor-chrome prompt block (I-5.7 Module 5) — head row with a file
+ * Code-editor-chrome prompt block — head row with a file
  * glyph + title + Copy button; body of line-numbered mono text on a code-editor
  * surface (dark in dark mode, a light editor skin in light mode — see the
  * `.pc-*` light skin in components.css). Shared by the homepage "Scan a Running

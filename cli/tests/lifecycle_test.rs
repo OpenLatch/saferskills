@@ -1,4 +1,4 @@
-//! Integration tests for the Phase-B install engine (D-05-15, D-05-16, D-05-24).
+//! Integration tests for the install engine.
 //!
 //! Detection can't be faked cross-platform (`dirs::home_dir()` reads the OS API,
 //! not `$HOME`, on Windows), so these drive the public writer API directly with

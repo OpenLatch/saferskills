@@ -4,7 +4,7 @@ severity: high
 subScore: security
 weight: 25
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [skill, mcp, rules, hooks, plugin]
 frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
@@ -64,7 +64,7 @@ remains shadow with extended `shadowUntil` and a maintainer-led pattern
 refinement (e.g. requiring an imperative verb adjacent to the role-name
 phrase).
 
-The pattern set is curated from public jailbreak research as of 2026-W2: DAN,
+The pattern set is curated from public jailbreak research as of 2026-01-09: DAN,
 developer mode, jailbroken, unrestricted, uncensored, and the modifier-noun
 construction (evil/malicious/harmful/amoral + agent/AI). New personas coined
 after the rule lands require a v2 revision via the RFC process; the curated
@@ -76,4 +76,4 @@ list is a deliberate engineering trade-off between coverage and FP control.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

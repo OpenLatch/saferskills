@@ -1,7 +1,7 @@
-//! `saferskills agent` end-to-end exit-code matrix (I-5.5 Phase 3) driven as a
+//! `saferskills agent` end-to-end exit-code matrix driven as a
 //! subprocess (assert_cmd) against a mock server. Covers `--fail-on`
 //! severity/score/band, `.agentscanignore` suppression, `--format json`, a bad
-//! `--fail-on`, and the offline hard-fail (AE-6 / AE-7). The mock server binds to
+//! `--fail-on`, and the offline hard-fail. The mock server binds to
 //! 127.0.0.1 → the backend loopback exemption means no Proof-of-Work is solved.
 
 use assert_cmd::Command;

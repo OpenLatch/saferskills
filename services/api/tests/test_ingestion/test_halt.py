@@ -1,4 +1,4 @@
-"""Source halt/status helper (D-04-12)."""
+"""Source halt/status helper."""
 
 from __future__ import annotations
 

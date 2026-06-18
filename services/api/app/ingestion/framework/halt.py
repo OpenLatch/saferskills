@@ -1,4 +1,4 @@
-"""Source halt/status control (D-04-12 halt-source procedure).
+"""Source halt/status control (halt-source procedure).
 
 Reads + writes the `crawler_cursors.status` lifecycle column (and its
 status_reason / status_contact / status_changed_at companions). The cycle task

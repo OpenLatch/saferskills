@@ -51,7 +51,7 @@ logger = structlog.get_logger(__name__)
 
 async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict[str, Any]:
     """Generic one-cycle runner: blocklist/pause checks → adapter.run_cycle, with
-    the D-04-22 PostHog cycle telemetry (started/completed/failed) wired in.
+    the PostHog cycle telemetry (started/completed/failed) wired in.
 
     `trigger` ∈ {scheduled, force, manual} is threaded onto the `ingestion_runs`
     record so the eagle-eye view can tell a periodic fire from an admin force-cycle

@@ -26,8 +26,7 @@ The CLI installs Skills and MCP servers. You can browse other kinds — hooks, p
 The tabs below are generated from the shared agent manifest
 (`webapp/src/data/homepage-constants.ts`, the same `SUPPORTED_AGENTS` the
 homepage uses). Add, remove, or rename an agent there and this list — and every other
-`<Tabs syncKey="agent">` on the site — updates automatically (D-7, the Prime
-Invariant). Each tab shows the install path the CLI writes to and the config file it reads for that agent.
+`<Tabs syncKey="agent">` on the site — updates automatically. Each tab shows the install path the CLI writes to and the config file it reads for that agent.
 
 <AgentTabs client:visible agents={SUPPORTED_AGENTS} />
 

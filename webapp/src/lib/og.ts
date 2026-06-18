@@ -9,7 +9,7 @@ import { TIER_HEX } from '@/lib/tier'
 
 const require = createRequire(import.meta.url)
 
-/** Resolve a bundled @fontsource woff to an absolute path (no CDN — D-FE-06). */
+/** Resolve a bundled @fontsource woff to an absolute path (no CDN). */
 function fontFile(pkg: string, file: string): Buffer {
   const pkgRoot = dirname(require.resolve(`${pkg}/package.json`))
   return readFileSync(join(pkgRoot, 'files', file))

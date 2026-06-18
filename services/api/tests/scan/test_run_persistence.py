@@ -17,7 +17,7 @@ from app.scan.engine import (
 )
 from app.services.repository_metadata import RepositoryMetadata
 
-# ── _pick_manifest loose-file fallback (pure, I-3.5) ─────────────────────────
+# ── _pick_manifest loose-file fallback (pure) ────────────────────────────────
 
 
 def test_pick_manifest_falls_back_to_sole_loose_file() -> None:
@@ -194,7 +194,7 @@ async def test_multifile_upload_run_report_carries_per_cap_extras(
     db_session: AsyncSession,
 ) -> None:
     """A multi-file upload fans into N capabilities, and the run report carries a
-    per-capability manifest + download on each CapabilityRow (I-3.5 tabs)."""
+    per-capability manifest + download on each CapabilityRow (report tabs)."""
     from app.routers.scans import (
         _load_run_capabilities,  # pyright: ignore[reportPrivateUsage]
         _run_capability_extras,  # pyright: ignore[reportPrivateUsage]

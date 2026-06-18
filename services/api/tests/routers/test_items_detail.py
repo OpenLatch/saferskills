@@ -45,7 +45,7 @@ async def test_item_detail_shape(db_client: AsyncClient, seed_item: SeededItem) 
     assert len(body["scan_history"]) == 1
     assert body["scan_history"][0]["aggregate_score"] == 87
 
-    # Anonymized install activity — real GROUP-BY over install_events (I-05).
+    # Anonymized install activity — real GROUP-BY over install_events.
     # A freshly-seeded item has no reported installs, so the counts are zero and
     # the distribution is empty; when populated it sums to 100 (see test_installs).
     activity = body["install_activity"]
@@ -230,7 +230,7 @@ async def test_item_detail_public_upload_no_ref_sha(
     """Regression: a public upload item (no github coords, NULL ref_sha) must
     render — previously the item-detail 500'd because VersionPoint.ref_sha was
     a required str but uploads legitimately have no git ref (no synthetic
-    sentinel — D-UP P0-2)."""
+    sentinel)."""
     import uuid
     from datetime import datetime
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/vendor-verification.schema.json",
   "title": "VendorVerification",
-  "description": "Vendor maintainer-verification token lifecycle (D-05 / D-06 / D-07 / D-08). A maintainer claims a catalog item by committing the token to `.saferskills/verify.txt` on the repo default branch; the server fetches, constant-time-compares the sha256, marks verified, then weekly-polls for drift (does not revoke on drift).",
+  "description": "Vendor maintainer-verification token lifecycle. A maintainer claims a catalog item by committing the token to `.saferskills/verify.txt` on the repo default branch; the server fetches, constant-time-compares the sha256, marks verified, then weekly-polls for drift (does not revoke on drift).",
   "x-postgresql-tablename": "vendor_verifications",
   "x-postgresql-indexes": [
     { "name": "idx_vendor_verifications_catalog_item_state", "columns": ["catalog_item_id", "state"] }
@@ -49,7 +49,7 @@
     "expiresAt": {
       "type": "string",
       "format": "date-time",
-      "description": "Pre-redemption expiry = issuedAt + 7 days (D-06). After redemption, verification persists indefinitely."
+      "description": "Pre-redemption expiry = issuedAt + 7 days. After redemption, verification persists indefinitely."
     },
     "redeemedAt": {
       "type": ["string", "null"],
@@ -71,7 +71,7 @@
     "lastDriftCheckAt": {
       "type": ["string", "null"],
       "format": "date-time",
-      "description": "Most recent weekly drift-check. Verification persists even if the file is later removed (D-07 — Apple Pay / Google Search Console pattern)."
+      "description": "Most recent weekly drift-check. Verification persists even if the file is later removed (Apple Pay / Google Search Console pattern)."
     }
   },
   "examples": [

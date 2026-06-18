@@ -26,7 +26,7 @@ function fmtDelta(n: number): string {
 }
 
 /**
- * Per-finding "How the score moved" table (I-5.6 §6). A signed-modifier ledger —
+ * Per-finding "How the score moved" table. A signed-modifier ledger —
  * base row + one row per scored finding + the worst-finding cap (when applied) +
  * the reconciled final. Numbers are sourced verbatim from the report-level
  * `score_breakdown` (the single source of truth); nothing is recomputed here.

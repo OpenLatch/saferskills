@@ -38,17 +38,17 @@ here, not force-cracked.
 | `mcp_registry` | api | Official MCP Registry `/v0/servers` | active | hourly | cursor by `updated_since` |
 | `npm` | api | npm registry | active | per config | `mcp-server-*` packages |
 | `pypi` | api | PyPI | active | per config | MCP/skill packages |
-| `smithery` | scrape | Smithery registry API (`registry.smithery.ai/servers`) | **active (Phase B)** | 03:15 daily | feed-first; OSS subset carries GitHub repo |
-| `glama` | scrape | Glama MCP REST API (`glama.ai/api/mcp/v1/servers`) | **active (Phase B)** | 03:30 daily | feed-first; records carry `repository.url` |
-| `mcp_so` | scrape | sitemap → `/server/<name>/<author>` item pages | **active (PR2)** | 03:45 daily | CF-proxied (curl_cffi); name from URL slug, repo from page |
-| `claudeskills_info` | scrape | sitemap → `/skill/<slug>` item pages | **active (PR2)** | 04:00 daily | item-specific og tags; mostly `anthropics/skills` |
-| `skillsmp` | scrape | sitemap → `/skills/<slug>` item pages | **active (PR2)** | 04:15 daily | CF-proxied (curl_cffi) |
-| `skillhub_club` | scrape | sitemap → `/skills/<slug>` item pages | **active (PR2)** | 04:30 daily | Vercel; apex→www redirect |
-| `skills_sh` | scrape | sitemap → `/<owner>/skills/<name>` item pages | **active (PR2)** | 04:45 daily | Vercel; owner segment = GitHub org |
-| `pulsemcp` | scrape | sitemap → `/servers/<slug>` item pages | **active (PR2)** | 05:00 daily | CF-proxied; client-rendered listing → repo-sparse |
-| `clawhub` | scrape | sitemap → item pages | **active (PR2, unreachable)** | 05:15 daily | host DNS currently dead → yields 0, logged, no crash |
+| `smithery` | scrape | Smithery registry API (`registry.smithery.ai/servers`) | **active** | 03:15 daily | feed-first; OSS subset carries GitHub repo |
+| `glama` | scrape | Glama MCP REST API (`glama.ai/api/mcp/v1/servers`) | **active** | 03:30 daily | feed-first; records carry `repository.url` |
+| `mcp_so` | scrape | sitemap → `/server/<name>/<author>` item pages | **active** | 03:45 daily | CF-proxied (curl_cffi); name from URL slug, repo from page |
+| `claudeskills_info` | scrape | sitemap → `/skill/<slug>` item pages | **active** | 04:00 daily | item-specific og tags; mostly `anthropics/skills` |
+| `skillsmp` | scrape | sitemap → `/skills/<slug>` item pages | **active** | 04:15 daily | CF-proxied (curl_cffi) |
+| `skillhub_club` | scrape | sitemap → `/skills/<slug>` item pages | **active** | 04:30 daily | Vercel; apex→www redirect |
+| `skills_sh` | scrape | sitemap → `/<owner>/skills/<name>` item pages | **active** | 04:45 daily | Vercel; owner segment = GitHub org |
+| `pulsemcp` | scrape | sitemap → `/servers/<slug>` item pages | **active** | 05:00 daily | CF-proxied; client-rendered listing → repo-sparse |
+| `clawhub` | scrape | sitemap → item pages | **active (unreachable)** | 05:15 daily | host DNS currently dead → yields 0, logged, no crash |
 
-> All 14 sources are now `enabled: true`. The 7 PR2 HTML scrapers share one
+> All 14 sources are now `enabled: true`. The 7 HTML scrapers share one
 > configurable `SitemapHtmlAdapter` (`framework/sitemap_scraper.py`): each fetches a
 > sitemap via curl_cffi (browser impersonation — most are Cloudflare-proxied and reject
 > plain HTTPX), enumerates item-detail URLs, and reads the GitHub repo + name +

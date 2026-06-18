@@ -4,7 +4,7 @@ severity: high
 subScore: security
 weight: 25
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [skill, mcp, rules, hooks, plugin]
 frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
@@ -32,7 +32,7 @@ trigger:
     paths: ['**/*.md', '**/*.yaml', '**/*.yml', '**/*.json', '**/SKILL.md']
 limitations:
   - "False-positives on roleplay skills, jailbreak research documentation, prompt-engineering tutorials, and any meta-discussion of LLM safety. Shadow window measures real-world FP rate."
-  - "Cannot detect non-English equivalents of the imperative pattern. Coverage at W2 is English-only; multilingual extension is a Phase 2 RFC."
+  - "Cannot detect non-English equivalents of the imperative pattern. Coverage is currently English-only; multilingual extension is a future RFC."
   - "Cannot detect the pattern when split across formatting or hidden in comments."
 priorArt:
   - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
@@ -74,4 +74,4 @@ that promotion decisions can be made per-pattern rather than batch-locked.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

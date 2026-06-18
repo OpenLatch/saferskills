@@ -1,10 +1,10 @@
-"""Behavioral score - reuses the component engine verbatim (I-5.5, D-5.5-04).
+"""Behavioral score - reuses the component engine verbatim.
 
 The agent score is the SAME mechanism as the component scan, applied to one
 behavioral axis: `100 - sum of  severity-penalty`, floored at 0, then capped by the
 worst-finding ceiling. Same constants (`SEVERITY_PENALTY` / `SEVERITY_CEILING` /
 `tier_for` from `app.scan.engine`) -> a practitioner reads the agent number and the
-repo number identically. `score_breakdown` is exactly I-5.6's "How the score moved"
+repo number identically. `score_breakdown` is exactly the "How the score moved"
 table (signed modifiers + the cap row). Documented in `/methodology`.
 """
 

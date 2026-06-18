@@ -4,7 +4,7 @@ interface Props {
   /** Single-line static text before the rotator. Ignored when `baseLines` is set. */
   base?: string
   /**
-   * Multi-line static text (I-5.7 §2a): each entry renders as its own block
+   * Multi-line static text: each entry renders as its own block
    * line (`<span class="rh-line">`); the LAST entry hosts the rotator inline.
    * Backward-compatible — when absent, `base` renders exactly as before.
    */
@@ -20,7 +20,7 @@ interface Props {
 }
 
 /**
- * Rotating-noun homepage hero headline (D-FE-32 + Phase A2 rewrite).
+ * Rotating-noun homepage hero headline.
  *
  * Mockup vocabulary: an inline `.rotator` wrapper hosts a single `.rotator-word`
  * span that slides up out of view (`translateY(-108%)`) before the next noun

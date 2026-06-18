@@ -4,7 +4,7 @@ severity: info
 subScore: community
 weight: 0
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [skill, mcp, rules, hooks, plugin]
 title: >-
   Single-author repository
@@ -56,4 +56,4 @@ weight stays 0 across the shadow→active promotion.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow as `info` (weight 0).
+- v1 (2026-01-09): initial rule. Lands shadow as `info` (weight 0).

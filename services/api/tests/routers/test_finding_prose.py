@@ -1,4 +1,4 @@
-"""Inline finding prose on the report builders (D-05-32 reversed).
+"""Inline finding prose on the report builders.
 
 Pins that both report chokepoints fold the generated rule-content prose onto each
 finding (`title`/`explanation`/`category_label`/`severity_rationale`/`remediation`),

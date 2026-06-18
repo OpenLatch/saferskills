@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Agent-Scan band rotating wireframe globe (I-5.7 D-5.7-11 — founder kept the
- * canvas). Port of the v3 mockup's `as-globe` drawing code with containment:
+ * Agent-Scan band rotating wireframe globe. Port of the mockup's `as-globe`
+ * drawing code with containment:
  *
  *   - IntersectionObserver: the rAF loop runs ONLY while the canvas
  *     intersects the viewport (cancel on exit, resume on re-entry —
@@ -14,7 +14,7 @@ import { useEffect, useRef } from 'react'
  *   - Purely decorative: aria-hidden, pointer-events: none (page CSS).
  *
  * Pre-approved fallback if the Lighthouse gate fails on this canvas: swap the
- * island for a static SVG frame (D-5.7-11) — a swap, not a redesign.
+ * island for a static SVG frame — a swap, not a redesign.
  */
 
 const LAT = 10

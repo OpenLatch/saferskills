@@ -66,7 +66,7 @@ function patchPopular(chips: PopularChip[]): void {
       return
     }
     el.hidden = false
-    // Chips are anchors since I-5.7 — refresh the destination from the
+    // Chips are anchors — refresh the destination from the
     // view-model href (live → /items/<slug>, fallback → /catalog).
     if (el instanceof HTMLAnchorElement) el.href = chip.href
     const nm = el.querySelector<HTMLElement>('.nm')
@@ -136,7 +136,7 @@ function patchRecentFeed(recent: ScanReportSummary[]): void {
 function applyAll(data: HomepageData): void {
   patchScalars(data)
   patchPopular(data.popular)
-  // Trending stays fallback-only until install counts exist (I-05), so it is
+  // Trending stays fallback-only until install counts exist, so it is
   // intentionally not patched live — only the recently-scanned feed refreshes.
   patchRecentFeed(data.recent)
 }

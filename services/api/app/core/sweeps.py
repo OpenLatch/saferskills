@@ -1,4 +1,4 @@
-"""In-process expiry sweep for unlisted runs (I-3.5, D-UP-17).
+"""In-process expiry sweep for unlisted runs.
 
 An asyncio loop, started from the FastAPI lifespan AFTER migrations + the pool
 are up, that periodically deletes expired unlisted runs via the shared
@@ -122,8 +122,8 @@ async def sweep_cli_pow(session: AsyncSession) -> int:
 
 
 async def sweep_agent_runs(session: AsyncSession) -> int:
-    """Delete expired unlisted Agent Reports via `delete_agent_run_cascade`
-    (I-5.5, D-5.5-19). Returns rows swept. Guarded by the SAME advisory lock as the
+    """Delete expired unlisted Agent Reports via `delete_agent_run_cascade`.
+    Returns rows swept. Guarded by the SAME advisory lock as the
     other sweeps so only one Machine sweeps per tick; releases it before returning."""
     got = (
         await session.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _SWEEP_LOCK_KEY})
@@ -179,7 +179,7 @@ async def sweep_agent_run_tokens(session: AsyncSession) -> int:
 
 
 async def _run_one_sweep(name: str, fn: Callable[[AsyncSession], Awaitable[int]]) -> int:
-    """Run one sweep in its OWN session (WS-8c).
+    """Run one sweep in its OWN session.
 
     Each sweep gets a fresh connection so a mid-transaction error in one cannot
     poison the connection the next sweep would reuse (which previously cascaded

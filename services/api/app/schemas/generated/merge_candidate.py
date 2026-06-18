@@ -23,7 +23,7 @@ class Status(StrEnum):
 
 class MergeCandidate(OrmBaseModel):
     """
-    Pending merge of two items that share a fuzzy name similarity but no canonical-ID match (D-04-09). Wikidata reconciliation pattern. Founder decides via the admin CLI (Phase C); the table + insert path ship in Phase A.
+    Pending merge of two items that share a fuzzy name similarity but no canonical-ID match. Wikidata reconciliation pattern. An operator decides via the admin CLI.
     """
 
     model_config = ConfigDict(

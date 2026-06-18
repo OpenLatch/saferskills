@@ -29,12 +29,12 @@ function navigateWithHandoff(dest: string, onFade: () => void) {
 }
 
 /**
- * Capability submit console for /scan (D-UP-24, v3 single-pane restyle).
+ * Capability submit console for /scan (single-pane restyle).
  * One pane carries BOTH inputs — DropZone, the "or paste a URL" divider, and
  * the GitHub URL field — plus the shared visibility Toggle and one
  * "Scan capability" submit that dispatches upload-vs-repo on whether files
- * are selected. Submit/validation/SSE logic is the untouched I-3.5 pair
- * (`useUploadFlow` / `useRepoScanFlow`) behind the same Turnstile gate.
+ * are selected. Submit/validation/SSE logic is the untouched
+ * `useUploadFlow` / `useRepoScanFlow` pair behind the same Turnstile gate.
  */
 export default function ScanConsole() {
   const [visibility, setVisibility] = useState<Visibility>('public')
@@ -48,7 +48,7 @@ export default function ScanConsole() {
   // upload + repo paths now run inline there — there is no File handoff anymore.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    // Landed here after deleting an unlisted report (D-UP-26) — confirm + clean the URL.
+    // Landed here after deleting an unlisted report — confirm + clean the URL.
     if (params.get('deleted')) {
       flashToast('Report deleted')
       params.delete('deleted')

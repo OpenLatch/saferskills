@@ -1,5 +1,5 @@
 # Dependabot config — mirrors openlatch-platform.
-# Covers all dep ecosystems at W1: npm (root + webapp), pip (services/api +
+# Covers all dep ecosystems: npm (root + webapp), pip (services/api +
 # tools/e2e), docker, and github-actions. Weekly Monday bumps, grouped by
 # update type so the PR queue stays small.
 

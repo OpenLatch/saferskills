@@ -1,4 +1,4 @@
-"""Pack signing — sign the served bytes; verify with the served pubkey (I-5.5)."""
+"""Pack signing — sign the served bytes; verify with the served pubkey."""
 
 from __future__ import annotations
 

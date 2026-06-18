@@ -1,14 +1,14 @@
 ---
 paths:
-  - "docs/methodology.md"
-  - "docs/rules.md"
+  - "contributor-docs/methodology.md"
+  - "contributor-docs/rules.md"
   - "rubric/**"
 ---
 
 # Methodology — open scoring rubric + rule-RFC governance
 
-> **Paths**: `docs/methodology.md`, `docs/rules.md`, `rubric/**`
-> **Public-facing summary**: `docs/methodology.md` (repo root). This rule is the contributor-facing detail; the two MUST stay in sync.
+> **Paths**: `contributor-docs/methodology.md`, `contributor-docs/rules.md`, `rubric/**`
+> **Public-facing summary**: `contributor-docs/methodology.md` (repo root). This rule is the contributor-facing detail; the two MUST stay in sync.
 
 ## Purpose
 
@@ -40,7 +40,7 @@ rubric/
     └── ...
 ```
 
-Each `rubric/<CATEGORY>/<NAME>-NN.md` is **Markdown + YAML frontmatter** (per locked decision D-04). The frontmatter carries the machine-readable rule contract (parsed by `scripts/generate-methodology.cjs` + the W2 detector engine); the body carries human-readable rationale, FP history, and version history.
+Each `rubric/<CATEGORY>/<NAME>-NN.md` is **Markdown + YAML frontmatter**. The frontmatter carries the machine-readable rule contract (parsed by `scripts/generate-methodology.cjs` + the detector engine); the body carries human-readable rationale, FP history, and version history.
 
 ## Per-rule contract
 
@@ -49,11 +49,11 @@ Every `rubric/<CATEGORY>/<NAME>-NN.md` MUST carry the following YAML frontmatter
 | Field | Required | Content |
 |---|---|---|
 | `rule_id` | yes | `SS-<CATEGORY>-<NAME>-NN` (per `naming-conventions.md` § Rule IDs) |
-| `severity` | yes | One of `info` / `low` / `medium` / `high` / `critical` (5-tier per locked decision D-02). `info` carries weight 0 — advisory only |
-| `sub_score` | yes | One of `security` / `supply_chain` / `maintenance` / `transparency` / `community` (5-axis per locked decision D-01) |
+| `severity` | yes | One of `info` / `low` / `medium` / `high` / `critical` (5-tier). `info` carries weight 0 — advisory only |
+| `sub_score` | yes | One of `security` / `supply_chain` / `maintenance` / `transparency` / `community` (5-axis) |
 | `weight` | yes | Integer 0–40. Maximum penalty this rule contributes to its sub-score |
-| `status` | yes | One of `shadow` / `active` / `deprecated` (per locked decision D-14) |
-| `shadow_until` | iff `status: shadow` | ISO date (e.g. `2026-W3-end`) when the FP-audit harness re-evaluates promotion |
+| `status` | yes | One of `shadow` / `active` / `deprecated` |
+| `shadow_until` | iff `status: shadow` | ISO date (e.g. `2026-09-30`) when the FP-audit harness re-evaluates promotion |
 | `applies_to` | yes | Array; subset of `[skill, mcp, rules, hooks, plugin]` |
 | `trigger` | yes | One of the 6 primitive types (`regex_match`, `file_glob_present`, `file_glob_absent`, `commit_history_check`, `metadata_check`, `composite_and_or`). Closed set; new primitives require an RFC |
 | `title` | yes | Plain-English headline for the finding (NO rule_id) — a human sentence fragment naming what was found. Renders as the `.fc-title` on every report |
@@ -81,7 +81,7 @@ Body sections (human-readable, not enforced):
 - **Same input → same score**, byte-for-byte. The rubric version is part of the scan input.
 - Every scan report records its `rubric_version` (git SHA of `rubric/` at scan time) in the response payload.
 - A vendor can verify a finding by running the exact `rubric_version` against the exact artifact bytes at the recorded `ref_sha` — the result is reproducible without platform participation. (The **stored snapshot** — `artifact_blobs`, see `database.md` — preserves those exact text-file bytes, so reproduction needs no re-fetch; it is a storage feature, **not** part of the verdict path and **never** an input to scoring.)
-- **Upload provenance (I-3.5).** A directly **uploaded** artifact is scanned by the *same* deterministic engine — upload is a second front-end producing the same per-capability file index, not a different scoring path. There is no `ref_sha` (no Git ref); the durable identity is `content_hash_sha256` = sha256 of the sorted `{path → sha256}` map of the uploaded files. Reproducibility is by re-running the same `rubric_version` against the same bytes (`content_hash_sha256` pins them). Uploads have **no auto-rescan** (there is no upstream ref to poll for drift).
+- **Upload provenance.** A directly **uploaded** artifact is scanned by the *same* deterministic engine — upload is a second front-end producing the same per-capability file index, not a different scoring path. There is no `ref_sha` (no Git ref); the durable identity is `content_hash_sha256` = sha256 of the sorted `{path → sha256}` map of the uploaded files. Reproducibility is by re-running the same `rubric_version` against the same bytes (`content_hash_sha256` pins them). Uploads have **no auto-rescan** (there is no upstream ref to poll for drift).
 - **No LLM in the verdict path.** No probabilistic scoring. No editorial moderation queue. Hard, structural.
 - **No randomness, no ML-as-a-black-box.** Heuristics may use ML-trained classifiers, but the classifier weights ship versioned under `rubric/<CATEGORY>/_models/` and the rule doc names which model version it uses.
 
@@ -105,9 +105,9 @@ A scan targets a **GitHub repo**, and one repo can host several capabilities (a 
 
 See `.claude/rules/database.md` § Per-capability scans for the `scan_runs` storage contract.
 
-## Sub-scores and aggregate (locked D-01 / D-02; D-13 superseded by the severity ceiling)
+## Sub-scores and aggregate
 
-5-axis sub-score taxonomy, with PRD-locked weights:
+5-axis sub-score taxonomy, with fixed weights:
 
 | Sub-score key | Weight | What it measures |
 |---|---|---|
@@ -129,7 +129,7 @@ See `.claude/rules/database.md` § Per-capability scans for the `scan_runs` stor
 
 `sub_score = max(0, 100 − Σ penalty_i)`. If any finding in a sub-score has `severity: critical`, the sub-score is capped: `sub_score = min(sub_score, 20)`. `weighted = round(Σ sub_score × weight)`.
 
-**Severity ceiling (supersedes D-13, amends D-01).** A weighted-sum aggregate dilutes a security failure — with security at only 35% weight, a critical security finding amid otherwise-clean axes lands ~72 ("yellow / Watch"), mathematically unable to drop below ~65 from security problems alone. The ceiling fixes this at the aggregate: `_severity_ceiling(findings)` returns the lowest cap implied by the worst **active** finding — `critical → 15`, `high → 45`, else `None` — and `aggregate = min(weighted, ceiling)` when a ceiling applies. `info` and `shadow` findings never trigger it (shadow stays weight-0 / no score impact). The repo rollup (`_score_file_index`) applies the **same** ceiling over the **union** of every capability's findings, so one dangerous capability can't be averaged back up by clean ones. This **supersedes** the per-sub-score critical-floor (D-13, formerly cap-security-sub-score-at-40); that per-sub-score floor is retained only at **20** (down from 40) for breakdown coherence — the aggregate ceiling dominates. Tier bands (`tier_for`) are unchanged. All scoring lives in the single chokepoint `app/scan/engine.py`; **future scans only** — there is no catalog-wide backfill (existing scans keep their scores until content changes or a re-scan, since `engine_version` stays `"unknown"` and the reconcile drainer only re-evaluates on a version mismatch).
+**Severity ceiling.** A weighted-sum aggregate dilutes a security failure — with security at only 35% weight, a critical security finding amid otherwise-clean axes lands ~72 ("yellow / Watch"), mathematically unable to drop below ~65 from security problems alone. The ceiling fixes this at the aggregate: `_severity_ceiling(findings)` returns the lowest cap implied by the worst **active** finding — `critical → 15`, `high → 45`, else `None` — and `aggregate = min(weighted, ceiling)` when a ceiling applies. `info` and `shadow` findings never trigger it (shadow stays weight-0 / no score impact). The repo rollup (`_score_file_index`) applies the **same** ceiling over the **union** of every capability's findings, so one dangerous capability can't be averaged back up by clean ones. This **supersedes** the earlier per-sub-score critical-floor (formerly cap-security-sub-score-at-40); that per-sub-score floor is retained only at **20** (down from 40) for breakdown coherence — the aggregate ceiling dominates. Tier bands (`tier_for`) are unchanged. All scoring lives in the single chokepoint `app/scan/engine.py`; **future scans only** — there is no catalog-wide backfill (existing scans keep their scores until content changes or a re-scan, since `engine_version` stays `"unknown"` and the reconcile drainer only re-evaluates on a version mismatch).
 
 Every public scan report renders the **explicit breakdown**: per-finding penalty, running sub-score, critical-floor application, weighted aggregate, severity-ceiling application, tier-band mapping. See the `score_breakdown` block in `schemas/scan-report.schema.json` (`aggregate_math.severity_ceiling`: `{ceiling, weighted_aggregate, applied}`).
 
@@ -140,7 +140,7 @@ New rules and rule changes go through a public RFC:
 1. **Open issue** via `.github/ISSUE_TEMPLATE/03-rule-proposal.yml`. Title format: `RFC: SS-<CATEGORY>-<NAME>-NN — <short description>`.
 2. **7-day comment window** — public can leave comments; maintainer labels with `rfc/discussion`.
 3. **Maintainer decision** at end of window: `rfc/accepted` → proceed to PR; `rfc/rejected` → close with a substantive rationale in a final comment; `rfc/needs-changes` → extend the window once.
-4. **Implementation PR** adds `rubric/<CATEGORY>/<NAME>-NN.md` + the detector trigger config (frontmatter only at W2 Phase A; trigger executors land Phase B under `services/api/app/scan/triggers/`) + tests. The PR description links the RFC issue.
+4. **Implementation PR** adds `rubric/<CATEGORY>/<NAME>-NN.md` + the detector trigger config (frontmatter, plus the trigger executors under `services/api/app/scan/triggers/`) + tests. The PR description links the RFC issue.
 5. **Activation** is two-stage: the PR lands with `status: shadow` + `shadow_until: <T+7d>` regardless of how confident the author is. The detector fires + records findings in the scan trace, but the rule's weight is 0 (no score impact) during the shadow window. After 7 days the FP-audit harness (`tools/fp-audit/`) gates promotion: <10% FP rate → `status: active`; ≥10% → `shadow_until` extended +7d with maintainer review. See `.claude/rules/testing.md` for the FP-audit harness contract.
 
 ## Deprecation policy
@@ -168,7 +168,7 @@ Every rule's `limitations` frontmatter field names what it cannot catch. Example
 3. **Scoring is deterministic** — same input + same `rubric_version` → same score.
 4. **Rule-RFC for additions + changes.** 7-day comment window minimum.
 5. **No silent retirements.** Deprecation goes through the documented policy.
-6. **`docs/methodology.md` (root, public) and this rule stay in sync.** Public-facing changes ship in both.
+6. **`contributor-docs/methodology.md` (root, public) and this rule stay in sync.** Public-facing changes ship in both.
 7. **Every rule ships explainable-finding content** — `title` + `explanation` + `remediation` (+ `severityRationale` unless `info`). Enforced structurally by `schemas/rubric-rule.schema.json` (required) + the `validate` drift gate. The RFC (`03-rule-proposal.yml`) must include the proposed title/explanation/remediation.
 
 ## When to update this rule
@@ -178,7 +178,7 @@ Every rule's `limitations` frontmatter field names what it cannot catch. Example
 | New rule category | "File layout" + `naming-conventions.md` Rule IDs |
 | New per-rule contract field | "Per-rule contract" table + `schemas/rubric-rule.schema.json` + every existing rubric doc backfilled in the same PR |
 | New trigger primitive | "Per-rule contract" `trigger` row + `schemas/rubric-rule.schema.json` + RFC |
-| New sub-score axis | "Sub-scores and aggregate" + `schemas/scan-report.schema.json` + PRD §5.2 |
+| New sub-score axis | "Sub-scores and aggregate" + `schemas/scan-report.schema.json` |
 | New severity tier | "Sub-scores and aggregate" + `schemas/rubric-rule.schema.json` + `schemas/finding.schema.json` |
 | Rule-RFC workflow change | "Rule-RFC workflow" + `.github/ISSUE_TEMPLATE/03-rule-proposal.yml` |
 | Deprecation policy change | "Deprecation policy" + every rule mid-deprecation reviewed |

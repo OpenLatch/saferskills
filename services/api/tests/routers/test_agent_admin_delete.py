@@ -1,4 +1,4 @@
-"""Admin delete of an Agent Report (I-5.5, AE-8). 403 without the key; with key ->
+"""Admin delete of an Agent Report. 403 without the key; with key ->
 cascade + audit row; a public run is deletable ONLY via admin (not the token route)."""
 
 from __future__ import annotations

@@ -2,8 +2,8 @@ import { defineCollection, z } from 'astro:content'
 import { glob } from 'astro/loaders'
 
 /**
- * Native docs content collection (I-06 native rebuild — replaces the separate
- * Starlight app). Markdown/MDX authored under `src/content/docs/**`, rendered by
+ * Native docs content collection (replaces the separate Starlight app).
+ * Markdown/MDX authored under `src/content/docs/**`, rendered by
  * `src/pages/docs/[...slug].astro` inside the main app with the design system.
  *
  * The `glob` loader (not Starlight's `docsLoader`) gives us plain Astro entries:

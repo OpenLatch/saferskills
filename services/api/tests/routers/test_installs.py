@@ -1,4 +1,4 @@
-"""Tests for POST /api/v1/installs + the real install_activity aggregate (D-05-31).
+"""Tests for POST /api/v1/installs + the real install_activity aggregate.
 
 Covers the happy path (report → 204 → item-detail shows real GROUP-BY counts),
 adversarial input (unknown slug → 404, bad enum → 422), and the IP-redaction

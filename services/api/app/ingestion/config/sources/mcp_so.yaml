@@ -1,4 +1,4 @@
-# mcp.so MCP-server aggregator (I-04 Phase B PR2). Sitemap-driven HTML scrape via
+# mcp.so MCP-server aggregator. Sitemap-driven HTML scrape via
 # curl_cffi (Cloudflare-proxied). og tags are generic, so the name comes from the
 # URL slug (/server/<name>/<author>, index -2); the GitHub repo is read from the
 # item page (the site's own repo chatmcp/mcpso is denylisted).

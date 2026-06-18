@@ -1,7 +1,7 @@
 """SQLAlchemy ORM for `authors` (internal — no JSON-Schema source).
 
 One row per GitHub author/org seen during ingestion. `github_id` is nullable;
-a nightly Phase C backfill task resolves it via api.github.com/users/{login}.
+a nightly backfill task resolves it via api.github.com/users/{login}.
 The partial unique index `uq_authors_github_id_when_known` (migration 0010)
 excludes NULLs so multiple unknown-author rows coexist.
 """

@@ -1,5 +1,5 @@
 /**
- * `/agents` directory filter ↔ URL-param mapping (I-5.6 §12, D-5.6-09).
+ * `/agents` directory filter ↔ URL-param mapping.
  *
  * Mirrors `catalog/constants.ts` — the page SSR-derives the initial filter state
  * from the request URL, the island re-derives on popstate, and both build the

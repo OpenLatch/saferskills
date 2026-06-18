@@ -28,7 +28,7 @@ const CopyGlyph = () => (
 )
 
 /**
- * Per-finding terminal-chrome remediation (I-5.6 §5 AR-2): the action line +
+ * Per-finding terminal-chrome remediation: the action line +
  * numbered steps, then a diff-colored Avoid→Safer snippet inside a macOS terminal
  * (`.ar-term`) with a Copy → Copied button. Renders steps only when there is no
  * `saferPattern`. CSS (`.ar-rem-*` / `.ar-term` / `.at-*`) is DS-owned in

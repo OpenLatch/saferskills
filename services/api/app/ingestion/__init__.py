@@ -1,4 +1,4 @@
-"""I-04 ingestion package.
+"""Ingestion package.
 
 The Procrastinate app singleton lives here. It is imported by:
   - app/main.py (FastAPI lifespan: starts the worker via asyncio.create_task)
@@ -8,7 +8,7 @@ The Procrastinate app singleton lives here. It is imported by:
 
 The worker is **in-process** — it runs inside the FastAPI process via
 `asyncio.create_task(procrastinate_app.run_worker_async(...))` in the lifespan
-handler (D-04-03 carve-out from I-03 D-FE-34). No new Fly Machine. Same Postgres.
+handler (a carve-out from the interactive scan path). No new Fly Machine. Same Postgres.
 
 Procrastinate uses its own psycopg3 connection pool (PsycopgConnector), separate
 from the SQLAlchemy AsyncSession layer; we hand it the same database but with the
@@ -48,14 +48,14 @@ def _libpq_conninfo(database_url: str) -> str:
 procrastinate_app = App(
     # `max_size` forwards to psycopg_pool.AsyncConnectionPool — set it explicitly
     # so the job-queue connector never inherits the library default and stays
-    # inside the per-Machine connection budget (crash-resilience §1.4).
+    # inside the per-Machine connection budget.
     connector=PsycopgConnector(
         conninfo=_libpq_conninfo(_settings.database_url),
         max_size=_settings.ingestion_queue_pool_max_size,
     ),
     import_paths=[
         "app.ingestion.tasks",
-        # Phase C periodic tasks — listed so the worker registers their cron tasks.
+        # Periodic tasks — listed so the worker registers their cron tasks.
         "app.ingestion.tasks_popularity",
         # Durable auto-scan pipeline (scan_capability_repo + auto_scan_reconcile
         # + scan_stalled_retrier) — replaces the popularity-gated deep/lite triggers.
@@ -108,8 +108,8 @@ PERIODIC_MAINTENANCE_PRIORITY = 10
 INGEST_CYCLE_PRIORITY = 5
 
 # Queues the worker listens on. Per-source ingest queues + a periodic queue
-# (Phase C tasks) + the durable `scan` queue (auto-scan jobs) + default.
-# Aggregator queue is declared now for Phase B.
+# (periodic tasks) + the durable `scan` queue (auto-scan jobs) + default.
+# Aggregator queue is declared now for the aggregator scrapers.
 ALL_QUEUES: list[str] = [
     "ingest_github",
     "ingest_mcp_registry",

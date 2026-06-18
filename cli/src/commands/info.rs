@@ -1,5 +1,5 @@
-//! `saferskills info <name>` (alias `check`) — the unblocked read headline
-//! (D-05-18). Resolves the typed name, fetches the item detail, and renders
+//! `saferskills info <name>` (alias `check`) — the unblocked read headline.
+//! Resolves the typed name, fetches the item detail, and renders
 //! the score + tier + ranked findings + report URL. No auth, no captcha.
 
 use super::report;

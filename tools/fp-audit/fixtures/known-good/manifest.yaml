@@ -1,8 +1,8 @@
 # 50 known-good fixture entries.
 #
-# These are public artifacts known to be clean. The Phase A landing carries
-# manifest entries only; the actual fixture content is populated as Phase B
-# onboards each fixture (clone, anonymise, content-hash, commit).
+# These are public artifacts known to be clean. This currently carries
+# manifest entries only; the actual fixture content is populated as each
+# fixture is onboarded (clone, anonymise, content-hash, commit).
 #
 # Sources documented in each entry's `notes`. License compliance noted where
 # the upstream is non-Apache-2.0; copy permission is fair-use research scope

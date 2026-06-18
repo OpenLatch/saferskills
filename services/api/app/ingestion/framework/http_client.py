@@ -111,7 +111,7 @@ async def _body_size_cap_hook(response: httpx.Response) -> None:
     if cl is None:
         return
     # A malformed Content-Length (non-numeric) must not raise inside the response
-    # hook (WS-8a) — treat it as unknown size and let the stream/read path handle it.
+    # hook — treat it as unknown size and let the stream/read path handle it.
     try:
         size = int(cl.strip())
     except ValueError:

@@ -1,4 +1,4 @@
-"""Unit: server-side agent-scan codename generation (I-5.6 naming fix).
+"""Unit: server-side agent-scan codename generation.
 
 Pins the `my-agent` placeholder replacement — `resolve_agent_name(None)` yields a
 fresh `adjective-noun` codename (never the old placeholder), an explicit name is

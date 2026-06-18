@@ -1,4 +1,4 @@
-//! Local state + configuration under `~/.saferskills/` (D-05-10, D-05-28).
+//! Local state + configuration under `~/.saferskills/`.
 //!
 //! Files:
 //! - `config.toml` — commented template; active keys `api_url`,
@@ -30,7 +30,7 @@ pub const DEFAULT_API_BASE: &str = "https://saferskills.ai";
 pub const DEFAULT_MIN_SCORE: u8 = 90;
 
 /// Resolve the SaferSkills home directory: `SAFERSKILLS_DIR` env override, else
-/// `~/.saferskills` (matches the PRD on every OS; `%USERPROFILE%` resolves the
+/// `~/.saferskills` (the same path on every OS; `%USERPROFILE%` resolves the
 /// home on Windows via `dirs`).
 pub fn saferskills_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("SAFERSKILLS_DIR") {
@@ -98,7 +98,7 @@ pub fn ensure_dir() -> Result<(), SsError> {
 }
 
 /// On-disk `config.toml` shape. All keys optional — absence means "use the
-/// default" (D-05-10). Unknown keys are ignored.
+/// default". Unknown keys are ignored.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
     /// Override the API origin.
@@ -111,7 +111,7 @@ pub struct Config {
     /// (Install reporting is unconditional and has no config key.)
     pub telemetry: Option<bool>,
     /// Whether the one-time first-launch security audit has been offered/run.
-    /// `Some(true)` short-circuits the prompt so it never re-asks (D-05-26).
+    /// `Some(true)` short-circuits the prompt so it never re-asks.
     pub audited: Option<bool>,
 }
 

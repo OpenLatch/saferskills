@@ -1,4 +1,4 @@
-"""Access-log writer middleware (I-04, ratified deviation: writer in Phase A, reader in I-06).
+"""Access-log writer middleware (write-only — the reader ships later).
 
 Write-only B2B-funnel signal. For a small closed set of public catalog actions it
 records one `access_log` row with a /24-(v4) or /48-(v6) **redacted** IP, the
@@ -6,8 +6,8 @@ user-agent, and the referer host — never a raw IP, slug, URL, or PII (see
 .claude/rules/privacy.md + security.md § Vendor-data isolation). The insert is
 fire-and-forget so it never adds latency to or breaks the response.
 
-`item_content_hash` is left NULL in Phase A — the content-hash spine enrichment
-lands with the I-06 reader; the action + redacted-IP signal accrues from day one.
+`item_content_hash` is left NULL for now — the content-hash spine enrichment
+lands with the reader; the action + redacted-IP signal accrues from day one.
 """
 
 from __future__ import annotations

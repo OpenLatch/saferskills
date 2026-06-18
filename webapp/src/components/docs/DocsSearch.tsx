@@ -18,7 +18,7 @@ function renderExcerpt(html: string): ReactNode[] {
 }
 
 /**
- * Docs full-text search (I-06 native rebuild) — a DS-styled trigger + ⌘K modal
+ * Docs full-text search — a DS-styled trigger + ⌘K modal
  * over the Pagefind index built post-`astro build` (`scripts/build-pagefind.cjs`
  * → `/pagefind/pagefind.js`). The index only exists in a real build, so in
  * `astro dev` the dynamic import fails and the box degrades to a disabled hint

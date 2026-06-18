@@ -61,7 +61,7 @@ def test_empty_findings_aggregate_is_perfect_green() -> None:
     assert all(v == 100 for v in sub_scores.values())
 
 
-# ── severity ceiling (supersedes D-13 per-sub-score floor) ─────────────────
+# ── severity ceiling (supersedes the per-sub-score floor) ──────────────────
 
 
 def test_active_critical_caps_aggregate_at_15_red() -> None:

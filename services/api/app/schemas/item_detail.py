@@ -1,6 +1,6 @@
 """Wire types for GET /api/v1/items/<slug> — the item-detail surface.
 
-Phase C extends the W1 catalog-detail projection (`CatalogItemDetail`) with the
+Extends the catalog-detail projection (`CatalogItemDetail`) with the
 data the item-detail page (`/items/<slug>`) renders beyond the bare catalog row:
 the full latest scan report, a 90-day score-history series, anonymized install
 activity, and a related-items grid.
@@ -11,9 +11,9 @@ generated entity shapes), per `.claude/rules/schema-driven-development.md`
 `app.openapi()` → `openapi.json` → the TS DTO generator.
 
 `install_activity` is anonymized counts ONLY — never company-level data
-(company intelligence is OpenLatch's private B2B surface, never public). At
-I-03 ship the values are deterministic placeholders derived from the catalog
-item's popularity_score; I-05 (Install CLI) wires real install telemetry.
+(company intelligence is OpenLatch's private B2B surface, never public). Before
+the Install CLI wires real install telemetry, the values are deterministic
+placeholders derived from the catalog item's popularity_score.
 """
 
 from __future__ import annotations
@@ -128,8 +128,8 @@ class RepoMeta(OrmBaseModel):
 class AgentShare(OrmBaseModel):
     """One slice of the install agent-distribution row.
 
-    `agent` is the canonical agent id (the 8-agent closed enum, D-05-14) — no
-    longer a free string now that real install telemetry (D-05-31) populates it.
+    `agent` is the canonical agent id (the 8-agent closed enum) — no longer a
+    free string now that real install telemetry populates it.
     """
 
     agent: AgentName

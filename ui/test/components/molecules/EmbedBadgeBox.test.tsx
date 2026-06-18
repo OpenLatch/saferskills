@@ -49,7 +49,7 @@ describe('EmbedBadgeBox', () => {
     expect(results.violations).toHaveLength(0)
   })
 
-  it('emits the agent badge + report paths under kind="agent" (I-5.6)', () => {
+  it('emits the agent badge + report paths under kind="agent"', () => {
     const { container } = render(
       <EmbedBadgeBox kind="agent" scanId="run9" score={10} tier="red" altPrefix="SaferSkills Agent" />,
     )

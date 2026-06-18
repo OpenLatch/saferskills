@@ -4,7 +4,7 @@ severity: medium
 subScore: security
 weight: 15
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [skill, mcp, rules, hooks, plugin]
 frameworks: ["owasp-llm:llm01", "mitre-atlas:AML.T0051"]
 title: >-
@@ -69,4 +69,4 @@ inform whether to promote at medium, lift to high, or demote to info.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

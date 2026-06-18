@@ -26,7 +26,7 @@ export const DEFAULT_STATE: CatalogState = {
   page: 1,
 }
 
-// Provenance filter (I-3.5). `value=''` is "All" (no param sent).
+// Provenance filter. `value=''` is "All" (no param sent).
 export const SOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'All sources' },
   { value: 'github', label: 'GitHub' },

@@ -1,7 +1,7 @@
 # Version Bump — automated version bumping and changelog generation via release-please.
 #
 # Mirrors `OpenLatch/openlatch-client/.github/workflows/version-bump.yml` per
-# mirror discipline. Single package at W1 (`cli/`); add more under `packages`
+# mirror discipline. Single package today (`cli/`); add more under `packages`
 # in `release-please-config.json` when subsequent packages need versioning.
 #
 # On every push to main:

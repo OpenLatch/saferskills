@@ -10,7 +10,7 @@ export interface AgentCleanVerdictProps {
 }
 
 /**
- * Findings-tab empty state for a clean pass (I-5.6) — the agent flagged **zero**
+ * Findings-tab empty state for a clean pass — the agent flagged **zero**
  * findings. A composed verdict panel (hex-cap seal · verdict eyebrow · headline ·
  * evidence ledger of the run's real numbers · reproducibility line) replacing the
  * earlier oversized inline checkmark. Reuses the shared `.ar-empty` panel chrome

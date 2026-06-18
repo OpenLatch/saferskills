@@ -1,4 +1,4 @@
-"""One-time run/submit token — mint, no-spend verify, single-use spend (I-5.5)."""
+"""One-time run/submit token — mint, no-spend verify, single-use spend."""
 
 from __future__ import annotations
 

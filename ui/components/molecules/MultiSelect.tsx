@@ -31,8 +31,8 @@ interface Props {
 }
 
 /**
- * MultiSelect — the `/agents` filter-toolbar dropdown (I-5.6 §12.2). Markup
- * mirrors the locked mockup `.ms` vocabulary: a `Key: Value ▾` trigger + a
+ * MultiSelect — the `/agents` filter-toolbar dropdown. Markup
+ * mirrors the mockup `.ms` vocabulary: a `Key: Value ▾` trigger + a
  * popover panel of checkbox rows (`.box`/`.nm`) or single-select preset rows
  * (`.pr-opt`), with a Clear foot on the multi-select variants.
  *

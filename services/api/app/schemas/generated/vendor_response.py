@@ -11,7 +11,7 @@ from pydantic import AwareDatetime, ConfigDict, Field, conint, constr
 
 class VendorResponse(OrmBaseModel):
     """
-    Verified-vendor public response on a catalog item (PRD §11.2). Transparency over erasure — old versions retained; the latest version renders on the report page. Body is Markdown, 2000-char cap per PRD B-8.
+    Verified-vendor public response on a catalog item. Transparency over erasure — old versions retained; the latest version renders on the report page. Body is Markdown, 2000-char cap.
     """
 
     model_config = ConfigDict(

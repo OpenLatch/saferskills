@@ -37,9 +37,9 @@ def derive_scan_status(scan: Scan, findings: Sequence[Finding]) -> ScanStatus:
 
 
 def _finding_dict(f: Finding, evidence: Evidence = None) -> dict[str, object]:
-    # Inline the explainable-finding prose from the generated rule-content map
-    # (D-05-32 reversed). The single chokepoint for both report builders. Missing
-    # rule_id → all None; the finding still renders from rule_id + remediation_link.
+    # Inline the explainable-finding prose from the generated rule-content map.
+    # The single chokepoint for both report builders. Missing rule_id → all None;
+    # the finding still renders from rule_id + remediation_link.
     prose = lookup_prose(f.rule_id)
     return {
         "id": str(f.id),

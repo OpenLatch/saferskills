@@ -1,4 +1,4 @@
-"""Validation + safe extraction for direct artifact uploads (I-3.5).
+"""Validation + safe extraction for direct artifact uploads.
 
 Turns an uploaded body (one capability file, one `.zip`, or N loose files —
 combined ≤10 MiB) into the **same** `list[tuple[str, bytes]]` file index
@@ -276,7 +276,7 @@ def _extract_zip(body: bytes, settings: Settings) -> list[tuple[str, bytes]]:
     return files_index
 
 
-# ── Kind + name detection (D-UP-10) ──────────────────────────────────────────
+# ── Kind + name detection ────────────────────────────────────────────────────
 
 
 def _detect(files_index: list[tuple[str, bytes]], filename: str) -> tuple[str | None, str | None]:
@@ -342,7 +342,7 @@ def _detect_name(files_index: list[tuple[str, bytes]], filename: str) -> str | N
     return stem or "artifact"
 
 
-# ── Identity + idempotency (D-UP-11, D-UP-28) ────────────────────────────────
+# ── Identity + idempotency ───────────────────────────────────────────────────
 
 
 def upload_content_hash(files_index: list[tuple[str, bytes]]) -> str:
@@ -361,7 +361,7 @@ def public_upload_idempotency_key(content_hash: str, rubric_version: str) -> str
 
 def unlisted_idempotency_key(content_hash: str, rubric_version: str) -> str:
     """UNLISTED uploads NEVER cache — a per-submission nonce makes two byte-
-    identical private submissions distinct runs + distinct tokens (D-UP-28),
+    identical private submissions distinct runs + distinct tokens,
     killing cross-user privacy coupling."""
     raw = f"{content_hash}|{rubric_version}|unlisted|{secrets.token_hex(16)}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

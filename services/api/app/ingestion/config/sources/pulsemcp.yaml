@@ -1,4 +1,4 @@
-# pulsemcp.com MCP-server aggregator (I-04 Phase B PR2). Flat sitemap → /servers/<slug>
+# pulsemcp.com MCP-server aggregator. Flat sitemap → /servers/<slug>
 # item pages (curl_cffi; Cloudflare-proxied — plain HTTPX gets a 403). The listing is
 # client-rendered, so we read the GitHub repo from each item-detail page.
 name: pulsemcp

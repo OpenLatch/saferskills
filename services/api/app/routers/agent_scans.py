@@ -1,14 +1,14 @@
-"""Agent-scan run-lifecycle surface (I-5.5, Phase 1).
+"""Agent-scan run-lifecycle surface.
 
 Mints a run + one-time submit token, serves the per-run Ed25519-signed pack
 (token-gated, 410 after submit), exposes the flat pubkey map, and reuses the
-I-3.5 unlisted capability-URL contract (token view / promote / delete) verbatim.
-Grading + submit + the company-level telemetry land in Phase 2.
+unlisted capability-URL contract (token view / promote / delete) verbatim.
+Grading + submit + the company-level telemetry land separately.
 
 Reuses the stable submission-gate + unlisted helpers from `app.routers.scans`
 (single source of truth for the trusted-proxy client-IP + generic-404 + anti-
 leakage behaviour). The PUBLIC `GET /{run_id}` route NEVER loads `agent_evidence`
-(it carries the private transcript) - Codex#7.
+(it carries the private transcript).
 """
 
 from __future__ import annotations
@@ -100,7 +100,7 @@ _GRADED_STATES = frozenset({"graded", "published"})
 async def _parse_submission(request: Request, settings: Settings) -> AgentScanResultV1:
     """Decode + validate the submission: JSON `agent_scan_result.v1`, a JSON
     `{paste_back}` blob, OR a `text/plain` paste-back body. The decoded payload is
-    capped at `upload_max_bytes`; paste-back adds the ratio guard (D-5.5-17)."""
+    capped at `upload_max_bytes`; paste-back adds the ratio guard."""
     raw = await request.body()
     if len(raw) > settings.upload_max_bytes:
         raise HTTPException(status_code=413, detail={"error": "upload_too_large"})
@@ -176,7 +176,7 @@ def _is_live_unlisted(run: AgentRun | None) -> bool:
 async def _gate_agent_submission(
     request: Request, session: AsyncSession, *, settings: Settings
 ) -> None:
-    """Human/bot gate for `POST /agent-scans` (D-5.5-15). Loopback-exempt at the
+    """Human/bot gate for `POST /agent-scans`. Loopback-exempt at the
     call site. PoW path (CLI) elif Turnstile (browser) - both count against the
     dedicated `agent_scan_submit` bucket. Verify precedes the rate-limit + the mint."""
     ip = rate_limit_ip(request, settings)
@@ -295,7 +295,7 @@ async def bootstrap_run(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> AgentScanBootstrapResponse:
-    """Mint a run + return the platform-picked bootstrap prompt (Phase 3)."""
+    """Mint a run + return the platform-picked bootstrap prompt."""
     return await _bootstrap(body, request, session)
 
 
@@ -308,7 +308,7 @@ async def bootstrap_run_get(
     visibility: str = "public",
     session: AsyncSession = Depends(get_session),
 ) -> AgentScanBootstrapResponse:
-    """GET convenience for the I-5.7 web picker (same handler as POST)."""
+    """GET convenience for the web picker (same handler as POST)."""
     try:
         body = AgentScanBootstrapRequest(
             platform=platform,  # type: ignore[arg-type]
@@ -557,8 +557,8 @@ async def delete_unlisted_run(
     response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    """Eager self-delete of an unlisted run (Phase 1: the run row + its FK-CASCADE
-    children; the full `delete_agent_run_cascade` lands in Phase 2). Public -> 404."""
+    """Eager self-delete of an unlisted run via the full `delete_agent_run_cascade`
+    (the run row + its FK-CASCADE children). Public -> 404."""
     await enforce_private_lookup_limit(request, session)
     run = (
         await session.execute(select(AgentRun).where(AgentRun.share_token == token))
@@ -568,7 +568,7 @@ async def delete_unlisted_run(
     assert run is not None
     # Explicit ordered cascade (findings -> telemetry -> evidence -> run). Refuses a
     # public run; the token ledger is keyed by hash and reaped by the expiry sweep,
-    # never run-cascaded (Codex#10). Never touches artifact_blobs.
+    # never run-cascaded. Never touches artifact_blobs.
     await delete_agent_run_cascade(session, run.id, allow_public=False)
     await session.commit()
     set_unlisted_headers(response)
@@ -584,7 +584,7 @@ async def reply_unlisted_run(
     session: AsyncSession = Depends(get_session),
 ) -> AgentScanReportDetail:
     """Attach the capability-token holder's ≤500-char public right-of-reply to the
-    run (D-5.6-08, §13). Token-gated (same `private_lookup` surface as view/promote/
+    run. Token-gated (same `private_lookup` surface as view/promote/
     delete); persisted on the run + rendered read-only on the report. Generic-404 a
     bad/expired token (no oracle). 500-char server-validated by `AgentReplyRequest`."""
     await enforce_private_lookup_limit(request, session)
@@ -605,9 +605,9 @@ async def reply_unlisted_run(
     )
 
 
-# ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
+# ── Directory list + aggregate-stats ────────────────────────────────────────────
 # These STATIC paths are registered BEFORE the dynamic `/{run_id}` route below, or
-# FastAPI would match `aggregate-stats` as a `run_id` (Codex P1).
+# FastAPI would match `aggregate-stats` as a `run_id`.
 
 
 @router.get("", response_model=AgentScanListEnvelope)
@@ -626,7 +626,7 @@ async def list_runs(
     """Public-only, filterable, sorted, paginated dossier list (the `/agents` grid).
 
     Hard-filters `visibility='public' AND status IN ('graded','published') AND score
-    IS NOT NULL` - never serves an unlisted/ungraded/null-score run (Codex P1)."""
+    IS NOT NULL` - never serves an unlisted/ungraded/null-score run."""
     return await directory_mod.list_public_runs(
         session,
         get_settings(),
@@ -649,7 +649,7 @@ async def get_aggregate_stats(
     """Corpus risk-meter feed: gated % + band distribution over the public corpus.
 
     `pct_with_critical` is null until the corpus reaches `AGENT_CORPUS_GATE_N`
-    (the collecting gate; D-5.6-07). Public-only."""
+    (the collecting gate). Public-only."""
     return await directory_mod.aggregate_stats(session, get_settings())
 
 

@@ -13,5 +13,5 @@ Then read the path-scoped rules under `.claude/rules/`. Each rule's blockquote h
 ## Further guidance
 
 - `CONTRIBUTING.md` — setup, branch naming, the rule-RFC workflow.
-- `docs/methodology.md` + `docs/rules.md` — the public scoring rubric (your edits to detection rules need an RFC under `.github/ISSUE_TEMPLATE/03-rule-proposal.yml`).
+- `contributor-docs/methodology.md` + `contributor-docs/rules.md` — the public scoring rubric (your edits to detection rules need an RFC under `.github/ISSUE_TEMPLATE/03-rule-proposal.yml`).
 - `SECURITY.md` — how to report a vuln in SaferSkills itself. Vulns in items SaferSkills *scans* route via the vendor-appeal form, not here.

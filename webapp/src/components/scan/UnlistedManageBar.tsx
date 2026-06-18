@@ -6,7 +6,7 @@ import { track } from '@/lib/analytics'
 import { deleteUnlisted, promoteUnlisted } from '@/lib/api/scans'
 
 interface Props {
-  /** The capability-URL token. Never rendered/logged/echoed (D-UP-14/32). */
+  /** The capability-URL token. Never rendered/logged/echoed. */
   token: string
   /** Current page URL — copied by "Copy link" (carries the token only client-side). */
   shareUrl: string
@@ -21,7 +21,7 @@ type Pending = null | 'promote' | 'delete'
  * views and mutates, surfaced honestly in the inline warning. Destructive
  * actions go through a focus-trapped native `<dialog>` (trap + Esc + focus
  * restore for free), disable while in flight, show explicit destructive labels,
- * and surface a GENERIC error (no invalid/expired/deleted oracle — P1-6).
+ * and surface a GENERIC error (no invalid/expired/deleted oracle).
  */
 export default function UnlistedManageBar({ token, shareUrl }: Props) {
   const promoteRef = useRef<HTMLDialogElement>(null)
@@ -61,10 +61,10 @@ export default function UnlistedManageBar({ token, shareUrl }: Props) {
       const res = await promoteUnlisted(token)
       track('unlisted_manage_action', { action: 'promote' })
       // Multi-capability-safe: land on the RUN report, never a single /items/<slug>
-      // (there is no single slug for an N-capability run — P0-12/D-UP-31).
+      // (there is no single slug for an N-capability run).
       window.location.assign(`/scans/${res.run_id}`)
     } catch {
-      // Generic — must NOT distinguish invalid / expired / already-deleted (P1-6).
+      // Generic — must NOT distinguish invalid / expired / already-deleted.
       setPending(null)
       setError("Couldn't complete that — the link may have expired or been deleted.")
     }
@@ -77,7 +77,7 @@ export default function UnlistedManageBar({ token, shareUrl }: Props) {
       await deleteUnlisted(token)
       track('unlisted_manage_action', { action: 'delete' })
       // Token is purged by navigating away: it is never persisted to
-      // sessionStorage / an object URL, and never echoed in the toast (P1-6).
+      // sessionStorage / an object URL, and never echoed in the toast.
       deleteRef.current?.close()
       window.location.assign('/scan?deleted=1')
     } catch {

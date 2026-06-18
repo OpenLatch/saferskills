@@ -1,4 +1,4 @@
-"""Weighted popularity formula v1 (D-04-13).
+"""Weighted popularity formula v1.
 
 Pure functions only — no DB writes here. The active weights live in the
 `popularity_formulas` table (seeded `popularity_formula_v1` in migration 0011);

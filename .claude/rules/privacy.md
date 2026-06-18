@@ -8,9 +8,9 @@ Always-on rule. Controller = OpenLatch EU / France (CNIL). Privacy contact: `pri
 - **Legal basis**: legitimate interest (Art. 6(1)(f) GDPR) for security research, abuse prevention, and service improvement. Consent basis applies only to the newsletter (not yet active).
 - **Cookieless-by-design**: PostHog runs in cookieless mode (EU region). No tracking cookies, no persistent device identifiers, no cookie-consent banner required.
 
-## `access_log` table (I-04 Phase A)
+## `access_log` table
 
-The `access_log` table records anonymised, aggregate catalog-access signals for the I-06 B2B intelligence feature. It is a **write-only** store at I-04; the reader ships in I-06.
+The `access_log` table records anonymised, aggregate catalog-access signals for a planned B2B intelligence feature. It is a **write-only** store for now; the reader ships later.
 
 ### What is stored
 
@@ -31,21 +31,21 @@ The redaction function lives in `app/core/access_log_middleware.py`. It is calle
 
 ### No export
 
-Redacted `/24` or `/48` prefixes are never exported raw to third parties. Aggregated analytics (bucketed counts per action per day) may be surfaced in internal dashboards or the I-06 B2B intelligence surface, but the row-level store is internal only.
+Redacted `/24` or `/48` prefixes are never exported raw to third parties. Aggregated analytics (bucketed counts per action per day) may be surfaced in internal dashboards or the planned B2B intelligence surface, but the row-level store is internal only.
 
 ### Hard rules
 
-1. **Write-only at I-04.** No `access_log` reads in any router, query, or service until I-06 lands the reader.
+1. **Write-only for now.** No `access_log` reads in any router, query, or service until the reader lands.
 2. **Redact at middleware layer.** Never pass a raw IP into any `access_log` insert call.
 3. **Closed action enum.** New action type = update the enum in `app/core/access_log_middleware.py` + this rule + `privacy.astro`.
 4. **No PII fields.** No `user_agent`, no `referer`, no raw `path`, no slug. Only `action`, `redacted_ip`, `timestamp`, and optionally `source_kind` (closed enum) for aggregate faceting.
 
-## `install_events` table (I-05)
+## `install_events` table
 
 The `install_events` table records **anonymous** install reports from the `saferskills`
-CLI (D-05-31), powering the real `install_activity` counts on item pages (replacing
+CLI, powering the real `install_activity` counts on item pages (replacing
 the deterministic mock). It is a **new store distinct from `access_log`** — required
-because `access_log` is write-only-until-I-06, closed-action, and 30-day-swept, so it
+because `access_log` is write-only-until-its-reader-lands, closed-action, and 30-day-swept, so it
 can neither serve the read nor preserve the `all_time` count.
 
 ### What is stored
@@ -79,11 +79,11 @@ key / first-run prompt), which gates only the PostHog `command_invoked` event. S
 Row-level `install_events` are internal; only bucketed aggregates (counts per agent
 per window) surface on the public item page.
 
-## agent_scan_telemetry table (I-5.5)
+## agent_scan_telemetry table
 
 The `agent_scan_telemetry` table records **anonymous, company-level** signals about
-who runs an Agent Scan, for the I-06 B2B intelligence feature. It is a **write-only**
-store at I-5.5 (the reader ships in I-06), distinct from `install_events`.
+who runs an Agent Scan, for a planned B2B intelligence feature. It is a **write-only**
+store for now (the reader ships later), distinct from `install_events`.
 
 ### What is stored
 
@@ -114,9 +114,9 @@ override of the SET-NULL constraint (see its docstring). Public runs are permane
 ### No export
 
 Row-level `agent_scan_telemetry` is internal; only bucketed aggregates surface in the
-I-06 B2B intelligence surface. No raw ASN/IP export to third parties.
+planned B2B intelligence surface. No raw ASN/IP export to third parties.
 
-## First-launch audit (I-05, D-05-26)
+## First-launch audit
 
 On the install CLI's first interactive run it offers a **one-time, opt-in** security
 audit of everything already installed across the user's agents (`scan --local`). On
@@ -145,7 +145,7 @@ Link to `security.md` § Vendor-data isolation for the full retention-tier break
 | `agent_scan_telemetry` column / retention / fingerprint change | "agent_scan_telemetry table" + `app/models/agent_scan_telemetry.py` + `app/agent_scan/` + migration 0019 + `security.md` |
 | New `action` enum value added | "What is stored" + `app/core/access_log_middleware.py` enum + `privacy.astro` |
 | IP redaction granularity changed | "IP redaction" + `app/core/access_log_middleware.py` + `privacy.astro` |
-| `access_log` reader ships (I-06) | "access_log table" — remove "write-only at I-04" note; document the read surface |
+| `access_log` reader ships | "access_log table" — remove the "write-only for now" note; document the read surface |
 | Retention period changed | "Retention" + `security.md` operational tier |
 | New aggregated export surface | "No export" — document the target + legal basis |
 | Controller / DPA details change | "Controller" + `privacy.astro` § who-we-are |

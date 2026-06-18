@@ -14,7 +14,7 @@
 
 ## What it is
 
-The operator CLI for SaferSkills production (I-04 Phase C, D-04-28) — a thin Typer client over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints. Distinct from [`tools/data-seed/`](../data-seed/README.md) (dev fixtures) and [`tools/fp-audit/`](../fp-audit/README.md) (rubric FP audit): this one mutates **production** via the API, so every mutation is audit-logged server-side and dangerous verbs require confirmation.
+The operator CLI for SaferSkills production — a thin Typer client over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints. Distinct from [`tools/data-seed/`](../data-seed/README.md) (dev fixtures) and [`tools/fp-audit/`](../fp-audit/README.md) (rubric FP audit): this one mutates **production** via the API, so every mutation is audit-logged server-side and dangerous verbs require confirmation.
 
 ## Auth
 

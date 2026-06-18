@@ -36,7 +36,7 @@ _CONFIG_DIR = Path(__file__).resolve().parent / "sources"
 
 
 class SourcePolicy(BaseModel):
-    """Public-facing policy excerpt (rendered on the /sources page in Phase C)."""
+    """Public-facing policy excerpt (rendered on the /sources page)."""
 
     model_config = {"extra": "forbid"}
 

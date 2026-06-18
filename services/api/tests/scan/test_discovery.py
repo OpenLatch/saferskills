@@ -156,7 +156,7 @@ def test_package_json_mcp_servers_detected() -> None:
     assert caps[0].name == "srv"
 
 
-# ── upload anchorless fan-out (I-3.5) ────────────────────────────────────────
+# ── upload anchorless fan-out ────────────────────────────────────────────────
 
 
 def test_upload_loose_files_fan_into_per_file_capabilities() -> None:
@@ -270,7 +270,7 @@ def test_upload_flat_mcp_json_keeps_declared_name() -> None:
     assert by_path["mcp.json"].name == "gh-mcp"
 
 
-# ── install_spec extraction (CLI install descriptor, D-05-16 extension) ──────
+# ── install_spec extraction (CLI install descriptor) ────────────────────────
 
 
 def test_install_spec_mcp_from_package_json_mcpservers() -> None:

@@ -472,7 +472,7 @@
         "type": "object"
       },
       "AgentScanBootstrapRequest": {
-        "description": "`POST|GET /api/v1/agent-scans/bootstrap` input - mint a run + return the\nplatform-picked bootstrap prompt (Phase 3). The web picker page is I-5.7.",
+        "description": "`POST|GET /api/v1/agent-scans/bootstrap` input - mint a run + return the\nplatform-picked bootstrap prompt.",
         "properties": {
           "agent_name": {
             "anyOf": [
@@ -1246,7 +1246,7 @@
         "type": "object"
       },
       "AgentShare": {
-        "description": "One slice of the install agent-distribution row.\n\n`agent` is the canonical agent id (the 8-agent closed enum, D-05-14) \u2014 no\nlonger a free string now that real install telemetry (D-05-31) populates it.",
+        "description": "One slice of the install agent-distribution row.\n\n`agent` is the canonical agent id (the 8-agent closed enum) \u2014 no longer a\nfree string now that real install telemetry populates it.",
         "properties": {
           "agent": {
             "enum": [
@@ -1869,7 +1869,7 @@
         "type": "object"
       },
       "CliChallengeResponse": {
-        "description": "`GET /api/v1/scans/cli-challenge` \u2014 a fresh stateless PoW challenge for the\ninstall CLI (D-05-30). The CLI solves it offline and replays it in the\n`X-SaferSkills-CLI-PoW` header on its next scan-submit.",
+        "description": "`GET /api/v1/scans/cli-challenge` \u2014 a fresh stateless PoW challenge for the\ninstall CLI. The CLI solves it offline and replays it in the\n`X-SaferSkills-CLI-PoW` header on its next scan-submit.",
         "properties": {
           "challenge": {
             "title": "Challenge",
@@ -2728,7 +2728,7 @@
         "type": "object"
       },
       "PromotedItem": {
-        "description": "One capability promoted from unlisted \u2192 public (D-UP-31).",
+        "description": "One capability promoted from unlisted \u2192 public.",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -3421,7 +3421,7 @@
           },
           "visibility": {
             "default": "public",
-            "description": "Listing posture. `public` (default) caches + appears in the catalog; `unlisted` never caches (nonce-salted), mints a share token, and is reachable only via its capability URL (I-3.5).",
+            "description": "Listing posture. `public` (default) caches + appears in the catalog; `unlisted` never caches (nonce-salted), mints a share token, and is reachable only via its capability URL.",
             "enum": [
               "public",
               "unlisted"
@@ -3488,7 +3488,7 @@
         "type": "object"
       },
       "ScanUploadResponse": {
-        "description": "202 result of POST /api/v1/scans/upload (D-UP-06).\n\n`slug` is populated once known for a public upload (or omitted until the run\ncompletes \u2014 the FE polls the run report). `share_url` is the capability URL,\npresent ONLY for an unlisted upload.",
+        "description": "202 result of POST /api/v1/scans/upload.\n\n`slug` is populated once known for a public upload (or omitted until the run\ncompletes \u2014 the FE polls the run report). `share_url` is the capability URL,\npresent ONLY for an unlisted upload.",
         "properties": {
           "id": {
             "title": "Id",
@@ -3853,7 +3853,7 @@
   "paths": {
     "/api/v1/admin/agent-scans/{run_id}": {
       "delete": {
-        "description": "Admin-only delete of an Agent Report (public reports are user-irreversible;\nD-5.5-20). Cascades findings/telemetry/evidence, writes one audit row. 404 if\nabsent. Never touches `artifact_blobs`; the token ledger is reaped by sweep.",
+        "description": "Admin-only delete of an Agent Report (public reports are user-irreversible).\nCascades findings/telemetry/evidence, writes one audit row. 404 if\nabsent. Never touches `artifact_blobs`; the token ledger is reaped by sweep.",
         "operationId": "admin_delete_agent_run_api_v1_admin_agent_scans__run_id__delete",
         "parameters": [
           {
@@ -4059,7 +4059,7 @@
     },
     "/api/v1/admin/catalog/{slug}/re-classify": {
       "post": {
-        "description": "Re-run the deterministic classifier (D-04-31). Operates on stored signals\n(no network re-fetch): metadata_files are reconstructed from the stored\nkind_signals so file-derived kind/agent classifications are preserved while\nquality_tier recomputes from current stars/downloads.",
+        "description": "Re-run the deterministic classifier. Operates on stored signals\n(no network re-fetch): metadata_files are reconstructed from the stored\nkind_signals so file-derived kind/agent classifications are preserved while\nquality_tier recomputes from current stars/downloads.",
         "operationId": "admin_re_classify_api_v1_admin_catalog__slug__re_classify_post",
         "parameters": [
           {
@@ -4816,7 +4816,7 @@
     },
     "/api/v1/agent-scans": {
       "get": {
-        "description": "Public-only, filterable, sorted, paginated dossier list (the `/agents` grid).\n\nHard-filters `visibility='public' AND status IN ('graded','published') AND score\nIS NOT NULL` - never serves an unlisted/ungraded/null-score run (Codex P1).",
+        "description": "Public-only, filterable, sorted, paginated dossier list (the `/agents` grid).\n\nHard-filters `visibility='public' AND status IN ('graded','published') AND score\nIS NOT NULL` - never serves an unlisted/ungraded/null-score run.",
         "operationId": "list_runs_api_v1_agent_scans_get",
         "parameters": [
           {
@@ -5015,7 +5015,7 @@
     },
     "/api/v1/agent-scans/aggregate-stats": {
       "get": {
-        "description": "Corpus risk-meter feed: gated % + band distribution over the public corpus.\n\n`pct_with_critical` is null until the corpus reaches `AGENT_CORPUS_GATE_N`\n(the collecting gate; D-5.6-07). Public-only.",
+        "description": "Corpus risk-meter feed: gated % + band distribution over the public corpus.\n\n`pct_with_critical` is null until the corpus reaches `AGENT_CORPUS_GATE_N`\n(the collecting gate). Public-only.",
         "operationId": "get_aggregate_stats_api_v1_agent_scans_aggregate_stats_get",
         "responses": {
           "200": {
@@ -5037,7 +5037,7 @@
     },
     "/api/v1/agent-scans/bootstrap": {
       "get": {
-        "description": "GET convenience for the I-5.7 web picker (same handler as POST).",
+        "description": "GET convenience for the web picker (same handler as POST).",
         "operationId": "bootstrap_run_get_api_v1_agent_scans_bootstrap_get",
         "parameters": [
           {
@@ -5114,7 +5114,7 @@
         ]
       },
       "post": {
-        "description": "Mint a run + return the platform-picked bootstrap prompt (Phase 3).",
+        "description": "Mint a run + return the platform-picked bootstrap prompt.",
         "operationId": "bootstrap_run_api_v1_agent_scans_bootstrap_post",
         "requestBody": {
           "content": {
@@ -5156,7 +5156,7 @@
     },
     "/api/v1/agent-scans/r/{token}": {
       "delete": {
-        "description": "Eager self-delete of an unlisted run (Phase 1: the run row + its FK-CASCADE\nchildren; the full `delete_agent_run_cascade` lands in Phase 2). Public -> 404.",
+        "description": "Eager self-delete of an unlisted run via the full `delete_agent_run_cascade`\n(the run row + its FK-CASCADE children). Public -> 404.",
         "operationId": "delete_unlisted_run_api_v1_agent_scans_r__token__delete",
         "parameters": [
           {
@@ -5276,7 +5276,7 @@
     },
     "/api/v1/agent-scans/r/{token}/reply": {
       "post": {
-        "description": "Attach the capability-token holder's \u2264500-char public right-of-reply to the\nrun (D-5.6-08, \u00a713). Token-gated (same `private_lookup` surface as view/promote/\ndelete); persisted on the run + rendered read-only on the report. Generic-404 a\nbad/expired token (no oracle). 500-char server-validated by `AgentReplyRequest`.",
+        "description": "Attach the capability-token holder's \u2264500-char public right-of-reply to the\nrun. Token-gated (same `private_lookup` surface as view/promote/\ndelete); persisted on the run + rendered read-only on the report. Generic-404 a\nbad/expired token (no oracle). 500-char server-validated by `AgentReplyRequest`.",
         "operationId": "reply_unlisted_run_api_v1_agent_scans_r__token__reply_post",
         "parameters": [
           {
@@ -5767,7 +5767,7 @@
             }
           },
           {
-            "description": "Provenance filter on the catalog item's source_kind. NOT named `source` (that is the scan TRIGGER enum) \u2014 P1-4.",
+            "description": "Provenance filter on the catalog item's source_kind. NOT named `source` (that is the scan TRIGGER enum).",
             "in": "query",
             "name": "artifact_source",
             "required": false,
@@ -5784,7 +5784,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Provenance filter on the catalog item's source_kind. NOT named `source` (that is the scan TRIGGER enum) \u2014 P1-4.",
+              "description": "Provenance filter on the catalog item's source_kind. NOT named `source` (that is the scan TRIGGER enum).",
               "title": "Artifact Source"
             }
           },
@@ -5806,13 +5806,13 @@
             }
           },
           {
-            "description": "Include low/empty quality_tier items (default hides them \u2014 D-04-19).",
+            "description": "Include low/empty quality_tier items (default hides them).",
             "in": "query",
             "name": "showLowQuality",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include low/empty quality_tier items (default hides them \u2014 D-04-19).",
+              "description": "Include low/empty quality_tier items (default hides them).",
               "title": "Showlowquality",
               "type": "boolean"
             }
@@ -6488,7 +6488,7 @@
     },
     "/api/v1/scans/cli-challenge": {
       "get": {
-        "description": "Mint a fresh signed PoW challenge for the install CLI (D-05-30). Declared\nBEFORE the greedy `/{scan_id}` route so the literal path wins. 503 when the\nPoW secret is unconfigured (dev/test/CI \u2014 the CLI then falls back to Turnstile).",
+        "description": "Mint a fresh signed PoW challenge for the install CLI. Declared\nBEFORE the greedy `/{scan_id}` route so the literal path wins. 503 when the\nPoW secret is unconfigured (dev/test/CI \u2014 the CLI then falls back to Turnstile).",
         "operationId": "cli_challenge_api_v1_scans_cli_challenge_get",
         "responses": {
           "200": {

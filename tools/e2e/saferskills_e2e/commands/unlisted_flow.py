@@ -1,4 +1,4 @@
-"""Playwright check of the unlisted (capability-URL) surface (I-3.5).
+"""Playwright check of the unlisted (capability-URL) surface.
 
 Staging acceptance, NOT a required pr-checks lane. Creates a private upload via
 a LOOPBACK submit (exempt from the per-IP cap), lands on `/scans/r/<token>`, and
@@ -76,7 +76,7 @@ class UnlistedFlowCommand(BaseCommand):
             print_fail(f"{url} did not load")
             return ExitCode.FAIL_UNLISTED_FLOW
 
-        # Page-level anti-leakage header (D-UP-32) — read off the navigation response.
+        # Page-level anti-leakage header — read off the navigation response.
         robots = (response.headers.get("x-robots-tag", "") if response else "").replace(" ", "")
         if robots != "noindex,nofollow":
             print_fail("page response is missing X-Robots-Tag: noindex,nofollow")

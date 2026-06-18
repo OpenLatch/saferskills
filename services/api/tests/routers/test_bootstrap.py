@@ -1,4 +1,4 @@
-"""Route integration: the agent-scan bootstrap endpoint (I-5.5, Phase 3).
+"""Route integration: the agent-scan bootstrap endpoint.
 
 Pins: POST/GET `/agent-scans/bootstrap` mints a run + one-time token and renders a
 platform prompt carrying the run_id + token + absolute pack/submit URLs; a bad

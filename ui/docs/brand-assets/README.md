@@ -12,7 +12,7 @@
 
 </div>
 
-> **Scope.** SaferSkills only. Do not mix with OpenLatch master-brand assets in the same lockup. The only OpenLatch acknowledgement on a SaferSkills surface is the `An OpenLatch project` footer attribution — see the [Brand Posture doc](https://github.com/openlatch/saferskills/blob/main/docs/brand-posture.md) (or in the vault: `05-GTM/Launch/SaferSkills - Brand Posture`).
+> **Scope.** SaferSkills only. Do not mix with OpenLatch master-brand assets in the same lockup. The only OpenLatch acknowledgement on a SaferSkills surface is the `An OpenLatch project` footer attribution — see the [Brand Posture doc](https://github.com/openlatch/saferskills/blob/main/docs/brand-posture.md).
 
 ## Asset inventory
 

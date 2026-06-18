@@ -1,4 +1,4 @@
-"""Migration 0019 upgrade↔downgrade smoke (I-5.5).
+"""Migration 0019 upgrade↔downgrade smoke.
 
 The session-scoped `db_engine` fixture already proves `alembic upgrade head`
 (which includes 0019). This exercises the DOWNGRADE path: roll back the single

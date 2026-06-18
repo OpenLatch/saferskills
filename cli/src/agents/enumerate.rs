@@ -1,5 +1,5 @@
 //! Local-install enumeration — audit every capability *already installed* across
-//! detected agents (D-05-27).
+//! detected agents.
 //!
 //! The no-target `capability` audit answers "audit everything I have installed", which is a
 //! different question from the CLI's own install ledger (`core::registry`, which

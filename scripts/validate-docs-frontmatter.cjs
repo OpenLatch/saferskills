@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-/* validate-docs-frontmatter.cjs — Zod-equivalent frontmatter gate for the docs
- * (I-06, D-8). Mirrors the `docs` collection schema in webapp/src/content.config.ts,
+/* validate-docs-frontmatter.cjs — Zod-equivalent frontmatter gate for the docs.
+ * Mirrors the `docs` collection schema in webapp/src/content.config.ts,
  * but as a fast standalone CI lane that fails a PR with a precise file/line
  * before the (slower) app build runs.
  *

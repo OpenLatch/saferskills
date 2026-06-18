@@ -1,4 +1,4 @@
-//! The `ConfigWriter` contract + the shared install engine (D-05-16, D-05-24).
+//! The `ConfigWriter` contract + the shared install engine.
 //!
 //! Five install shapes — one per capability kind the platform catalogs:
 //! 1. **mcp_server** → a format-preserving additive map-merge keyed by server
@@ -19,7 +19,7 @@
 //!    enumerator reads back), recorded as a `File` + a `ConfigKey`.
 //!
 //! Every mutation is recorded as an [`InstallChange`] BEFORE the registry row is
-//! written, so a partial failure can be reverted in LIFO order (D-05-24). Writes
+//! written, so a partial failure can be reverted in LIFO order. Writes
 //! are atomic (temp → fsync → rename) via [`crate::core::config::atomic_write`].
 //! Uninstall/update/rollback/doctor all fall out of replaying these changes — a
 //! new kind gets them for free once its install records the right `InstallChange`s.
@@ -37,7 +37,7 @@ use crate::core::config::atomic_write;
 use crate::core::error::{SsError, ERR_WRITER_UNSUPPORTED, ERR_WRITE_ROLLBACK};
 use crate::core::registry::InstallChange;
 
-/// Per-writer confidence, surfaced by `doctor` for the volatile agents (D-05-15).
+/// Per-writer confidence, surfaced by `doctor` for the volatile agents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Confidence {
     High,
@@ -294,7 +294,7 @@ pub fn verify_json_mcp(path: &Path, key_path: &[&str], name: &str) -> VerifyStat
 }
 
 /// Probe an existing OpenClaw config to pick the key shape (`mcpServers` vs the
-/// nested `mcp.servers`) — its schema is ambiguous (design.md §4), so respect
+/// nested `mcp.servers`) — its schema is ambiguous, so respect
 /// whatever the file already uses; default to `mcpServers` for a fresh file.
 pub fn openclaw_key(path: &Path) -> Vec<&'static str> {
     let Ok(text) = fs::read_to_string(path) else {
@@ -807,7 +807,7 @@ fn remove_path(path: &str) -> Result<(), SsError> {
 
 // ─── reusable uninstall over recorded changes ────────────────────────────────
 
-/// Reverse a recorded change list in LIFO order (D-05-24). The file extension
+/// Reverse a recorded change list in LIFO order. The file extension
 /// selects the JSON vs TOML restore path. Shared by every writer's `uninstall`.
 pub fn revert_changes(changes: &[InstallChange]) -> Result<(), SsError> {
     for change in changes.iter().rev() {

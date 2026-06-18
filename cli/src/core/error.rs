@@ -1,7 +1,7 @@
 //! Structured, user-facing error type for the `saferskills` CLI.
 //!
 //! Mirrors `openlatch-client`'s `OlError` with a SaferSkills `SS-E-XXXX` code
-//! registry (D-05-12). Every error carries a stable code, a human-readable
+//! registry. Every error carries a stable code, a human-readable
 //! message, and optional suggestion + docs URL. The `Display` impl renders the
 //! multi-line human form; `--json` callers serialize `{"error": {…}}` via
 //! [`crate::cli::output::OutputConfig::print_error`]. `miette::Diagnostic` is
@@ -20,7 +20,7 @@
 //! SS-E-9999   internal bug (pre-filled GitHub issue URL)
 //! ```
 //!
-//! ## Exit codes (D-05-11)
+//! ## Exit codes
 //!
 //! `0` ok · `1` generic / findings-block · `2` usage (clap) · `3` not-found ·
 //! `4` permission · `5` conflict · `6` network / rate-limit · `130` SIGINT.
@@ -91,7 +91,7 @@ impl SsError {
         }
     }
 
-    /// Map the error to a process exit code (D-05-11).
+    /// Map the error to a process exit code.
     ///
     /// An explicit override (set via [`SsError::with_exit_code`]) wins;
     /// otherwise the code is derived from the numeric range: `1100s` →
@@ -231,7 +231,7 @@ pub const ERR_UNKNOWN_AGENT: &str = "SS-E-1401";
 // SS-E-1500s — config writers
 // ---------------------------------------------------------------------------
 
-/// A config write failed mid-flight; partial edits were rolled back (D-05-24).
+/// A config write failed mid-flight; partial edits were rolled back.
 /// Exit `1`.
 pub const ERR_WRITE_ROLLBACK: &str = "SS-E-1500";
 /// The selected agent cannot install this capability (kind/scope unsupported).

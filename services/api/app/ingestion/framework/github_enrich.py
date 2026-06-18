@@ -1,4 +1,4 @@
-"""Shared GitHub repo-facts + manifest enrichment (D-04-19).
+"""Shared GitHub repo-facts + manifest enrichment.
 
 Factored out of `mcp_registry.enrich` so every adapter whose listing feed carries
 no repo signals (the aggregator scrapers, the MCP registry) can populate the
@@ -74,7 +74,7 @@ async def enrich_repo_facts(
     """Populate `normalized` with GitHub repo facts + manifest bytes (best-effort).
 
     No-op when the item has no GitHub coordinates (a repo-less aggregator listing —
-    those fall through to the D-04-09 fuzzy queue and stay low-tier until matched)."""
+    those fall through to the fuzzy queue and stay low-tier until matched)."""
     org, repo = normalized.github_org, normalized.github_repo
     if not org or not repo:
         return

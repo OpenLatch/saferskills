@@ -3,7 +3,7 @@ export type CapCalloutBand = 'green' | 'yellow' | 'orange' | 'red' | 'unscoped'
 /**
  * The cap-reason callout under the score hero — explains why the grade is what it
  * is (e.g. "Capped to Red — 1 critical finding…" or "No cap applied…"). Band tint
- * is inherited from the enclosing `.score-cell.{g|y|o|r}` (I-5.6 design §6/§9). A
+ * is inherited from the enclosing `.score-cell.{g|y|o|r}`. A
  * green band shows a check glyph; any risk band shows a warning glyph. The lead
  * clause (before the first ` — `) renders bold, mirroring the mockup copy shape.
  */

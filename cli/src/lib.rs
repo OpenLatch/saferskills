@@ -5,7 +5,7 @@
 //! maps the result to a process exit code. Everything testable lives here.
 //!
 //! Module map (mirrors `openlatch-client` minus its daemon/hook/auth/cloud
-//! subsystems, D-05-03):
+//! subsystems):
 //! - [`cli`] — clap tree, global flags, [`cli::output`] / [`cli::color`] /
 //!   [`cli::header`].
 //! - [`core`] — [`core::config`], [`core::error`], [`core::http`],

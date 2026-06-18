@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/readme/banner-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./docs/assets/readme/banner-light.png">
-  <img alt="SaferSkills — every AI capability, independently scanned" src="./docs/assets/readme/banner-light.png" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/assets/banner-light.png">
+  <img alt="SaferSkills — every AI capability, independently scanned" src="./.github/assets/banner-light.png" width="100%">
 </picture>
 
 <h1>SaferSkills</h1>
@@ -21,7 +21,7 @@ you install into Claude Code, Cursor, Windsurf, Copilot, Codex, Gemini, Cline &a
 [![Join our Slack](https://img.shields.io/badge/Slack-Join%20community-0D9488?logo=slack&logoColor=white)](https://saferskills.ai/slack)
 
 <a href="https://saferskills.ai"><b>saferskills.ai</b></a> ·
-<a href="./docs/methodology.md">Methodology</a> ·
+<a href="https://saferskills.ai/methodology">Methodology</a> ·
 <a href="https://github.com/OpenLatch/saferskills/discussions">Discussions</a> ·
 <a href="https://saferskills.ai/slack">Slack</a> ·
 <a href="./SECURITY.md">Security</a>
@@ -35,9 +35,9 @@ you install into Claude Code, Cursor, Windsurf, Copilot, Codex, Gemini, Cline &a
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/readme/demo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./docs/assets/readme/demo-light.svg">
-  <img alt="Terminal demo: 'npx saferskills info' returns a 97/100 GREEN BAND with a four-axis breakdown; 'install' re-checks the score at install time and writes to your detected agents; 'agent' mints a behavioral scan and returns a PASS verdict; then a saferskills.ai browser card fades in — browse the catalog, scan a capability, or scan an agent with no terminal at all." src="./docs/assets/readme/demo-light.svg" width="92%">
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/demo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/assets/demo-light.svg">
+  <img alt="Terminal demo: 'npx saferskills info' returns a 97/100 GREEN BAND with a four-axis breakdown; 'install' re-checks the score at install time and writes to your detected agents; 'agent' mints a behavioral scan and returns a PASS verdict; then a saferskills.ai browser card fades in — browse the catalog, scan a capability, or scan an agent with no terminal at all." src="./.github/assets/demo-light.svg" width="92%">
 </picture>
 
 </div>
@@ -70,9 +70,9 @@ SaferSkills is that record. Anyone — a developer, a vendor, a researcher — s
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/readme/diagram-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./docs/assets/readme/diagram-light.png">
-  <img alt="Three-stage pipeline: 01 Public catalog (submit a GitHub URL or upload a file; skills, MCP servers, hooks, plugins and rules are indexed and auto-scanned) → 02 Scan engine (static detector rules grade four axes, no LLM in the verdict path, every finding has a rule id and a quotable line of evidence) → 03 Scan report (a 0–100 trust score, the 4-tier band, every rule with its evidence, and a vendor right-of-reply on every verdict)." src="./docs/assets/readme/diagram-light.png" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/diagram-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/assets/diagram-light.png">
+  <img alt="Three-stage pipeline: 01 Public catalog (submit a GitHub URL or upload a file; skills, MCP servers, hooks, plugins and rules are indexed and auto-scanned) → 02 Scan engine (static detector rules grade four axes, no LLM in the verdict path, every finding has a rule id and a quotable line of evidence) → 03 Scan report (a 0–100 trust score, the 4-tier band, every rule with its evidence, and a vendor right-of-reply on every verdict)." src="./.github/assets/diagram-light.png" width="100%">
 </picture>
 
 </div>
@@ -98,7 +98,7 @@ The verdict path is **fully deterministic — there is no LLM deciding your scor
 | 🟠 **Orange** | 40–59 | Anonymous author **or** mid-severity finding **or** provenance unclear |
 | 🔴 **Red** | 0–39 | Critical finding — prompt injection / shell RCE / secret exfil / supply-chain |
 
-Sub-scores are weighted: **Identity 25% · Integrity 25% · Behavior 30% · Provenance 20%.** A single critical finding floors the aggregate into the red tier regardless of the other axes. Full rubric → [docs/methodology.md](./docs/methodology.md) · every detection rule → [docs/rules.md](./docs/rules.md).
+Sub-scores are weighted: **Identity 25% · Integrity 25% · Behavior 30% · Provenance 20%.** A single critical finding floors the aggregate into the red tier regardless of the other axes. Full rubric and every detection rule → [saferskills.ai/methodology](https://saferskills.ai/methodology).
 
 ## Use it as
 
@@ -195,7 +195,7 @@ Requirements: Node 24 LTS, Python 3.14, pnpm 10, uv 0.7+, Docker.
 
 ## Contributing
 
-We welcome contributions — code, detection-rule RFCs, scan-report appeals, and translations. Read [CONTRIBUTING.md](./CONTRIBUTING.md), the [Code of Conduct](./.github/CODE_OF_CONDUCT.md), and [docs/methodology.md](./docs/methodology.md) first. Detection-rule proposals go through the [rule-RFC issue template](.github/ISSUE_TEMPLATE/03-rule-proposal.yml) — don't land a rule without one.
+We welcome contributions — code, detection-rule RFCs, scan-report appeals, and translations. Read [CONTRIBUTING.md](./CONTRIBUTING.md), the [Code of Conduct](./.github/CODE_OF_CONDUCT.md), and the [methodology summary](./contributor-docs/methodology.md) first. Detection-rule proposals go through the [rule-RFC issue template](.github/ISSUE_TEMPLATE/03-rule-proposal.yml) — don't land a rule without one.
 
 ## Security
 

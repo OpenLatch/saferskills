@@ -285,7 +285,7 @@ def _infer_fallback_kind(file_index: list[tuple[str, bytes]]) -> str:
 
 
 def _infer_file_kind(path: str) -> str:
-    """Per-file kind inference for the flat-upload fan-out (I-3.5).
+    """Per-file kind inference for the flat-upload fan-out.
 
     A loose uploaded file carries no directory anchor, so its kind is inferred
     from its name/extension alone. Mirrors the anchor vocabulary in
@@ -303,7 +303,7 @@ def _infer_file_kind(path: str) -> str:
 
 
 def _upload_file_kind_name(path: str, content: bytes) -> tuple[str, str]:
-    """Per-file (kind, name) for a flat-upload capability (I-3.5).
+    """Per-file (kind, name) for a flat-upload capability.
 
     A top-level uploaded file that is itself a recognized single-file manifest
     (`SKILL.md`, `mcp.json`, `plugin.json`) keeps its **declared** name (the
@@ -322,7 +322,7 @@ def _upload_file_kind_name(path: str, content: bytes) -> tuple[str, str]:
 
 
 def _upload_loose_fanout(file_index: list[tuple[str, bytes]]) -> list[Capability] | None:
-    """Fan a **flat** upload's top-level files into one capability per file (I-3.5).
+    """Fan a **flat** upload's top-level files into one capability per file.
 
     "One tab per uploaded file" — each non-repo-wide top-level file becomes its
     own capability (`component_path=<path>`, declared-or-stem `name`, detected

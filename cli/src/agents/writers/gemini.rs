@@ -1,7 +1,7 @@
 //! Gemini writer — HIGH confidence (MCP); skill-dir surface is MED (not written
 //! by this CLI — backend agent_compat keeps skills off Gemini; see SCHEMAS.md).
 //!
-//! Landmines (design.md §4): MCP key `mcpServers` in `~/.gemini/settings.json`
+//! Config-schema landmines: MCP key `mcpServers` in `~/.gemini/settings.json`
 //! (global) / `.gemini/settings.json` (project) — distinct from the sibling
 //! `mcp` object. URL transport uses `url` (SSE) or `httpUrl` (HTTP); we default
 //! the remap to `url`. Source: github.com/google-gemini/gemini-cli docs/tools/

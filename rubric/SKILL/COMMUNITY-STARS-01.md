@@ -57,4 +57,4 @@ because stars don't affect score in the first place.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing as `info` (weight 0).
+- v1 (2026-01-09): initial rule. Active at landing as `info` (weight 0).

@@ -9,7 +9,7 @@ by hand**; the CI `validate` lane runs `pnpm run generate && git diff --exit-cod
 and fails on drift. Full pipeline reference: `.claude/rules/schema-driven-development.md`.
 
 This doc covers the **Python codegen** for the Pydantic + SQLAlchemy steps,
-ported from openlatch-platform's mature generator (D-REPAIR-01) to retire the W1
+ported from openlatch-platform's mature generator to retire the earlier
 stub that emitted only `id / created_at / updated_at / metadata` per class.
 
 ## Layout

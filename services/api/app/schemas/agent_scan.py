@@ -1,4 +1,4 @@
-"""Hand-written endpoint DTOs for the agent-scan run-lifecycle router (I-5.5).
+"""Hand-written endpoint DTOs for the agent-scan run-lifecycle router.
 
 Non-generated wrappers around the generated `AgentScanReport` entity shape
 (allowed at this layer per `schema-driven-development.md`). All inherit
@@ -127,7 +127,7 @@ class AgentScanStatusResponse(OrmBaseModel):
 
 class AgentScanBootstrapRequest(OrmBaseModel):
     """`POST|GET /api/v1/agent-scans/bootstrap` input - mint a run + return the
-    platform-picked bootstrap prompt (Phase 3). The web picker page is I-5.7."""
+    platform-picked bootstrap prompt."""
 
     platform: _Platform = Field(
         ..., description="Target platform template (8 agent ids + `universal` fallback)."
@@ -224,8 +224,8 @@ class AgentScanResultV1(OrmBaseModel):
 
 
 class AgentScanPasteBackRequest(OrmBaseModel):
-    """Alternate submit body: a single `paste_back` blob = `base64url(gzip(json))`
-    (D-5.5-17). Decoded + ratio-guarded server-side, then parsed as `AgentScanResultV1`."""
+    """Alternate submit body: a single `paste_back` blob = `base64url(gzip(json))`.
+    Decoded + ratio-guarded server-side, then parsed as `AgentScanResultV1`."""
 
     paste_back: str = Field(..., description="base64url(gzip(agent_scan_result.v1 JSON)).")
 
@@ -234,8 +234,8 @@ class AgentScanPasteBackRequest(OrmBaseModel):
 # Follows the `ScanRunReportDetail` convention: a hand-written snake_case wrapper
 # (no camelCase aliases) so openapi.json + the hey-api TS types stay snake_case.
 # The generated `AgentScanReport` entity drives the frontend Zod/TS off the schema;
-# this is the endpoint wire shape. Phase 1 never grades, so `checks`/`findings`/
-# `component_scores` are always empty; Phase 2 populates them.
+# this is the endpoint wire shape. Before grading is wired, `checks`/`findings`/
+# `component_scores` are always empty; the grader populates them.
 
 
 class AgentSaferPattern(OrmBaseModel):
@@ -307,7 +307,7 @@ class AgentScanReportDetail(OrmBaseModel):
     capabilities_present: list[str] = Field(default_factory=list)
     capabilities_absent: list[str] = Field(default_factory=list)
     family_tally: dict[str, int] = Field(default_factory=dict)
-    # Always supplied by the report builder (empty in Phase 1 - no grading yet).
+    # Always supplied by the report builder (empty until grading is wired).
     checks: list[AgentCheckRow]
     findings: list[AgentFindingRow]
     component_scores: list[AgentComponentScoreRow]
@@ -325,12 +325,12 @@ class AgentScanReportDetail(OrmBaseModel):
     latency_ms: int
     scanned_at: datetime | None = None
     # Capability-token holder's public right-of-reply (≤500 chars). Persisted on the
-    # run, rendered read-only on the report; null when no reply was attached (D-5.6-08).
+    # run, rendered read-only on the report; null when no reply was attached.
     vendor_reply: str | None = None
     vendor_reply_at: datetime | None = None
 
 
-# ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
+# ── Directory list + aggregate-stats ────────────────────────────────────────────
 # Hand-written summary + envelope + aggregate models for the `/agents` directory.
 # Same OrmBaseModel + `data`-envelope convention as the catalog list. PUBLIC-ONLY:
 # the list query hard-filters `visibility='public' AND status IN (graded,published)

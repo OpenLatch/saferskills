@@ -1,4 +1,4 @@
-"""AgentEvidence — internal raw-record store for one agent scan (I-5.5).
+"""AgentEvidence — internal raw-record store for one agent scan.
 
 Hand-written internal store (no JSON-Schema source, no wire DTO — never serialized
 over the API). Holds the submitted `agent_scan_result.v1` (`result_json`) AND the

@@ -1,4 +1,4 @@
-//! Proof-of-Work solver for the CLI scan-submit gate (I-05, D-05-30).
+//! Proof-of-Work solver for the CLI scan-submit gate.
 //!
 //! The CLI can't solve a Cloudflare Turnstile CAPTCHA, so the API issues a
 //! stateless HMAC-signed challenge that the CLI brute-forces and replays in the

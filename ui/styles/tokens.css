@@ -4,10 +4,8 @@
  * distinction-by-shape via the hex-cap vocabulary + DM Sans / Space Mono /
  * Anybody / Nanum Pen Script type stack + Onest 600 monochrome wordmark.
  *
- * Supersedes the W1 cobalt-primary direction per the Wordmark Spec lock
- * (2026-05-27). The hi-fi mockup CSS at
- *   .local/.brainstorms/frontend/mockups/hifi/tokens.css
- * is the canonical source ported here. Selectors translated from
+ * Supersedes the earlier cobalt-primary direction per the Wordmark Spec lock
+ * (2026-05-27). Ported from the hi-fi mockup CSS. Selectors translated from
  * `body.va.dark .X` → `html.dark .X` per 2026 Astro best practice.
  *
  * See .claude/rules/design-system.md.
@@ -95,7 +93,7 @@
   --brand-primary: var(--ol-brand-primary);
   --brand-primary-dark: var(--ol-brand-primary-dark);
   /* Semantic alias the scan-report / finding-detail / agent-report CSS all
-     reference; tokens only define the --ol- prefixed original (I-5.6 D-5.6-16). */
+     reference; tokens only define the --ol- prefixed original. */
   --brand-primary-light: var(--ol-brand-primary-light);
   --brand-cta: var(--ol-brand-primary);
   --brand-cta-fg: #FFFFFF;
@@ -223,7 +221,7 @@
 
   /* ============================================================
      INTERACTIVE-CONTROL TOKENS — Toggle / DropZone / SegmentedTabs
-     (I-3.5 dual-mode scan). Shape stays 0-radius hairline; teal is
+     (dual-mode scan). Shape stays 0-radius hairline; teal is
      the "public/on" tone, orange the URL-mode alternate.
      ============================================================ */
   --focus-ring: 0 0 0 2px var(--brand-primary);
@@ -302,8 +300,8 @@
 }
 
 /* ============================================================================
-   DARK MODE — `html.dark` (set inline by the FOUC-prevention script in Base.astro
-   per D-FE-08; managed by the ThemeToggle atom).
+   DARK MODE — `html.dark` (set inline by the FOUC-prevention script in Base.astro;
+   managed by the ThemeToggle atom).
    ============================================================================ */
 html.dark {
   --color-ink:        var(--ol-slate-50);

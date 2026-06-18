@@ -1,4 +1,4 @@
-"""Per-adapter health alert tiers (D-04-21).
+"""Per-adapter health alert tiers.
 
 `alert_evaluator` runs every 15 minutes in the in-process Procrastinate worker.
 For each of the 14 YAML-declared sources it reads the `ingestion_events` outbox +

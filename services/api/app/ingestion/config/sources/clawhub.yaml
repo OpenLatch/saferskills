@@ -1,8 +1,8 @@
-# clawhub.dev skill aggregator (I-04 Phase B PR2). Enabled, but the host is currently
+# clawhub.dev skill aggregator. Enabled, but the host is currently
 # DNS-unreachable (no A record resolves) — the sitemap fetch fails, list_items yields
 # zero items, and the cycle records a clean no-op (the adapter never crashes). If the
 # host comes back this adapter scrapes it with no code change; until then it is the
-# documented "may land blocked / unreachable" contingency (see docs/sources.md).
+# documented "may land blocked / unreachable" contingency (see contributor-docs/sources.md).
 name: clawhub
 kind: scrape
 hosts:

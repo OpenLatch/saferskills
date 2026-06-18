@@ -1,6 +1,6 @@
 """Per-scan async worker. Drives a single scan through every stage.
 
-Stages (matches D-FE-09 + the frontend ScanProgressBoard contract):
+Stages (match the frontend ScanProgressBoard contract):
 
     fetch → index → security → supply_chain → maintenance → transparency
          → community → score → sign → done
@@ -295,7 +295,7 @@ async def scan_run_upload(
     files_index: list[tuple[str, bytes]],
     rubric_version: str,
 ) -> None:
-    """Drive one UPLOAD repo scan to completion (I-3.5).
+    """Drive one UPLOAD repo scan to completion.
 
     Identical to `scan_run_repo` except the engine scores the pre-extracted
     in-memory file index instead of fetching from GitHub (re-fetching is

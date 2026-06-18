@@ -1,10 +1,10 @@
-"""Escalating retry schedule for ingestion tasks (D-04-03: 1m → 5m → 30m → 6h).
+"""Escalating retry schedule for ingestion tasks (1m → 5m → 30m → 6h).
 
 Procrastinate's built-in RetryStrategy only does constant / linear / exponential
-backoff, none of which matches the plan's 1m/5m/30m/6h schedule. A tiny custom
+backoff, none of which matches the 1m/5m/30m/6h schedule. A tiny custom
 BaseRetryStrategy gives the exact schedule, then dead-letters (max 4 attempts).
 
-Retry taxonomy (robustness overhaul, WS-3): a PERMANENT error — provider
+Retry taxonomy: a PERMANENT error — provider
 shape-drift surfacing as `KeyError`/`ValueError`/`TypeError`/`AttributeError`/
 `IndexError`/`pydantic.ValidationError` — does NOT get better on retry; a 4x
 re-attempt just burns four full-feed refetches + four tracebacks. So a permanent

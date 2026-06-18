@@ -1,6 +1,6 @@
 //! OpenClaw writer — MEDIUM confidence (key-shape is the volatile surface).
 //!
-//! Landmines (design.md §4): the MCP key shape is **ambiguous** — `mcpServers`
+//! Config-schema landmines: the MCP key shape is **ambiguous** — `mcpServers`
 //! vs nested `mcp.servers`. Rather than shell out to `openclaw mcp add` (which
 //! can't capture a precise prior for a byte-exact rollback and needs the binary
 //! present), we hand-write JSON and **probe** the existing file for its shape

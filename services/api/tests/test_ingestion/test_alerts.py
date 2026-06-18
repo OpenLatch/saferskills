@@ -1,4 +1,4 @@
-"""alert_evaluator tiers (D-04-21) — warn @5%/1h, page @25%/1h."""
+"""alert_evaluator tiers — warn @5%/1h, page @25%/1h."""
 
 from __future__ import annotations
 

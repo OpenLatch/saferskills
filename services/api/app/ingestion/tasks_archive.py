@@ -1,4 +1,4 @@
-"""archive_check — daily 03:00 UTC (D-04-17).
+"""archive_check — daily 03:00 UTC.
 
 Walks PUBLIC GITHUB capability rows with a non-zero consecutive_404_count and
 flips `availability` per the timeline:

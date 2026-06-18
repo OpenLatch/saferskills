@@ -1,4 +1,4 @@
-"""Component-score projection for the Agent Report (I-5.5 Phase 2 completion).
+"""Component-score projection for the Agent Report.
 
 The Agent Report's **Component Scores** tab lists every capability the scanned
 agent has assembled (skills, MCP servers, hooks, plugins, rules), each with its own
@@ -11,7 +11,7 @@ Web-initiated scans (`/agents/scan`, the picker) + `--print-skill` have no local
 filesystem, so `component_scan_run_id` is null and the tab keeps its honest
 "Behavior graded as one system" empty state.
 
-No raw payload (prime invariant #3): a row carries only kind/name/path/score/tier/
+No raw payload: a row carries only kind/name/path/score/tier/
 slug — derived metadata, never a transcript or finding body.
 """
 

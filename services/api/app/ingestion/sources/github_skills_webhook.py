@@ -1,4 +1,4 @@
-"""anthropics/skills GitHub push-webhook adapter (D-04-05).
+"""anthropics/skills GitHub push-webhook adapter.
 
 Verifies X-Hub-Signature-256 (HMAC-SHA256 keyed on `settings.github_webhook_secret`).
 For each touched `skills/<name>/` path in the push payload it fetches the skill's

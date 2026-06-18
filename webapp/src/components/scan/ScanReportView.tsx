@@ -48,8 +48,8 @@ function summaryFor(cap: CapabilityRow): { label: string; cls: 'clear' | 'warn' 
 export default function ScanReportView({ run, shareUrl }: Props) {
   const [filter, setFilter] = useState<FilterKind>('all')
 
-  // Unlisted runs key on per-run SHADOW catalog_items that 404 on /items/<slug>
-  // (D-UP-19/27). Hide every public-catalog link + the "added to the catalog"
+  // Unlisted runs key on per-run SHADOW catalog_items that 404 on /items/<slug>.
+  // Hide every public-catalog link + the "added to the catalog"
   // copy for them — those items are not in the public catalog.
   const isUnlisted = run.visibility === 'unlisted'
   const caps = run.capabilities

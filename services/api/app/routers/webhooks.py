@@ -1,4 +1,4 @@
-"""GitHub webhook router (D-04-05).
+"""GitHub webhook router.
 
 Mounted WITHOUT the /api/v1 prefix so the endpoint is POST /webhooks/github.
 

@@ -1,4 +1,4 @@
-"""mcp.so aggregator HTML scraper (I-04 Phase B PR2).
+"""mcp.so aggregator HTML scraper.
 
 Thin SitemapHtmlAdapter subclass — all per-site configuration (sitemap URL, item-URL
 filter, name/github extraction knobs) lives in config/sources/mcp_so.yaml. See

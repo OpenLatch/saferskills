@@ -39,7 +39,7 @@ class CapabilityRow(OrmBaseModel):
     sub_scores: dict[str, int]
     findings_summary: FindingsSummary
     findings: list[FindingResponse]
-    # Per-capability rich-report extras (I-3.5 multi-file upload tabs). Each
+    # Per-capability rich-report extras (multi-file upload tabs). Each
     # capability carries its own primary manifest (Source tab) + `.zip` pointer
     # so a multi-file upload renders one rich report per file. Null for repo-scan
     # capabilities (the cap-table body has no per-row source viewer).
@@ -66,7 +66,7 @@ class ScanRunReportDetail(OrmBaseModel):
     source: str
     status: Literal["pending", "running", "completed", "failed"] = "completed"
     ref_sha: str | None = None
-    # Upload / visibility provenance (I-3.5). `share_url` is populated ONLY when the
+    # Upload / visibility provenance. `share_url` is populated ONLY when the
     # report is served via the unlisted `/scans/r/<token>` route — never in a list.
     visibility: Literal["public", "unlisted"] = "public"
     source_kind: Literal["github", "upload"] = "github"
@@ -89,7 +89,7 @@ class ScanRunReportDetail(OrmBaseModel):
 
 
 class PromotedItem(OrmBaseModel):
-    """One capability promoted from unlisted → public (D-UP-31)."""
+    """One capability promoted from unlisted → public."""
 
     slug: str
     kind: Literal["skill", "mcp_server", "hook", "plugin", "rules"]

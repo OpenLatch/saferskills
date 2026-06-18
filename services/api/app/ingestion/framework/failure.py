@@ -1,6 +1,6 @@
 """Shared failure taxonomy — maps an exception to a bucketed `reason_enum`.
 
-Robustness overhaul (WS-4): promoted from the private `tasks._classify_cycle_
+Promoted from the private `tasks._classify_cycle_
 failure` so BOTH the ingestion cycle wrapper (`tasks.run_source_cycle`) AND the
 durable scan path (`tasks_scan`) classify failures the same way — one WARN
 vocabulary, one closed `reason_enum`, no duplicate logic that can drift.

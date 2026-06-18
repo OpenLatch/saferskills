@@ -455,7 +455,7 @@ async def _mark_repo_pending_runs_failed(github_url: str) -> None:
 async def scan_capability_repo(github_url: str, reason: str = "reconcile") -> dict[str, str]:
     """Durable per-repo scan job (bounded by SCAN_MAX_CONCURRENCY).
 
-    Robustness (WS-4): `execute_scan` cleanly handles `FetchError` (the
+    Robustness: `execute_scan` cleanly handles `FetchError` (the
     deterministic fetch-failure class). But `resolve_ref` raises a raw
     `httpx.HTTPStatusError` on a 403/429/5xx — NOT a `FetchError` — and a
     shape-drift bug in persistence raises `KeyError`/`ValueError`. Without this
@@ -603,7 +603,7 @@ async def auto_scan_reconcile(timestamp: int) -> dict[str, Any]:
     from app.db.session import AsyncSessionLocal
 
     # A failing reconcile tick must emit a clean error log, NOT a raw traceback
-    # (WS-8d) — the drainer is periodic, so the next 10-min tick recovers. Without
+    # — the drainer is periodic, so the next 10-min tick recovers. Without
     # this the periodic task re-raises and Procrastinate dumps a full stack trace.
     try:
         async with AsyncSessionLocal() as session:
@@ -621,7 +621,7 @@ async def auto_scan_reconcile(timestamp: int) -> dict[str, Any]:
 
 # The ingest + periodic-maintenance queues `scan_stalled_retrier` does NOT cover.
 # A worker restart orphaned a `doing` cycle on one of these forever (the known
-# ~1-orphaned-cycle/hour leak), since the scan retrier is `queue="scan"` only (WS-7).
+# ~1-orphaned-cycle/hour leak), since the scan retrier is `queue="scan"` only.
 _INGEST_QUEUES = (
     "ingest_github",
     "ingest_aggregator",
@@ -642,7 +642,7 @@ async def _requeue_stalled_jobs(queues: tuple[str, ...], nb_seconds: int) -> dic
     lock is already held by a sibling `todo` (the stalled one is a duplicate) — must
     NOT abort the whole sweep. The previous loop wrapped every queue + every job in
     one `try/except`, so one collision on `ingest_cycle_mcp_registry_lock` left every
-    OTHER stalled job orphaned and crash-looped the retrier (WS-7 follow-up). A
+    OTHER stalled job orphaned and crash-looped the retrier. A
     skipped duplicate self-heals on a later tick once the sibling frees the slot.
     """
     jm = procrastinate_app.job_manager

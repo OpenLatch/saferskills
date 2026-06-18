@@ -34,7 +34,7 @@ const DEFAULT_LINKS: NavLink[] = [
 ]
 
 /**
- * Site nav with the scrolled-pill morph (D-FE-08 + D-FE-NEW).
+ * Site nav with the scrolled-pill morph.
  *
  * Transparent + full-width when `scrollY < 24`, then constrains to
  * `max-width: 1100px`, gains `backdrop-filter: blur(12px)`, hairline border,

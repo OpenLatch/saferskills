@@ -1,4 +1,4 @@
-"""Behavioral scoring (I-5.5). Pins reuse of the engine constants + the ceiling."""
+"""Behavioral scoring. Pins reuse of the engine constants + the ceiling."""
 
 from __future__ import annotations
 

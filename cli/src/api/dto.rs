@@ -1,4 +1,4 @@
-//! Hand-written wire DTOs for the SaferSkills public API (D-05-08).
+//! Hand-written wire DTOs for the SaferSkills public API.
 //!
 //! These mirror the snake_case JSON the API emits (`OrmBaseModel.model_dump
 //! (by_alias=false)`); paginated lists deserialize the `data` envelope key (NOT
@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-/// Finding-severity ladder (D-02). `info` carries weight 0.
+/// Finding-severity ladder. `info` carries weight 0.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
@@ -31,7 +31,7 @@ pub enum Severity {
 }
 
 impl Severity {
-    /// Ordering rank for "highest severity wins" gating (D-05-19). `Unknown`
+    /// Ordering rank for "highest severity wins" gating. `Unknown`
     /// sorts at the bottom so it never silently escalates a gate.
     pub fn rank(self) -> u8 {
         match self {
@@ -44,7 +44,7 @@ impl Severity {
     }
 }
 
-/// Score-tier band (PRD §5.1). `unscoped` = never scanned.
+/// Score-tier band. `unscoped` = never scanned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Tier {
@@ -122,9 +122,9 @@ pub struct FindingResponse {
     pub rubric_version: String,
     #[serde(default)]
     pub evidence_excerpt: Option<EvidenceExcerpt>,
-    // Explainable-finding prose, inlined server-side onto the report (D-05-32
-    // reversed — the CLI renders straight from the finding, no rule corpus
-    // fetch). All `#[serde(default)]` for forward-compat: a degraded finding (no
+    // Explainable-finding prose, inlined server-side onto the report — the CLI
+    // renders straight from the finding, no rule corpus fetch. All
+    // `#[serde(default)]` for forward-compat: a degraded finding (no
     // content entry) carries None and the CLI falls back to rule_id +
     // remediation_link.
     #[serde(default)]
@@ -345,7 +345,7 @@ pub struct ScanRunReportDetail {
 }
 
 /// `GET /api/v1/scans/cli-challenge` — a stateless Proof-of-Work challenge for
-/// the CLI scan-submit gate (D-05-30). `status` of a submit stays `String` so an
+/// the CLI scan-submit gate. `status` of a submit stays `String` so an
 /// unknown value never panics.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ChallengeResponse {
@@ -386,7 +386,7 @@ pub struct ScanUploadResponse {
     pub share_url: Option<String>,
 }
 
-// ─── Agent Scan (I-5.5 Phase 3) ──────────────────────────────────────────────
+// ─── Agent Scan ──────────────────────────────────────────────
 
 /// `POST|GET /api/v1/agent-scans/bootstrap` — the minted run + the rendered
 /// bootstrap prompt the user pastes into their agent (canaries are NOT in it).

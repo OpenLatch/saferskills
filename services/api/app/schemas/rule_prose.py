@@ -6,8 +6,8 @@ loaded from `app/generated/rule_content.json` (codegen step 7, emitted from the
 SAME `rubric/**` frontmatter that produces the webapp `content.ts`) by
 `app/services/rule_prose.py` and folded onto each `FindingResponse` server-side —
 so the client renders finding prose straight from the scan/item report it already
-holds, only for the rules that actually fired (D-05-32 reversed: rules are
-evaluated online, the CLI never carries the rule corpus).
+holds, only for the rules that actually fired (rules are evaluated online, the
+CLI never carries the rule corpus).
 
 Relocated verbatim from the deleted `app/schemas/rubric.py` (the
 `GET /api/v1/rubric/content` endpoint is gone). These are report-DTO-only and

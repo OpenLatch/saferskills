@@ -1,10 +1,10 @@
 # SaferSkills Detection Rules
 
-Detection rules live under `rubric/<CATEGORY>/<NAME>-NN.md` (locked decision **D-04**). Each rule's authoritative shape is the YAML frontmatter validated against [`../schemas/rubric-rule.schema.json`](../schemas/rubric-rule.schema.json); the body is Markdown rationale + FP history + version history.
+Detection rules live under `rubric/<CATEGORY>/<NAME>-NN.md`. Each rule's authoritative shape is the YAML frontmatter validated against [`../schemas/rubric-rule.schema.json`](../schemas/rubric-rule.schema.json); the body is Markdown rationale + FP history + version history.
 
 ## Rule ID convention
 
-Per locked decision **D-03** and [`../.claude/rules/naming-conventions.md`](../.claude/rules/naming-conventions.md) § Rule IDs:
+Per [`../.claude/rules/naming-conventions.md`](../.claude/rules/naming-conventions.md) § Rule IDs:
 
 ```
 SS-<CATEGORY>-<NAME>-<NN>
@@ -27,7 +27,7 @@ Examples: `SS-MCP-POISON-UNICODE-TAG-01`, `SS-SKILL-INJECT-FENCED-RUN-01`, `SS-H
 
 ## Severity ladder
 
-5-tier per locked decision **D-02**:
+5-tier:
 
 ```
 info | low | medium | high | critical
@@ -37,13 +37,13 @@ info | low | medium | high | critical
 
 ## Sub-score axes
 
-5-axis per locked decision **D-01**:
+5-axis:
 
 ```
 security | supply_chain | maintenance | transparency | community
 ```
 
-Each rule's frontmatter assigns it to exactly one sub-score. The sub-score weights (35/20/15/15/15) are PRD-locked.
+Each rule's frontmatter assigns it to exactly one sub-score. The sub-score weights (35/20/15/15/15) are fixed.
 
 ## Trigger primitives
 
@@ -84,7 +84,7 @@ Every rule lands with `status: shadow` regardless of author confidence — the F
 
 Full governance contract: [`../.claude/rules/methodology.md`](../.claude/rules/methodology.md).
 
-## Current rule set (Phase A — W2)
+## Current rule set
 
 The first batch of **55 rules** ships with this document:
 

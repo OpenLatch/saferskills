@@ -1,4 +1,4 @@
-"""Per-run pack assembly (I-5.5).
+"""Per-run pack assembly.
 
 Loads the generated backend pack source (`app/generated/agent_pack.json`,
 placeholders intact), substitutes the per-run minted canaries + decoy into every

@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 
 /**
- * TrendScanCard — Phase A2 `.scan-card.trend` vocabulary.
+ * TrendScanCard — `.scan-card.trend` vocabulary.
  *
  * React mirror of the Astro shell for Ladle visual review. CSS contract
  * lives in `webapp/src/styles/page-home.css::.feeds-band .scan-card.trend`.

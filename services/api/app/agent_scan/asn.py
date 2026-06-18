@@ -1,10 +1,10 @@
-"""IP -> ASN resolution over the IPinfo Lite `.mmdb` (I-5.5, D-5.5-16).
+"""IP -> ASN resolution over the IPinfo Lite `.mmdb`.
 
 A lazy, fail-soft, module-level reader. IPinfo Lite ships a custom MaxMind-format
 layout whose records are read with `maxminddb` (NOT geoip2's typed readers, which
 expect the GeoLite2 record shape) - `reader.get(ip)` returns a plain dict with
-`asn` / `as_name` / `country_code`. The `.mmdb` is baked into the API image
-(outbox/02); when it is absent (dev/test/CI) resolution degrades to all-`None` -
+`asn` / `as_name` / `country_code`. The `.mmdb` is baked into the API image;
+when it is absent (dev/test/CI) resolution degrades to all-`None` -
 telemetry then records a baseline-without-geo row, never an error.
 
 Redact-then-derive (privacy.md): the caller passes the REDACTED `/24`-or-`/48`

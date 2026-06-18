@@ -12,7 +12,7 @@ from pydantic import AnyUrl, ConfigDict, Field, conint, constr
 
 class Severity(StrEnum):
     """
-    5-tier severity ladder (D-02). `info` carries weight 0.
+    5-tier severity ladder. `info` carries weight 0.
     """
 
     info = "info"
@@ -24,7 +24,7 @@ class Severity(StrEnum):
 
 class SubScore(StrEnum):
     """
-    5-axis sub-score the rule contributes to (D-01).
+    5-axis sub-score the rule contributes to.
     """
 
     security = "security"
@@ -36,7 +36,7 @@ class SubScore(StrEnum):
 
 class StatusAtScan(StrEnum):
     """
-    Rule status at the moment of scan (D-14). Shadow findings record in trace but do not affect score.
+    Rule status at the moment of scan. Shadow findings record in trace but do not affect score.
     """
 
     shadow = "shadow"
@@ -45,7 +45,7 @@ class StatusAtScan(StrEnum):
 
 class Finding(OrmBaseModel):
     """
-    A single rule fire on a scanned artifact. Hashed-only evidence (matchedContentSha256) — never raw scanned content per .claude/rules/security.md § Scan-trace transparency. 5-tier severity (D-02); 5-axis sub_score (D-01); shadow/active status per rule lifecycle (D-14).
+    A single rule fire on a scanned artifact. Hashed-only evidence (matchedContentSha256) — never raw scanned content per .claude/rules/security.md § Scan-trace transparency. 5-tier severity; 5-axis sub_score; shadow/active status per rule lifecycle.
     """
 
     model_config = ConfigDict(
@@ -61,12 +61,10 @@ class Finding(OrmBaseModel):
         description="Format `SS-<CATEGORY>-<NAME>-NN` per naming-conventions.md.",
     )
     severity: Severity = Field(
-        ..., description="5-tier severity ladder (D-02). `info` carries weight 0."
+        ..., description="5-tier severity ladder. `info` carries weight 0."
     )
     sub_score: SubScore = Field(
-        ...,
-        alias="subScore",
-        description="5-axis sub-score the rule contributes to (D-01).",
+        ..., alias="subScore", description="5-axis sub-score the rule contributes to."
     )
     penalty: conint(ge=0, le=40) = Field(
         ...,
@@ -75,7 +73,7 @@ class Finding(OrmBaseModel):
     status_at_scan: StatusAtScan = Field(
         ...,
         alias="statusAtScan",
-        description="Rule status at the moment of scan (D-14). Shadow findings record in trace but do not affect score.",
+        description="Rule status at the moment of scan. Shadow findings record in trace but do not affect score.",
     )
     file_path: constr(max_length=1024) = Field(
         ...,

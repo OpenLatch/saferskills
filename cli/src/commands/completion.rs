@@ -1,5 +1,5 @@
-//! `saferskills completion <shell>` + the hidden `man` generator (D-05-18,
-//! design §7). Both write their artifact to **stdout** (it is machine data).
+//! `saferskills completion <shell>` + the hidden `man` generator. Both write
+//! their artifact to **stdout** (it is machine data).
 
 use std::io;
 

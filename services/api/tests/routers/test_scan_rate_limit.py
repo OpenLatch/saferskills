@@ -1,6 +1,6 @@
 """Regression tests for the scan-submit rate-limit loopback exemption.
 
-The public `POST /api/v1/scans` per-IP daily cap (D-FE-11) is an anti-abuse
+The public `POST /api/v1/scans` per-IP daily cap is an anti-abuse
 control for anonymous submissions. Trusted local seeding (the data-seed CLI)
 connects over loopback and must be exempt — otherwise the fixture corpus blows
 past the 10/day budget. These tests pin the security boundary: loopback is

@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react'
 import Dialog from '../atoms/Dialog'
 
 /**
- * Vendor right-of-reply (I-5.6 §13). The capability-token holder attaches a
+ * Vendor right-of-reply. The capability-token holder attaches a
  * ≤`maxLength`-char public reply via a Dialog with a live character counter.
  * Presentational only — the webapp wires `onSubmit` (POST + telemetry). A report
  * that already carries a reply renders it read-only via `existingReply`.

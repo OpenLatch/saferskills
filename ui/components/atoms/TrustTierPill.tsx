@@ -4,10 +4,10 @@ function humanize(label: string): string {
 
 /**
  * The trust-tier pill in the score hero — e.g. `Cloud-validated · Client-administered`
- * (I-5.6 design §7) — with a focus/hover honesty tooltip. Keyboard-focusable
+ * — with a focus/hover honesty tooltip. Keyboard-focusable
  * (`tabIndex=0`) and wired to its tooltip via `aria-describedby`; the tooltip
  * dismisses on blur/Escape via native focus handling. `labels` are the trust-TIER
- * labels only (the wider trust_labels enum renders as provenance chips in Phase B).
+ * labels only (the wider trust_labels enum renders as provenance chips).
  */
 export default function TrustTierPill({
   labels,

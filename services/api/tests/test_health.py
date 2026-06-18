@@ -1,4 +1,4 @@
-"""Smoke test for the W1 /api/v1/health endpoint."""
+"""Smoke test for the /api/v1/health endpoint."""
 
 import pytest
 from httpx import ASGITransport, AsyncClient

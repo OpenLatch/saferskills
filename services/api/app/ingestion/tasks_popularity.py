@@ -1,4 +1,4 @@
-"""popularity_recompute — nightly (02:00 UTC) + on-add (D-04-13).
+"""popularity_recompute — nightly (02:00 UTC) + on-add.
 
 Runs in the in-process Procrastinate worker (advisory lock 0x5AFE5C13 guards the
 worker; `queueing_lock` serialises this task). Every SELECT/UPDATE hard-filters

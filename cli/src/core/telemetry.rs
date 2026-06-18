@@ -26,9 +26,9 @@
 //!   subcommand)` label derived from the grammar — NEVER a flag value — plus
 //!   the exit code and a coarse duration bucket. No PII, ever.
 //! - Every event is tagged `product = "saferskills"` so the shared
-//!   OpenLatch-portfolio PostHog project (one project for cost — D-19's
-//!   separate-project rule superseded 2026-06-04) can filter SaferSkills data
-//!   apart. PostHog is internal analytics; public brand independence is intact.
+//!   OpenLatch-portfolio PostHog project (one project for cost) can filter
+//!   SaferSkills data apart. PostHog is internal analytics; public brand
+//!   independence is intact.
 //! - Universal opt-out: `SAFERSKILLS_NO_TELEMETRY` / `DO_NOT_TRACK` / `CI`
 //!   (any non-empty value) silences BOTH channels; `telemetry = false`
 //!   additionally disables usage analytics. An explicit `SAFERSKILLS_TELEMETRY=1`
@@ -68,7 +68,7 @@ fn opted_out_env() -> bool {
 }
 
 /// Whether analytics will actually be sent: config allows it, no env opt-out,
-/// AND a key was baked in (no key ⇒ never any network, D-05-13).
+/// AND a key was baked in (no key ⇒ never any network).
 pub fn is_enabled(config_allows: bool) -> bool {
     config_allows && !opted_out_env() && !baked_key().is_empty()
 }
@@ -170,9 +170,8 @@ fn command_invoked_payload(
             "distinct_id": "saferskills-cli",
             "$process_person_profile": false,
             // Discriminator for the shared OpenLatch-portfolio PostHog project
-            // (one project for cost — D-19's separate-project rule superseded
-            // 2026-06-04). Lets SaferSkills events be filtered apart from other
-            // products' in the same project.
+            // (one project for cost). Lets SaferSkills events be filtered apart
+            // from other products' in the same project.
             "product": "saferskills",
             "command": event_label(command, subcommand),
             "exit_code": exit_code,

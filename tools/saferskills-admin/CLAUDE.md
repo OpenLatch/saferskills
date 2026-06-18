@@ -1,8 +1,8 @@
 # CLAUDE.md — tools/saferskills-admin
 
-Operator CLI over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints
-(I-04 Phase C, D-04-28). Mirrors the `tools/data-seed/` layout but is a SEPARATE
-uv project with a different audience + safety surface:
+Operator CLI over the `X-Admin-Key`-gated `POST/GET /api/v1/admin/*` endpoints.
+Mirrors the `tools/data-seed/` layout but is a SEPARATE uv project with a
+different audience + safety surface:
 
 | Tool | Audience | Writes to |
 |---|---|---|
@@ -33,8 +33,8 @@ tested via Textual `run_test()` pilots (`tests/test_dashboard_tui.py`). New dep:
   The key comes from `--admin-key` / `SAFERSKILLS_ADMIN_KEY`. **A local API
   (`ENV=development`, no key configured) exempts the gate** — the CLI's default
   `--api-url http://localhost:8000` works with no key (those mutations audit as
-  `local-dev`); a key is required only for staging/production targets. Replaced by
-  SSO when auth lands (Track E); the CLI keeps working as the transition fallback.
+  `local-dev`); a key is required only for staging/production targets. To be
+  replaced by SSO when auth lands; the CLI keeps working as the transition fallback.
 - **Dangerous verbs gate via `shared/safety.require_confirmation`** — `--yes` or
   `SAFERSKILLS_ADMIN_CONFIRM=yes-i-mean-it`. Add a new dangerous verb = add its
   `<domain> <verb>` string to `DANGEROUS_OPS`.

@@ -23,8 +23,8 @@ const CLI_COMMAND = 'npx saferskills agent'
  * endpoint's closed set (it 422s anything else).
  * Mirrors app/agent_scan/bootstrap.py::PLATFORMS
  * (= app/services/agent_compat.py::ALL_AGENTS + "universal").
- * Hint copy verbatim from the agent-scan design's per-platform variants
- * (.local/.brainstorms/done/agent-scan/bootstrap-prompt.md § Per-platform).
+ * Hint copy verbatim from the bootstrap-prompt template's per-platform
+ * variants.
  */
 export const AGENT_PLATFORMS: ReadonlyArray<{
   id: MintPlatform
@@ -75,10 +75,10 @@ interface Props {
 }
 
 /**
- * The shared agent-scan activation island (I-5.7 plan 03 Module 1) — platform
- * picker → Turnstile-gated mint → the real substituted prompt. Composes plan
- * 02's `PromptCodeCard` + `useAgentScanMint`; consumed by `/scan` (inside
- * `ScanModeShell`, surface='scan') and `/agents/scan` (surface='picker').
+ * The shared agent-scan activation island — platform picker → Turnstile-gated
+ * mint → the real substituted prompt. Composes `PromptCodeCard` +
+ * `useAgentScanMint`; consumed by `/scan` (inside `ScanModeShell`,
+ * surface='scan') and `/agents/scan` (surface='picker').
  *
  * The picker is a `role="group"` row of toggle buttons (the `.cap-filter`
  * precedent — a selection over one prompt block, NOT tabs over panels, so a

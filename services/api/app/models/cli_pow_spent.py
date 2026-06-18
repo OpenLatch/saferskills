@@ -1,6 +1,6 @@
 """SQLAlchemy ORM for `cli_pow_spent` (internal — no JSON-Schema source).
 
-A single-use ledger for the stateless CLI Proof-of-Work gate (D-05-30). The
+A single-use ledger for the stateless CLI Proof-of-Work gate. The
 challenge itself is stateless (HMAC-signed, no server storage), so the only thing
 to persist is "this exact solved challenge has already been spent" — keyed by the
 sha256 of the challenge string. A solved challenge is INSERTed once; a replay

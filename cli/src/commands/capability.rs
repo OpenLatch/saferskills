@@ -3,7 +3,7 @@
 //! With a TARGET it scans a single artifact; with no target it audits everything
 //! installed across detected agents (optionally scoped by `--to <agent>`).
 //!
-//! **The no-target audit (D-05-27)** enumerates every capability *already installed*
+//! **The no-target audit** enumerates every capability *already installed*
 //! across the user's detected agents — reading each agent's own config dirs/files
 //! ([`crate::agents::enumerate`]), not the CLI's install ledger — bundles them
 //! into one structured `.zip` (paths matching the backend `discovery.py` anchor
@@ -16,7 +16,7 @@
 //! Local content (or a GitHub URL) is sent to the API, which scans it server-side
 //! and returns a public-by-default run report (`--private` → unlisted + a share
 //! token + 90-day expiry). The headless human-gate is a stateless Proof-of-Work
-//! challenge (D-05-30) since the CLI can't solve a Turnstile CAPTCHA.
+//! challenge since the CLI can't solve a Turnstile CAPTCHA.
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
@@ -126,7 +126,7 @@ async fn scan_path(
     Ok(())
 }
 
-// ─── no-target audit: audit everything installed (D-05-27) ───────────────────
+// ─── no-target audit: audit everything installed ───────────────────
 
 /// Audit everything installed across detected agents (optionally scoped by
 /// `--to`). Shared by `capability` (no target) and `list`'s inline "scan the

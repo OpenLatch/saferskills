@@ -12,7 +12,7 @@ We load the frontmatter once and expose the dict keyed by ruleId so the engine
 can iterate without re-parsing.
 
 `commit_history_check` and `composite_and_or` rules are loaded but skipped at
-detect time — the Phase B engine doesn't fetch git history or evaluate
+detect time — the static engine doesn't fetch git history or evaluate
 combinators (see `.claude/rules/methodology.md`).
 """
 
@@ -121,7 +121,7 @@ class RubricRule:
 
     @property
     def is_directly_evaluable(self) -> bool:
-        """True iff the Phase B engine can fire this rule from static files."""
+        """True iff the static engine can fire this rule from static files."""
         return self.trigger_type in {"regex_match", "file_glob_absent", "metadata_check"}
 
     @property

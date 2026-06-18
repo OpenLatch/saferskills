@@ -1,6 +1,6 @@
 """SQLAlchemy ORM for `access_log` (internal — no JSON-Schema source).
 
-Write-only B2B-intel signal at I-04 (I-06 reads it). Rows carry a /24-(v4) or
+Write-only B2B-intel signal; the reader ships later. Rows carry a /24-(v4) or
 /48-(v6) redacted IP, a closed-enum action, and the accessed item's content hash
 (never a slug/URL). See .claude/rules/privacy.md + security.md § Vendor-data
 isolation. Raw IPs are never exported; redaction happens at write time in the

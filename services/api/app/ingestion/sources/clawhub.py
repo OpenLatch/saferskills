@@ -1,4 +1,4 @@
-"""clawhub.dev aggregator HTML scraper (I-04 Phase B PR2).
+"""clawhub.dev aggregator HTML scraper.
 
 Thin SitemapHtmlAdapter subclass — all per-site configuration (sitemap URL, item-URL
 filter, name/github extraction knobs) lives in config/sources/clawhub.yaml. See

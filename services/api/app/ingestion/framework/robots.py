@@ -1,5 +1,5 @@
 """robots.txt fetch + cache (Protego). Framework hook now; enforced by the
-ScrapingAdapter in Phase B (D-04-07 ToS-respect). Cached 24h per host.
+ScrapingAdapter (ToS-respect). Cached 24h per host.
 """
 
 from __future__ import annotations

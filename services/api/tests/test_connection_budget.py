@@ -1,13 +1,12 @@
-"""Crash-resilience Fix A — connection budget + fail-fast back-pressure.
+"""Crash-resilience — connection budget + fail-fast back-pressure.
 
-Covers the two behaviours the addendum (`plan/04-crash-resilience-hardening.md`)
-adds so the in-process ingestion worker can never silently exhaust the shared
-SQLAlchemy pool the public API serves from:
+Covers the two behaviours that keep the in-process ingestion worker from ever
+silently exhausting the shared SQLAlchemy pool the public API serves from:
 
-  §1.5 — the worker REFUSES to start if `ingestion_worker_concurrency` could
-         drain the pool (`>= db_pool_size + db_max_overflow`).
-  §1.3 — a pool-checkout `TimeoutError` is mapped to a bounded **503** instead
-         of hanging the request until the worker frees a slot.
+  - the worker REFUSES to start if `ingestion_worker_concurrency` could
+    drain the pool (`>= db_pool_size + db_max_overflow`).
+  - a pool-checkout `TimeoutError` is mapped to a bounded **503** instead
+    of hanging the request until the worker frees a slot.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from app.db.session import get_session
 from app.ingestion import worker
 from app.main import app
 
-# ── §1.5 — startup concurrency-vs-pool assertion ────────────────────────────
+# ── startup concurrency-vs-pool assertion ───────────────────────────────────
 
 
 def test_worker_budget_rejects_concurrency_that_could_drain_the_pool(
@@ -62,7 +61,7 @@ def test_worker_budget_counts_scan_concurrency(
         worker.assert_worker_concurrency_budget()
 
 
-# ── §1.3 — pool-timeout back-pressure → 503, never a hang ───────────────────
+# ── pool-timeout back-pressure → 503, never a hang ──────────────────────────
 
 
 @pytest.mark.asyncio

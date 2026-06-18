@@ -1,5 +1,5 @@
 # Label inventory — synced by .github/workflows/label-sync.yml.
-# 23 labels at W1 (per locked decision D-20). Edit here, the action propagates.
+# 23 labels. Edit here, the action propagates.
 
 # ── Type ────────────────────────────────────────────────────────────────
 - name: "type/bug"

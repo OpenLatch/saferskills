@@ -25,7 +25,7 @@ class Tier(StrEnum):
 
 class SubScores(OrmBaseModel):
     """
-    5-axis sub-scores (D-01).
+    5-axis sub-scores.
     """
 
     model_config = ConfigDict(
@@ -163,13 +163,13 @@ class SubScoreBreakdown(OrmBaseModel):
     weighted_contribution: float = Field(
         ...,
         alias="weightedContribution",
-        description="finalSubScore × weight (where weight is 35/20/15/15/15 per PRD §5.2).",
+        description="finalSubScore × weight (where weight is 35/20/15/15/15).",
     )
 
 
 class ScoreBreakdown(OrmBaseModel):
     """
-    Explicit per-finding penalty + running sub-score + critical-floor + weighted aggregate. Mandatory transparency layer (D-13) — surfaced on every public report.
+    Explicit per-finding penalty + running sub-score + critical-floor + weighted aggregate. Mandatory transparency layer — surfaced on every public report.
     """
 
     model_config = ConfigDict(
@@ -215,7 +215,7 @@ class Finding(OrmBaseModel):
 
 class ScanReport(OrmBaseModel):
     """
-    Public scan report for a CatalogItem. PRD-locked 5-axis sub-score taxonomy and 5-tier severity ladder per locked decisions D-01 / D-02 / D-13. The aggregate score is a deterministic, closed-form weighted sum of sub-scores with critical-floor application; every report renders the explicit math.
+    Public scan report for a CatalogItem. 5-axis sub-score taxonomy and 5-tier severity ladder. The aggregate score is a deterministic, closed-form weighted sum of sub-scores with critical-floor application; every report renders the explicit math.
     """
 
     model_config = ConfigDict(
@@ -237,19 +237,19 @@ class ScanReport(OrmBaseModel):
     aggregate_score: conint(ge=0, le=100) = Field(
         ...,
         alias="aggregateScore",
-        description="Weighted aggregate per PRD §5.2 (Security 35% + Supply Chain 20% + Maintenance 15% + Transparency 15% + Community 15%). Closed-form, deterministic.",
+        description="Weighted aggregate (Security 35% + Supply Chain 20% + Maintenance 15% + Transparency 15% + Community 15%). Closed-form, deterministic.",
     )
     tier: Tier = Field(
         ...,
         description="Trust badge: green 80-100, yellow 60-79, orange 40-59, red 0-39, unscoped (e.g. closed-source).",
     )
     sub_scores: SubScores = Field(
-        ..., alias="subScores", description="5-axis sub-scores (D-01)."
+        ..., alias="subScores", description="5-axis sub-scores."
     )
     score_breakdown: ScoreBreakdown = Field(
         ...,
         alias="scoreBreakdown",
-        description="Explicit per-finding penalty + running sub-score + critical-floor + weighted aggregate. Mandatory transparency layer (D-13) — surfaced on every public report.",
+        description="Explicit per-finding penalty + running sub-score + critical-floor + weighted aggregate. Mandatory transparency layer — surfaced on every public report.",
     )
     findings: list[Finding] = Field(
         ...,
@@ -258,7 +258,7 @@ class ScanReport(OrmBaseModel):
     trace_truncated: bool = Field(
         ...,
         alias="traceTruncated",
-        description="True if scan-trace total exceeded 256 KiB and was truncated (D-31).",
+        description="True if scan-trace total exceeded 256 KiB and was truncated.",
     )
     omitted_findings_count: conint(ge=0) = Field(
         ...,
@@ -268,7 +268,7 @@ class ScanReport(OrmBaseModel):
     file_hashes: dict[str, Any] | None = Field(
         None,
         alias="fileHashes",
-        description="Per-file path → SHA-256 map (D-32). Powers hash-drift detector across scans. Null on first scan.",
+        description="Per-file path → SHA-256 map. Powers hash-drift detector across scans. Null on first scan.",
     )
     rubric_version: constr(pattern=r"^[a-f0-9]{7,40}$") = Field(
         ...,
@@ -293,5 +293,5 @@ class ScanReport(OrmBaseModel):
     install_spec: dict[str, Any] | None = Field(
         None,
         alias="installSpec",
-        description="Per-capability install descriptor the `saferskills` CLI consumes to install/uninstall this capability across compatible agents (D-05-16 extension). Derived from the same already-public scanned bytes the snapshot tier serves — stored-snapshot tier, NEVER a scan-trace field and NEVER folded into a finding. Null for kinds with no config (skill) and for pre-feature scans (repopulated by the `rescan_rules` trigger). Shape (snake_case keys): `{kind, mcp_entry, hook_events, rules_files, plugin_ref}` — see app/scan/discovery.py::build_install_spec.",
+        description="Per-capability install descriptor the `saferskills` CLI consumes to install/uninstall this capability across compatible agents. Derived from the same already-public scanned bytes the snapshot tier serves — stored-snapshot tier, NEVER a scan-trace field and NEVER folded into a finding. Null for kinds with no config (skill) and for pre-feature scans (repopulated by the `rescan_rules` trigger). Shape (snake_case keys): `{kind, mcp_entry, hook_events, rules_files, plugin_ref}` — see app/scan/discovery.py::build_install_spec.",
     )

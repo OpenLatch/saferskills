@@ -1,4 +1,4 @@
-"""Config parsing + schema-relaxation guards for I-3.5 (§13.13 / §13.14)."""
+"""Config parsing + schema-relaxation guards for upload submissions."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Per-run pack assembly — placeholders substituted, exact-bytes serialize (I-5.5)."""
+"""Per-run pack assembly — placeholders substituted, exact-bytes serialize."""
 
 from __future__ import annotations
 

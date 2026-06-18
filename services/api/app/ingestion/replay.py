@@ -1,4 +1,4 @@
-"""Outbox replay — re-derive the catalog from ingestion_events (D-04-08).
+"""Outbox replay — re-derive the catalog from ingestion_events.
 
 `python -m app.ingestion.replay --since <iso> [--apply | --dry-run]`
 

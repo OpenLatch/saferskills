@@ -1,4 +1,4 @@
-"""Agent-scan report projection (I-5.5).
+"""Agent-scan report projection.
 
 Projects an `agent_runs` row (+ its `agent_findings` rows) to the wire report.
 Pack prose (`title`/`explanation`/`severityRationale`/`remediation`) is JOINED at
@@ -6,7 +6,7 @@ build time from the generated pack source by `testId` - mirrors how
 `report_builder.py` inlines rule prose via `rule_prose.lookup` (so a pack-version
 bump re-renders prose without a finding backfill).
 
-Route-driven evidence split (prime invariant #3, Codex#7):
+Route-driven evidence split:
 - **Public** (`private=False`): the caller passes `evidence=None`; `evidenceExcerpt`
   is `None` on every finding; no transcript anywhere; `redacted-public` label.
 - **Private** (`private=True`, unlisted token route only): the caller passes the
@@ -59,7 +59,7 @@ def _family_of(test_def: dict[str, Any]) -> str:
     return family
 
 
-# The WEB page routes are /agents/{id} + /agents/r/{token} (I-5.6 D-5.6-01/D-5.6-17).
+# The WEB page routes are /agents/{id} + /agents/r/{token}.
 # The API prefix stays /api/v1/agent-scans/* - these build the shareable PAGE url,
 # not the API url. A mismatch here 404s every share link + badge reproducibility line.
 def _public_report_url(settings: Settings, run: AgentRun) -> str:

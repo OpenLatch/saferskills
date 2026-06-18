@@ -23,7 +23,7 @@ path = "src/lib.rs"
 [dependencies]
 clap = { version = "4.6", features = ["derive"] }
 clap_complete = "4"                  # tracks clap 4.x (completion scripts)
-clap_mangen = "0.2"                  # man-page generation from the same Command (D-05-18, design §7)
+clap_mangen = "0.2"                  # man-page generation from the same Command
 inquire = "0.7"                      # interactive prompts
 indicatif = "0.18"                   # spinners → stderr
 terminal_size = "0.4"                # exact terminal width for the banner rule (already in-tree via console)
@@ -79,7 +79,7 @@ sentry = { version = "0.48", default-features = false, features = [
 default = []
 # Additive PostHog HTTP path (mirror openlatch-client gating). When OFF the
 # `command_invoked` event is computed but never sent; when ON it is POSTed only
-# if a key was baked AND consent + opt-out env allow it (D-05-13).
+# if a key was baked AND consent + opt-out env allow it.
 telemetry-network = []
 # Rust panic reporting to Sentry (crash_report module). Scrubbed before send.
 # Disabling drops the `sentry` dep entirely from the graph; the module exposes a
@@ -104,7 +104,7 @@ tempfile = "3"
 
 # NO [build-dependencies] — build.rs only reads an env var to bake
 # SAFERSKILLS_POSTHOG_KEY (no typify/schemars/syn/prettyplease; wire DTOs are
-# hand-written in src/api/dto.rs, D-05-08).
+# hand-written in src/api/dto.rs).
 
 [profile.release]
 opt-level = "z"

@@ -20,7 +20,7 @@ def list_scans(
     with create_client(gctx.api_url, gctx.api_key) as client:
         resp = client.get("/api/v1/scans", params={"limit": limit})
         if resp.status_code == 404:
-            console.print("[yellow]/api/v1/scans not shipped yet — comes with Phase B.[/]")
+            console.print("[yellow]/api/v1/scans is not available on this backend.[/]")
             raise typer.Exit(0)
         resp.raise_for_status()
         scans = resp.json().get("data", [])

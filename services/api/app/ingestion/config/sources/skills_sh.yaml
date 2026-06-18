@@ -1,4 +1,4 @@
-# skills.sh skill aggregator (I-04 Phase B PR2). Sitemap-index → skills child →
+# skills.sh skill aggregator. Sitemap-index → skills child →
 # /<owner>/skills/<name> item pages (Vercel; redirects apex → www). The owner
 # segment is the GitHub org; the item page links the repo, read from the page.
 name: skills_sh

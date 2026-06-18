@@ -13,7 +13,7 @@ import { SCAN_TABS, UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/lib/upload'
 type Tab = 'upload' | 'url'
 
 /**
- * Homepage / 404 audit-panel affordance (D-UP-25). BOTH paths now run **inline**
+ * Homepage / 404 audit-panel affordance. BOTH paths now run **inline**
  * (no /scan redirect, no IndexedDB handoff): Upload accumulates files in the
  * compact DropZone → submit; Scan-repo validates the GitHub URL → submit. On
  * success we navigate straight to the result (`/scans/<id>` or the unlisted
@@ -86,7 +86,7 @@ export default function HomeScanPanel() {
     else if (action === 'url') runUrl(token)
   }
 
-  // v3 shell (I-5.7 Module 2b): the mockup's `.scan-group` (tabs above the
+  // Single-pane shell: the mockup's `.scan-group` (tabs above the
   // pane, static) + a bottom-pinned `.scan-vis` visibility block — siblings
   // inside the card's `.p1-body` flex column (the astro-island wrapper is
   // display:contents). Logic (useUploadFlow/useRepoScanFlow/useCaptchaGate)

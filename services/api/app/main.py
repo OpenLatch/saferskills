@@ -1,7 +1,7 @@
 """FastAPI entrypoint for the SaferSkills API.
 
-W1 surface: /api/v1/health only. The scan engine, ingestion adapters, and
-catalog/report endpoints land via Initiatives I-02 / I-03 / I-04 starting W2.
+Serves the health check, the scan engine, the ingestion adapters, and the
+catalog/report endpoints.
 """
 
 import asyncio
@@ -77,7 +77,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         await recover_stale_ingestion_runs()
 
     # Unlisted-run expiry sweep — only once migrations + pool are up, never in
-    # degraded mode (I-3.5, D-UP-17 / P1-7). Cancelled cleanly on shutdown.
+    # degraded mode. Cancelled cleanly on shutdown.
     sweep_task: asyncio.Task[None] | None = None
     if startup_state.is_healthy:
         from app.core.sweeps import run_sweep_loop
@@ -93,7 +93,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
         health_task = asyncio.create_task(run_slack_invite_health_loop())
 
-    # Procrastinate connector + (optionally) the in-process worker (I-04 D-04-03).
+    # Procrastinate connector + (optionally) the in-process worker.
     # After migrations + pool init — mirrors the sweep guard above. Schema applied
     # idempotently under a FRESH advisory lock 0x5AFE5C13.
     ingestion_task: asyncio.Task[None] | None = None
@@ -102,9 +102,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             from app.ingestion.worker import assert_worker_concurrency_budget
 
             # Static-config invariant — fail fast (refuse to boot) on a misconfigured
-            # concurrency-vs-pool budget, BEFORE opening anything (crash-resilience
-            # §1.5 / WS-2). A deploy error, not the transient DB-unreachable class
-            # the degraded-mode path handles. Only the worker process cares about it.
+            # concurrency-vs-pool budget, BEFORE opening anything. A deploy error,
+            # not the transient DB-unreachable class the degraded-mode path handles.
+            # Only the worker process cares about it.
             assert_worker_concurrency_budget()
 
         # Open the connector + apply its schema REGARDLESS of whether THIS process
@@ -114,8 +114,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         # connector open + the schema present. With the worker split to its own
         # process (`INGESTION_WORKER_ENABLED=false` on the API) this branch is the
         # ONLY thing keeping those endpoints from 500ing. Idempotent + advisory-locked
-        # → running it here AND in the worker process is safe. NOT contextlib.suppress
-        # (WS-2): log the full traceback + flag degraded (surfaced on /api/v1/health)
+        # → running it here AND in the worker process is safe. NOT contextlib.suppress:
+        # log the full traceback + flag degraded (surfaced on /api/v1/health)
         # so a failed connector is visible, but do NOT re-raise (a transient DB-at-boot
         # must not crash the API).
         try:
@@ -190,7 +190,7 @@ app = FastAPI(
 async def _pool_timeout_handler(  # pyright: ignore[reportUnusedFunction]
     _request: Request, _exc: SQLAlchemyTimeoutError
 ) -> JSONResponse:
-    """Map a SQLAlchemy pool-checkout timeout to a bounded 503 (crash-resilience §1.3).
+    """Map a SQLAlchemy pool-checkout timeout to a bounded 503.
 
     Under contention the shared pool's `pool_timeout` raises after
     `db_pool_timeout_s` instead of every request hanging until the ingestion
@@ -204,12 +204,12 @@ async def _pool_timeout_handler(  # pyright: ignore[reportUnusedFunction]
 # layer and OPTIONS preflight still succeeds even when the API is degraded.
 app.add_middleware(StartupGuardMiddleware)
 
-# Access-log writer (I-04) — inner to CORS so it only sees requests that passed
+# Access-log writer — inner to CORS so it only sees requests that passed
 # the CORS gate; write-only B2B-funnel signal with redacted IPs (privacy.md).
 app.add_middleware(AccessLogMiddleware)
 
 # CORS posture: origins from `settings.cors_allowed_origins` (env-driven).
-# Tightens to auth + per-route in Track E.
+# Tightens to auth + per-route when auth lands.
 _settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -221,18 +221,18 @@ app.add_middleware(
 
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(scans.router, prefix="/api/v1")
-# Agent Scan (I-5.5) — run-lifecycle + token-gated signed pack + flat pubkey map.
+# Agent Scan — run-lifecycle + token-gated signed pack + flat pubkey map.
 app.include_router(agent_scans.router, prefix="/api/v1")
 app.include_router(agent_scans.pack_keys_router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(vendor.router, prefix="/api/v1")
-# I-05 Install CLI support — opt-in install telemetry. (Finding prose is inlined
+# Install CLI support — opt-in install telemetry. (Finding prose is inlined
 # server-side onto each report finding, not served from a corpus endpoint.)
 app.include_router(installs.router, prefix="/api/v1")
-# Admin surface (I-04 Phase C) — X-Admin-Key gated; /api/v1/admin/*.
+# Admin surface — X-Admin-Key gated; /api/v1/admin/*.
 app.include_router(admin.router, prefix="/api/v1")
 # Community — stable /slack redirect hop to the shared community Slack invite.
 app.include_router(community.router, prefix="/api/v1")
-# Webhook intake (I-04) — note: NO /api/v1 prefix; GitHub posts to /webhooks/github.
+# Webhook intake — note: NO /api/v1 prefix; GitHub posts to /webhooks/github.
 app.include_router(webhooks.router)

@@ -65,7 +65,7 @@ tool or a credential-exfiltration vector — MITRE ATT&CK T1552
 The conservative-by-design pattern set (canonical paths plus the literal
 credential-key names that appear inside the file) catches the explicit
 read pattern. The rule is coarse and produces FP on every legitimate
-AWS-using plugin; this is the deliberate Phase A choice because the false-
+AWS-using plugin; this is a deliberate design choice because the false-
 negative cost (missing an exfiltrator) is worse than the false-positive
 cost (a legitimate plugin documents its AWS usage in the vendor-appeal
 channel).
@@ -80,4 +80,4 @@ SS-PLUGIN-SECRET-EXFIL-ENV-NET-01.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing as coarse signal.
+- v1 (2026-01-09): initial rule. Active at landing as coarse signal.

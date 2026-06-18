@@ -1,4 +1,4 @@
-"""Unit tests for the stateless CLI Proof-of-Work gate (D-05-30).
+"""Unit tests for the stateless CLI Proof-of-Work gate.
 
 Covers good / forged / expired / replayed / insufficient-difficulty / secret-unset.
 The single-use INSERT needs a DB session; the pre-INSERT rejections (forged /

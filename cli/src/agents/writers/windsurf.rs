@@ -1,7 +1,7 @@
 //! Windsurf writer — HIGH confidence (MCP); hooks surface is MED (not written
 //! by this CLI — see SCHEMAS.md).
 //!
-//! Landmines (design.md §4): MCP key `mcpServers` in
+//! Config-schema landmines: MCP key `mcpServers` in
 //! `~/.codeium/windsurf/mcp_config.json` — **global only** (`--project` is
 //! rejected). Remote transport uses **`serverUrl`** (NOT `url`). Needs an editor
 //! restart to apply ("write succeeded" ≠ "active") — `doctor`'s verify re-reads

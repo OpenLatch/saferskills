@@ -5,7 +5,7 @@ Three commands per `tools/fp-audit/README.md`:
 - `add-fixture` — append a new fixture entry to known-good or known-bad
 - `report` — render the audit report against the schema
 
-Phase A lands the CLI surface. The engine wires in Phase B; Phase A returns
+Until the engine is wired in, the CLI surface returns
 `deferred_engine_unavailable` decisions for every rule with exit code 0.
 """
 
@@ -24,7 +24,7 @@ from saferskills_fp_audit.runner import AuditDecision, run_audit
 
 app = typer.Typer(
     name="fp-audit",
-    help="SaferSkills false-positive audit harness (D-21).",
+    help="SaferSkills false-positive audit harness.",
     add_completion=False,
     no_args_is_help=True,
 )

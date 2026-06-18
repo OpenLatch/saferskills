@@ -4,7 +4,7 @@ import { ruleCount as generatedRuleCount } from '@/generated/methodology/rule-co
 
 interface Props {
   /** SSR-resolved page mode — the matching body renders un-hidden at first
-   *  paint (D-5.7-04, no capability flash); ScanModeShell toggles after. */
+   *  paint (no capability flash); ScanModeShell toggles after. */
   initialMode?: 'capability' | 'agent'
   /** Live rule count (with the generated count as fallback). */
   ruleCount?: number

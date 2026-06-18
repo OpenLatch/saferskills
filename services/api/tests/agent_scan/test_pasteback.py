@@ -1,4 +1,4 @@
-"""Paste-back decode (I-5.5, D-5.5-17). Round-trip + the ratio/size guards."""
+"""Paste-back decode. Round-trip + the ratio/size guards."""
 
 from __future__ import annotations
 

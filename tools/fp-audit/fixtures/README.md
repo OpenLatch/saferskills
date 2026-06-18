@@ -16,21 +16,21 @@
 
 ## What it is
 
-Per locked decision **D-21**: 100 hand-labelled fixtures (50 known-good + 50 known-bad) form the regression bed for the [FP-audit harness](../README.md).
+Per the FP-audit spec: 100 hand-labelled fixtures (50 known-good + 50 known-bad) form the regression bed for the [FP-audit harness](../README.md).
 
 ```
 fixtures/
 ├── known-good/
 │   ├── manifest.yaml                # 50 entries (source URL, expected
 │   │                                # score band, capture hash, notes)
-│   └── <slug>/                      # per-fixture directory (Phase B onward)
+│   └── <slug>/                      # per-fixture directory (populated per fixture)
 └── known-bad/
     ├── manifest.yaml                # 50 entries — synthetic seeds + ClawHavoc
     │                                # PoC samples (research-fair-use)
-    └── <slug>/                      # per-fixture directory (Phase B onward)
+    └── <slug>/                      # per-fixture directory (populated per fixture)
 ```
 
-Phase A ships **manifest entries only** (D-21 + clarification). The actual fixture content lands as Phase B onboards each fixture (clone, anonymise, content-hash, commit). The runner detects unpopulated fixtures and reports `deferred_engine_unavailable` for every rule until the engine ships.
+The initial release ships **manifest entries only**. The actual fixture content lands as a later release onboards each fixture (clone, anonymise, content-hash, commit). The runner detects unpopulated fixtures and reports `deferred_engine_unavailable` for every rule until the engine ships.
 
 ## Adding a fixture
 

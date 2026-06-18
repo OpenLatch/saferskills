@@ -81,7 +81,7 @@ VendorVerification.responses = relationship(
 )
 VendorResponse.verification = relationship("VendorVerification", back_populates="responses")
 
-# ── agent_runs ↔ agent_findings (I-5.5) ───────────────────────────────────────
+# ── agent_runs ↔ agent_findings ───────────────────────────────────────────────
 AgentRun.findings = relationship(
     "AgentFinding",
     back_populates="agent_run",

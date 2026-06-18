@@ -5,14 +5,14 @@ type Status = 'idle' | 'submitting' | 'ok' | 'invalid' | 'error';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Minimal email-capture island for the W1 placeholder homepage.
+ * Minimal email-capture island for the placeholder homepage.
  *
  * Posts to `${PUBLIC_API_URL}/api/v1/subscribers`. The backend endpoint
- * lands with the Track E email surface in W5 (Initiative I-06); until
+ * lands with the email surface later; until
  * then the API responds 404 / 501 and the form falls back to the "ok"
  * UI so the homepage is exercisable end-to-end without scaffolding the
  * subscriber persistence first. The Resend API key (server-side, never
- * a `PUBLIC_` env var) is wired into the backend at W5.
+ * a `PUBLIC_` env var) is wired into the backend then.
  */
 export default function EmailCaptureForm() {
   const [email, setEmail] = useState('');
@@ -42,9 +42,9 @@ export default function EmailCaptureForm() {
         body: JSON.stringify({ email }),
       });
 
-      // 404 / 501 from W1 means the endpoint isn't shipped yet — UX
+      // 404 / 501 means the endpoint isn't shipped yet — UX
       // intent is to acknowledge the submission; the user gets the same
-      // "we'll email you" treatment once the W5 endpoint persists it.
+      // "we'll email you" treatment once the endpoint persists it.
       if (response.ok || response.status === 404 || response.status === 501) {
         setStatus('ok');
       } else {

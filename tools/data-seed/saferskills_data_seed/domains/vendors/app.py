@@ -17,7 +17,7 @@ def verify_issue(ctx: typer.Context, slug: str) -> None:
     with create_client(gctx.api_url, gctx.api_key) as client:
         resp = client.post(f"/api/v1/items/{slug}/vendor/verify/issue")
         if resp.status_code == 404:
-            console.print("[yellow]Vendor verify endpoints ship with Phase C.[/]")
+            console.print("[yellow]Vendor verify endpoints are not available on this backend.[/]")
             raise typer.Exit(0)
         resp.raise_for_status()
     console.print(resp.json())
@@ -33,7 +33,7 @@ def verify_redeem(ctx: typer.Context, slug: str, token: str) -> None:
             json={"token": token},
         )
         if resp.status_code == 404:
-            console.print("[yellow]Vendor verify endpoints ship with Phase C.[/]")
+            console.print("[yellow]Vendor verify endpoints are not available on this backend.[/]")
             raise typer.Exit(0)
         resp.raise_for_status()
     console.print("[bold green]✓[/bold green] redeemed")
@@ -47,6 +47,6 @@ def seed(
     """Seed N example vendor responses on the lowest-score catalog items."""
     _ = ctx
     console.print(
-        f"[yellow]vendors.seed: scaffolded; the full seeding flow lands with Phase C "
-        f"(vendor right-of-reply). Would seed {count} responses.[/]"
+        f"[yellow]vendors.seed: scaffolded; the full vendor right-of-reply seeding "
+        f"flow is not implemented yet. Would seed {count} responses.[/]"
     )

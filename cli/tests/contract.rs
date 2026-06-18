@@ -1,4 +1,4 @@
-//! Contract test (D-05-08): the CLI's hand-written wire DTOs must stay in sync
+//! Contract test: the CLI's hand-written wire DTOs must stay in sync
 //! with the API. This loads `services/api/openapi.json`, synthesizes a minimal
 //! sample satisfying each component schema's `required` set (resolving `$ref`,
 //! `anyOf`, enums, and arrays), then deserializes it into the corresponding
@@ -195,7 +195,7 @@ fn dto_scan_report_matches() {
 fn dto_finding_matches() {
     let doc = openapi();
     // Splice the optional evidence_excerpt + remediation so EvidenceExcerpt,
-    // EvidenceLine, and FindingRemediation are all checked (D-05-32 inline prose).
+    // EvidenceLine, and FindingRemediation are all checked (inline prose).
     assert_deserializes::<FindingResponse>(
         sample_named(
             &doc,
@@ -270,7 +270,7 @@ fn dto_health_matches() {
     );
 }
 
-// ─── Agent Scan (I-5.5 Phase 3) ──────────────────────────────────────────────
+// ─── Agent Scan ──────────────────────────────────────────────
 
 #[test]
 fn dto_agent_bootstrap_matches() {

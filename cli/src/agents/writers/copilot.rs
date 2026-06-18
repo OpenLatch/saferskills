@@ -1,6 +1,6 @@
 //! GitHub Copilot writer — HIGH confidence.
 //!
-//! Landmines (design.md §4): **two surfaces with different keys.** The CLI
+//! Config-schema landmines: **two surfaces with different keys.** The CLI
 //! surface (`~/.copilot/mcp-config.json`) uses `mcpServers` (`type:"local"`);
 //! the VS Code surface (`.vscode/mcp.json`, project scope) uses **`servers`**
 //! (NOT `mcpServers`). [`KeyShape::CopilotSurface`] picks the key from the

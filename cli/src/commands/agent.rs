@@ -1,4 +1,4 @@
-//! `saferskills agent` — the behavioral Agent Scan (I-5.5 Phase 3, D-5.5-01).
+//! `saferskills agent` — the behavioral Agent Scan.
 //!
 //! A **thin prompt-printer + verdict-poller** (the LLM agent does the per-test work,
 //! not the CLI). With no `--to` it detects agents and lets the user multi-select
@@ -242,7 +242,7 @@ async fn scan_one_agent(
 }
 
 /// Mint a run for `platform`, persist the pending token, and pre-flight-verify the
-/// signed pack (AE-1 — hard-stop on a tampered/unknown signature). Returns the
+/// signed pack (hard-stop on a tampered/unknown signature). Returns the
 /// verified bootstrap. The shared prefix of both the per-agent human/MD flow
 /// ([`scan_one_agent`]) and the JSON bootstrap-array flow ([`run_agent_json`]).
 async fn bootstrap_and_verify(
@@ -381,7 +381,7 @@ async fn submit_blob(
 }
 
 /// `--print-skill` — mint a run + emit a static `SKILL.md` body whose prompt is
-/// already filled with the fresh run id + token (the manual AE-1 activation path).
+/// already filled with the fresh run id + token (the manual activation path).
 async fn print_skill(api: &Api, args: &AgentArgs, output: &OutputConfig) -> Result<(), SsError> {
     let agent_name = resolve_agent_name("universal", args.name.as_deref(), false);
     let pow = super::capability::obtain_pow_if_needed(api, output).await?;
@@ -414,7 +414,7 @@ fn skill_md(boot: &BootstrapResponse) -> String {
     )
 }
 
-// ─── pack signature pre-flight (AE-1) ────────────────────────────────────────
+// ─── pack signature pre-flight ───────────────────────────────────────────────
 
 /// Fetch the signed pack and verify it before printing the prompt. Fail-closed: a
 /// released CLI with a baked key MUST get a valid signature (missing/unknown ⇒
@@ -485,7 +485,7 @@ async fn verify_strict_or_fail(
 /// Pure Ed25519 check (`verify_strict` over the exact bytes). The signature + pubkey
 /// are STANDARD base64 (the backend uses `b64encode`, not url-safe). Any decode /
 /// parse / verify failure ⇒ `false` (fail-closed). Unit-tested independently of the
-/// network so the AE-1 tamper path is proven without a baked key.
+/// network so the tamper path is proven without a baked key.
 fn sig_ok(pubkey: &[u8; 32], body: &[u8], sig_b64: &str) -> bool {
     let Ok(vk) = VerifyingKey::from_bytes(pubkey) else {
         return false;
@@ -500,7 +500,7 @@ fn sig_ok(pubkey: &[u8; 32], body: &[u8], sig_b64: &str) -> bool {
 }
 
 /// Best-effort abort the just-minted run, clear the pending file, and build the
-/// hard-stop `SS-E-1604` error (exit 1, non-zero — AE-1 "no report").
+/// hard-stop `SS-E-1604` error (exit 1, non-zero — "no report").
 async fn abort_and_fail(api: &Api, boot: &BootstrapResponse, message: &str) -> SsError {
     let _ = api.abort_agent_run(&boot.run_id, &boot.submit_token).await;
     clear_pending();
@@ -1169,9 +1169,9 @@ mod tests {
         let body = b"the exact served pack bytes";
         let sig_b64 = base64::engine::general_purpose::STANDARD.encode(sk.sign(body).to_bytes());
 
-        // Valid signature over the exact bytes verifies (AE-1 happy path).
+        // Valid signature over the exact bytes verifies (happy path).
         assert!(sig_ok(&pubkey, body, &sig_b64));
-        // A tampered body fails verify_strict (AE-1 hard-stop path).
+        // A tampered body fails verify_strict (hard-stop path).
         assert!(!sig_ok(&pubkey, b"tampered bytes", &sig_b64));
         // A garbage signature fails closed.
         assert!(!sig_ok(&pubkey, body, "not-valid-base64!!"));

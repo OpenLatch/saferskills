@@ -37,7 +37,7 @@ async function ensureSentry(): Promise<typeof import('@sentry/node') | undefined
     tracesSampleRate: 0,
     integrations: [],
     beforeBreadcrumb(breadcrumb) {
-      // Redact the capability token from any breadcrumb URL (D-UP-32).
+      // Redact the capability token from any breadcrumb URL.
       if (typeof breadcrumb.data?.url === 'string') {
         breadcrumb.data.url = redactCapabilityToken(breadcrumb.data.url)
       }
@@ -47,7 +47,7 @@ async function ensureSentry(): Promise<typeof import('@sentry/node') | undefined
       // Drop any PII the Node SDK may attach.
       if (event.user) event.user = undefined
       if (event.request?.cookies) event.request.cookies = undefined
-      // Never let the unlisted capability token reach Sentry (D-UP-32).
+      // Never let the unlisted capability token reach Sentry.
       if (event.request?.url) {
         event.request.url = redactCapabilityToken(event.request.url)
       }

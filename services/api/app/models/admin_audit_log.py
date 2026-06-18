@@ -1,8 +1,8 @@
 """SQLAlchemy ORM for `admin_audit_log` (internal — no JSON-Schema source).
 
 Every admin endpoint mutation emits one row (security.md audit invariant). The
-admin endpoints + CLI land in Phase C; the table ships in Phase A so the audit
-surface exists from day one.
+table ships ahead of the admin endpoints + CLI so the audit surface exists from
+day one.
 """
 
 from __future__ import annotations

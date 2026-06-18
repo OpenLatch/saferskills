@@ -1,4 +1,4 @@
-# smithery.ai MCP-server aggregator (I-04 Phase B). Feed-first via the public
+# smithery.ai MCP-server aggregator. Feed-first via the public
 # registry API (registry.smithery.ai/servers, no auth); GitHub hosts for enrich().
 name: smithery
 kind: scrape

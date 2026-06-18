@@ -33,9 +33,9 @@ try {
     encoding: 'utf8',
   })
 } catch (err) {
-  console.error('[openapi] FastAPI not importable yet (W1 expected).')
+  console.error('[openapi] FastAPI not importable yet (expected early on).')
   console.error(`  underlying: ${err.message}`)
-  // W1 fallback: emit a minimal placeholder so downstream generators have something to chew on.
+  // Fallback: emit a minimal placeholder so downstream generators have something to chew on.
   const placeholder = {
     openapi: '3.1.0',
     info: { title: 'SaferSkills API', version: '0.0.0-foundation' },

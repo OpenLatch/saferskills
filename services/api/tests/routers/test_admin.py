@@ -1,4 +1,4 @@
-"""Admin endpoints (I-04 Phase C) — auth gate + mutations + audit log."""
+"""Admin endpoints — auth gate + mutations + audit log."""
 
 from __future__ import annotations
 

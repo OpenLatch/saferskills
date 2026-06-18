@@ -1,8 +1,8 @@
 """Deterministic multi-signal classifier — kind + quality_tier + agent_compatibility.
 
-No LLM (methodology over opinion). Re-runnable via the Phase C admin CLI. The
+No LLM (methodology over opinion). Re-runnable via the admin CLI. The
 agent heuristic writes the EXISTING `agent_compatibility` column (migration 0003),
-whose closed enum is the hyphenated 8-agent set below — NOT the plan's draft
+whose closed enum is the hyphenated 8-agent set below — NOT the draft
 `claude_code`/`all`/`mcp_universal` tokens, which are not catalog-item enum values.
 """
 
@@ -60,7 +60,7 @@ def classify_kind(n: NormalizedItem) -> tuple[str, dict[str, Any]]:
 
 
 def classify_quality_tier(n: NormalizedItem) -> tuple[str, dict[str, Any]]:
-    """Return (quality_tier, quality_signals). See D-04-19 heuristic."""
+    """Return (quality_tier, quality_signals)."""
     files = n.metadata_files or {}
     has_readme = any(f in files for f in ("README.md", "README", "readme.md"))
     has_manifest = any(

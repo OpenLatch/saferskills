@@ -1,4 +1,4 @@
-//! First-launch security audit (D-05-26).
+//! First-launch security audit.
 //!
 //! On the CLI's first interactive run, offer a one-time opt-in audit of
 //! everything already installed across the user's agents. On accept it runs the

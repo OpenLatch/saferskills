@@ -1,4 +1,4 @@
-"""archive_check timeline (D-04-17) — boundary cases at 3 / 6 / 7 consecutive 404s."""
+"""archive_check timeline — boundary cases at 3 / 6 / 7 consecutive 404s."""
 
 from __future__ import annotations
 

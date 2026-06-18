@@ -1,4 +1,4 @@
-"""Pack signing — sign the exact served bytes (I-5.5, D-5.5-13, lean crypto).
+"""Pack signing — sign the exact served bytes (lean crypto).
 
 One Ed25519 key. On a pack fetch the route assembles the per-run pack JSON,
 serializes to bytes, and signs THOSE EXACT BYTES; the client verifies the exact
@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from app.core.config import get_settings
 
 # Single launch key id. Rotation = add a second entry to the served map + bake
-# the new pubkey; the old key stays until old packs age out (D-5.5-10).
+# the new pubkey; the old key stays until old packs age out.
 KEY_ID = "saferskills-agent-pack-2026"
 
 
@@ -52,7 +52,7 @@ def public_keys() -> dict[str, str]:
     """Flat `{key_id: base64(raw-pubkey)}` map for `GET /api/v1/agent-pack/keys`.
 
     Config-sourced (derived from the private key) — no DB. Empty when no key is
-    configured. The same base64 pubkey string is what the CLI bakes (outbox/01).
+    configured. The same base64 pubkey string is what the CLI bakes.
     """
     priv = _load_private()
     if priv is None:

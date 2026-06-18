@@ -1,6 +1,6 @@
 /**
- * DEV-ONLY Agent Scan fixture loader (I-5.6 D-5.6-04 — build against the fixture
- * before the live grader is wired).
+ * DEV-ONLY Agent Scan fixture loader — build against the fixture
+ * before the live grader is wired.
  *
  * SERVER-ONLY: uses `node:fs`, so it must be imported ONLY from `.astro`
  * frontmatter (never an island), and ONLY behind an `import.meta.env.DEV` guard —

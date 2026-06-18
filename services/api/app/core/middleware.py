@@ -24,8 +24,8 @@ def service_unavailable_response(message: str) -> JSONResponse:
     """The canonical 503 body, shared so its shape never drifts across callers.
 
     Used by both the degraded-mode guard below (migrations failed at startup)
-    and the pool-timeout back-pressure handler in `app/main.py` (crash-resilience
-    §1.3). Same `code`, caller-specific `message`.
+    and the pool-timeout back-pressure handler in `app/main.py`.
+    Same `code`, caller-specific `message`.
     """
     return JSONResponse(
         status_code=503,

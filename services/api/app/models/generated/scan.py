@@ -14,7 +14,7 @@ from app.models.generated._base import Base, scan_source_enum, tier_enum
 
 
 class Scan(Base):
-    """Public scan report for a CatalogItem. PRD-locked 5-axis sub-score taxonomy and 5-tier severity ladder per..."""
+    """Public scan report for a CatalogItem. 5-axis sub-score taxonomy and 5-tier severity ladder. The aggregate..."""
 
     __tablename__ = "scans"
 

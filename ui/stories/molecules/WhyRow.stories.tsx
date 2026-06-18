@@ -2,7 +2,7 @@ import type { Story } from '@ladle/react'
 import WhyRow from '../../components/molecules/WhyRow'
 
 /**
- * WhyRow — Phase A2 `.reason-row` vocabulary. Inline 4-column row used inside
+ * WhyRow — `.reason-row` vocabulary. Inline 4-column row used inside
  * the `.docs-band` "Five reasons it earns the URL" man-page layout.
  */
 

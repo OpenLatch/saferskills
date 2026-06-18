@@ -12,7 +12,7 @@ export const prerender = false
  * directory expose). The badge re-renders from the LIVE report: it validates the
  * `score` URL segment against the run's current behavioral score and, on a
  * mismatch (a tampered `/99.svg`), 302-redirects to the correct `…/{liveScore}.svg`
- * rather than render the forged value (anti-forgery — D-5.6-05 §10). Unlisted /
+ * rather than render the forged value (anti-forgery). Unlisted /
  * ungraded runs are never badgeable (404). Adds a behavioral band label + a
  * trust-tier glyph over the scan badge. Edge-cached 1h.
  */

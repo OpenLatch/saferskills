@@ -1,6 +1,6 @@
 """SQLAlchemy ORM for `install_events` (internal — no JSON-Schema source).
 
-One row per opt-in install reported by the install CLI (D-05-31). Backs the real
+One row per opt-in install reported by the install CLI. Backs the real
 `install_activity` GROUP-BY aggregate on the item-detail surface (this_week /
 this_month / all_time + agent distribution), replacing the deterministic mock.
 

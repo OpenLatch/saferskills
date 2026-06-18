@@ -5,7 +5,7 @@ import { formatScannedAt } from '@/lib/agent/format'
 import type { AgentScanReportDetail } from '@/lib/api/agent-scan-types'
 
 /**
- * Badge band (I-5.6 §10) — the full-bleed "Embed the badge in your README" band
+ * Badge band — the full-bleed "Embed the badge in your README" band
  * at the foot of the report (mockup `.badge-band`/`.badge-wrap`, the same layout
  * the scan report's ShareResultBand renders). Left: eyebrow + heading + pitch.
  * Right: the agent-variant `EmbedBadgeBox` README terminal (+ band-colored

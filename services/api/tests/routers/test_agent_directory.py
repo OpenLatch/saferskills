@@ -1,4 +1,4 @@
-"""Agent Report directory endpoints (I-5.6 Phase C, D-5.6-05).
+"""Agent Report directory endpoints.
 
 Covers `GET /agent-scans` (public-only list + filters + sort + pagination),
 `GET /agent-scans/aggregate-stats` (the gated corpus meter), and `POST

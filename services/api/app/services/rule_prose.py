@@ -1,4 +1,4 @@
-"""Server-side rule-prose join for explainable findings (D-05-32 reversed).
+"""Server-side rule-prose join for explainable findings.
 
 Loads the generated `rule_id → RuleContent` map from `app/generated/rule_content.json`
 once (cached for process life) and exposes `lookup(rule_id)`. The report builders

@@ -4,7 +4,7 @@ severity: info
 subScore: community
 weight: 0
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [hooks]
 title: >-
   Hook has very few forks
@@ -49,4 +49,4 @@ with any operational quality measure. If not, it may be removed in v2.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow as `info` (weight 0).
+- v1 (2026-01-09): initial rule. Lands shadow as `info` (weight 0).

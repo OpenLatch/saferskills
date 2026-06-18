@@ -1,6 +1,6 @@
 """SQLAlchemy ORM for `artifact_blobs` — content-addressed scanned-file storage.
 
-Internal storage table for the stored-public-artifact-snapshot feature (Phase B).
+Internal storage table for the stored-public-artifact-snapshot feature.
 Each row is one unique file body keyed by its SHA-256, so identical files across
 scans/items dedup to a single blob. The `scans.file_hashes` JSONB maps
 `{path -> sha256 | null}` per scan (null = known-but-not-stored binary), joining

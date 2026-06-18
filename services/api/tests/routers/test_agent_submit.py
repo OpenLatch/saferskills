@@ -1,4 +1,4 @@
-"""Route integration: agent-scan submit / abort (I-5.5, Phase 2, AE-5/11).
+"""Route integration: agent-scan submit / abort.
 
 `db_client` connects over loopback (127.0.0.1) -> the submission gate is skipped
 (trusted seed), so create+submit work without a Turnstile/PoW token. The run token

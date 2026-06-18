@@ -1,3 +1,3 @@
-"""SaferSkills FP-audit harness (D-21)."""
+"""SaferSkills FP-audit harness."""
 
 __version__ = "0.1.0"

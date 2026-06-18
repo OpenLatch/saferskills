@@ -143,18 +143,18 @@ export const ATTACK_GRID = [
 export type AttackGridEntry = (typeof ATTACK_GRID)[number]
 
 /**
- * Detection-band tiles — Phase A2.
+ * Detection-band tiles.
  *
  * 57 attack signatures hardcoded for the homepage marquee. We deliberately
  * decouple this from `rubric/` so marketing copy doesn't churn every time
  * the scan-engine taxonomy ships a new rule. `ruleId` is optional — when
- * present (W2+ rubric coverage), tiles deep-link to /methodology#<rule_id>.
+ * present (once rubric coverage exists), tiles deep-link to /methodology#<rule_id>.
  *
- * Severity legend per the mockup:
+ * Severity legend:
  *   - `r` : RED   — execution & exfil
  *   - `o` : ORANGE — injection & supply chain
  *   - `y` : YELLOW — hygiene & transparency
- *   - `g` : GREEN  (unused at A2 — reserved for "verified safe" badges)
+ *   - `g` : GREEN  (currently unused — reserved for "verified safe" badges)
  */
 export type DetectionTile = {
   id: string

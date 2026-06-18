@@ -262,7 +262,7 @@ jobs:
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
           fi
           # SAFERSKILLS_AGENT_MASTER_KEY + SAFERSKILLS_PACK_SIGNING_KEY anchor the lean
-          # agent-scan crypto (I-5.5 — per-run canaries + Ed25519 pack signing). The
+          # agent-scan crypto (per-run canaries + Ed25519 pack signing). The
           # API startup guard hard-fails boot when either is unset since ENV=staging,
           # so set both GH secrets before the first deploy. Repo-level (identical
           # across staging+prod so the single baked CLI pubkey verifies everywhere).
@@ -403,7 +403,7 @@ jobs:
   # Production deployment is BLOCKED until SaferSkills reaches MVP state.
   # Gate: repo variable `ENABLE_PRODUCTION_DEPLOYS` must equal the literal
   # string `"true"` (set under Settings → Secrets and variables → Actions
-  # → Variables). The variable is UNSET at W1, so the `if:` expression
+  # → Variables). The variable is currently UNSET, so the `if:` expression
   # evaluates to false and the prod jobs never run — even on manual
   # workflow_dispatch.
   #
@@ -411,8 +411,8 @@ jobs:
   # are kept in `suspended` state with zero machines (`flyctl apps
   # suspend`). Flipping the variable alone is not enough — a maintainer
   # must also `flyctl apps resume` before the first prod deploy can land.
-  # Re-enable end of W2 once Track A demo-deploys an actual catalog
-  # endpoint and the MVP gate is signed off.
+  # Re-enable once there's an actual catalog endpoint deployed and the
+  # MVP gate is signed off.
   # ─────────────────────────────────────────────────────────────────────
   deploy-production-api:
     name: Deploy production API (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
@@ -494,7 +494,7 @@ jobs:
             flyctl secrets set --stage --app saferskills-api SAFERSKILLS_CLI_POW_SECRET="$SAFERSKILLS_CLI_POW_SECRET"
           fi
           # SAFERSKILLS_AGENT_MASTER_KEY + SAFERSKILLS_PACK_SIGNING_KEY anchor the lean
-          # agent-scan crypto (I-5.5). The API startup guard hard-fails boot when either
+          # agent-scan crypto. The API startup guard hard-fails boot when either
           # is unset since ENV=production, so set both GH secrets before the first prod
           # deploy. Repo-level (identical across staging+prod so the single baked CLI
           # pubkey verifies everywhere).

@@ -13,7 +13,7 @@ body:
         - The "What this rule cannot catch" section is **required** — no black-box findings.
         - The **explainable-finding fields are required** — a plain-English `title`, an `explanation` (why it matters), and `remediation` (how to fix). These make the published finding self-explanatory instead of a bare `rule_id`. Schema-enforced (`schemas/rubric-rule.schema.json`); a rule missing them fails `pnpm run generate`.
 
-        Full lifecycle: [`docs/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/docs/methodology.md) and [`.claude/rules/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/methodology.md).
+        Full lifecycle: [`contributor-docs/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/contributor-docs/methodology.md) and [`.claude/rules/methodology.md`](https://github.com/OpenLatch/saferskills/blob/main/.claude/rules/methodology.md).
   - type: dropdown
     id: kind
     attributes:

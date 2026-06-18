@@ -10,7 +10,7 @@ export interface RefChipProps {
 }
 
 /**
- * Deep-linked OWASP / MITRE ATLAS / NIST reference chip (I-5.6 §9). Renders an
+ * Deep-linked OWASP / MITRE ATLAS / NIST reference chip. Renders an
  * external `<a>` (`rel="noopener noreferrer"`) with a tinted id label + an
  * external-link affordance. Used in the OWASP-family group head (`.og-refs`) and
  * per-finding refs row (`.fc-refs`). CSS `.ref-chip` is DS-owned in components.css.

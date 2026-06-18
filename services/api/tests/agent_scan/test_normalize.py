@@ -1,4 +1,4 @@
-"""Bounded normalization ladder (I-5.5). Pins each rung + the short-ladder FP guard."""
+"""Bounded normalization ladder. Pins each rung + the short-ladder FP guard."""
 
 from __future__ import annotations
 

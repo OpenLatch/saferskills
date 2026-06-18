@@ -1,11 +1,11 @@
-"""Admin endpoints (D-04-28) — gated by the `X-Admin-Key` header.
+"""Admin endpoints — gated by the `X-Admin-Key` header.
 
 Every mutation writes one `admin_audit_log` row (security.md Audit-trail
 invariant). The gate fails CLOSED: when `SAFERSKILLS_ADMIN_KEY` is unset, every
 endpoint returns 403 — EXCEPT under local development (`ENV=development`), which is
 exempt and audits as `local-dev`. Real deploys always set `ENV=staging`/`production`
 so the exemption can never apply off a developer's machine. Driven by the
-`saferskills-admin` CLI. When auth lands (Track E) the X-Admin-Key gate is replaced
+`saferskills-admin` CLI. When auth lands the X-Admin-Key gate is replaced
 by SSO; the CLI keeps working.
 
 Endpoints (mounted at /api/v1/admin):
@@ -572,7 +572,7 @@ async def admin_re_classify(
     actor_fp: str = Depends(require_admin_key),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """Re-run the deterministic classifier (D-04-31). Operates on stored signals
+    """Re-run the deterministic classifier. Operates on stored signals
     (no network re-fetch): metadata_files are reconstructed from the stored
     kind_signals so file-derived kind/agent classifications are preserved while
     quality_tier recomputes from current stars/downloads."""
@@ -756,7 +756,7 @@ async def admin_popularity_top_n(
     }
 
 
-# ─── Agent scan (I-5.5) ───────────────────────────────────────────────────────
+# ─── Agent scan ───────────────────────────────────────────────────────────────
 
 
 @router.delete("/agent-scans/{run_id}")
@@ -765,8 +765,8 @@ async def admin_delete_agent_run(
     actor_fp: str = Depends(require_admin_key),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """Admin-only delete of an Agent Report (public reports are user-irreversible;
-    D-5.5-20). Cascades findings/telemetry/evidence, writes one audit row. 404 if
+    """Admin-only delete of an Agent Report (public reports are user-irreversible).
+    Cascades findings/telemetry/evidence, writes one audit row. 404 if
     absent. Never touches `artifact_blobs`; the token ledger is reaped by sweep."""
     run = await session.get(AgentRun, run_id)
     if run is None:

@@ -1,4 +1,4 @@
-"""Popularity formula (pure) + recompute_all/recompute_one (DB) — D-04-13."""
+"""Popularity formula (pure) + recompute_all/recompute_one (DB)."""
 # pyright: reportPrivateUsage=false
 
 from __future__ import annotations

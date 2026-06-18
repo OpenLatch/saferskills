@@ -57,7 +57,9 @@ def describe(ctx: typer.Context, slug: str) -> None:
 @app.command("seed-demo")
 def seed_demo(
     ctx: typer.Context,
-    rate: float = typer.Option(2.0, help="Scans per second cap (≤2.0 per I-02 rate-limit)"),
+    rate: float = typer.Option(
+        2.0, help="Scans per second cap (≤2.0 to respect the API rate-limit)"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
     """POST /api/v1/scans for each fixture item. Idempotency-key dedup; re-runs are safe."""
@@ -90,7 +92,9 @@ def seed_demo(
 @app.command("publish", hidden=True)
 def publish(
     ctx: typer.Context,
-    rate: float = typer.Option(2.0, help="Scans per second cap (≤2.0 per I-02 rate-limit)"),
+    rate: float = typer.Option(
+        2.0, help="Scans per second cap (≤2.0 to respect the API rate-limit)"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
     """Deprecated alias for seed-demo. Use `catalog seed-demo` instead."""

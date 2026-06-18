@@ -1,4 +1,4 @@
-//! HTTP client for the SaferSkills public API (D-05-08, D-05-09).
+//! HTTP client for the SaferSkills public API.
 //!
 //! Reads are unauthenticated + uncapped — no API key, no Turnstile, no rate
 //! limit. The client is rustls-only (the `cli-rustls` CI lane greps the dep
@@ -41,7 +41,7 @@ impl ApiClient {
 
     /// `GET {base}{path}?<query>` → deserialize the JSON body into `T`.
     ///
-    /// Error mapping (D-05-09): 404 → `SS-E-1200` (not-found, exit 3); 429 →
+    /// Error mapping: 404 → `SS-E-1200` (not-found, exit 3); 429 →
     /// `SS-E-1102` (rate-limit, exit 6 — shouldn't occur on reads); connect /
     /// timeout → `SS-E-1100` (network, exit 6); other non-2xx → `SS-E-1101`;
     /// body decode failure → `SS-E-1103`.

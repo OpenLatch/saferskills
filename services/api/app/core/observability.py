@@ -33,8 +33,8 @@ logger = structlog.get_logger(__name__)
 def record_pool_timeout_breadcrumb(subsystem: str) -> None:
     """Sentry breadcrumb on a SQLAlchemy pool-checkout `TimeoutError`.
 
-    The back-pressure event from the crash-resilience addendum (§1.3 / §2):
-    when ingestion + API jointly exhaust the shared pool, the next checkout
+    The back-pressure event: when ingestion + API jointly exhaust the shared
+    pool, the next checkout
     raises after `db_pool_timeout_s` instead of hanging. Tagging the breadcrumb
     `subsystem=ingestion|api` lets the post-mortem show who lost the race.
     No-op when Sentry is unconfigured (`add_breadcrumb` is safe pre-init).
@@ -56,7 +56,7 @@ async def init_observability(settings: Settings) -> None:
     # Logging first — so every subsequent init line is structured JSON on stdout.
     configure_logging(settings.log_level)
     # Always-on: redact the unlisted capability token from access/app logs
-    # (D-UP-32(a)) — independent of Sentry/OTel being configured.
+    # — independent of Sentry/OTel being configured.
     install_log_redaction()
 
     if settings.sentry_dsn:
@@ -171,7 +171,7 @@ def _init_db_pool_gauges(settings: Settings, resource: object) -> None:
 
     `ingestion.db_pool.in_use` / `.available` are the single most useful signal
     for "are we about to exhaust the pool the API and the ingestion worker share"
-    (crash-resilience addendum §2) — a Grafana alert at `in_use > 12 / 15` fires
+    — a Grafana alert at `in_use > 12 / 15` fires
     *before* contention turns into hangs.
 
     This wires the SDK MeterProvider + instruments but NO metric reader/exporter

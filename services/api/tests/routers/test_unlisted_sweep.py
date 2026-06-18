@@ -1,4 +1,4 @@
-"""Expiry sweep for unlisted runs (I-3.5, D-UP-17 / P1-7).
+"""Expiry sweep for unlisted runs.
 
 Uses the SAVEPOINT `db_session` (the sweep commits internally). Covers: expired
 unlisted runs are deleted via the ordered cascade; non-expired + public runs are

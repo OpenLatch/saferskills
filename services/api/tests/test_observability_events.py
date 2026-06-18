@@ -43,7 +43,7 @@ def test_emit_is_a_noop_when_client_unset(monkeypatch: pytest.MonkeyPatch) -> No
     events.emit_scan_started(scan_id="abc-123")  # must not raise
 
 
-# ─── Capability / agent-run share-token redaction (I-5.6 Codex P0-2, matrix-22) ───
+# ─── Capability / agent-run share-token redaction ───
 
 _TOK = "Hh3y6Qk2pN8fT0aZ1cV9bWx"
 
@@ -54,7 +54,7 @@ _TOK = "Hh3y6Qk2pN8fT0aZ1cV9bWx"
 )
 def test_redact_capability_token_covers_every_unlisted_route(prefix: str) -> None:
     """The possession-is-auth token must be redacted for the scan capability URL,
-    the I-5.6 Agent Report PAGE URL (/agents/r/), AND the API (/agent-scans/r/)."""
+    the Agent Report PAGE URL (/agents/r/), AND the API (/agent-scans/r/)."""
     url = f"https://saferskills.ai{prefix}{_TOK}?ref=x"
     redacted = events.redact_capability_token(url)
     assert _TOK not in redacted

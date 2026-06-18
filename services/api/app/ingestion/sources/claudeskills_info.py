@@ -1,4 +1,4 @@
-"""claudeskills.info aggregator HTML scraper (I-04 Phase B PR2).
+"""claudeskills.info aggregator HTML scraper.
 
 Thin SitemapHtmlAdapter subclass — all per-site configuration (sitemap URL, item-URL
 filter, name/github extraction knobs) lives in config/sources/claudeskills_info.yaml. See

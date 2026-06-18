@@ -43,7 +43,7 @@ class SourceKind(StrEnum):
 
 class PopularityTier(StrEnum):
     """
-    PRD §6.2 scan-tier assignment. `indexed`: metadata only. `lite`: shallow scan, weekly rescan. `deep`: full scan, hourly rescan. `on_demand`: user-submitted, hourly rescan.
+    Scan-tier assignment. `indexed`: metadata only. `lite`: shallow scan, weekly rescan. `deep`: full scan, hourly rescan. `on_demand`: user-submitted, hourly rescan.
     """
 
     indexed = "indexed"
@@ -65,7 +65,7 @@ class AgentCompatibilityEnum(StrEnum):
 
 class RegistryId(StrEnum):
     """
-    Closed-enum source-of-record identifier. PRD §7.4 dual-attribution. I-04 D-04-25: `github_topic`→`github_topics`, `anthropics_skills`→`github_skills`; +`skills_sh`,`claudeskills_info`,`skillhub_club`. The I-3.5 values `upload`/`user_submission`/`vendor_verified` are preserved.
+    Closed-enum source-of-record identifier (dual-attribution). The values `upload`/`user_submission`/`vendor_verified` cover directly-submitted and vendor-verified artifacts.
     """
 
     claudeskills_info = "claudeskills_info"
@@ -94,7 +94,7 @@ class Source(OrmBaseModel):
     registry_id: RegistryId = Field(
         ...,
         alias="registryId",
-        description="Closed-enum source-of-record identifier. PRD §7.4 dual-attribution. I-04 D-04-25: `github_topic`→`github_topics`, `anthropics_skills`→`github_skills`; +`skills_sh`,`claudeskills_info`,`skillhub_club`. The I-3.5 values `upload`/`user_submission`/`vendor_verified` are preserved.",
+        description="Closed-enum source-of-record identifier (dual-attribution). The values `upload`/`user_submission`/`vendor_verified` cover directly-submitted and vendor-verified artifacts.",
     )
     registry_url: AnyUrl = Field(
         ...,
@@ -115,7 +115,7 @@ class Source(OrmBaseModel):
 
 class Availability(StrEnum):
     """
-    Three-state availability (D-04-17). 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved.
+    Three-state availability. 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved.
     """
 
     available = "available"
@@ -125,7 +125,7 @@ class Availability(StrEnum):
 
 class QualityTier(StrEnum):
     """
-    Soft-gate (D-04-19). low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest.
+    Soft-gate quality tier. low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest.
     """
 
     high = "high"
@@ -136,7 +136,7 @@ class QualityTier(StrEnum):
 
 class PopularityRankTier(StrEnum):
     """
-    Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.
+    Rank-based bucket from popularity_recompute. Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.
     """
 
     top500 = "top500"
@@ -202,7 +202,7 @@ class CatalogItem(OrmBaseModel):
     popularity_tier: PopularityTier = Field(
         ...,
         alias="popularityTier",
-        description="PRD §6.2 scan-tier assignment. `indexed`: metadata only. `lite`: shallow scan, weekly rescan. `deep`: full scan, hourly rescan. `on_demand`: user-submitted, hourly rescan.",
+        description="Scan-tier assignment. `indexed`: metadata only. `lite`: shallow scan, weekly rescan. `deep`: full scan, hourly rescan. `on_demand`: user-submitted, hourly rescan.",
     )
     popularity_score: conint(ge=0, le=100) = Field(
         ...,
@@ -212,7 +212,7 @@ class CatalogItem(OrmBaseModel):
     agent_compatibility: list[AgentCompatibilityEnum] | None = Field(
         [],
         alias="agentCompatibility",
-        description="Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates.",
+        description="Closed-enum list of agent platforms this artifact is compatible with. Populated by a deterministic kind+manifest mapping at ingestion (see contributor-docs/methodology.md § Agent compatibility). Drives the catalog Agent-compatibility filter (array-overlap). Empty until ingestion populates.",
     )
     github_stars: conint(ge=0) | None = Field(
         None,
@@ -262,12 +262,12 @@ class CatalogItem(OrmBaseModel):
     )
     availability: Availability | None = Field(
         "available",
-        description="Three-state availability (D-04-17). 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved.",
+        description="Three-state availability. 'available' = last fetch 200; 'unavailable' = 3+ consecutive 404s in 24h (yellow banner); 'archived' = 7+ consecutive days 404 OR maintainer-archived OR yanked (gray banner). Existing scans are always preserved.",
     )
     quality_tier: QualityTier | None = Field(
         "medium",
         alias="qualityTier",
-        description="Soft-gate (D-04-19). low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest.",
+        description="Soft-gate quality tier. low/empty hidden from the default catalog; high/medium visible. Recomputed on ingest.",
     )
     quality_signals: dict[str, Any] | None = Field(
         {},
@@ -277,12 +277,12 @@ class CatalogItem(OrmBaseModel):
     fork_of_repo_id: UUID | None = Field(
         None,
         alias="forkOfRepoId",
-        description="If this is a GitHub fork, points at the parent's catalog_item id (D-04-10). UI shows 'fork of <parent>'.",
+        description="If this is a GitHub fork, points at the parent's catalog_item id. UI shows 'fork of <parent>'.",
     )
     popularity_breakdown: dict[str, Any] | None = Field(
         {},
         alias="popularityBreakdown",
-        description="Transparency breakdown of popularityScore (starsTerm, velocityTerm, downloadsTerm, crossRegistryTerm, recencyTerm, formulaVersion). Populated by popularity_recompute (Phase C).",
+        description="Transparency breakdown of popularityScore (starsTerm, velocityTerm, downloadsTerm, crossRegistryTerm, recencyTerm, formulaVersion). Populated by popularity_recompute.",
     )
     kind_signals: dict[str, Any] | None = Field(
         {},
@@ -292,7 +292,7 @@ class CatalogItem(OrmBaseModel):
     consecutive404_count: conint(ge=0) | None = Field(
         0,
         alias="consecutive404Count",
-        description="Incremented on each 404 fetch; reset to 0 on the next 200. Drives the archive timeline (D-04-17).",
+        description="Incremented on each 404 fetch; reset to 0 on the next 200. Drives the archive timeline.",
     )
     last_seen200_at: AwareDatetime | None = Field(
         None,
@@ -302,10 +302,10 @@ class CatalogItem(OrmBaseModel):
     pushed_at: AwareDatetime | None = Field(
         None,
         alias="pushedAt",
-        description="GitHub repository.pushed_at, promoted from metadata to a real column so popularity + archive checks avoid JSON extraction (D-04-05 fix). Resolved during ingest.",
+        description="GitHub repository.pushed_at, promoted from metadata to a real column so popularity + archive checks avoid JSON extraction. Resolved during ingest.",
     )
     popularity_rank_tier: PopularityRankTier | None = Field(
         "long_tail",
         alias="popularityRankTier",
-        description="Rank-based bucket from popularity_recompute (D-04-13 + Codex P0-4). Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.",
+        description="Rank-based bucket from popularity_recompute. Distinct from popularityTier (which keeps its indexed/lite/deep/on_demand scan-tier semantics). An item can be popularityTier='deep' + popularityRankTier='top500' simultaneously.",
     )

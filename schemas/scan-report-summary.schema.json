@@ -33,7 +33,7 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 100,
-      "description": "Weighted aggregate per PRD §5.2 (closed-form deterministic per scan-report.schema.json)."
+      "description": "Weighted aggregate (closed-form deterministic per scan-report.schema.json)."
     },
     "tier": {
       "type": "string",

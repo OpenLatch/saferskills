@@ -1,7 +1,7 @@
 /**
  * Group + resolve findings into `FindingDetail` props.
  *
- * Ports the v3 mockup's `groupFindings()` + the `RULES` lookup, except the rule
+ * Ports the report's `groupFindings()` + the `RULES` lookup, except the rule
  * library is the codegen `RULE_CONTENT` map (rule prose never lives in TSX). The
  * webapp owns the grouping + map lookup + placeholder interpolation and hands
  * the DS `FindingDetail` already-resolved props — `ui/` never imports the map.
