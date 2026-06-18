@@ -4,6 +4,8 @@ Every env var is read via this Settings class — never directly via os.environ.
 See `.claude/rules/environment-config.md`.
 """
 
+import base64
+import binascii
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -598,7 +600,15 @@ class Settings(BaseSettings):
     )
     github_app_private_key: str | None = Field(
         default=None,
-        description="GitHub App PEM private key (RS256). Multi-line; base64 in a Fly secret.",
+        description="GitHub App PEM private key (RS256). Accepts a raw multi-line PEM "
+        "or a base64-encoded PEM (decoded at load by `_normalize_github_app_private_key`). "
+        "Prefer the single-line `GITHUB_APP_PRIVATE_KEY_B64` secret in deployment.",
+    )
+    github_app_private_key_b64: str | None = Field(
+        default=None,
+        description="Base64-encoded GitHub App PEM (Fly secret GITHUB_APP_PRIVATE_KEY_B64). "
+        "Decoded into github_app_private_key at load when the raw key is unset — a "
+        "single-line secret avoids multi-line Fly-secret quoting.",
     )
     github_app_installation_id: str | None = Field(
         default=None, description="GitHub App installation id (numeric)."
@@ -726,6 +736,39 @@ class Settings(BaseSettings):
                 "signs every served agent pack; unset would serve unsigned packs the "
                 "baked CLI pubkey cannot verify (must be a stable Fly secret)."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _normalize_github_app_private_key(self) -> Settings:
+        """Resolve the GitHub App private key to a raw PEM the JWT signer can use.
+
+        The key is stored **base64-encoded** in a Fly secret (single-line — multi-line
+        PEM secrets are awkward to set and quote), under `GITHUB_APP_PRIVATE_KEY_B64`.
+        The JWT signer (`app/core/github_app_token.py`) feeds the value straight into
+        `jwt.encode(..., algorithm="RS256")`, which needs a raw PEM — so decode here.
+
+        Accepts, in priority order, and always lands a raw PEM (or None) in
+        `github_app_private_key`:
+          1. a raw PEM already in `github_app_private_key` (kept as-is);
+          2. a base64 value in `github_app_private_key` (decoded);
+          3. the dedicated `github_app_private_key_b64` secret (decoded).
+        A value that is neither a PEM nor valid base64-of-a-PEM is reset to None so
+        token minting fails *gracefully* (anonymous fallback) rather than 500-ing
+        every GitHub fetch. Without this, the `_B64` secret was silently never read
+        and every API + worker GitHub call ran anonymous (60 req/h).
+        """
+        raw = self.github_app_private_key
+        if raw and "-----BEGIN" in raw:
+            return self  # already a usable PEM
+        candidate = (raw or self.github_app_private_key_b64 or "").strip()
+        if not candidate:
+            self.github_app_private_key = None
+            return self
+        try:
+            decoded = base64.b64decode(candidate).decode("utf-8")
+        except binascii.Error, ValueError, UnicodeDecodeError:
+            decoded = ""
+        self.github_app_private_key = decoded if "-----BEGIN" in decoded else None
         return self
 
 
