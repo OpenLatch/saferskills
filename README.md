@@ -144,6 +144,24 @@ One trust layer for every coding agent. Detect, install, and re-verify across:
 
 `claude-code` · `cursor` · `windsurf` · `copilot` · `codex` · `gemini` · `cline` · `openclaw`
 
+## Teach your agent to use SaferSkills
+
+One command teaches any of the 8 supported agents to use SaferSkills — and to scan a
+capability before it installs, adds, recommends, or trusts it:
+
+```bash
+npx saferskills install saferskills
+```
+
+The canonical skill lives at [`skills/saferskills/SKILL.md`](skills/saferskills/SKILL.md) and
+renders to each agent's native format (Claude Code & OpenClaw get the `SKILL.md` verbatim;
+Cursor `.mdc`, Cline/Windsurf rules, Codex/Copilot `AGENTS.md`, Gemini `GEMINI.md` get a
+native render). See the [install guide](https://saferskills.ai/docs/install/saferskills-skill/).
+
+<!-- badge filled by plan 03 (dogfood scan): real run_id + the saferskills capability score (target 100). Kept commented until the public-ref scan runs — see .local/.brainstorms/saferskills-skill/outbox/01.
+[![Scanned by SaferSkills — <score>/100](https://saferskills.ai/badge/<run_id>/<score>.svg)](https://saferskills.ai/items/<slug>)
+-->
+
 ## ⭐ Support the project
 
 If SaferSkills helps you install AI capabilities more safely, **[star the repo](https://github.com/OpenLatch/saferskills)** — it's the cheapest way to help a free, public safety service reach the people installing risky skills. Stars are how this gets in front of the next developer about to `curl | bash` something they didn't read.
