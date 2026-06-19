@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: dorny/paths-filter@v4
         id: filter
@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: pnpm run generate
       - name: Assert no drift
@@ -126,7 +126,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: pnpm biome check .
 
@@ -138,7 +138,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd services/api && uv sync && uv run ruff check .
       - run: cd tools/e2e && uv sync && uv run ruff check . || true   # e2e tooling — not required to block
@@ -151,7 +151,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd webapp && pnpm tsc --noEmit
 
@@ -163,7 +163,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd services/api && uv sync && uv run pyright
 
@@ -175,7 +175,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd ui && pnpm test
       - run: cd webapp && pnpm test || true   # webapp has no tests yet
@@ -204,7 +204,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd services/api && uv sync && uv run pytest tests/ -x
 
@@ -216,7 +216,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd ui && pnpm ladle:build
 
@@ -240,7 +240,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
@@ -267,7 +267,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with: { pattern: image-*, merge-multiple: true, path: /tmp }
       - name: Load images
@@ -354,7 +354,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - name: bandit
         run: cd services/api && uv sync && uv run --with bandit -- bandit -r app -c pyproject.toml || true
@@ -388,7 +388,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       - name: Install API deps
         run: cd services/api && uv sync
@@ -409,7 +409,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with: { pattern: image-*, merge-multiple: true, path: /tmp }
       - name: Load API image
@@ -470,7 +470,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-saferskills-build
       # Fast frontmatter gate — no build/API needed. The build-dependent
       # docs gates (llms.txt, internal links, axe) now run in `lighthouse-a11y`,
@@ -487,7 +487,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
         with: { components: rustfmt }
       - run: cargo fmt --manifest-path cli/Cargo.toml --all --check
@@ -500,7 +500,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
         with: { components: clippy, cache-key-suffix: clippy }
       - run: cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings
@@ -513,7 +513,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
         with: { components: llvm-tools-preview, cache-key-suffix: test }
       - uses: taiki-e/install-action@v2
@@ -529,7 +529,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
         with: { cache-key-suffix: release }
       - run: cargo build --release --manifest-path cli/Cargo.toml
@@ -550,7 +550,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
       - name: Assert no openssl-sys / native-tls in the dep tree
         run: |

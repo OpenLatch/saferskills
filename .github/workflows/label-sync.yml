@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: crazy-max/ghaction-github-labeler@v6
         with:
           yaml-file: .github/labels.yml

@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: dorny/paths-filter@v4
         id: filter
@@ -98,7 +98,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v4
       - name: Log in to ghcr.io
@@ -192,7 +192,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy
         env:
@@ -287,7 +287,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy
         # The worker runs the SAME image as the API (services/worker/ is config
@@ -349,7 +349,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy
         env:
@@ -385,7 +385,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with: { python-version: "3.14" }
       - uses: astral-sh/setup-uv@v7
@@ -425,7 +425,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy
         env:
@@ -519,7 +519,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy
         # Same image as the production API (services/worker/ is config only). The
@@ -578,7 +578,7 @@ jobs:
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy
         env:
