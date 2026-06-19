@@ -139,8 +139,9 @@ fn skill_round_trip_for_claude() {
     let agent = agent_at(AgentId::ClaudeCode, dir.path());
     let writer = writers::writer_for(AgentId::ClaudeCode);
 
-    // Claude Code receives the verbatim SKILL.md text rendered to a single file
-    // at <skill_dir>/saferskills/SKILL.md (plan 02) — NOT nested under the slug.
+    // Claude Code receives the verbatim SKILL.md text rendered to a single file at
+    // <skill_dir>/<name>/SKILL.md (plan 02, NAME-keyed — NOT a hardcoded folder,
+    // and NOT nested under the slug).
     let skill_md = "---\nname: github\ndescription: x\n---\n\n<!-- pointer:start -->\nscan first\n<!-- pointer:end -->\n";
     let item = ResolvedItem {
         slug: "acme--kit--skill-github".into(),
@@ -155,9 +156,12 @@ fn skill_round_trip_for_claude() {
         .skill_dir
         .as_ref()
         .unwrap()
-        .join("saferskills")
+        .join("github")
         .join("SKILL.md");
-    assert!(dest.exists(), "verbatim SKILL.md written to saferskills/");
+    assert!(
+        dest.exists(),
+        "verbatim SKILL.md written to <skill_dir>/github/"
+    );
     assert_eq!(std::fs::read_to_string(&dest).unwrap(), skill_md);
     writer.uninstall(&changes).unwrap();
     assert_eq!(writer.verify(&item, &agent), VerifyStatus::Missing);

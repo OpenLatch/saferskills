@@ -189,26 +189,55 @@ pub(crate) fn is_agents_md_agent(id: AgentId) -> bool {
     matches!(id, AgentId::Codex | AgentId::Copilot | AgentId::Gemini)
 }
 
-/// The standalone-file destination for a `SkillRender::File` form (plan 02):
-/// - Claude Code / OpenClaw → `<skill_dir>/saferskills/SKILL.md` (verbatim).
-/// - Cursor → `<rules_dir>/saferskills.mdc` (Agent-Requested `.mdc`).
-/// - Cline / Windsurf → `<rules_dir>/saferskills.md` (always-on rules).
-fn skill_target_path(id: AgentId, agent: &DetectedAgent) -> Result<PathBuf, SsError> {
+/// Reject a capability `name` that is not a safe single path segment before it is
+/// joined into an install path. `name` is server-provided (`display_name` from the
+/// public catalog), so a crafted value like `../../.ssh/authorized_keys` must never
+/// escape the agent's skills/rules dir (path-traversal guard — the renderer writes
+/// to the user's filesystem). Allowed: 1–64 chars of `[A-Za-z0-9_-]` (a superset of
+/// the Agent Skills `name` grammar); everything else — separators, `.`/`..`, a
+/// leading dot, spaces, control bytes — is rejected.
+fn validate_skill_name(name: &str) -> Result<(), SsError> {
+    let safe = !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    if safe {
+        Ok(())
+    } else {
+        Err(SsError::new(
+            ERR_WRITER_UNSUPPORTED,
+            format!(
+                "Refusing to install: unsafe capability name {name:?} \
+                 (skills must be 1–64 chars of letters, digits, '-' or '_')."
+            ),
+        ))
+    }
+}
+
+/// The standalone-file destination for a `SkillRender::File` form (plan 02), keyed
+/// by the capability `name` (the renderer is GENERAL — D1 — never a hardcoded
+/// "saferskills"). The `name` is path-validated first (traversal guard):
+/// - Claude Code / OpenClaw → `<skill_dir>/<name>/SKILL.md` (verbatim).
+/// - Cursor → `<rules_dir>/<name>.mdc` (Agent-Requested `.mdc`).
+/// - Cline / Windsurf → `<rules_dir>/<name>.md` (always-on rules).
+fn skill_target_path(id: AgentId, agent: &DetectedAgent, name: &str) -> Result<PathBuf, SsError> {
+    validate_skill_name(name)?;
     match id {
         AgentId::ClaudeCode | AgentId::Openclaw => agent
             .skill_dir
             .as_ref()
-            .map(|d| d.join("saferskills").join("SKILL.md"))
+            .map(|d| d.join(name).join("SKILL.md"))
             .ok_or_else(|| no_skill_dir_err(id)),
         AgentId::Cursor => agent
             .rules_dir
             .as_ref()
-            .map(|d| d.join("saferskills.mdc"))
+            .map(|d| d.join(format!("{name}.mdc")))
             .ok_or_else(|| no_rules_dir_err(id)),
         AgentId::Cline | AgentId::Windsurf => agent
             .rules_dir
             .as_ref()
-            .map(|d| d.join("saferskills.md"))
+            .map(|d| d.join(format!("{name}.md")))
             .ok_or_else(|| no_rules_dir_err(id)),
         // Codex/Copilot/Gemini render a Block, never a File — unreachable in the
         // dispatch, but keep the match total with a clear error.
@@ -244,10 +273,12 @@ pub(crate) fn agents_md_path(id: AgentId, agent: &DetectedAgent) -> Result<PathB
     }
 }
 
-/// Verify a rendered skill install (plan 02) — the standalone file exists, or the
-/// shared `AGENTS.md` / `GEMINI.md` carries our marker block. Path-only (no
-/// `skill_md` needed), so `doctor`'s sparse `ResolvedItem` verifies correctly.
-fn verify_skill_rendered(id: AgentId, agent: &DetectedAgent) -> VerifyStatus {
+/// Verify a rendered skill install (plan 02) — the standalone `<skill_dir>/<name>`
+/// /`<rules_dir>/<name>.<ext>` file exists, or the shared `AGENTS.md` / `GEMINI.md`
+/// carries our marker block. Keyed by the capability `name` so it checks the same
+/// path `install_skill_rendered` wrote (the doctor/verify `ResolvedItem` carries
+/// `name`, derived from the slug — `skill_md` is not needed here).
+fn verify_skill_rendered(id: AgentId, agent: &DetectedAgent, name: &str) -> VerifyStatus {
     if is_agents_md_agent(id) {
         let Ok(host) = agents_md_path(id, agent) else {
             return VerifyStatus::Missing;
@@ -258,7 +289,7 @@ fn verify_skill_rendered(id: AgentId, agent: &DetectedAgent) -> VerifyStatus {
             _ => VerifyStatus::Missing,
         }
     } else {
-        match skill_target_path(id, agent) {
+        match skill_target_path(id, agent, name) {
             Ok(dest) if dest.exists() => VerifyStatus::Ok,
             _ => VerifyStatus::Missing,
         }
@@ -276,7 +307,7 @@ fn install_skill_rendered(
     let skill_md = item.skill_md.as_ref().ok_or_else(|| no_entry_err(id))?;
     match render_skill(skill_md, id)? {
         SkillRender::File { content } => {
-            let dest = skill_target_path(id, agent)?;
+            let dest = skill_target_path(id, agent, &item.name)?;
             Ok(vec![write_file_change(&dest, content.as_bytes(), dry_run)?])
         }
         SkillRender::Block { block } => {
@@ -382,7 +413,7 @@ impl ConfigWriter for JsonMcpWriter {
                 let key = self.key.resolve(&agent.mcp_config_path);
                 verify_json_mcp(&agent.mcp_config_path, &key, &item.name)
             }
-            "skill" => verify_skill_rendered(self.id, agent),
+            "skill" => verify_skill_rendered(self.id, agent, &item.name),
             "rules" => match agent.rules_dir.as_ref() {
                 Some(dir)
                     if dir
@@ -461,7 +492,7 @@ impl ConfigWriter for CodexWriter {
     fn verify(&self, item: &ResolvedItem, agent: &DetectedAgent) -> VerifyStatus {
         match item.kind.as_str() {
             "mcp_server" => verify_toml_mcp(&agent.mcp_config_path, &item.name),
-            "skill" => verify_skill_rendered(AgentId::Codex, agent),
+            "skill" => verify_skill_rendered(AgentId::Codex, agent, &item.name),
             _ => VerifyStatus::Missing,
         }
     }
@@ -477,6 +508,26 @@ mod tests {
             let w = writer_for(id);
             assert_eq!(w.id(), id);
         }
+    }
+
+    #[test]
+    fn validate_skill_name_blocks_path_traversal() {
+        // Spec-legal shapes are accepted.
+        for ok in ["demo", "saferskills", "my-skill_1", "A1"] {
+            assert!(validate_skill_name(ok).is_ok(), "{ok:?} should be allowed");
+        }
+        // A server-provided name must never escape the target dir or be a
+        // non-flat segment: separators, `.`/`..`, leading dot, NUL, spaces.
+        for bad in [
+            "", "..", ".", ".hidden", "a/b", "../evil", "..\\evil", "a\0b", "a b", "foo.bar",
+        ] {
+            assert!(
+                validate_skill_name(bad).is_err(),
+                "{bad:?} must be rejected"
+            );
+        }
+        assert!(validate_skill_name(&"x".repeat(64)).is_ok());
+        assert!(validate_skill_name(&"x".repeat(65)).is_err());
     }
 
     #[test]
