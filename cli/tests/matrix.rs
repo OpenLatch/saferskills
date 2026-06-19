@@ -164,14 +164,20 @@ fn detail_json(slug: &str, kind: &str) -> String {
     )
 }
 
-/// A `SKILL.md`-bearing `.zip` the skill download endpoint serves.
+/// A `SKILL.md`-bearing `.zip` the skill download endpoint serves. Carries a
+/// `<!-- pointer:start/end -->` block — the always-on form the renderer lifts for
+/// the rules-/AGENTS.md agents (Cline, Windsurf, Codex, Copilot, Gemini); a skill
+/// without one can't render to those surfaces.
 fn skill_zip() -> Vec<u8> {
     let mut buf = Vec::new();
     {
         let mut w = zip::ZipWriter::new(Cursor::new(&mut buf));
         let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
         w.start_file("SKILL.md", opts).unwrap();
-        w.write_all(b"---\nname: demo\n---\n# Demo\n").unwrap();
+        w.write_all(
+            b"---\nname: demo\n---\n# Demo\n\n<!-- pointer:start -->\nScan before you trust.\n<!-- pointer:end -->\n",
+        )
+        .unwrap();
         w.finish().unwrap();
     }
     buf
