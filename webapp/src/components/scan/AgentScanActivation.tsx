@@ -139,6 +139,9 @@ export default function AgentScanActivation({ surface, initialPlatform = 'univer
         tinted
         copyState={mint.copyState}
         onCopy={generate}
+        // Pre-mint, a manual select+copy of the template mints too (never copies
+        // `{{…}}`); once minted, native copy of the real text passes through.
+        interceptCopy={mint.prompt === null}
         footSlot={
           ready ? (
             mint.mintedVisibility === 'unlisted' ? (

@@ -272,6 +272,32 @@ html.dark .dsm-result:hover {
 }
 
 /* ============================================================
+   LANDING HERO BANNER (docs root only) — the reused README hero
+   Theme-aware via the same display-toggle as Screenshot.astro: both
+   captures render, the off-theme one is display:none (out of the a11y
+   tree, so only the visible alt is announced).
+   ============================================================ */
+.docs-hero-banner {
+  margin: 0 0 32px;
+}
+.docs-hero-banner .dhb-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-0);
+}
+.docs-hero-banner .dhb-dark {
+  display: none;
+}
+html.dark .docs-hero-banner .dhb-light {
+  display: none;
+}
+html.dark .docs-hero-banner .dhb-dark {
+  display: block;
+}
+
+/* ============================================================
    PROSE — rendered markdown body (ported from .methodology-prose)
    ============================================================ */
 .doc-prose {

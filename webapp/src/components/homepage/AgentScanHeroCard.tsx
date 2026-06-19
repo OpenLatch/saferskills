@@ -49,6 +49,9 @@ export default function AgentScanHeroCard() {
           tinted
           copyState={mint.copyState}
           onCopy={() => mint.copy(visibility)}
+          // Pre-mint, a manual select+copy of the template mints too (never
+          // copies `{{…}}`); once minted, native copy of the real text passes.
+          interceptCopy={mint.prompt === null}
         />
         <div className="scan-vis">
           <Toggle

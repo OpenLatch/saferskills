@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ClipboardEvent, ReactNode } from 'react'
 import { highlightAgentPrompt } from '../../lib/highlight-prompt'
 
 export type PromptCopyState = 'idle' | 'copied' | 'busy'
@@ -22,6 +22,15 @@ interface Props {
   copyState: PromptCopyState
   /** Fired on Copy click. Side effects (fetch/Turnstile/clipboard) live in the parent. */
   onCopy: () => void
+  /**
+   * When true, a native `copy`/`cut` over the body text is intercepted:
+   * `preventDefault()` stops the raw (un-minted) text reaching the clipboard and
+   * `onCopy` is fired instead — so a manual select-then-copy routes through the
+   * same mint flow as the Copy button (never copies `{{…}}` placeholders). Pass
+   * it only while the body shows the pre-mint template; once the real prompt is
+   * displayed, leave it off so native selection-copy of the live text works.
+   */
+  interceptCopy?: boolean
   /** Optional foot area under the code body (e.g. a visibility note). */
   footSlot?: ReactNode
 }
@@ -82,6 +91,7 @@ export default function PromptCodeCard({
   lines,
   copyState,
   onCopy,
+  interceptCopy = false,
   footSlot,
   tinted = false,
 }: Props) {
@@ -90,6 +100,15 @@ export default function PromptCodeCard({
   }`
   // Tint once per render — aligned 1:1 with `lines` so the row map can index it.
   const tintedLines = tinted ? highlightAgentPrompt(lines) : null
+  // A manual copy/cut of the pre-mint template is hijacked into the same mint
+  // path as the Copy button, so the raw `{{…}}` text never reaches the clipboard.
+  // The hook owns re-entrancy (busy/gating/minting) — this just forwards intent.
+  const onBodyClipboard = interceptCopy
+    ? (e: ClipboardEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        onCopy()
+      }
+    : undefined
   return (
     <div className="prompt-card">
       <div className="pc-head">
@@ -109,8 +128,16 @@ export default function PromptCodeCard({
         </button>
       </div>
       {/* tabIndex makes the scrollable body keyboard-reachable (arrow-scroll) —
-          axe `scrollable-region-focusable` (WCAG 2 A/AA); role+label name it. */}
-      <div className="pc-body" tabIndex={0} role="group" aria-label={title}>
+          axe `scrollable-region-focusable` (WCAG 2 A/AA); role+label name it.
+          When `interceptCopy`, a manual copy/cut routes through the mint flow. */}
+      <div
+        className="pc-body"
+        tabIndex={0}
+        role="group"
+        aria-label={title}
+        onCopy={onBodyClipboard}
+        onCut={onBodyClipboard}
+      >
         {lines.map((line, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: lines are a static positional list
           <div className="pc-line" key={i}>

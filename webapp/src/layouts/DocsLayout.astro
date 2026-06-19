@@ -5,7 +5,10 @@
  * body is the design system (no Starlight). CSS: `webapp/src/styles/page-docs.css`.
  */
 import type { MarkdownHeading } from 'astro'
+import { Image } from 'astro:assets'
 import type { CollectionEntry } from 'astro:content'
+import bannerDark from '@/assets/docs-banner.dark.png'
+import bannerLight from '@/assets/docs-banner.light.png'
 import DocsPagination from '@/components/docs/DocsPagination.astro'
 import DocsSearch from '@/components/docs/DocsSearch.tsx'
 import DocsSidebar from '@/components/docs/DocsSidebar.astro'
@@ -30,6 +33,11 @@ const pathname = Astro.url.pathname
 // the section from the entry's top-level folder; the root overview has none.
 const sectionDir = idToSlug(entry.id).split('/')[0]
 const eyebrow = sectionDir ? `DOCS · ${sectionLabel(sectionDir)}` : 'DOCS'
+
+// The README brand hero rides the /docs overview only — repeating a full
+// marketing banner above every sub-page reads as heavy/redundant.
+const isLanding = idToSlug(entry.id) === ''
+const bannerAlt = 'SaferSkills — every AI capability, independently scanned'
 
 const nav = await buildDocsNav()
 const flat = flattenNav(nav)
@@ -78,6 +86,14 @@ const updatedLabel = entry.data.updated
     </aside>
 
     <article class="doc-prose">
+      {
+        isLanding && (
+          <figure class="docs-hero-banner">
+            <Image class="dhb-img dhb-light" src={bannerLight} alt={bannerAlt} loading="eager" />
+            <Image class="dhb-img dhb-dark" src={bannerDark} alt={bannerAlt} loading="eager" />
+          </figure>
+        )
+      }
       <slot />
       <footer class="doc-page-foot">
         <div class="doc-meta">

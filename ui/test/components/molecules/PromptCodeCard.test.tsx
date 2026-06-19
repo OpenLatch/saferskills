@@ -44,6 +44,34 @@ describe('PromptCodeCard', () => {
     expect(onCopy).toHaveBeenCalledTimes(1)
   })
 
+  // Regression (bug: manual select+copy walked away with raw `{{PACK_URL}}`
+  // template text): with `interceptCopy`, a native copy/cut over the body is
+  // prevented and routed through `onCopy` (the mint flow) instead.
+  it('intercepts a body copy/cut into onCopy and prevents the default', () => {
+    const onCopy = vi.fn()
+    const { container } = render(
+      <PromptCodeCard title="Prompt" lines={LINES} copyState="idle" onCopy={onCopy} interceptCopy />,
+    )
+    const body = container.querySelector('.pc-body') as HTMLElement
+    const copyDefaultPrevented = !fireEvent.copy(body)
+    expect(onCopy).toHaveBeenCalledTimes(1)
+    expect(copyDefaultPrevented).toBe(true)
+    const cutDefaultPrevented = !fireEvent.cut(body)
+    expect(onCopy).toHaveBeenCalledTimes(2)
+    expect(cutDefaultPrevented).toBe(true)
+  })
+
+  it('does not intercept a body copy when interceptCopy is absent (native copy passes)', () => {
+    const onCopy = vi.fn()
+    const { container } = render(
+      <PromptCodeCard title="Prompt" lines={LINES} copyState="idle" onCopy={onCopy} />,
+    )
+    const body = container.querySelector('.pc-body') as HTMLElement
+    const copyDefaultPrevented = !fireEvent.copy(body)
+    expect(onCopy).not.toHaveBeenCalled()
+    expect(copyDefaultPrevented).toBe(false)
+  })
+
   it('busy disables the control, shows the pending label, and swallows clicks', () => {
     const onCopy = vi.fn()
     render(<PromptCodeCard title="Prompt" lines={LINES} copyState="busy" onCopy={onCopy} />)
