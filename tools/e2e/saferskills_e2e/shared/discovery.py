@@ -45,3 +45,25 @@ async def discover_first_scan(config: Config) -> dict[str, Any] | None:
     resp.raise_for_status()
     data = resp.json().get("data", [])
     return data[0] if data else None
+
+
+async def discover_first_completed_scan(config: Config) -> dict[str, Any] | None:
+    """First scan summary whose OG card will render, or None when none exist yet.
+
+    The public `/scans` feed is filtered to public + non-firehose but NOT by
+    status, so the newest row can be a pending/running/failed run; and the slim
+    feed DTO (`ScanReportSummary`) exposes no `status` field. The OG card
+    endpoint only serves a `completed` run (else 404), so the og-endpoint smoke
+    must pick a row that is provably completed-and-scored. The reliable signal
+    the DTO *does* carry is `tier` (= `repo_tier`): a non-completed run is
+    `tier='unscoped'` with no `aggregate_score` (the same predicate the sitemap
+    and the item `noindex` use). So select the first row with a real tier — that
+    run's OG card 200s; otherwise the smoke would (correctly) get a 404 and
+    false-fail."""
+    async with make_client(config) as client:
+        resp = await client.get(f"{config.api_url}/api/v1/scans", params={"limit": 20})
+    resp.raise_for_status()
+    for row in resp.json().get("data", []):
+        if row.get("tier") and row["tier"] != "unscoped" and row.get("aggregate_score") is not None:
+            return row
+    return None

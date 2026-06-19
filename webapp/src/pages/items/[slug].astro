@@ -10,6 +10,8 @@ import Footer from '@ui/components/atoms/Footer.astro'
 import ItemTabs from '@/components/item/ItemTabs.tsx'
 import InstallCard from '@/components/item/InstallCard.tsx'
 import VendorResponseBlock from '@ui/components/molecules/VendorResponseBlock.tsx'
+import JsonLd from '@/components/seo/JsonLd.astro'
+import { breadcrumbJsonLd, capabilityAppJsonLd } from '@/lib/jsonld'
 import { fetchItemBySlug } from '@/lib/api/items'
 import { isIndexableScan, scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
@@ -75,25 +77,56 @@ const installsTotal = install_activity.all_time
 // SAME predicate as the sitemap `_items` filter (`tier != 'unscoped'`) so the
 // indexed set and the sitemap set can never drift.
 const indexable = isIndexableScan(latest_scan)
+
+// Single source for the visible <Breadcrumb> AND its BreadcrumbList JSON-LD
+// (SEO-T4). The atom takes `{label, href}` (terminal crumb has no href = current
+// page); the JSON-LD builder wants `{name, path}`, so adapt explicitly and give
+// the terminal crumb its own path (`Astro.url.pathname`). The trail is only
+// emitted as structured data because it is ALSO rendered visibly below — never
+// fabricate a breadcrumb that has no on-page counterpart.
+const breadcrumbItems: { label: string; href?: string }[] = [
+  { label: 'Capabilities', href: '/capabilities' },
+  { label: kindPlural, href: `/capabilities?kind=${item.kind}` },
+  { label: item.display_name },
+]
+const breadcrumbCrumbs = breadcrumbItems.map((c) => ({
+  name: c.label,
+  path: c.href ?? Astro.url.pathname,
+}))
+
+// SoftwareApplication (mcp_server) / SoftwareSourceCode (everything else) for the
+// scanned capability. NO AggregateRating (D-07-05) — the score is in visible HTML.
+const itemAppSchema = capabilityAppJsonLd({
+  slug,
+  name: item.display_name,
+  kind: item.kind,
+  repoUrl: githubUrl,
+})
+
+// The answer-first lead (SEO-T7) only makes sense for a scanned item; an
+// unscanned item is `noindex` and renders the "not yet scanned" state instead.
+const answerLead =
+  score != null
+    ? `SaferSkills independently audited ${item.display_name} (${kindLabel}) and scored it ${score}/100 (${tier}). The audit ran ${methodologyRuleCount} deterministic rules across Security, Supply Chain, Maintenance, Transparency, and Community; it found ${highCount} high-severity and ${warnCount} lower-severity findings. The full rule-by-rule trace and per-finding evidence are below. Free, methodology-open.`
+    : null
 ---
 
 <Base
   title={`${item.display_name} ${scoreLabel} — SaferSkills`}
   description={`SaferSkills audit of ${item.display_name} by ${item.github_org}: ${scoreLabel}. Independent, methodology-open, free.`}
-  ogImage={new URL(`/og/item/${slug}.png`, Astro.site).href}
+  ogImage={indexable ? new URL(`/og/item/${slug}.png`, Astro.site).href : undefined}
   noindex={!indexable}
 >
+  {/* Per-capability structured data (SEO-T4). Only on an indexable (scanned)
+      page — a noindex thin/unscanned page must not advertise structured data.
+      The two schemas ride one ld+json @graph; Organization is in Base. */}
+  {indexable && <JsonLd schema={[itemAppSchema, breadcrumbJsonLd(breadcrumbCrumbs)]} />}
+
   <NavBar client:idle activePath={Astro.url.pathname} />
 
   <header class="page-head sk-head">
     <div class="container">
-      <Breadcrumb
-        items={[
-          { label: 'Capabilities', href: '/capabilities' },
-          { label: kindPlural, href: `/capabilities?kind=${item.kind}` },
-          { label: item.display_name },
-        ]}
-      />
+      <Breadcrumb items={breadcrumbItems} />
       <div class="sk-head-row">
         <div class="sk-head-l">
           <h1 class="ph-title">{item.display_name}<span class="script">— {kindLabel.toLowerCase()}</span></h1>
@@ -130,6 +163,17 @@ const indexable = isIndexableScan(latest_scan)
 
   {latest_scan ? (
     <>
+      {answerLead && (
+        <section class="sk-answer">
+          <div class="container">
+            {/* SEO-T7 answer-first: a real-question H2 + a 40–80-word direct answer
+                in VISIBLE HTML (where AI engines read the score). The score is here,
+                not as a schema rating (D-07-05). */}
+            <h2 class="answer-q">Is {item.display_name} safe to install?</h2>
+            <p class="answer-lead">{answerLead}</p>
+          </div>
+        </section>
+      )}
       <section class="sk-stat-band">
         <div class="container">
           <div class="sk-stat-grid">

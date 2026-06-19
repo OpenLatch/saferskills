@@ -13,6 +13,9 @@ import WhyRow from '@ui/components/molecules/WhyRow.tsx'
 import CtaBand from '@ui/components/molecules/CtaBand.tsx'
 import Footer from '@ui/components/atoms/Footer.astro'
 
+import JsonLd from '@/components/seo/JsonLd.astro'
+import { scannerAppJsonLd } from '@/lib/jsonld'
+
 import TopoBand from '@/components/homepage/TopoBand.astro'
 import WaveBand from '@/components/homepage/WaveBand.astro'
 import FeedsMosaic from '@/components/homepage/FeedsMosaic.astro'
@@ -38,6 +41,11 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
   title="SaferSkills — Audit every capability. Scan the whole agent."
   bodyClass="va"
 >
+  {/* SoftwareApplication JSON-LD for the SaferSkills scanner itself (SEO-T4).
+      Homepage only — describes the site-wide product. The score is never a
+      schema rating (D-07-05); it lives in visible HTML. */}
+  <JsonLd schema={scannerAppJsonLd()} />
+
   <NavBar client:idle ghCount={data.githubStars} activePath={Astro.url.pathname} />
 
   {/* Live-refresh island — re-runs the homepage view-model client-side and
@@ -174,8 +182,11 @@ const data = await getHomepageData({ ruleCountFallback: methodologyRuleCount })
           <div class="sec">Name</div>
           <div class="name">Five reasons it earns the URL.</div>
           <div class="blurb">
-            Find · Install · Audit · Scan · Trust. Each pillar earns its row — and the
-            metrics underneath.
+            Scanning AI capabilities matters because a skill, MCP server, hook, or plugin
+            runs with your agent&#39;s full permissions — one poisoned tool or hidden
+            instruction can leak secrets or run destructive commands. SaferSkills audits
+            each one against open, reproducible rules so you install on evidence, not trust.
+            Five pillars earn the URL: Find · Install · Audit · Scan · Trust.
           </div>
           <a class="pill" href="/methodology">Read the methodology →</a>
         </div>

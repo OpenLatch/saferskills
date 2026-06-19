@@ -10,7 +10,7 @@ import httpx
 
 from saferskills_e2e.commands.base import BaseCommand
 from saferskills_e2e.shared.config import Config
-from saferskills_e2e.shared.discovery import discover_first_scan
+from saferskills_e2e.shared.discovery import discover_first_completed_scan
 from saferskills_e2e.shared.exit_codes import ExitCode
 from saferskills_e2e.shared.http_client import make_client
 from saferskills_e2e.shared.output import print_fail, print_ok, print_warn
@@ -25,13 +25,13 @@ class OgEndpointCommand(BaseCommand):
     async def run(self, config: Config) -> ExitCode:
         self.print_header()
         try:
-            scan = await discover_first_scan(config)
+            scan = await discover_first_completed_scan(config)
         except httpx.HTTPError as e:
             print_fail(f"Could not list scans: {e!s}")
             return ExitCode.FAIL_OG
 
         if scan is None:
-            print_warn("No scans yet — skipping og-endpoint.")
+            print_warn("No completed scans yet — skipping og-endpoint.")
             return ExitCode.OK
 
         scan_id = scan["id"]

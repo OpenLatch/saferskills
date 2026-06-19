@@ -407,6 +407,32 @@ jobs:
           uv run playwright install chromium
           uv run saferskills-e2e all
 
+      # SEO-T6: Lighthouse the two real money-pages (a scanned catalog item + its
+      # scan report) on POPULATED staging — they can't be seeded in the PR
+      # `lighthouse-a11y` lane (empty postgres → 404). Resolve the two live URLs at
+      # run time from the staging API, write them into the staging lhci config,
+      # then run lhci. Observe-warn only (never red-gates a deploy on a perf blip).
+      - name: Lighthouse staging money-pages (observe-warn)
+        if: needs.deploy-staging-webapp.result == 'success'
+        continue-on-error: true
+        env:
+          API: https://saferskills-api-staging.fly.dev
+          BASE: https://saferskills-webapp-staging.fly.dev
+        run: |
+          set -euo pipefail
+          # Newest public catalog item (carries a completed scan) + newest public
+          # scan run. Empty staging → fall back to the homepage so lhci never aborts.
+          ITEM_SLUG=$(curl -fsS "$API/api/v1/items?limit=1" | jq -r '.data[0].slug // empty')
+          SCAN_ID=$(curl -fsS "$API/api/v1/scans?limit=1" | jq -r '.data[0].id // empty')
+          URLS="[]"
+          if [ -n "$ITEM_SLUG" ]; then URLS=$(jq -cn --arg u "$BASE/items/$ITEM_SLUG" '[$u]'); fi
+          if [ -n "$SCAN_ID" ]; then URLS=$(jq -c --arg u "$BASE/scans/$SCAN_ID" '. + [$u]' <<<"$URLS"); fi
+          if [ "$URLS" = "[]" ]; then URLS=$(jq -cn --arg u "$BASE/" '[$u]'); fi
+          echo "Lighthouse URLs: $URLS"
+          # Inject the resolved URLs into the committed staging config.
+          jq --argjson urls "$URLS" '.ci.collect.url = $urls' .lighthouserc.staging.json > .lighthouserc.staging.run.json
+          npx -y @lhci/cli@latest autorun --config=.lighthouserc.staging.run.json
+
   # ─────────────────────────────────────────────────────────────────────
   # Production deployment is BLOCKED until SaferSkills reaches MVP state.
   # Gate: repo variable `ENABLE_PRODUCTION_DEPLOYS` must equal the literal

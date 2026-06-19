@@ -1,0 +1,24 @@
+---
+/**
+ * XSS-safe JSON-LD renderer (SEO-T4).
+ *
+ * Accepts one `schema-dts` Thing (or an array of them — a `@graph`) from a
+ * builder in `@/lib/jsonld` and emits a single `<script type="application/ld+json">`
+ * tag. All serialization + escaping lives in `serializeJsonLd` (pure, unit-tested
+ * in `jsonld.test.ts`): it injects the `@context`, then escapes `<`, U+2028, and
+ * U+2029 so an attacker-controlled scanned-repo name / slug can never break out
+ * of the script element. This component is a thin wrapper so the escaping is
+ * testable without rendering Astro.
+ */
+import type { Thing } from 'schema-dts'
+
+import { serializeJsonLd } from '@/lib/jsonld'
+
+interface Props {
+  schema: Thing | Thing[]
+}
+const { schema } = Astro.props as Props
+
+const json = serializeJsonLd(schema)
+---
+<script type="application/ld+json" set:html={json} />

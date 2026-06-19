@@ -36,7 +36,7 @@ The first `playwright install chromium` downloads a versioned headless Chromium 
 | `item-detail` | Playwright loads `/items/<slug>` (slug from the API); asserts identity + score band. Empty catalog → skip. | None |
 | `vendor-respond` | Playwright loads `/items/<slug>/respond`; asserts the verify-challenge renders. Empty catalog → skip. | None |
 | `badge-endpoint` | HTTP: `/badge/<scan_id>/<score>.svg` → 200 + SVG; tampered score → 400. No scans → skip. | None |
-| `og-endpoint` | HTTP: `/og/scan/<scan_id>.png` → 200 + PNG magic. No scans → skip. | None |
+| `og-endpoint` | HTTP: `/og/scan/<scan_id>.png` → 200 + PNG magic for a COMPLETED scan (the endpoint 404s a pending/running/failed run). No completed scan → skip. | None |
 | `upload-flow` | `/scan` Upload tab default + DropZone + public toggle + consent; upload report provenance if present. Empty → skip. (staging) | Chromium |
 | `unlisted-flow` | Loopback-create an unlisted upload → `/scans/r/<token>` private banner + manage bar + `noindex` header/meta; delete → token 404s. Cap → skip. (staging) | Chromium |
 | `catalog-badge-filter` | Unlisted slug 404s on `/items/<slug>`; `/catalog` Source filter renders; UPLOAD badge under `?artifact_source=upload` if present. (staging) | Chromium |
