@@ -139,34 +139,124 @@ fn skill_round_trip_for_claude() {
     let agent = agent_at(AgentId::ClaudeCode, dir.path());
     let writer = writers::writer_for(AgentId::ClaudeCode);
 
-    // Build a tiny SKILL.md zip.
-    let mut buf = Vec::new();
-    {
-        use std::io::Write as _;
-        let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
-        w.start_file("SKILL.md", opts).unwrap();
-        w.write_all(b"---\nname: github\n---\n").unwrap();
-        w.finish().unwrap();
-    }
+    // Claude Code receives the verbatim SKILL.md text rendered to a single file at
+    // <skill_dir>/<name>/SKILL.md (plan 02, NAME-keyed — NOT a hardcoded folder,
+    // and NOT nested under the slug).
+    let skill_md = "---\nname: github\ndescription: x\n---\n\n<!-- pointer:start -->\nscan first\n<!-- pointer:end -->\n";
     let item = ResolvedItem {
         slug: "acme--kit--skill-github".into(),
         name: "github".into(),
         kind: "skill".into(),
-        skill_zip: Some(buf),
+        skill_md: Some(skill_md.into()),
         ..Default::default()
     };
     let changes = writer.install(&item, &agent, false).unwrap();
     assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
-    assert!(agent
+    let dest = agent
         .skill_dir
         .as_ref()
         .unwrap()
         .join("github")
-        .join("SKILL.md")
-        .exists());
+        .join("SKILL.md");
+    assert!(
+        dest.exists(),
+        "verbatim SKILL.md written to <skill_dir>/github/"
+    );
+    assert_eq!(std::fs::read_to_string(&dest).unwrap(), skill_md);
     writer.uninstall(&changes).unwrap();
     assert_eq!(writer.verify(&item, &agent), VerifyStatus::Missing);
+}
+
+/// A skill is now installable for the rules + AGENTS.md agents too (plan 02): the
+/// renderer deposits a `.mdc` / rules `.md` / marker block. Round-trips each.
+#[test]
+fn skill_round_trip_for_rules_and_agents_md_agents() {
+    let skill_md = "---\nname: saferskills\ndescription: scan it\n---\n\n<!-- pointer:start -->\nscan before you trust\n<!-- pointer:end -->\n\n## Core workflow\nbody only\n";
+    let item = ResolvedItem {
+        slug: "acme--kit--skill-saferskills".into(),
+        name: "saferskills".into(),
+        kind: "skill".into(),
+        skill_md: Some(skill_md.into()),
+        ..Default::default()
+    };
+
+    // Cursor → .mdc rule (File).
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_at(AgentId::Cursor, dir.path());
+        let writer = writers::writer_for(AgentId::Cursor);
+        let changes = writer.install(&item, &agent, false).unwrap();
+        let mdc = agent.rules_dir.as_ref().unwrap().join("saferskills.mdc");
+        assert!(mdc.exists(), "cursor .mdc written");
+        let body = std::fs::read_to_string(&mdc).unwrap();
+        assert!(body.contains("alwaysApply: false"), "mdc frontmatter");
+        assert!(body.contains("## Core workflow"), "full body in .mdc");
+        assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
+        writer.uninstall(&changes).unwrap();
+        assert!(!mdc.exists(), "uninstall removes the .mdc");
+    }
+
+    // Codex → marker block in AGENTS.md (Block). Global scope → skill_dir parent.
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_at(AgentId::Codex, dir.path());
+        let writer = writers::writer_for(AgentId::Codex);
+        let host = dir.path().join("AGENTS.md");
+        std::fs::write(&host, "# Repo guide\n").unwrap();
+        let changes = writer.install(&item, &agent, false).unwrap();
+        let after = std::fs::read_to_string(&host).unwrap();
+        assert!(after.contains("# Repo guide"), "host content preserved");
+        assert!(after.contains("## SaferSkills"), "marker block merged");
+        assert_eq!(writer.verify(&item, &agent), VerifyStatus::Ok);
+        writer.uninstall(&changes).unwrap();
+        let restored = std::fs::read_to_string(&host).unwrap();
+        assert_eq!(
+            restored.trim(),
+            "# Repo guide",
+            "block stripped, host intact"
+        );
+    }
+}
+
+/// Installing a skill to Codex then Copilot into ONE shared `AGENTS.md` writes the
+/// block once — the second install is a no-op replace (shared-host idempotency,
+/// plan 02). Uses two global-scope agents pointed at the same host dir so the test
+/// never mutates the process-global cwd (parallel-safe).
+#[test]
+fn codex_then_copilot_share_one_agents_md() {
+    use saferskills::agents::writers::render::MARKER_START;
+
+    let shared = tempfile::tempdir().unwrap();
+    let skill_md = "---\nname: saferskills\ndescription: scan it\n---\n\n<!-- pointer:start -->\nscan first\n<!-- pointer:end -->\n";
+    let item = ResolvedItem {
+        slug: "acme--kit--skill-saferskills".into(),
+        name: "saferskills".into(),
+        kind: "skill".into(),
+        skill_md: Some(skill_md.into()),
+        ..Default::default()
+    };
+
+    // Both global agents resolve AGENTS.md to `<skill_dir parent>/AGENTS.md` — point
+    // both skill_dirs at the SAME parent so they target one shared host file.
+    let mut codex = agent_at(AgentId::Codex, shared.path());
+    codex.skill_dir = Some(shared.path().join("skills"));
+    let mut copilot = agent_at(AgentId::Copilot, shared.path());
+    copilot.skill_dir = Some(shared.path().join("skills"));
+
+    writers::writer_for(AgentId::Codex)
+        .install(&item, &codex, false)
+        .unwrap();
+    writers::writer_for(AgentId::Copilot)
+        .install(&item, &copilot, false)
+        .unwrap();
+
+    let host = shared.path().join("AGENTS.md");
+    let body = std::fs::read_to_string(&host).unwrap();
+    assert_eq!(
+        body.matches(MARKER_START).count(),
+        1,
+        "exactly one SaferSkills block in the shared AGENTS.md:\n{body}"
+    );
 }
 
 #[test]

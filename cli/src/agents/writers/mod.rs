@@ -14,19 +14,21 @@ pub mod copilot;
 pub mod cursor;
 pub mod gemini;
 pub mod openclaw;
+pub mod render;
 pub mod windsurf;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use self::render::{render_skill, SkillRender};
 use super::writer::{
-    install_plugin, install_rules_file, install_skill, kind_supported, merge_json_hook,
-    merge_json_mcp, merge_toml_mcp, openclaw_key, reject_project_if_unsupported, revert_changes,
-    verify_hook, verify_json_mcp, verify_plugin, verify_toml_mcp, Confidence, ConfigWriter,
-    ResolvedItem, VerifyStatus,
+    install_plugin, install_rules_file, kind_supported, merge_json_hook, merge_json_mcp,
+    merge_marker_block, merge_toml_mcp, openclaw_key, reject_project_if_unsupported,
+    revert_changes, verify_hook, verify_json_mcp, verify_plugin, verify_toml_mcp,
+    write_file_change, Confidence, ConfigWriter, ResolvedItem, VerifyStatus,
 };
-use super::{AgentId, DetectedAgent};
+use super::{AgentId, DetectedAgent, Scope};
 use crate::core::error::{SsError, ERR_WRITER_UNSUPPORTED};
 use crate::core::registry::InstallChange;
 
@@ -179,6 +181,142 @@ fn hook_event_names(item: &ResolvedItem) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Agents whose skill form is a marker block merged into a shared `AGENTS.md` /
+/// `GEMINI.md` (no skills dir, no rules dir of their own for a skill) — Codex,
+/// Copilot, Gemini. Used by both `render_skill` dispatch and `kind_supported`,
+/// and by `uninstall::agent_dirs` to scope the shared-host change to its owners.
+pub(crate) fn is_agents_md_agent(id: AgentId) -> bool {
+    matches!(id, AgentId::Codex | AgentId::Copilot | AgentId::Gemini)
+}
+
+/// Reject a capability `name` that is not a safe single path segment before it is
+/// joined into an install path. `name` is server-provided (`display_name` from the
+/// public catalog), so a crafted value like `../../.ssh/authorized_keys` must never
+/// escape the agent's skills/rules dir (path-traversal guard — the renderer writes
+/// to the user's filesystem). Allowed: 1–64 chars of `[A-Za-z0-9_-]` (a superset of
+/// the Agent Skills `name` grammar); everything else — separators, `.`/`..`, a
+/// leading dot, spaces, control bytes — is rejected.
+fn validate_skill_name(name: &str) -> Result<(), SsError> {
+    let safe = !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    if safe {
+        Ok(())
+    } else {
+        Err(SsError::new(
+            ERR_WRITER_UNSUPPORTED,
+            format!(
+                "Refusing to install: unsafe capability name {name:?} \
+                 (skills must be 1–64 chars of letters, digits, '-' or '_')."
+            ),
+        ))
+    }
+}
+
+/// The standalone-file destination for a `SkillRender::File` form (plan 02), keyed
+/// by the capability `name` (the renderer is GENERAL — D1 — never a hardcoded
+/// "saferskills"). The `name` is path-validated first (traversal guard):
+/// - Claude Code / OpenClaw → `<skill_dir>/<name>/SKILL.md` (verbatim).
+/// - Cursor → `<rules_dir>/<name>.mdc` (Agent-Requested `.mdc`).
+/// - Cline / Windsurf → `<rules_dir>/<name>.md` (always-on rules).
+fn skill_target_path(id: AgentId, agent: &DetectedAgent, name: &str) -> Result<PathBuf, SsError> {
+    validate_skill_name(name)?;
+    match id {
+        AgentId::ClaudeCode | AgentId::Openclaw => agent
+            .skill_dir
+            .as_ref()
+            .map(|d| d.join(name).join("SKILL.md"))
+            .ok_or_else(|| no_skill_dir_err(id)),
+        AgentId::Cursor => agent
+            .rules_dir
+            .as_ref()
+            .map(|d| d.join(format!("{name}.mdc")))
+            .ok_or_else(|| no_rules_dir_err(id)),
+        AgentId::Cline | AgentId::Windsurf => agent
+            .rules_dir
+            .as_ref()
+            .map(|d| d.join(format!("{name}.md")))
+            .ok_or_else(|| no_rules_dir_err(id)),
+        // Codex/Copilot/Gemini render a Block, never a File — unreachable in the
+        // dispatch, but keep the match total with a clear error.
+        AgentId::Codex | AgentId::Copilot | AgentId::Gemini => Err(no_skill_dir_err(id)),
+    }
+}
+
+/// The shared host file a `SkillRender::Block` merges into (plan 02, Module D).
+/// `GEMINI.md`/`AGENTS.md` at the project root (the file Codex + Copilot both
+/// read — shared, idempotent) or in the agent's home dir for a global install.
+pub(crate) fn agents_md_path(id: AgentId, agent: &DetectedAgent) -> Result<PathBuf, SsError> {
+    let file = if id == AgentId::Gemini {
+        "GEMINI.md"
+    } else {
+        "AGENTS.md"
+    };
+    match agent.scope {
+        Scope::Project => Ok(std::env::current_dir()
+            .map_err(|e| {
+                SsError::new(
+                    ERR_WRITER_UNSUPPORTED,
+                    format!("Cannot resolve the project directory: {e}"),
+                )
+            })?
+            .join(file)),
+        // Global: the agent's home (skill_dir parent: ~/.codex, ~/.gemini, ~/.copilot).
+        Scope::Global => agent
+            .skill_dir
+            .as_ref()
+            .and_then(|d| d.parent())
+            .map(|p| p.join(file))
+            .ok_or_else(|| no_skill_dir_err(id)),
+    }
+}
+
+/// Verify a rendered skill install (plan 02) — the standalone `<skill_dir>/<name>`
+/// /`<rules_dir>/<name>.<ext>` file exists, or the shared `AGENTS.md` / `GEMINI.md`
+/// carries our marker block. Keyed by the capability `name` so it checks the same
+/// path `install_skill_rendered` wrote (the doctor/verify `ResolvedItem` carries
+/// `name`, derived from the slug — `skill_md` is not needed here).
+fn verify_skill_rendered(id: AgentId, agent: &DetectedAgent, name: &str) -> VerifyStatus {
+    if is_agents_md_agent(id) {
+        let Ok(host) = agents_md_path(id, agent) else {
+            return VerifyStatus::Missing;
+        };
+        // Require a COMPLETE block — a lone orphan start is NOT a valid install.
+        match std::fs::read_to_string(&host) {
+            Ok(s) if super::writer::has_complete_marker_block(&s) => VerifyStatus::Ok,
+            _ => VerifyStatus::Missing,
+        }
+    } else {
+        match skill_target_path(id, agent, name) {
+            Ok(dest) if dest.exists() => VerifyStatus::Ok,
+            _ => VerifyStatus::Missing,
+        }
+    }
+}
+
+/// Dispatch a resolved skill to its native form for `id`/`agent` and write it,
+/// returning the recorded change(s). Shared by both writers' `"skill"` arm.
+fn install_skill_rendered(
+    id: AgentId,
+    item: &ResolvedItem,
+    agent: &DetectedAgent,
+    dry_run: bool,
+) -> Result<Vec<InstallChange>, SsError> {
+    let skill_md = item.skill_md.as_ref().ok_or_else(|| no_entry_err(id))?;
+    match render_skill(skill_md, id)? {
+        SkillRender::File { content } => {
+            let dest = skill_target_path(id, agent, &item.name)?;
+            Ok(vec![write_file_change(&dest, content.as_bytes(), dry_run)?])
+        }
+        SkillRender::Block { block } => {
+            let host = agents_md_path(id, agent)?;
+            Ok(vec![merge_marker_block(&host, &block, dry_run)?])
+        }
+    }
+}
+
 impl ConfigWriter for JsonMcpWriter {
     fn id(&self) -> AgentId {
         self.id
@@ -209,17 +347,7 @@ impl ConfigWriter for JsonMcpWriter {
                 let change = merge_json_mcp(path, &key, &item.name, &entry, dry_run)?;
                 Ok(vec![change])
             }
-            "skill" => {
-                let skill_dir = agent
-                    .skill_dir
-                    .as_ref()
-                    .ok_or_else(|| no_skill_dir_err(self.id))?;
-                let zip = item
-                    .skill_zip
-                    .as_ref()
-                    .ok_or_else(|| no_entry_err(self.id))?;
-                Ok(vec![install_skill(skill_dir, &item.name, zip, dry_run)?])
-            }
+            "skill" => install_skill_rendered(self.id, item, agent, dry_run),
             "rules" => {
                 let rules_dir = agent
                     .rules_dir
@@ -285,10 +413,7 @@ impl ConfigWriter for JsonMcpWriter {
                 let key = self.key.resolve(&agent.mcp_config_path);
                 verify_json_mcp(&agent.mcp_config_path, &key, &item.name)
             }
-            "skill" => match agent.skill_dir.as_ref() {
-                Some(dir) if dir.join(&item.name).exists() => VerifyStatus::Ok,
-                _ => VerifyStatus::Missing,
-            },
+            "skill" => verify_skill_rendered(self.id, agent, &item.name),
             "rules" => match agent.rules_dir.as_ref() {
                 Some(dir)
                     if dir
@@ -352,17 +477,7 @@ impl ConfigWriter for CodexWriter {
                     dry_run,
                 )?])
             }
-            "skill" => {
-                let skill_dir = agent
-                    .skill_dir
-                    .as_ref()
-                    .ok_or_else(|| no_skill_dir_err(AgentId::Codex))?;
-                let zip = item
-                    .skill_zip
-                    .as_ref()
-                    .ok_or_else(|| no_entry_err(AgentId::Codex))?;
-                Ok(vec![install_skill(skill_dir, &item.name, zip, dry_run)?])
-            }
+            "skill" => install_skill_rendered(AgentId::Codex, item, agent, dry_run),
             other => Err(SsError::new(
                 ERR_WRITER_UNSUPPORTED,
                 format!("Codex cannot install a `{other}` capability."),
@@ -377,10 +492,7 @@ impl ConfigWriter for CodexWriter {
     fn verify(&self, item: &ResolvedItem, agent: &DetectedAgent) -> VerifyStatus {
         match item.kind.as_str() {
             "mcp_server" => verify_toml_mcp(&agent.mcp_config_path, &item.name),
-            "skill" => match agent.skill_dir.as_ref() {
-                Some(dir) if dir.join(&item.name).exists() => VerifyStatus::Ok,
-                _ => VerifyStatus::Missing,
-            },
+            "skill" => verify_skill_rendered(AgentId::Codex, agent, &item.name),
             _ => VerifyStatus::Missing,
         }
     }
@@ -396,6 +508,26 @@ mod tests {
             let w = writer_for(id);
             assert_eq!(w.id(), id);
         }
+    }
+
+    #[test]
+    fn validate_skill_name_blocks_path_traversal() {
+        // Spec-legal shapes are accepted.
+        for ok in ["demo", "saferskills", "my-skill_1", "A1"] {
+            assert!(validate_skill_name(ok).is_ok(), "{ok:?} should be allowed");
+        }
+        // A server-provided name must never escape the target dir or be a
+        // non-flat segment: separators, `.`/`..`, leading dot, NUL, spaces.
+        for bad in [
+            "", "..", ".", ".hidden", "a/b", "../evil", "..\\evil", "a\0b", "a b", "foo.bar",
+        ] {
+            assert!(
+                validate_skill_name(bad).is_err(),
+                "{bad:?} must be rejected"
+            );
+        }
+        assert!(validate_skill_name(&"x".repeat(64)).is_ok());
+        assert!(validate_skill_name(&"x".repeat(65)).is_err());
     }
 
     #[test]

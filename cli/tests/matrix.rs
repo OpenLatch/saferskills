@@ -164,14 +164,20 @@ fn detail_json(slug: &str, kind: &str) -> String {
     )
 }
 
-/// A `SKILL.md`-bearing `.zip` the skill download endpoint serves.
+/// A `SKILL.md`-bearing `.zip` the skill download endpoint serves. Carries a
+/// `<!-- pointer:start/end -->` block — the always-on form the renderer lifts for
+/// the rules-/AGENTS.md agents (Cline, Windsurf, Codex, Copilot, Gemini); a skill
+/// without one can't render to those surfaces.
 fn skill_zip() -> Vec<u8> {
     let mut buf = Vec::new();
     {
         let mut w = zip::ZipWriter::new(Cursor::new(&mut buf));
         let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
         w.start_file("SKILL.md", opts).unwrap();
-        w.write_all(b"---\nname: demo\n---\n# Demo\n").unwrap();
+        w.write_all(
+            b"---\nname: demo\n---\n# Demo\n\n<!-- pointer:start -->\nScan before you trust.\n<!-- pointer:end -->\n",
+        )
+        .unwrap();
         w.finish().unwrap();
     }
     buf
@@ -308,8 +314,12 @@ fn mcp_install_lands_under_correct_key_and_reverses_for_every_agent() {
     }
 }
 
-/// For every skill-capable agent: install a skill, assert the `SKILL.md` folder
-/// copy landed in the agent's skills dir, then uninstall and assert it is gone.
+/// For every skill-capable agent: install a skill and assert it landed in the
+/// agent's NATIVE form, then uninstall and assert it is reversed. Verbatim agents
+/// (Claude Code / OpenClaw) get `<skill_dir>/<name>/SKILL.md` (name-keyed — D1);
+/// the AGENTS.md / GEMINI.md agents (Codex / Copilot / Gemini) get a marker block
+/// merged into the shared host file at the agent home (global scope = `skill_dir`
+/// parent), NOT the no-op skills dir (D6).
 #[test]
 fn skill_install_copies_and_reverses_for_supporting_agents() {
     let server = mock_api(SKILL_SLUG, "skill");
@@ -319,30 +329,60 @@ fn skill_install_copies_and_reverses_for_supporting_agents() {
         let ss = TempDir::new().unwrap();
         let home = TempDir::new().unwrap();
         materialize(home.path(), case.id);
-        let skill = home
-            .path()
-            .join(case.skill_dir.unwrap())
-            .join(NAME)
-            .join("SKILL.md");
         let run = || cli(ss.path(), home.path(), &api);
 
         run()
             .args(["--json", "install", NAME, "--to", case.id, "--yes"])
             .assert()
             .success();
-        assert!(
-            skill.exists(),
-            "[{}] skill SKILL.md must be copied to {}",
-            case.id,
-            skill.display()
-        );
 
-        run().args(["--json", "uninstall", NAME]).assert().success();
-        assert!(
-            !skill.exists(),
-            "[{}] uninstall must remove the skill folder",
-            case.id
-        );
+        if matches!(case.id, "claude-code" | "openclaw") {
+            // Verbatim SKILL.md at <skill_dir>/<name>/SKILL.md (name-keyed, D1).
+            let skill = home
+                .path()
+                .join(case.skill_dir.unwrap())
+                .join(NAME)
+                .join("SKILL.md");
+            assert!(
+                skill.exists(),
+                "[{}] verbatim SKILL.md must be copied to {}",
+                case.id,
+                skill.display()
+            );
+            run().args(["--json", "uninstall", NAME]).assert().success();
+            assert!(
+                !skill.exists(),
+                "[{}] uninstall must remove the skill folder",
+                case.id
+            );
+        } else {
+            // Codex / Copilot / Gemini → a marker block merged into the shared
+            // AGENTS.md / GEMINI.md at the agent home (skill_dir parent), D6.
+            let host_file = if case.id == "gemini" {
+                "GEMINI.md"
+            } else {
+                "AGENTS.md"
+            };
+            let host = home
+                .path()
+                .join(Path::new(case.skill_dir.unwrap()).parent().unwrap())
+                .join(host_file);
+            let installed = fs::read_to_string(&host).unwrap_or_default();
+            assert!(
+                installed.contains("<!-- saferskills:start -->"),
+                "[{}] install must merge the marker block into {}",
+                case.id,
+                host.display()
+            );
+            run().args(["--json", "uninstall", NAME]).assert().success();
+            let after = fs::read_to_string(&host).unwrap_or_default();
+            assert!(
+                !after.contains("<!-- saferskills:start -->"),
+                "[{}] uninstall must strip the marker block from {}",
+                case.id,
+                host.display()
+            );
+        }
     }
 }
 

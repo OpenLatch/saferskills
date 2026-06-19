@@ -628,6 +628,23 @@ fn read_zip_entry(zip_bytes: &[u8], path: &str) -> Option<Vec<u8>> {
     None
 }
 
+/// Final fallback for SKILL.md extraction: the bytes of the FIRST zip entry whose
+/// path ends in `/SKILL.md` (a single-capability snapshot has exactly one). Used
+/// when neither `<component_path>/SKILL.md` nor a top-level `SKILL.md` matched.
+fn read_skill_md_by_suffix(zip_bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).ok()?;
+    let names: Vec<String> = (0..archive.len())
+        .filter_map(|i| {
+            archive
+                .by_index(i)
+                .ok()
+                .map(|e| e.name().replace('\\', "/"))
+        })
+        .collect();
+    let target = names.into_iter().find(|n| n.ends_with("/SKILL.md"))?;
+    read_zip_entry(zip_bytes, &target)
+}
+
 /// The `hooks` block carried by a hook anchor file — the file's `hooks` value, or
 /// the file itself when its top-level keys ARE the events. Parsed as JSONC so a
 /// commented `settings.json` is tolerated.
@@ -699,8 +716,20 @@ pub(crate) async fn build_resolved_item(
         "skill" => {
             let zip =
                 download_snapshot_zip(api, &item.slug, output, "Downloading skill files…").await?;
+            // Extract the canonical SKILL.md text once — every agent renders its
+            // native form from this (plan 02), never the buggy unzip tree. The zip
+            // keys are full repo paths, so prefer `<component_path>/SKILL.md` (our
+            // skill lives at a NON-root path), then a top-level `SKILL.md`, then the
+            // first entry whose path ends in `/SKILL.md` (final fallback).
+            let skill_md = component_path
+                .as_deref()
+                .and_then(|cp| read_zip_entry(&zip, &format!("{cp}/SKILL.md")))
+                .or_else(|| read_zip_entry(&zip, "SKILL.md"))
+                .or_else(|| read_skill_md_by_suffix(&zip))
+                .map(|b| String::from_utf8_lossy(&b).into_owned());
             Ok(ResolvedItem {
                 skill_zip: Some(zip),
+                skill_md,
                 ..base
             })
         }
@@ -829,6 +858,7 @@ fn describe(change: &InstallChange) -> String {
     match change {
         InstallChange::File { path } => format!("copied {path}"),
         InstallChange::ConfigKey { file, .. } => format!("updated {file}"),
+        InstallChange::MarkerBlock { file, .. } => format!("updated {file}"),
     }
 }
 
