@@ -50,6 +50,7 @@ from app.models.scan_run import ScanRun
 from app.observability.events import emit_promote_to_public as _emit_promote
 from app.observability.events import emit_scan_submitted, emit_upload_rejected, upload_size_bucket
 from app.scan import persistence
+from app.scan.constants import FEED_EXCLUDED_SOURCES
 from app.scan.fetch import FetchError, parse_github_url
 from app.scan.persistence import display_name_for, slug_for
 from app.scan.report_builder import build_scan_report_detail, build_scan_run_report
@@ -82,7 +83,8 @@ _KINDS = {"skill", "mcp_server", "hook", "plugin", "rules"}
 
 # Bulk auto-scan run sources kept OUT of the public /scans feed (the firehose the
 # durable reconciliation drainer produces). The feed = submissions + drift/appeal.
-_FEED_EXCLUDED_SOURCES = ("ingestion", "rescan_rules")
+# Hoisted to `app.scan.constants` so the sitemap + IndexNow share one definition.
+_FEED_EXCLUDED_SOURCES = FEED_EXCLUDED_SOURCES
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 

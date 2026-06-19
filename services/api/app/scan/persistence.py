@@ -802,6 +802,16 @@ def _promoted_item(item: CatalogItem, *, merged: bool) -> dict[str, object]:
     }
 
 
+async def run_catalog_item_slugs(session: AsyncSession, run_id: UUID) -> list[str]:
+    """Public: the distinct catalog-item slugs linked to a run via its scans.
+
+    Used by the post-commit IndexNow hook (`app/queue/scan_runner.py`) to re-derive
+    the per-capability slugs the persist fan-out builds internally — without
+    reaching into the private `_run_catalog_items`.
+    """
+    return [item.slug for item in await _run_catalog_items(session, run_id)]
+
+
 async def _run_catalog_items(session: AsyncSession, run_id: UUID) -> list[CatalogItem]:
     """Distinct catalog items linked to a run via its scans (any visibility)."""
     rows = (

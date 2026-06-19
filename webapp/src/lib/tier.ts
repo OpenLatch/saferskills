@@ -39,3 +39,16 @@ export function stripeClass(tier?: string | null): string {
   const t = scoredTier(tier)
   return t ? `stripe-l stripe-${TIER_TO_STRIPE[t]}` : ''
 }
+
+/**
+ * Whether an item page carries COMPLETED scan data, so it may be indexed (SEO-T9).
+ *
+ * The predicate is IDENTICAL to the backend sitemap `_items` filter
+ * (`Scan.tier != 'unscoped'`): a never-scanned item has no `latest_scan`, and a
+ * placeholder / pending scan is `tier === 'unscoped'` (score 0). Keeping the two
+ * defined identically guarantees the indexed set ⊆ the sitemap set — neither can
+ * drift to admit a thin page.
+ */
+export function isIndexableScan(latestScan: { tier?: string | null } | null | undefined): boolean {
+  return !!latestScan && latestScan.tier !== 'unscoped'
+}

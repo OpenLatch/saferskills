@@ -1,4 +1,34 @@
+# SaferSkills — open, Apache-2.0 security data. We WANT it crawled, cited, and trained on.
+# Decision 2026-06-02 (I-07 open-Q #8): allow ALL AI crawlers, no per-bot guardrails.
 User-agent: *
 Allow: /
 Disallow: /scans/r/
+Disallow: /agents/r/
+Disallow: /api/
+Disallow: /og/
+Disallow: /badge/
+
+# Named AI crawlers (training + search/citation) — explicit allow.
+# A specific User-agent group does NOT inherit the `User-agent: *` rules
+# (robots precedence): every Disallow above must be REPEATED here, or these
+# named bots would get access to /api/, /og/, /badge/.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: CCBot
+User-agent: Bingbot
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /scans/r/
+Disallow: /agents/r/
+Disallow: /api/
+Disallow: /og/
+Disallow: /badge/
+
 Sitemap: https://saferskills.ai/sitemap.xml

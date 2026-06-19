@@ -732,8 +732,18 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
     if item is None:
         raise HTTPException(status_code=404, detail="item not found")
 
+    # The newest COMPLETED scan (tier != 'unscoped'). A rescan inserts an
+    # `unscoped` placeholder Scan at the start; without this filter `latest` would
+    # flip to that placeholder mid-rescan — blanking the score to "unscored" AND
+    # diverging from the sitemap predicate (the item still has a completed scan,
+    # so `_items` keeps it indexed, but the page would render `noindex`). Matching
+    # `Scan.tier != "unscoped"` keeps the page's `isIndexableScan(latest_scan)`
+    # identical to the sitemap "has ≥1 completed scan" predicate.
     latest_scan_stmt = (
-        select(Scan).where(Scan.catalog_item_id == item.id).order_by(desc(Scan.scanned_at)).limit(1)
+        select(Scan)
+        .where(Scan.catalog_item_id == item.id, Scan.tier != "unscoped")
+        .order_by(desc(Scan.scanned_at))
+        .limit(1)
     )
     latest = (await session.execute(latest_scan_stmt)).scalar_one_or_none()
 
@@ -757,7 +767,7 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
         prev = (
             await session.execute(
                 select(Scan.sub_scores)
-                .where(Scan.catalog_item_id == item.id)
+                .where(Scan.catalog_item_id == item.id, Scan.tier != "unscoped")
                 .order_by(desc(Scan.scanned_at))
                 .offset(1)
                 .limit(1)
