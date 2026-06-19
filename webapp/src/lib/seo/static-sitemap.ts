@@ -18,8 +18,8 @@ import { type DocsEntry, idToSlug } from '@/lib/docs/nav'
 export const SITE_ORIGIN = 'https://saferskills.ai'
 
 /** Hand-maintained prerendered marketing/browse routes.
- * NOTE: `/research/state-of-ai-agent-skill-security` is intentionally absent —
- * that page doesn't exist until plan 03 ships it. Plan 03 re-adds the route here. */
+ * `/research/state-of-ai-agent-skill-security` is the evergreen State-of report
+ * (plan 03) — a real prerendered content page carrying original census data. */
 export const STATIC_ROUTES: readonly string[] = [
   '/',
   '/about',
@@ -31,6 +31,7 @@ export const STATIC_ROUTES: readonly string[] = [
   '/scan',
   '/agents',
   '/agents/scan',
+  '/research/state-of-ai-agent-skill-security',
 ]
 
 /** Collect every docs route from the `docs` content collection. */

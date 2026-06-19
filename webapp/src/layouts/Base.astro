@@ -18,6 +18,14 @@ interface Props {
    * See `.claude/rules/security.md` § Capability-URL anti-leakage.
    */
   noindex?: boolean
+  /**
+   * Suppresses the site-wide `<NavStars>` live-refresh island (which fetches the
+   * GitHub-star count in the browser). The 500 error page sets this: a 500 is
+   * rendered exactly when the backend may be down, so the page must mount no
+   * live-data island — a doomed `/api/*` fetch would violate its "depends on no
+   * live data" invariant. Default false → every other page keeps live refresh.
+   */
+  noStats?: boolean
 }
 const {
   title,
@@ -25,6 +33,7 @@ const {
   ogImage,
   bodyClass,
   noindex = false,
+  noStats = false,
 } = Astro.props
 import '@/styles/global.css'
 import NavStars from '@/components/NavStars.tsx'
@@ -113,8 +122,10 @@ const ogUrl = noindex ? new URL('/', Astro.site).href : Astro.url.href
         client:only — it renders null + is effect-only; SSR-ing it throws a React
         "Invalid hook call". It produces no SSR markup either way. The GhStar count
         span it patches carries suppressHydrationWarning (this island mounts eagerly
-        and may write the count before NavBar's client:idle GhStar hydrates). */}
-    <NavStars client:only="react" />
+        and may write the count before NavBar's client:idle GhStar hydrates).
+        `noStats` opts out (the 500 error page) so no live-data fetch fires when
+        the backend may be down. */}
+    {!noStats && <NavStars client:only="react" />}
 
     {/*
       Observability bootstrap — env-checked init for Sentry + PostHog.

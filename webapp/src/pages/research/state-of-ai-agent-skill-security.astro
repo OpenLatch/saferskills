@@ -1,0 +1,214 @@
+---
+export const prerender = true
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import PageHead from '@ui/components/atoms/PageHead.tsx'
+import PageRidge from '@ui/components/atoms/PageRidge.tsx'
+import RidgeStars from '@ui/components/atoms/RidgeStars.tsx'
+import CtaBand from '@ui/components/molecules/CtaBand.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import JsonLd from '@/components/seo/JsonLd.astro'
+import { datasetJsonLd } from '@/lib/jsonld'
+import { ANSWER_LEAD, DATASET_META, HEADLINE, RESEARCH_SLUG } from '@/lib/research/state-of'
+
+import '@/styles/page-research.css'
+
+// LOCKED, hand-authored numbers — founder fills from outbox/06 before launch.
+// Copy + headline live in `@/lib/research/state-of` (testable without rendering
+// Astro; `research.test.ts` pins the answer-lead word count + the Dataset).
+const { corpusSize, criticalPct, asOf } = HEADLINE
+// Resolve the locked numbers into the citable lead, then bold the single word
+// "critical" so the severity reads at a glance (visible HTML — never a schema
+// rating). The plain-text source in `@/lib/research/state-of` is what the test
+// word-counts; the `<strong>` wrap is presentational only.
+const answerLead = ANSWER_LEAD.replace('{n}', String(corpusSize))
+  .replace('{pct}', criticalPct)
+  .replace('critical security finding', '<strong>critical</strong> security finding')
+// Build the Dataset url from Astro.site so it matches Base's canonical origin
+// (env-correct, never a hardcoded host).
+const dataset = datasetJsonLd({
+  ...DATASET_META,
+  url: new URL(RESEARCH_SLUG, Astro.site).href,
+})
+---
+<Base
+  title="State of AI Agent Skill Security — SaferSkills"
+  description={`We deep-scanned the ${corpusSize} most-popular AI agent skills and MCP servers. ${criticalPct}% carried a critical security finding. Open methodology, free, reproducible.`}
+>
+  {/* Dataset JSON-LD — the open scan-data corpus (Apache-2.0 license). The only
+      per-page schema this page emits; Organization is site-wide in Base.astro. */}
+  <JsonLd schema={dataset} />
+
+  <NavBar client:idle activePath={Astro.url.pathname} />
+
+  <PageHead
+    eyebrow="RESEARCH · /RESEARCH"
+    title="State of AI Agent Skill Security."
+    lede="The first independent, methodology-open census of security risk across the AI-agent capability ecosystem — skills, MCP servers, hooks, and plugins."
+  />
+  <PageRidge variant="contour" label={`— ${RESEARCH_SLUG} —`} />
+
+  {/* ─────────── ANSWER-FIRST lead (SEO-T7 / V3) ───────────
+      The citable 40–80-word passage, in VISIBLE HTML, carrying the score/finding
+      facts AI engines quote with attribution. Reuses the `.sk-answer` scoped
+      style from page-item.css (DRY). */}
+  <section class="page-section page-section--grid research-band">
+    <div class="container">
+      <div class="sk-answer research-answer">
+        <h2 class="answer-q">How risky are AI agent skills?</h2>
+        <p class="answer-lead" set:html={answerLead} />
+        <p class="answer-asof">
+          Census of the top {corpusSize} by install popularity, as of {asOf}.
+          Locked, manually audited — not a live counter.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {/* ─────────── How was this measured? ─────────── */}
+  <section class="page-section page-section--flat research-band">
+    <div class="container">
+      <h2 class="prose-h2">How was this measured?</h2>
+      <p>
+        We took the {corpusSize} most-installed AI agent capabilities across every
+        major registry and ran each through the same deterministic SaferSkills
+        scan that powers every public report. No LLM sits in the verdict path:
+        each finding carries a static rule ID and a quotable line of evidence, so
+        the result is reproducible byte-for-byte from the rule set alone.
+      </p>
+      <p>
+        The detection rules are published under Apache-2.0 and documented in the
+        public methodology — trigger, severity, and false-positive review history
+        per rule. The census is a point-in-time snapshot, manually audited for
+        false positives; it is not a drifting live statistic.
+        Read <a href="/methodology">the full methodology</a> or
+        browse <a href="/capabilities">the catalog of scanned capabilities</a>.
+      </p>
+    </div>
+  </section>
+
+  <RidgeStars label="— FINDINGS · 02 —" />
+
+  {/* ─────────── What did we find? ─────────── */}
+  <section class="page-section page-section--flat research-band">
+    <div class="container">
+      <h2 class="prose-h2">What did we find?</h2>
+      <p>
+        Across the corpus, {criticalPct}% of capabilities carried at least one
+        <strong>critical</strong> finding. The breakdown by detection category and
+        severity:
+      </p>
+
+      <table class="research-table">
+        <thead>
+          <tr>
+            <th scope="col">Category</th>
+            <th scope="col">What it catches</th>
+            <th scope="col" class="num">Critical</th>
+            <th scope="col" class="num">High</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>MCP</code></td>
+            <td>Tool-description poisoning, hidden-Unicode tag injection</td>
+            <td class="num">__%</td>
+            <td class="num">__%</td>
+          </tr>
+          <tr>
+            <td><code>SKILL</code></td>
+            <td>Fenced-run injection, prompt-injection patterns</td>
+            <td class="num">__%</td>
+            <td class="num">__%</td>
+          </tr>
+          <tr>
+            <td><code>HOOKS</code></td>
+            <td>Curl-pipe-to-shell RCE, unreviewed command execution</td>
+            <td class="num">__%</td>
+            <td class="num">__%</td>
+          </tr>
+          <tr>
+            <td><code>RULES</code></td>
+            <td>Instruction-override and exfiltration directives</td>
+            <td class="num">__%</td>
+            <td class="num">__%</td>
+          </tr>
+          <tr>
+            <td><code>PLUGIN</code></td>
+            <td>Bundled-capability supply-chain risk</td>
+            <td class="num">__%</td>
+            <td class="num">__%</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="research-note">
+        Per-category and per-severity rates are hand-authored, audited numbers —
+        the founder fills the <code>__%</code> cells from the outbox/06 census
+        before launch. Each rate is reproducible by re-running the published rules
+        over the same corpus.
+      </p>
+    </div>
+  </section>
+
+  {/* ─────────── Why the unscanned long tail matters ─────────── */}
+  <section class="page-section page-section--grid research-band">
+    <div class="container">
+      <h2 class="prose-h2">Why the unscanned long tail matters.</h2>
+      <p>
+        The top {corpusSize} are the capabilities most likely to have had eyes on
+        them. The long tail — thousands of skills, MCP servers, and hooks with a
+        handful of installs each — has had none. A capability runs with the same
+        agent privileges whether it is the most-installed in its registry or the
+        least, so the risk does not taper off past the top of the popularity
+        curve; it is simply unmeasured.
+      </p>
+      <p>
+        That is the gap SaferSkills closes: every capability, independently
+        scanned, on the same open methodology — not just the popular few. Each
+        public report carries its own findings, evidence, and a vendor
+        right-of-reply.
+      </p>
+    </div>
+  </section>
+
+  {/* ─────────── Reproduce it yourself ─────────── */}
+  <section class="page-section page-section--flat research-band">
+    <div class="container">
+      <h2 class="prose-h2">Reproduce it yourself.</h2>
+      <p>
+        Nothing here is a black box. The rules are open, the scan is
+        deterministic, and the catalog is public:
+      </p>
+      <ul class="research-steps">
+        <li>
+          <span class="step-label">Read the rules</span>
+          The full rubric — every rule ID, trigger, and severity — is in
+          <a href="/methodology">the methodology</a>, published under Apache-2.0.
+        </li>
+        <li>
+          <span class="step-label">Scan any capability</span>
+          Paste a public GitHub URL or upload an artifact at
+          <a href="/scan">the scanner</a>; a deterministic report appears at a
+          permalink in about thirty seconds.
+        </li>
+        <li>
+          <span class="step-label">Browse the corpus</span>
+          Every scanned capability is in <a href="/capabilities">the catalog</a>,
+          each with its score, findings, and line-level evidence.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <CtaBand
+    client:visible
+    title="Scan any capability free."
+    lead="Audit the pieces. Scan the whole agent. ~30 seconds. Free. No account. Open methodology, reproducible findings, vendor right-of-reply."
+    primaryAction={{ label: 'Open the scanner', href: '/scan' }}
+    secondaryAction={{ label: 'Read the methodology', href: '/methodology' }}
+  />
+
+  <Footer />
+</Base>
