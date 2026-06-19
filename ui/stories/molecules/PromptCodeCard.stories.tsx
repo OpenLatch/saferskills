@@ -72,6 +72,38 @@ export const WithFootSlot: Story = () => (
   </div>
 )
 
+/**
+ * `interceptCopy` — a manual select-then-copy (Ctrl/Cmd+C, right-click → Copy,
+ * cut) over the body is hijacked into `onCopy` (the mint flow) so the raw
+ * `{{…}}` template never reaches the clipboard. Select the text below and copy:
+ * the state flips to "copied" instead of the placeholders landing on the
+ * clipboard. Pass this only while the pre-mint template is shown.
+ */
+export const WithCopyIntercept: Story = () => {
+  const [state, setState] = useState<PromptCopyState>('idle')
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const onCopy = () => {
+    for (const t of timers.current) clearTimeout(t)
+    setState('busy')
+    timers.current = [
+      setTimeout(() => setState('copied'), 700),
+      setTimeout(() => setState('idle'), 2200),
+    ]
+  }
+  return (
+    <div style={{ padding: 40, maxWidth: 640 }}>
+      <PromptCodeCard
+        title={TITLE}
+        lines={PROMPT_LINES}
+        tinted
+        interceptCopy
+        copyState={state}
+        onCopy={onCopy}
+      />
+    </div>
+  )
+}
+
 /** Click Copy: idle → busy (900ms) → copied (1.5s) → idle. */
 export const Interactive: Story = () => {
   const [state, setState] = useState<PromptCopyState>('idle')
