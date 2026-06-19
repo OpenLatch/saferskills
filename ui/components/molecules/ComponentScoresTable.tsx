@@ -7,7 +7,7 @@ export interface ComponentScoreRowData {
   path?: string | null
   score: number
   tier: ComponentTier
-  /** Catalog slug — the row deep-links to `/items/<slug>` (D-5.6-10). */
+  /** Catalog slug — the row deep-links to `/items/<slug>`. */
   slug: string
 }
 
@@ -37,7 +37,7 @@ const KIND_LABEL: Record<ComponentKind, string> = {
 
 export interface ComponentScoresTableProps {
   rows: ComponentScoreRowData[]
-  /** Deep-link base; defaults to `/items` (the catalog item report, D-5.6-10). */
+  /** Deep-link base; defaults to `/items` (the catalog item report). */
   basePath?: string
   /**
    * Single report URL every row links to instead of its own `/items/<slug>` — set
@@ -49,13 +49,13 @@ export interface ComponentScoresTableProps {
 }
 
 /**
- * Component Scores tab (I-5.6 §3.3, D-5.6-10) — the per-capability score table,
- * reusing the scan report's `.cap-list`/`.cap-row` grammar exactly as the locked
+ * Component Scores tab — the per-capability score table,
+ * reusing the scan report's `.cap-list`/`.cap-row` grammar exactly as the
  * mockup does. **Contributing context only — never fused into the behavioral
  * score.** Each row deep-links to `/items/<slug>`; the all-clear / needs-review
  * chip derives from `tier` (the DTO has no `summary` field). Renders a clean
  * empty-state when there are no assembled capabilities (the live builder is
- * data-starved until I-5.5 populates it). The `.cap-*` CSS ships with
+ * data-starved until the component-scan path populates it). The `.cap-*` CSS ships with
  * `page-scan-report.css`, which every agent-report route imports.
  */
 export default function ComponentScoresTable({

@@ -1,9 +1,9 @@
 /**
- * Agent Scan report data layer (I-5.6 Phase A, D-5.6-04).
+ * Agent Scan report data layer.
  *
  * Parallels `scans.ts`: same-origin `/api/*` proxy fetches, generic-404 on miss,
  * and the `redirect:'manual'` unlisted pattern. The API prefix is
- * `/api/v1/agent-scans/*`; the WEB page routes are `/agents/*` (D-5.6-17). The DTO
+ * `/api/v1/agent-scans/*`; the WEB page routes are `/agents/*`. The DTO
  * is hand-written in `agent-scan-types.ts` (the generated agent Zod is a stub).
  */
 
@@ -24,8 +24,8 @@ export type {
   AgentSort,
 } from './agent-scan-types'
 
-/** Strip any transcript the public projection should never carry (D-5.6-03,
- * belt-and-suspenders: the server already guarantees `evidence_excerpt:null`). */
+/** Strip any transcript the public projection should never carry
+ * (belt-and-suspenders: the server already guarantees `evidence_excerpt:null`). */
 function stripPublicEvidence(report: AgentScanReportDetail): AgentScanReportDetail {
   if (report.findings.some((f) => f.evidence_excerpt !== null)) {
     return {
@@ -106,7 +106,7 @@ export async function deleteAgentUnlisted(token: string): Promise<void> {
 }
 
 /** POST /api/v1/agent-scans/r/{token}/reply — the capability-token holder attaches a
- * ≤500-char public reply (D-5.6-08, token-gated). Tolerates a dev 404 like waitlist. */
+ * ≤500-char public reply (token-gated). Tolerates a dev 404 like waitlist. */
 export async function submitAgentReply(token: string, text: string): Promise<void> {
   const res = await fetch(
     `${env.PUBLIC_API_URL}/api/v1/agent-scans/r/${encodeURIComponent(token)}/reply`,
@@ -120,7 +120,7 @@ export async function submitAgentReply(token: string, text: string): Promise<voi
   throw new Error(`API ${res.status}`)
 }
 
-// ── Directory list + aggregate-stats (I-5.6 Phase C, D-5.6-05) ──────────────────
+// ── Directory list + aggregate-stats ──────────────────
 
 export interface AgentListParams {
   q?: string

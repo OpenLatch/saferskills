@@ -1,6 +1,6 @@
 """Vendor right-of-reply surface — verify-by-repo-file + public response.
 
-Implements the I-02 vendor-verification flow (D-05..D-08) + the PRD §4.11 web
+Implements the vendor-verification flow + the web
 form. Three-step verification with **no token ever in a URL**:
 
 1. `POST /items/<slug>/vendor/verify/start` — issue a one-time verification
@@ -233,7 +233,7 @@ async def verify_redeem(
     # `github_user` is a self-reported convenience label only — it must never
     # drive public author attribution (that derives from the verified repo;
     # see `routers/items.py::_vendor_responses`). True identity verification
-    # (OAuth + push-permission) lands with auth in I-06.
+    # (OAuth + push-permission) lands with auth later.
     verification.state = "verified"
     verification.redeemed_at = now
     verification.verified_github_user = body.github_user  # self-reported, not trusted

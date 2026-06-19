@@ -4,7 +4,7 @@ import { bandFromTier } from '@/components/catalog/constants'
 import type { CapabilityKind, CapabilityRow } from '@/lib/api/scans'
 
 /**
- * File-tab strip for a multi-file upload report (I-3.5). One tab per scanned
+ * File-tab strip for a multi-file upload report. One tab per scanned
  * file — kind glyph + filename + tier dot + tier-colored score, active underline
  * in the tier color. A page-specific `role="tablist"` (the `.mf-*` vocabulary,
  * CSS in `page-scan-report.css`), mirroring the DS `SegmentedTabs` keyboard model

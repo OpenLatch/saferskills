@@ -1,4 +1,4 @@
-//! The install registry — `~/.saferskills/installs.json` (D-05-10).
+//! The install registry — `~/.saferskills/installs.json`.
 //!
 //! It holds the **schema + atomic read/write helpers** and is used by
 //! `install` / `list` / `uninstall` / `update`. Every mutating op records its
@@ -25,7 +25,7 @@ pub struct InstallRecord {
     /// Commit SHA / ref at install time.
     #[serde(default)]
     pub version: Option<String>,
-    /// Canonical agent ids the capability was installed to (D-05-14).
+    /// Canonical agent ids the capability was installed to.
     #[serde(default)]
     pub agents: Vec<String>,
     /// Every file / config-key written, for a clean uninstall.
@@ -33,7 +33,7 @@ pub struct InstallRecord {
     pub changes: Vec<InstallChange>,
     /// When the install happened.
     pub installed_at: chrono::DateTime<chrono::Utc>,
-    /// The score the user saw at install time (drift re-prompt, D-05-25).
+    /// The score the user saw at install time (drift re-prompt).
     #[serde(default)]
     pub seen_score: Option<u8>,
 }

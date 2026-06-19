@@ -6,7 +6,7 @@ interface Props {
 
 /**
  * Single density-card detector tile (244 × 116) inside the detection
- * marquee. Phase A2 vocabulary `.dt-tile`. CSS owned by
+ * marquee. The `.dt-tile` vocabulary. CSS owned by
  * `page-home.css::.dt-tile`. Hover state shifts the rail accent and lifts
  * the card 1px.
  *

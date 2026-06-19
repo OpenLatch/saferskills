@@ -1,4 +1,4 @@
-"""Expiry sweeps (I-5.5, D-5.5-19). Expired unlisted runs + spent tokens are swept;
+"""Expiry sweeps. Expired unlisted runs + spent tokens are swept;
 live + public rows survive."""
 
 from __future__ import annotations

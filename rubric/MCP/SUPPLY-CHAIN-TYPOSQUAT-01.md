@@ -4,7 +4,7 @@ severity: high
 subScore: supply_chain
 weight: 25
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [mcp]
 frameworks: ["owasp-llm:llm03", "mitre-atlas:AML.T0010"]
 title: >-
@@ -31,9 +31,9 @@ trigger:
   operator: gte
   value: 1
 limitations:
-  - "v1 is structural — detects MCP servers whose name is within Levenshtein distance 1 of an established registry entry. Distance and the established-set definition land in Phase B engine. Phase A stubs the trigger."
+  - "v1 is structural — detects MCP servers whose name is within Levenshtein distance 1 of an established registry entry. Distance and the established-set definition land in the engine. The initial version stubs the trigger."
   - "Cannot detect typosquatting where the name is intentionally identical but the org is different (full repo-name collision)."
-  - "Cross-registry typosquat detection requires the registries-index population that ships with I-03 (W4)."
+  - "Cross-registry typosquat detection requires the registries-index population that ships with catalog ingestion."
 priorArt:
   - https://arxiv.org/abs/2002.01139
   - https://socket.dev/blog/typosquatting-attacks
@@ -55,9 +55,9 @@ this attack class.
 The v1 rule is structural-only: it identifies MCP names that are within
 edit-distance 1 of an established registry entry. The "established" set
 definition (which registries count, what star/install threshold qualifies
-as "established") and the actual Levenshtein computation land in Phase B
-when the engine has the registry-index data. Phase A registers the rule
-shape so the Phase B engine can wire the trigger executor.
+as "established") and the actual Levenshtein computation land
+when the engine has the registry-index data. The initial version registers the rule
+shape so the engine can wire the trigger executor.
 
 High severity is appropriate for the supply_chain sub-score: a confirmed
 typosquat is a credential-class threat to the agent ecosystem. Shadow
@@ -70,4 +70,4 @@ implementations.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; trigger executor in Phase B.
+- v1 (2026-01-09): initial rule. Lands shadow; trigger executor in a later iteration.

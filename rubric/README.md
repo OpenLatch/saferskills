@@ -14,7 +14,7 @@
 
 ## What it is
 
-Detection rules live under `rubric/<CATEGORY>/<NAME>-NN.md` (locked decision D-04). Each file is **Markdown + YAML frontmatter**: the frontmatter carries the machine-readable rule contract (parsed by `scripts/generate-methodology.cjs` and the detector engine); the body carries human-readable rationale, FP history, and version history. The contract is validated against [`../schemas/rubric-rule.schema.json`](../schemas/rubric-rule.schema.json).
+Detection rules live under `rubric/<CATEGORY>/<NAME>-NN.md`. Each file is **Markdown + YAML frontmatter**: the frontmatter carries the machine-readable rule contract (parsed by `scripts/generate-methodology.cjs` and the detector engine); the body carries human-readable rationale, FP history, and version history. The contract is validated against [`../schemas/rubric-rule.schema.json`](../schemas/rubric-rule.schema.json).
 
 Closed-source rules are not allowed — a detection that cannot be described in a `rubric/` doc does not ship.
 
@@ -39,7 +39,7 @@ severity: info | low | medium | high | critical
 sub_score: security | supply_chain | maintenance | transparency | community
 weight: 0..40
 status: shadow | active | deprecated
-shadow_until: 2026-W3-end       # required iff status: shadow
+shadow_until: 2026-01-18       # required iff status: shadow
 applies_to: [skill, mcp, rules, hooks, plugin]   # subset
 title: …                        # plain-English finding headline (no rule_id)
 explanation: …                  # the "why it matters" paragraph
@@ -63,8 +63,8 @@ Every rule lands with `status: shadow` + `shadow_until: <T+7d>` regardless of au
 
 ## See also
 
-- [`docs/methodology.md`](../docs/methodology.md) — public-facing summary
-- [`docs/rules.md`](../docs/rules.md) — rule-ID convention + lifecycle
+- [`contributor-docs/methodology.md`](../contributor-docs/methodology.md) — public-facing summary
+- [`contributor-docs/rules.md`](../contributor-docs/rules.md) — rule-ID convention + lifecycle
 - [`.claude/rules/methodology.md`](../.claude/rules/methodology.md) — contributor-facing detail
 
 ---

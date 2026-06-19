@@ -1,4 +1,4 @@
-"""One-time run/submit token — stateless HMAC + single-use ledger (I-5.5, D-5.5-11).
+"""One-time run/submit token — stateless HMAC + single-use ledger.
 
 Mirrors `app/services/cli_pow.py` in spirit (reuse, no new mechanism). The HMAC
 key is derived from the SAME operator master key as the canary seed, via a
@@ -20,7 +20,7 @@ check `exp` not passed; check `run_id` matches the route. For SUBMIT also claim
 single-use: `INSERT INTO agent_run_token_spent (sha256(token), exp) ON CONFLICT DO
 NOTHING` → 0 rows = replay → reject (silent). The PACK fetch + status poll verify
 WITHOUT the spend (the agent + the CLI pre-flight each fetch once; the spend
-happens only at submit — Codex#1).
+happens only at submit).
 """
 
 from __future__ import annotations

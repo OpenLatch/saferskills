@@ -34,7 +34,7 @@ class Source(StrEnum):
 
 class FetchTier(IntEnum):
     """
-    0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=Playwright stealth fallback (Phase B).
+    0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=stealth fallback.
     """
 
     integer_0 = 0
@@ -60,7 +60,7 @@ class ErrorReason(Enum):
 
 class IngestionEvent(OrmBaseModel):
     """
-    One row per adapter fetch (outbox pattern, D-04-08). Immutable, append-only, replayable: re-deriving the catalog from these alone produces the same state. Vendor appeals reference bodySha256 to prove the source content at fetch time.
+    One row per adapter fetch (outbox pattern). Immutable, append-only, replayable: re-deriving the catalog from these alone produces the same state. Vendor appeals reference bodySha256 to prove the source content at fetch time.
     """
 
     model_config = ConfigDict(
@@ -103,7 +103,7 @@ class IngestionEvent(OrmBaseModel):
     fetch_tier: FetchTier = Field(
         ...,
         alias="fetchTier",
-        description="0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=Playwright stealth fallback (Phase B).",
+        description="0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=stealth fallback.",
     )
     payload: dict[str, Any] | None = Field(
         None,

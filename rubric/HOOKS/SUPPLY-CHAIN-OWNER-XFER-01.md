@@ -31,7 +31,7 @@ trigger:
   operator: lte
   threshold: 5
 limitations:
-  - "v1 detects only the structural signal — small contributor pool combined with the absence of an ownership-transfer announcement. The actual cross-time owner-transfer detection (GitHub ownership change events) lands in Phase B."
+  - "v1 detects only the structural signal — small contributor pool combined with the absence of an ownership-transfer announcement. The actual cross-time owner-transfer detection (GitHub ownership change events) lands in a later iteration."
   - "Cannot detect repo transfers between organizations that the maintainer announces clearly — the rule fires on the structural state."
   - "Hook artifacts with longer ownership history naturally pass; the rule's threshold is intentionally conservative for the hook category specifically."
 priorArt:
@@ -52,13 +52,13 @@ particularly vulnerable because they run with user privileges and
 execute automatically.
 
 The v1 trigger is a structural-state check: hook repos with ≤5
-contributors. Combined with the Phase B owner-transfer detection (which
+contributors. Combined with the later owner-transfer detection (which
 queries GitHub for recent ownership-change events), the rule will fire
-on the dangerous combination. The Phase A landing registers the
-structural signal; Phase B refines the trigger.
+on the dangerous combination. The initial landing registers the
+structural signal; a later iteration refines the trigger.
 
 High severity is appropriate for the supply_chain class on hook-scope
-artifacts. Active at landing despite Phase B refinement because the
+artifacts. Active at landing despite the later refinement because the
 structural signal alone is meaningful for hooks specifically — they have
 a different risk profile from MCP servers, which the threshold reflects.
 
@@ -68,4 +68,4 @@ a different risk profile from MCP servers, which the threshold reflects.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing; v2 wires Phase B owner-transfer detection.
+- v1 (2026-01-09): initial rule. Active at landing; v2 wires the owner-transfer detection.

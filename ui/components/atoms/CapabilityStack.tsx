@@ -1,10 +1,10 @@
 /**
  * CapabilityStack — the per-kind capability count stack on a directory dossier
- * card (I-5.6 §12.3). One stroke-icon + count per non-zero capability kind,
+ * card. One stroke-icon + count per non-zero capability kind,
  * right-aligned on the score row, with a hover tooltip carrying the kind label
- * (mirrors the locked mockup `.caps-stack` / `.cap2` markup, including the
+ * (mirrors the mockup `.caps-stack` / `.cap2` markup, including the
  * per-kind SVG glyphs). Driven by the summary `capability_tally`; renders
- * nothing when the agent has no assembled capabilities yet (the I-5.5
+ * nothing when the agent has no assembled capabilities yet (the
  * `component_scores` builder is data-starved at launch — until it populates,
  * every tally is empty and the stack is silent). CSS is in
  * `page-agent-directory.css`.

@@ -52,7 +52,7 @@ class Remediation(OrmBaseModel):
 
 class Severity(StrEnum):
     """
-    5-tier ladder (D-02). `info` carries weight 0.
+    5-tier ladder. `info` carries weight 0.
     """
 
     info = "info"
@@ -64,7 +64,7 @@ class Severity(StrEnum):
 
 class SubScore(StrEnum):
     """
-    5-axis sub-score (D-01).
+    5-axis sub-score.
     """
 
     security = "security"
@@ -76,7 +76,7 @@ class SubScore(StrEnum):
 
 class Status(StrEnum):
     """
-    Rule lifecycle state (D-14). New rules land `shadow` for 7 days; FP-audit gates promotion.
+    Rule lifecycle state. New rules land `shadow` for 7 days; FP-audit gates promotion.
     """
 
     shadow = "shadow"
@@ -217,7 +217,7 @@ class TriggerCompositeAndOr(OrmBaseModel):
 
 class RubricRule(OrmBaseModel):
     """
-    YAML-frontmatter contract for `rubric/<CATEGORY>/<NAME>-NN.md` files. Per-rule contract per .claude/rules/methodology.md § Per-rule contract. The detector engine (Phase B) loads rule files via this schema; the methodology codegen step (#7) emits webapp/src/generated/methodology/index.mdx from validated frontmatter. x-postgresql-skip: true because this is a file-format spec, not a persisted entity (the rule lives in git).
+    YAML-frontmatter contract for `rubric/<CATEGORY>/<NAME>-NN.md` files. Per-rule contract per .claude/rules/methodology.md § Per-rule contract. The detector engine loads rule files via this schema; the methodology codegen step (#7) emits webapp/src/generated/methodology/index.mdx from validated frontmatter. x-postgresql-skip: true because this is a file-format spec, not a persisted entity (the rule lives in git).
     """
 
     model_config = ConfigDict(
@@ -225,9 +225,7 @@ class RubricRule(OrmBaseModel):
     )
     rule_id: constr(
         pattern=r"^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\d{2}$"
-    ) = Field(
-        ..., alias="ruleId", description="Format `SS-<CATEGORY>-<NAME>-NN` (D-03)."
-    )
+    ) = Field(..., alias="ruleId", description="Format `SS-<CATEGORY>-<NAME>-NN`.")
     title: constr(min_length=1) = Field(
         ...,
         description="Plain-English headline for the finding (NO rule_id) — the `.fc-title` on every report. A human sentence fragment naming what was found, e.g. 'Fenced code block that tells the agent to run a shell command'. Flows through generate-methodology.cjs into webapp/src/generated/rules/content.ts.",
@@ -251,23 +249,21 @@ class RubricRule(OrmBaseModel):
         description="Actionable remediation surfaced on every finding: `action` (required) + optional `steps[]` + optional `saferPattern`. Methodology-over-opinion — concrete and reproducible, never a product recommendation.",
     )
     severity: Severity = Field(
-        ..., description="5-tier ladder (D-02). `info` carries weight 0."
+        ..., description="5-tier ladder. `info` carries weight 0."
     )
-    sub_score: SubScore = Field(
-        ..., alias="subScore", description="5-axis sub-score (D-01)."
-    )
+    sub_score: SubScore = Field(..., alias="subScore", description="5-axis sub-score.")
     weight: conint(ge=0, le=40) = Field(
         ...,
         description="Maximum penalty this rule contributes. 0 for advisory (`info`) and shadow rules.",
     )
     status: Status = Field(
         ...,
-        description="Rule lifecycle state (D-14). New rules land `shadow` for 7 days; FP-audit gates promotion.",
+        description="Rule lifecycle state. New rules land `shadow` for 7 days; FP-audit gates promotion.",
     )
     shadow_until: str | None = Field(
         None,
         alias="shadowUntil",
-        description="ISO 8601 date or week-marker (e.g. `2026-W3-end`) when the FP-audit harness re-evaluates promotion. Required iff status=shadow; null otherwise.",
+        description="ISO 8601 date when the FP-audit harness re-evaluates promotion. Required iff status=shadow; null otherwise.",
     )
     applies_to: list[AppliesToEnum] = Field(
         ...,

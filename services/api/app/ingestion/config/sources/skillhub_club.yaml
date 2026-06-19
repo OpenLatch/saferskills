@@ -1,4 +1,4 @@
-# skillhub.club skill aggregator (I-04 Phase B PR2). Flat sitemap → /skills/<slug>
+# skillhub.club skill aggregator. Flat sitemap → /skills/<slug>
 # item pages (Vercel-hosted; redirects apex → www, so both hosts are allowlisted).
 name: skillhub_club
 kind: scrape

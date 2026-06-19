@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 
 /**
- * DetectionTile — Phase A2 `.dt-tile` vocabulary.
+ * DetectionTile — `.dt-tile` vocabulary.
  *
  * DetectionTile lives in the webapp package (`webapp/src/components/homepage/`),
  * so we mirror its markup here as plain React for Ladle visual review. CSS

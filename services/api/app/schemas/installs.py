@@ -1,4 +1,4 @@
-"""Wire type for POST /api/v1/installs — opt-in install telemetry (D-05-31).
+"""Wire type for POST /api/v1/installs — opt-in install telemetry.
 
 The install CLI reports a successful install (only when the user opted in) so the
 catalog's `install_activity` reflects real adoption instead of the old mock.

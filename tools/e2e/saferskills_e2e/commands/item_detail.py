@@ -1,9 +1,9 @@
 """Playwright check of the item-detail page (/items/<slug>).
 
-Discovers a slug from `GET /api/v1/items?limit=1`. The catalog is empty at
-I-03 ship (data-seed populates on demand), so an empty catalog is NOT a
-failure — the command prints a warning and returns OK. With a slug present it
-asserts the page-head identity title renders.
+Discovers a slug from `GET /api/v1/items?limit=1`. The catalog can be empty
+(data-seed populates on demand), so an empty catalog is NOT a failure — the
+command prints a warning and returns OK. With a slug present it asserts the
+page-head identity title renders.
 """
 
 from __future__ import annotations

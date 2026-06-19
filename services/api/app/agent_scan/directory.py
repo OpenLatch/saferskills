@@ -1,12 +1,12 @@
-"""Public Agent Report directory queries (I-5.6 Phase C, D-5.6-05).
+"""Public Agent Report directory queries.
 
 The `/agents` directory + the corpus risk meter read `agent_runs` directly — an
 Agent Report is its own entity, never a `catalog_items` row. Every query here is
 PUBLIC-ONLY: `visibility='public' AND status IN ('graded','published') AND score
 IS NOT NULL`. Visibility alone would leak created/submitted/ungraded null-score
-runs into the grid + the aggregate stat (Codex P1).
+runs into the grid + the aggregate stat.
 
-No raw payload (prime invariant #3): a summary carries only derived counts/labels
+No raw payload: a summary carries only derived counts/labels
 (severity tally, trust tier), never a transcript or finding body.
 """
 
@@ -33,7 +33,7 @@ from app.schemas.agent_scan import (
     AgentScanSummary,
 )
 
-# Period windows (design §5). 'all'/unselected = no time filter. Sort keys are
+# Period windows. 'all'/unselected = no time filter. Sort keys are
 # `newest` (default) | `score_asc` | `score_desc`; severity filters are
 # critical/high/info/no-findings — both validated at the router boundary.
 _PERIOD_DAYS: dict[str, int] = {"24h": 1, "7d": 7, "30d": 30, "quarter": 90}

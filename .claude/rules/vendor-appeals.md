@@ -10,7 +10,6 @@ paths:
 # Vendor Appeals — right-of-reply contract
 
 > **Paths**: `**/vendor-appeal*`, `**/appeal*`, `.github/ISSUE_TEMPLATE/04-vendor-appeal*`, `services/api/app/appeals/**`, `webapp/src/pages/appeal*.astro`
-> **PRD reference**: §11 — right-of-reply.
 
 ## Purpose
 
@@ -18,16 +17,16 @@ Public scan results are a powerful claim. SaferSkills' legitimacy depends on the
 
 ## Submission paths
 
-| Path | W1 status | When to use |
+| Path | Status | When to use |
 |---|---|---|
-| **GitHub issue template** (`.github/ISSUE_TEMPLATE/04-vendor-appeal.yml`) | Live | Default at W1. Tracks the appeal in a public issue, links the catalog item, captures structured fields (rule_id, scan timestamp, rebuttal). |
-| **Right-of-reply web form** (`/items/<slug>/respond`) | **Live (I-03 Phase C)** | The friction-minimizing structural right-of-reply (D-FE deviation). Verify-by-`.saferskills/verify.txt` → HttpOnly `ss_vendor_session` cookie (webapp-owned; the API mints + is the sole verifier of the HS256 JWT) → ≤2000-char Markdown response posted to `POST /api/v1/items/<slug>/vendor/responses`, rendered publicly next to findings. Optional immediate re-scan. GitHub issues remain the fallback. |
-| **Appeal web form** (`/appeal` on `saferskills.ai/appeal`) | **W6** | The formal finding-appeal flow (distinct from the right-of-reply above). Ships with `webapp/src/pages/appeal.astro`. Posts to `POST /api/v1/appeals` (W6 endpoint). |
+| **GitHub issue template** (`.github/ISSUE_TEMPLATE/04-vendor-appeal.yml`) | Live | Default path. Tracks the appeal in a public issue, links the catalog item, captures structured fields (rule_id, scan timestamp, rebuttal). |
+| **Right-of-reply web form** (`/items/<slug>/respond`) | **Live** | The friction-minimizing structural right-of-reply. Verify-by-`.saferskills/verify.txt` → HttpOnly `ss_vendor_session` cookie (webapp-owned; the API mints + is the sole verifier of the HS256 JWT) → ≤2000-char Markdown response posted to `POST /api/v1/items/<slug>/vendor/responses`, rendered publicly next to findings. Optional immediate re-scan. GitHub issues remain the fallback. |
+| **Appeal web form** (`/appeal` on `saferskills.ai/appeal`) | **Planned** | The formal finding-appeal flow (distinct from the right-of-reply above). Ships with `webapp/src/pages/appeal.astro`. Posts to `POST /api/v1/appeals` (planned endpoint). |
 | **Email** (`appeals@openlatch.ai`) | Live | Human-escalation path when the GitHub form is insufficient (e.g. private-disclosure-of-sensitive-detail). Email is converted to a public issue by a maintainer unless the vendor explicitly requests private handling. |
 
 ## Identity verification
 
-A vendor's identity is verified one of two ways — both are sufficient on their own, neither requires platform-side account creation at W1:
+A vendor's identity is verified one of two ways — both are sufficient on their own, neither requires platform-side account creation:
 
 1. **`.saferskills/verify.txt`** in the scanned repo, containing the verifier's GitHub username on its own line. Mirrors the well-known DNS-verification pattern; survives repo forks because we check the canonical scanned URL.
 2. **Email-from-maintainer**: the appeal arrives from an email address that matches the repo's public maintainer record (GitHub `Email` field on the user, or `maintainers` block in the artifact manifest).
@@ -75,12 +74,12 @@ Every appeal gets a **substantive public response** that engages the vendor's sp
 
 Each state transition is an audit event (cf. `security.md` § "Audit Trail").
 
-## Uploaded artifacts — no right-of-reply (I-3.5)
+## Uploaded artifacts — no right-of-reply
 
 The right-of-reply above is a **vendor** contract — it presumes a scanned artifact with a discoverable upstream owner (a GitHub repo). **Directly uploaded artifacts have NO vendor right-of-reply**: there is no repo to verify ownership against (`.saferskills/verify.txt`), no upstream maintainer record, and no auto-rescan path.
 
 - **Unlisted uploads** self-delete via `DELETE /api/v1/scans/r/{token}` (the submitter holds the only link) and auto-expire after 90 days — no appeal needed.
-- **Public uploads** are the only case requiring a removal path. The only such path is the manual SQL **operator runbook** at `docs/runbooks/operator-upload-deletion.md` (brainstorm handoff id `outbox/04`), which deletes the run via `delete_run_cascade(..., allow_public=True)`. There is **no** new takedown endpoint, **no** automated takedown, and **no** Slack alert — abusive-public-upload removal is a deliberate manual operator action.
+- **Public uploads** are the only case requiring a removal path. The only such path is the manual SQL **operator runbook** at `contributor-docs/runbooks/operator-upload-deletion.md`, which deletes the run via `delete_run_cascade(..., allow_public=True)`. There is **no** new takedown endpoint, **no** automated takedown, and **no** Slack alert — abusive-public-upload removal is a deliberate manual operator action.
 
 ## Escalation — `appeals@openlatch.ai`
 
@@ -109,6 +108,6 @@ The inbox is monitored by the maintainer team. Replies move the appeal back to a
 | New identity-verification path | "Identity verification" |
 | New lifecycle state | "Appeal lifecycle" table + the audit event + `security.md` |
 | SLA change | "1-hour re-scan SLA" — re-verify whether SLA is still operationally feasible |
-| Web form ships (W6) | Move "Web form" status to Live + add `services/api/app/appeals/**` to the paths block |
+| Appeal web form ships | Move its status to Live + add `services/api/app/appeals/**` to the paths block |
 | Banned-reason added | "Banned reasons for rejection" |
-| Upload removal path changes (e.g. an automated takedown lands) | "Uploaded artifacts — no right-of-reply" + `docs/runbooks/operator-upload-deletion.md` |
+| Upload removal path changes (e.g. an automated takedown lands) | "Uploaded artifacts — no right-of-reply" + `contributor-docs/runbooks/operator-upload-deletion.md` |

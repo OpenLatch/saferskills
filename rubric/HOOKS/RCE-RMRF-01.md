@@ -72,4 +72,4 @@ context means there's no user-confirmation gate. Active at landing.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing.
+- v1 (2026-01-09): initial rule. Active at landing.

@@ -1,6 +1,6 @@
 //! Codex writer — HIGH confidence. The only TOML agent.
 //!
-//! Landmines (design.md §4): MCP entry is a TOML table `[mcp_servers.<name>]` in
+//! Config-schema landmines: MCP entry is a TOML table `[mcp_servers.<name>]` in
 //! `~/.codex/config.toml` (global) / `.codex/config.toml` (project) — written
 //! format-preservingly via `toml_edit`. HTTP transport uses `url` +
 //! `bearer_token_env_var`. Codex Desktop has been observed to rewrite/drop MCP

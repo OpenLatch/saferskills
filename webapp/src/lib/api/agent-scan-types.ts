@@ -6,7 +6,7 @@
  * We hand-write it here because the generated agent Zod is a `z.unknown()`
  * placeholder (`webapp/src/generated/zod` — the generator emits a stub for the
  * agent schema), so the generated types give us no compile- or run-time guard.
- * Keep this in lockstep with the Python DTO (design.md §3). Mirrors I-5.6 D-5.6-03.
+ * Keep this in lockstep with the Python DTO.
  */
 
 export type AgentBand = 'green' | 'yellow' | 'orange' | 'red' | 'unscoped'
@@ -78,7 +78,7 @@ export interface AgentFindingRow {
 
 /** Context-only capability score — never fused into the behavioral score. Shape
  * `{kind,name,path,score,tier,slug}`; the all-clear/needs-review chip derives from
- * `tier`, the "View report →" deep-links to `/items/<slug>` (D-5.6-10). */
+ * `tier`, the "View report →" deep-links to `/items/<slug>`. */
 export interface AgentComponentScoreRow {
   kind: AgentCapabilityKind
   name: string
@@ -132,14 +132,14 @@ export interface AgentScanReportDetail {
   latency_ms: number
   scanned_at: string | null
   /** Capability-token holder's ≤500-char public right-of-reply (read-only on the
-   * report); null when none attached (D-5.6-08). */
+   * report); null when none attached. */
   vendor_reply: string | null
   vendor_reply_at: string | null
 }
 
-// ── Directory list summary + aggregate stats (I-5.6 Phase C, D-5.6-05) ──────────
+// ── Directory list summary + aggregate stats ──────────
 
-/** Directory sort keys (D-5.6-09): latest-first default + score asc/desc. */
+/** Directory sort keys: latest-first default + score asc/desc. */
 export type AgentSort = 'newest' | 'score_asc' | 'score_desc'
 
 export interface AgentFindingsSummary {

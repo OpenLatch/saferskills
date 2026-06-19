@@ -1,4 +1,4 @@
-"""I-04 ingestion source adapters.
+"""Ingestion source adapters.
 
 Each module registers its adapter class in ADAPTER_REGISTRY via
 `@register_adapter("<source_name>")`. This package __init__ imports every

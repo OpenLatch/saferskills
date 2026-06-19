@@ -63,7 +63,7 @@ v1 detects the structural condition (workflow file present + branch
 protection absent or unconfigured) using the GitHub metadata. v2 will
 extend with a GitHub Actions API query to check whether recent default-branch
 runs actually pass; that requires API tokens and rate-limit budget that
-Phase B introduces.
+a later iteration introduces.
 
 Medium severity is appropriate: the signal is real (broken-but-shipping CI
 masks regressions) and the remediation is straightforward (enable required-
@@ -76,4 +76,4 @@ and produces few FPs.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing with structural-signal v1.
+- v1 (2026-01-09): initial rule. Active at landing with structural-signal v1.

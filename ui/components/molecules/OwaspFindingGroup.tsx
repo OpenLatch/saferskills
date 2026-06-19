@@ -14,7 +14,7 @@ export interface OwaspFindingGroupProps {
 }
 
 /**
- * OWASP-family finding group (I-5.6 §9). Renders the group head — OWASP index +
+ * OWASP-family finding group. Renders the group head — OWASP index +
  * family title + a row of deep-linked `RefChip`s — wrapping the finding cards the
  * report island composes. The `.find-card` chrome the cards reuse is DS-owned;
  * this molecule owns only the `.owasp-group*` head CSS (components.css).

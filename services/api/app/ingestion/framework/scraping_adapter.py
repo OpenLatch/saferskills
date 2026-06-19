@@ -1,10 +1,10 @@
-"""ScrapingAdapter — aggregator HTML/feed scraping base (I-04 Phase B, lean).
+"""ScrapingAdapter — aggregator HTML/feed scraping base (lean).
 
 Inherits the generic `RegistryAdapter.run_cycle` (list_items → 304-skip → normalize
 → enrich → merge → outbox); subclasses override only `list_items` / `normalize` /
 `enrich`. This base adds the scrape-specific fetch primitives:
 
-- **Discovery precedence (D-04-36)**: feed (JSON) → sitemap → HTML fallback. The
+- **Discovery precedence**: feed (JSON) → sitemap → HTML fallback. The
   tier-0 feed/sitemap fetches go through the inherited HTTPX client (SSRF allowlist
   + Hishel RFC-9111 cache). The tier-1 HTML fetch goes through curl_cffi (browser
   impersonation), which BYPASSES the HTTPX transport — so it calls
@@ -47,7 +47,7 @@ _FROM = "bot@saferskills.ai"
 _DEFAULT_IMPERSONATE = "chrome131"
 
 # 25 MiB — parity with the HTTPX `_body_size_cap_hook` (security.md #3). curl_cffi
-# bypasses that response hook, so the scrape tier enforces the cap itself (WS-8e).
+# bypasses that response hook, so the scrape tier enforces the cap itself.
 _MAX_BODY_BYTES = 26_214_400
 
 # Body markers that indicate a Cloudflare challenge interstitial (vs the real page).
@@ -94,7 +94,7 @@ class ScrapingAdapter(RegistryAdapter):
     def _impersonate(self) -> str:
         return str(self.config.discovery.get("impersonate", _DEFAULT_IMPERSONATE))
 
-    # -- Discovery precedence helpers (D-04-36) ------------------------------
+    # -- Discovery precedence helpers ------------------------------
 
     async def _fetch_feed(self, client: Any, url: str) -> Any | None:
         """Tier-0 JSON-feed fetch via the inherited HTTPX client (SSRF + Hishel safe).
@@ -183,7 +183,7 @@ class ScrapingAdapter(RegistryAdapter):
 
         body = r.content or b""
         # curl_cffi bypasses the HTTPX `_body_size_cap_hook`, so enforce the 25 MiB
-        # cap here too (WS-8e). The body is already fully buffered by curl_cffi, so
+        # cap here too. The body is already fully buffered by curl_cffi, so
         # this is a post-hoc guard; it raises the same IngestionError the HTTPX tier
         # raises (caught by the cycle wrapper → clean WARN + failed run).
         if len(body) > _MAX_BODY_BYTES:

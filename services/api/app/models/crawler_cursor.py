@@ -1,7 +1,7 @@
 """SQLAlchemy ORM for `crawler_cursors` (internal — no JSON-Schema source).
 
 One row per adapter source. Holds the resume cursor + per-source health/status
-(active|paused|blocked|disabled) used by the framework + the Phase C /sources
+(active|paused|blocked|disabled) used by the framework + the /sources
 dashboard. Seeded with 14 rows by migration 0011.
 """
 

@@ -14,7 +14,7 @@ from app.models.generated._base import Base
 
 
 class MergeCandidate(Base):
-    """Pending merge of two items that share a fuzzy name similarity but no canonical-ID match (D-04-09)...."""
+    """Pending merge of two items that share a fuzzy name similarity but no canonical-ID match. Wikidata..."""
 
     __tablename__ = "merge_candidates"
 

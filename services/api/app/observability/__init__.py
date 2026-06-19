@@ -1,7 +1,7 @@
 """Observability — typed event emit helpers for the 14-event scan-engine allowlist.
 
 See `.claude/rules/telemetry.md` § Event allowlist for the full contract.
-Phase A lands the typed helpers; Phase B (engine) + Phase C (vendor / re-scan)
+The typed helpers live here; the scan engine and the vendor / re-scan paths
 emit the events.
 """
 

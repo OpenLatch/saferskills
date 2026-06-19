@@ -1,4 +1,4 @@
-/* Per-page CSS for /methodology (D-FE-24).
+/* Per-page CSS for /methodology.
  *
  * Page-head pattern + ridge dividers + section structure.
  * RuleCard styling lives co-located in webapp/src/components/methodology/RuleCard.astro.
@@ -685,7 +685,7 @@ html.dark .rf-export {
   }
 }
 
-/* ─────────── Agent Scan pack cards (I-5.6 AR-12 §11) ─────────── */
+/* ─────────── Agent Scan pack cards ─────────── */
 .ap-pack-meta {
   margin: 8px 0 0;
   overflow-wrap: anywhere;

@@ -16,7 +16,7 @@ class AdapterPausedError(IngestionError):
 
 
 class RobotsTxtDisallow(IngestionError):
-    """robots.txt disallows the path we were about to fetch (Phase B scraping)."""
+    """robots.txt disallows the path we were about to fetch (aggregator scraping)."""
 
 
 class OutboundDenyError(IngestionError):

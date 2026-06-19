@@ -1,6 +1,6 @@
-"""Unit tests for upload extraction + identity (I-3.5, no DB).
+"""Unit tests for upload extraction + identity (no DB).
 
-Covers the §13.2 rejection matrix (every bucketed `(status, code, reason)`),
+Covers the rejection matrix (every bucketed `(status, code, reason)`),
 the happy single-file + `.zip` paths, kind/name detection, the per-capability
 slug builders + grammar conformance, the public/unlisted idempotency keys, and
 the engine-regression guard for `run_repo_scan_from_index`.
@@ -135,7 +135,7 @@ async def test_loose_batch_path_traversal() -> None:
     assert ei.value.reason == "zip_slip"
 
 
-# ── Rejection matrix (§13.2 + P1-3) ───────────────────────────────────────────
+# ── Rejection matrix ──────────────────────────────────────────────────────────
 
 
 # NOTE: the cumulative 10 MiB cap is enforced in the multipart parser
@@ -237,7 +237,7 @@ async def test_zip_duplicate_after_fold() -> None:
     assert ei.value.reason == "dup_path"
 
 
-# ── Identity + idempotency (§13.3) ────────────────────────────────────────────
+# ── Identity + idempotency ────────────────────────────────────────────────────
 
 
 def test_content_hash_is_order_independent() -> None:
@@ -249,11 +249,11 @@ def test_content_hash_is_order_independent() -> None:
 def test_public_key_stable_unlisted_key_unique() -> None:
     ch = upload_content_hash([("a", b"1")])
     assert public_upload_idempotency_key(ch, "r1") == public_upload_idempotency_key(ch, "r1")
-    # Nonce-salted → two unlisted keys for identical bytes differ (D-UP-28).
+    # Nonce-salted → two unlisted keys for identical bytes differ.
     assert unlisted_idempotency_key(ch, "r1") != unlisted_idempotency_key(ch, "r1")
 
 
-# ── Slug builders + grammar (§5b) ─────────────────────────────────────────────
+# ── Slug builders + grammar ───────────────────────────────────────────────────
 
 
 def test_upload_slug_grammar_and_hyphenation() -> None:
@@ -272,7 +272,7 @@ def test_unlisted_slug_grammar() -> None:
     assert _SLUG_RE.match(slug)
 
 
-# ── Engine regression (§13.12) ────────────────────────────────────────────────
+# ── Engine regression ─────────────────────────────────────────────────────────
 
 
 def test_run_repo_scan_from_index_scores_a_single_skill() -> None:

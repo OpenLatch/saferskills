@@ -20,7 +20,7 @@ class _StartupState:
         # The in-process ingestion worker failed to start (open_async / schema /
         # task creation). The API still serves — only background ingestion is
         # dead — so this never flips `is_healthy`; it surfaces on /health so a
-        # silently-dead worker is visible instead of looking ready (WS-2).
+        # silently-dead worker is visible instead of looking ready.
         self.ingestion_degraded: bool = False
 
     @property

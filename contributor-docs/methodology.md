@@ -1,6 +1,6 @@
 # SaferSkills Methodology
 
-> v1 — Phase A (W2). The substantive rule corpus lands via the rule-RFC process; the first batch of 55 rules ships with this document. The contributor-facing detail lives in [`../.claude/rules/methodology.md`](../.claude/rules/methodology.md); both stay in sync per [`../.claude/rules/documentation-sync.md`](../.claude/rules/documentation-sync.md).
+> The substantive rule corpus lands via the rule-RFC process; the first batch of 55 rules ships with this document. The contributor-facing detail lives in [`../.claude/rules/methodology.md`](../.claude/rules/methodology.md); both stay in sync per [`../.claude/rules/documentation-sync.md`](../.claude/rules/documentation-sync.md).
 
 ## Inputs
 
@@ -8,8 +8,8 @@ SaferSkills ingests one of:
 
 - A GitHub repository URL (`https://github.com/<owner>/<repo>` or sub-tree)
 - A direct skill / MCP / hook / plugin / rules artifact URL (resolves to a Git ref or release artifact)
-- A **directly uploaded** artifact file or `.zip` (I-3.5) — scanned public or **unlisted** (private share via an unguessable link)
-- An `npx`-installable package name (Track C, W4+)
+- A **directly uploaded** artifact file or `.zip` — scanned public or **unlisted** (private share via an unguessable link)
+- An `npx`-installable package name (planned)
 
 Every submission becomes a deterministic, content-hashed catalog entry. An upload is a second front-end into the *same* engine — it produces the same per-capability file index and the same scoring path, never a different one.
 
@@ -25,7 +25,7 @@ One catalog entry = one capability, so a capability links straight to its own `/
 
 ## Sub-score taxonomy & weights
 
-The aggregate score is a closed-form weighted sum of five sub-scores (PRD §5.2, locked decision **D-01**):
+The aggregate score is a closed-form weighted sum of five sub-scores:
 
 | Sub-score | Weight | What it catches |
 |---|---:|---|
@@ -37,7 +37,7 @@ The aggregate score is a closed-form weighted sum of five sub-scores (PRD §5.2,
 
 ## Severity ladder
 
-5-tier per locked decision **D-02**:
+5-tier:
 
 | Severity | Penalty range | Notes |
 |---|---|---|
@@ -70,7 +70,7 @@ aggregate   = min(weighted, ceiling)   if a ceiling applies else weighted
 
 Penalty per finding is set in the rule's frontmatter (`weight` field, 0–40) and never tuned at runtime.
 
-**Severity ceiling.** Because security is only 35% of the weight, a critical security failure with everything else clean would otherwise land near ~72 ("yellow / Watch") — the 65% non-security weight mathematically floors the aggregate well above the "block" band, so a serious flaw is diluted by good docs/community. The severity ceiling fixes this structurally: a single **active** critical finding caps the **whole aggregate** at **≤15** (solidly red / Block), an **active** high caps it at **≤45**. `info` and `shadow` findings never trigger it. The repo rollup applies the same ceiling over the union of every capability's findings, so one dangerous capability among many clean ones cannot be averaged back up. This **supersedes** the earlier per-sub-score critical-floor model (locked decision **D-13**, which capped only the security sub-score at 40) and amends the pure weighted-sum of **D-01**; the per-sub-score critical floor is retained at 20 (down from 40) only for breakdown coherence — the aggregate ceiling now dominates.
+**Severity ceiling.** Because security is only 35% of the weight, a critical security failure with everything else clean would otherwise land near ~72 ("yellow / Watch") — the 65% non-security weight mathematically floors the aggregate well above the "block" band, so a serious flaw is diluted by good docs/community. The severity ceiling fixes this structurally: a single **active** critical finding caps the **whole aggregate** at **≤15** (solidly red / Block), an **active** high caps it at **≤45**. `info` and `shadow` findings never trigger it. The repo rollup applies the same ceiling over the union of every capability's findings, so one dangerous capability among many clean ones cannot be averaged back up. This **supersedes** the earlier per-sub-score critical-floor model (which capped only the security sub-score at 40) and amends the pure weighted-sum; the per-sub-score critical floor is retained at 20 (down from 40) only for breakdown coherence — the aggregate ceiling now dominates.
 
 **Every public scan report renders the explicit math**: per-finding penalty, running sub-score, critical-floor application, weighted aggregate, severity-ceiling application, tier-band mapping. The report's `score_breakdown` field carries the same numbers in machine-readable form (`aggregate_math.severity_ceiling`).
 
@@ -83,11 +83,11 @@ The aggregate is bucketed into a tier:
 | Orange | 40–59 | ⚠ Caution |
 | Red | 0–39 | ✗ Block |
 
-The CLI's default install gate is **block on Red** with `--threshold` to tighten or `--force` to bypass (the bypass is recorded in the install audit log, W5+).
+The CLI's default install gate is **block on Red** with `--threshold` to tighten or `--force` to bypass (the bypass is recorded in the install audit log, planned).
 
 ## Rule lifecycle — shadow then active
 
-New rules ship in `status: shadow` for 7 days (locked decision **D-14**). The detector fires and records findings in the public scan trace, but the rule's weight is 0 during the shadow window — no score impact.
+New rules ship in `status: shadow` for 7 days. The detector fires and records findings in the public scan trace, but the rule's weight is 0 during the shadow window — no score impact.
 
 After 7 days, the FP-audit harness ([`tools/fp-audit/`](https://github.com/OpenLatch/saferskills/tree/main/tools/fp-audit)) gates promotion:
 
@@ -98,7 +98,7 @@ This protects launch-week false-positive risk without delaying the detection sig
 
 ## Rule format
 
-Rules live at `rubric/<CATEGORY>/<NAME>-NN.md` (locked decision **D-04**). Each is Markdown + YAML frontmatter:
+Rules live at `rubric/<CATEGORY>/<NAME>-NN.md`. Each is Markdown + YAML frontmatter:
 
 ```yaml
 ---
@@ -107,7 +107,7 @@ severity: info | low | medium | high | critical
 sub_score: security | supply_chain | maintenance | transparency | community
 weight: 0..40
 status: shadow | active | deprecated
-shadow_until: 2026-W3-end       # required iff status: shadow
+shadow_until: 2026-01-18         # required iff status: shadow
 applies_to: [skill, mcp, rules, hooks, plugin]   # subset
 title: >-                        # plain-English headline (no rule_id)
   Fenced code block that tells the agent to run a shell command
@@ -178,7 +178,7 @@ Every finding carries: `rule_id`, `severity`, `file_path`, `line_start`/`line_en
 
 Each catalog item carries an `agent_compatibility` list — the agent platforms the artifact can run on. It is **catalog metadata, not a scoring input**: it never affects a score, only the catalog's *Agent compatibility* filter. Because it is metadata (not a verdict), it is derived by a documented deterministic mapping rather than the rule-RFC process.
 
-At W2 there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill — the `skill` set later widened by `0017_skill_compat_codex`):
+Currently there is no per-artifact manifest parse, so the value is derived **deterministically from the artifact `kind`** (the canonical mapping, mirrored in `services/api/app/services/agent_compat.py::agent_compatibility_for` and the `0003_add_agent_compatibility` backfill — the `skill` set later widened by `0017_skill_compat_codex`):
 
 | `kind` | `agent_compatibility` | Rationale |
 |---|---|---|
@@ -190,7 +190,7 @@ At W2 there is no per-artifact manifest parse, so the value is derived **determi
 
 The agent id enum is closed (`schemas/catalog-item.schema.json::agentCompatibility`). Unknown kinds map to the empty list — no claim is the honest default.
 
-**TODO (I-04 ingestion / methodology RFC):** refine the mapping with real manifest signals — declared `engines`/`agents` manifest fields, MCP transport detection, and editor-rule frontmatter — instead of kind alone. When the mapping changes, ship a fresh backfill migration so existing rows stay consistent.
+**TODO (ingestion / methodology RFC):** refine the mapping with real manifest signals — declared `engines`/`agents` manifest fields, MCP transport detection, and editor-rule frontmatter — instead of kind alone. When the mapping changes, ship a fresh backfill migration so existing rows stay consistent.
 
 ## Limitations
 
@@ -227,5 +227,5 @@ The auto-rendered rubric ships at [`https://saferskills.ai/methodology`](https:/
 
 ## Methodology changelog
 
-- **v1 (Phase A, W2)** — Locked PRD-aligned 5-axis sub-score taxonomy, 5-tier severity ladder, shadow/active lifecycle, critical-floor scoring. First-batch rubric (55 rules) lands. Public methodology page auto-renders from `rubric/`.
-- **v0 (W1)** — Placeholder 4-axis taxonomy (Identity / Integrity / Behavior / Provenance). Superseded by v1.
+- **v1** — 5-axis sub-score taxonomy, 5-tier severity ladder, shadow/active lifecycle, critical-floor scoring. First-batch rubric (55 rules) lands. Public methodology page auto-renders from `rubric/`.
+- **v0** — Placeholder 4-axis taxonomy (Identity / Integrity / Behavior / Provenance). Superseded by v1.

@@ -1,9 +1,7 @@
-/* /catalog — pixel-faithful port of the Claude-Design catalog mockup.
+/* /catalog — pixel-faithful port of the catalog mockup.
  *
- * Source: .local/.brainstorms/frontend/mockups/SaferSkills-Catalog-unpacked.html
- *   catalog block L3138–3593 + responsive L5053. Ported verbatim with
- *   `body.va.dark` → `html.dark` (project dark-mode signal) and raw values
- *   replaced by tokens (rule (a) — shell page CSS is token-only).
+ * Ported verbatim with `body.va.dark` → `html.dark` (project dark-mode signal)
+ * and raw values replaced by tokens (rule (a) — shell page CSS is token-only).
  *
  * DS vocabulary (.band-pill, .dot-*, .page-head .ph-*, .ridge-stars) lives in
  * ui/styles/components.css and is reused — not re-declared here.
@@ -309,7 +307,7 @@ html.dark .cat-row .nm .name {
 html.dark .cat-row .nm-sub .tag-mini {
   background: rgba(255, 255, 255, 0.04);
 }
-/* I-3.5 — UPLOAD provenance badge: teal-tinted variant of the kind tag. */
+/* UPLOAD provenance badge: teal-tinted variant of the kind tag. */
 .cat-row .nm-sub .tag-mini.up {
   color: var(--brand-primary);
   border-color: color-mix(in srgb, var(--brand-primary) 45%, transparent);

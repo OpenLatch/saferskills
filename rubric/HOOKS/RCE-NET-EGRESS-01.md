@@ -4,7 +4,7 @@ severity: high
 subScore: security
 weight: 25
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [hooks]
 frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:78"]
 title: >-
@@ -72,4 +72,4 @@ trigger phrasings deserve real-world FP measurement before activation.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

@@ -1,4 +1,4 @@
-"""GitHub topic-search + code-search discovery adapter (D-04-35).
+"""GitHub topic-search + code-search discovery adapter.
 
 Topics indexed: claude-skills, anthropic-skills, agent-skills, mcp-server.
 The GitHub Search API caps at 1,000 results/query; we shard by star-count ranges

@@ -1,7 +1,7 @@
-//! The eight per-agent config writers (D-05-15, D-05-16).
+//! The eight per-agent config writers.
 //!
 //! Each agent module documents its config-key + URL-field landmines (the
-//! load-bearing per-agent differences from design.md §4) and constructs a writer
+//! load-bearing per-agent differences) and constructs a writer
 //! over the shared engine in [`super::writer`]. Seven agents map-merge JSON via a
 //! [`JsonMcpWriter`] parameterised by a [`KeyShape`]; Codex map-merges TOML via
 //! [`CodexWriter`]. Pinned known-good schemas + the live-verification checklist

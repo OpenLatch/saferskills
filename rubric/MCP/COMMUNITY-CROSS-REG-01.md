@@ -24,7 +24,7 @@ trigger:
   value: 2
 limitations:
   - "Info severity, weight 0: this rule does NOT affect the score. It surfaces in the trace only as community-presence context."
-  - "Requires the Phase B registry-index data to populate the metadata field. v1 lands the rule shape; the trigger executor is wired in Phase B."
+  - "Requires the registry-index data to populate the metadata field. v1 lands the rule shape; the trigger executor is wired in a later iteration."
   - "Cannot detect registry-listing manipulation (an attacker who lists their MCP across multiple registries inflates the score). The signal is informational only for this reason."
 priorArt:
   - https://github.com/modelcontextprotocol/registry
@@ -40,9 +40,9 @@ reviewed for inclusion by multiple independent curators, and the
 cross-listing is a community-adoption proxy. Info severity at weight 0:
 this is reference context for consumers, not a score-affecting signal.
 
-The Phase A landing registers the rule shape; the registry-index data that
-populates the `registry_listings_count` field arrives with I-03 (Catalog
-Ingestion, W4). Until then, the trigger is registered but does not have
+The initial landing registers the rule shape; the registry-index data that
+populates the `registry_listings_count` field arrives with the catalog-ingestion
+subsystem. Until then, the trigger is registered but does not have
 its data source.
 
 The deliberate choice of weight-0 avoids the manipulation risk: an attacker
@@ -56,4 +56,4 @@ trace serves consumers without creating an attack incentive.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing as `info` (weight 0); data wires in I-03.
+- v1 (2026-01-09): initial rule. Active at landing as `info` (weight 0); data wires in with catalog ingestion.

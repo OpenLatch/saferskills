@@ -1,6 +1,6 @@
 /**
  * Re-scan nudge shown on a report when a newer pack adds a test for the agent's
- * family (I-5.6 §10/§13). The live badge SVG stays current; this banner lives on
+ * family. The live badge SVG stays current; this banner lives on
  * the report only. Render conditionally (a data flag); never shown when the pack
  * is current.
  */

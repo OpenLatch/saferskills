@@ -1,11 +1,11 @@
 """Deterministic agent-compatibility mapping.
 
 `agent_compatibility` on a `catalog_item` is the closed-enum list of agent
-platforms an artifact can run on. At W2 there is no per-artifact manifest parse
+platforms an artifact can run on. There is no per-artifact manifest parse
 yet, so the value is derived **deterministically from the artifact `kind`** — a
 documented, reproducible default rather than an opinion. The mapping is the
-public methodology contract (see ``docs/methodology.md`` § Agent compatibility);
-I-04 ingestion adapters will refine it with real manifest signals (declared
+public methodology contract (see ``contributor-docs/methodology.md`` § Agent compatibility);
+ingestion adapters will refine it with real manifest signals (declared
 `engines` / `agents` fields, MCP transport, editor-rule frontmatter).
 
 The same CASE-on-kind logic is mirrored in the Alembic backfill
@@ -20,7 +20,7 @@ from typing import Literal, get_args
 
 # Closed enum — mirrors schemas/catalog-item.schema.json::agentCompatibility +
 # app/models/install_event.py::AGENT_VALUES (the native `agent` PG enum). The
-# canonical agent ids the install CLI's `--to` flag uses (D-05-14); the legacy
+# canonical agent ids the install CLI's `--to` flag uses; the legacy
 # `codex-cli`/`gemini-cli` ids are reconciled to `codex`/`gemini`.
 AgentName = Literal[
     "claude-code",
@@ -43,7 +43,7 @@ ALL_AGENTS: tuple[str, ...] = get_args(AgentName)
 #                OpenClaw, OpenAI Codex, GitHub Copilot, and Gemini have each
 #                shipped a `skills/` surface (mirrors the install CLI's
 #                skill-capable set — those agents given a `skill_dir` in
-#                `cli/src/agents/detect.rs`; widened from the W2 Claude-only
+#                `cli/src/agents/detect.rs`; widened from the earlier Claude-only
 #                default in migration 0017_skill_compat_codex).
 #   plugin     : Claude Code plugin packaging → Claude Code (+ OpenClaw).
 #   hook       : Claude Code lifecycle hooks → Claude Code (+ OpenClaw).

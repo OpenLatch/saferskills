@@ -1,7 +1,7 @@
 """SQLAlchemy ORM for `popularity_formulas` (internal — no JSON-Schema source).
 
-Version-locked popularity weights (D-04-13). Seeded with `popularity_v1` by
-migration 0011. Consumed by the Phase C popularity_recompute task; changing
+Version-locked popularity weights. Seeded with `popularity_v1` by
+migration 0011. Consumed by the popularity_recompute task; changing
 weights = a new version row + a recompute, never an in-place edit.
 """
 

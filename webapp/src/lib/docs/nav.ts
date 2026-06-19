@@ -3,7 +3,7 @@ import { getCollection } from 'astro:content'
 import { DOCS_SECTIONS, titleCaseDir } from './sections'
 
 /**
- * Auto-derived docs navigation (I-06 native rebuild).
+ * Auto-derived docs navigation.
  *
  * Builds the sidebar tree + the flat reading order from the `docs` content
  * collection — adding a markdown file auto-joins its section, no config edit.

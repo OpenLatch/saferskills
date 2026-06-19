@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/fp-audit-report.schema.json",
   "title": "FpAuditReport",
-  "description": "Output of `tools/fp-audit/` runner (D-21). Per-rule FP rate against the 100-item hand-labeled fixture (50 known-good + 50 known-bad). Promotion gate at 10% FP rate per rule. x-postgresql-skip: true — this is a tool report shape, not a persisted entity.",
+  "description": "Output of `tools/fp-audit/` runner. Per-rule FP rate against the 100-item hand-labeled fixture (50 known-good + 50 known-bad). Promotion gate at 10% FP rate per rule. x-postgresql-skip: true — this is a tool report shape, not a persisted entity.",
   "x-postgresql-skip": true,
   "type": "object",
   "additionalProperties": false,
@@ -20,7 +20,7 @@
     "engineVersion": {
       "type": ["string", "null"],
       "pattern": "^[a-f0-9]{7,40}$",
-      "description": "Engine SHA. Null when fp-audit runs without engine (Phase A stub)."
+      "description": "Engine SHA. Null when fp-audit runs without the engine wired (stub mode)."
     },
     "totalFixtures": {
       "type": "integer",

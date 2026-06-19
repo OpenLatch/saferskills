@@ -30,7 +30,7 @@ cd services/api && uv sync && cd ../..
 Verify:
 ```bash
 curl http://localhost:8000/api/v1/health   # → {"status":"ok",...}
-open http://localhost:5173                 # → placeholder homepage
+open http://localhost:5173                 # → homepage
 ```
 
 ## Branch naming
@@ -75,7 +75,7 @@ Detection rules are not landed via direct PR. Open a **`03-rule-proposal.yml`** 
 
 The community + maintainers comment for **7 days**. Maintainer decision is public. If approved, the PR landing the rule adds `rubric/<rule_id>.json` + a unit test + the two fixtures.
 
-Full lifecycle: `docs/methodology.md` + `.claude/rules/methodology.md`.
+Full lifecycle: `contributor-docs/methodology.md` + `.claude/rules/methodology.md`.
 
 ## Vendor appeals
 
@@ -85,7 +85,7 @@ If you maintain an item that SaferSkills has scanned and you believe the verdict
 
 - Frontend (Vitest): every public component gets a smoke test + a vitest-axe smoke. Coverage gate: ≥70% line coverage on `webapp/` + `ui/` packages.
 - Backend (pytest): every router gets a happy-path + an adversarial-input test. Coverage gate: ≥70% line coverage on `services/api/`.
-- E2E (Playwright via `tools/e2e/`): `doctor + smoke + homepage` at W1; per-feature commands grow with each track.
+- E2E (Playwright via `tools/e2e/`): `doctor + smoke + homepage` as the baseline; per-feature commands grow with each new feature.
 
 A bug fix lands with a regression test that fails on `main` and passes on the branch.
 
@@ -93,7 +93,7 @@ A bug fix lands with a regression test that fails on `main` and passes on the br
 
 If your PR changes shipped behavior, update:
 - The relevant `.claude/rules/<rule>.md` (look up paths via `paths:` frontmatter)
-- The user-facing surface (`README.md`, `docs/methodology.md`, `docs/rules.md`, the relevant page in `webapp/src/pages/`)
+- The user-facing surface (`README.md`, `contributor-docs/methodology.md`, `contributor-docs/rules.md`, the relevant page in `webapp/src/pages/`)
 
 See `.claude/rules/documentation-sync.md`.
 

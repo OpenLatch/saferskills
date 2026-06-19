@@ -33,7 +33,7 @@ def root(
     api_key: str | None = typer.Option(
         None,
         envvar="SAFERSKILLS_API_KEY",
-        help="Bearer token (lands with auth in W5)",
+        help="Bearer token (used once authentication is available)",
     ),
     seed: int | None = typer.Option(None, help="Make runs reproducible"),
     json_out: bool = typer.Option(False, "--json", help="CI-parseable output"),

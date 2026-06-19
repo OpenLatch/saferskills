@@ -1,9 +1,9 @@
-"""Paste-back blob decode (I-5.5, D-5.5-17).
+"""Paste-back blob decode.
 
 When the agent has no fetch tool it prints its evidence as a `base64url(gzip(
 agent_scan_result.v1 JSON))` block, optionally fenced + prefixed by a one-line
 header `SAFERSKILLS-AGENTSCAN-v1 sha256=<first16hex> len=<bytes>`. The user pastes
-it at the web submit (I-5.7) or `saferskills agent --submit-blob`; the submit
+it at the web submit or `saferskills agent --submit-blob`; the submit
 endpoint decodes it here.
 
 Bucketed-error contract (reuses `app.scan.upload.UploadRejected` - same
@@ -26,7 +26,7 @@ from app.scan.upload import UploadRejected
 
 # Pasted-text cap (the raw blob a human copies) - distinct from the decoded cap.
 PASTEBACK_MAX_PASTED_BYTES = 512 * 1024
-# Max decompressed/compressed ratio before we call it a bomb (D-5.5-17).
+# Max decompressed/compressed ratio before we call it a bomb.
 _MAX_RATIO = 100
 
 _HEADER_RE = re.compile(r"^SAFERSKILLS-AGENTSCAN-v1\s+sha256=([0-9a-fA-F]{16})\s+len=(\d+)\s*$")

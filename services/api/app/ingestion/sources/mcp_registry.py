@@ -51,7 +51,7 @@ def _parse_name_coords(name: str) -> tuple[str | None, str | None]:
     namespace that maps to a real GitHub repo. Any other `<namespace>/<name>` (e.g.
     `ac.tandem/docs-mcp`) is NOT a GitHub coordinate; treating it as one would mint a
     fake `github.com/<namespace>/<name>` identity. Repo-less servers fall through to
-    the no-GitHub-URL path (D-04-09 fuzzy queue).
+    the no-GitHub-URL path (fuzzy queue).
     """
     if name.startswith("io.github."):
         rest = name[len("io.github.") :]
@@ -281,7 +281,7 @@ class McpRegistryAdapter(RegistryAdapter):
 
         The /v0/servers feed carries no repo signals, so `classify_quality_tier`
         sees `is_empty=True` for every item and the default catalog gate
-        (`quality_tier IN ('high','medium')`, D-04-19) hides the whole catalog.
+        (`quality_tier IN ('high','medium')`) hides the whole catalog.
         This pass populates `stars` + a `commit_count` proxy (repo `size`) +
         manifest/README bytes so a real listing tiers to `medium`/`high`.
 

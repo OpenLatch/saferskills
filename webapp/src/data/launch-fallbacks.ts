@@ -29,7 +29,7 @@ export type PopularChip = {
   score: number
   tier: ScanTier
   /**
-   * Chip destination, resolved at view-model construction (D-5.7-13):
+   * Chip destination, resolved at view-model construction:
    * live chips link to the real `/items/<slug>` page; fallback chips link to
    * `/capabilities` (their slugs are placeholders — a 404 would betray the
    * fallback). `pickList` erases live-vs-fallback provenance, so the href
@@ -136,7 +136,7 @@ export const PLACEHOLDER_TRENDING: ScanReportSummary[] = [
   },
 ]
 
-/** Per-rank trending stats — installs are not yet tracked (I-05), so these
+/** Per-rank trending stats — installs are not yet tracked, so these
  * back the trending cards until real install counts exist. */
 export const TREND_STATS = [
   { installs: 1247, delta: 312, spark: '▁▂▂▃▅▇█' },

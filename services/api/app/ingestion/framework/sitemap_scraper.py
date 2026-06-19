@@ -1,4 +1,4 @@
-"""SitemapHtmlAdapter — sitemap-driven HTML aggregator scraper (I-04 Phase B PR2).
+"""SitemapHtmlAdapter — sitemap-driven HTML aggregator scraper.
 
 The 7 aggregator HTML sources (mcp.so, pulsemcp, clawhub, skillsmp, skills.sh,
 claudeskills.info, skillhub.club) share one shape: a sitemap (often a sitemap-index)

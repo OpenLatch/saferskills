@@ -1,4 +1,4 @@
-"""Route integration: upload submit + capability URLs + visibility (I-3.5).
+"""Route integration: upload submit + capability URLs + visibility.
 
 Uses the SAVEPOINT `db_client`; the fire-and-forget scan worker is monkeypatched
 to a no-op so we assert the request/response + DB-write contract, not the async

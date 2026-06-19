@@ -1,8 +1,8 @@
 import { useId, useRef, useState } from 'react'
 
 /**
- * Per-agent install-path tabs for the docs (I-06 native rebuild — replaces the
- * Starlight `<Tabs syncKey="agent">` in `install-a-skill.mdx`). Reuses the
+ * Per-agent install-path tabs for the docs — replaces the Starlight
+ * `<Tabs syncKey="agent">` in `install-a-skill.mdx`. Reuses the
  * design-system `.seg`/`.seg-tab` segmented-tablist look + a roving-tabindex
  * keyboard model (←/→/Home/End). Local state only — the Starlight cross-page
  * `syncKey` sync is dropped (single-page benefit, needed a shared store).

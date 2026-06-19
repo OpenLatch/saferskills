@@ -1,4 +1,4 @@
-"""Procrastinate worker lifecycle — started in the FastAPI lifespan (D-04-03).
+"""Procrastinate worker lifecycle — started in the FastAPI lifespan.
 
 In-process, same Machine, same Postgres. Schema applied idempotently at startup
 under a FRESH advisory lock 0x5AFE5C13 (0x…11 = migrations, 0x…12 = expiry sweep
@@ -67,7 +67,7 @@ def assert_worker_concurrency_budget() -> None:
 
     Ingestion + scan tasks draw their sessions from the SAME SQLAlchemy pool the
     public API serves from, so the combined worker concurrency must leave
-    comfortable headroom for API traffic (crash-resilience addendum §1.5).
+    comfortable headroom for API traffic.
     Asserted against `db_pool_size + db_max_overflow` (the worker may legitimately
     consume overflow under load; the headroom default — 4 + 4 = 8 vs 15 — keeps
     it well clear).

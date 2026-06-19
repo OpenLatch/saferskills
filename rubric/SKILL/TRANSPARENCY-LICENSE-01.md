@@ -35,7 +35,7 @@ trigger:
   paths: ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'COPYING', 'COPYING.md', 'LICENCE', 'LICENCE.md']
 limitations:
   - "Does not validate license content — a LICENSE file containing arbitrary text satisfies the rule. License-validity is enforced via a separate SPDX-identifier check (deferred)."
-  - "Cannot detect license declarations embedded only in package.json / pyproject.toml without a separate LICENSE file. The W2 v1 rule treats the file's presence as the canonical declaration."
+  - "Cannot detect license declarations embedded only in package.json / pyproject.toml without a separate LICENSE file. The v1 rule treats the file's presence as the canonical declaration."
 priorArt:
   - https://choosealicense.com/no-permission/
   - https://opensource.org/osd
@@ -71,4 +71,4 @@ a maintained, well-documented skill ships its license.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing — zero-FP file-presence check.
+- v1 (2026-01-09): initial rule. Active at landing — zero-FP file-presence check.

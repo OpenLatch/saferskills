@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* capture-docs-screenshots.mjs — scripted, re-runnable product screenshots for
- * the docs (I-06 docs UI, PR2).
+ * the docs.
  *
  * Captures the real product surfaces in BOTH themes (light + dark) and writes
  * them to `webapp/src/assets/docs-screenshots/<surface>.<theme>.png`, where the

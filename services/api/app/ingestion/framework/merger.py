@@ -8,10 +8,10 @@ slugs). Several capabilities share one github_url (UNIQUE(github_url) dropped in
 0007). Ingestion-written rows set source_kind='github', visibility='public'.
 
 Contracts:
-  - D-04-09 dedup: per-capability slug auto-merge ONLY; no GitHub URL → fuzzy queue.
-  - D-04-11 conflict: GitHub always wins (other sources fill blanks, never override).
-  - D-04-31 agent_compatibility: classifier writes the EXISTING column (0003).
-  - D-04-19 quality_tier: soft gate. Set on insert; RE-tiered on update only when
+  - dedup: per-capability slug auto-merge ONLY; no GitHub URL → fuzzy queue.
+  - conflict: GitHub always wins (other sources fill blanks, never override).
+  - agent_compatibility: classifier writes the EXISTING column (0003).
+  - quality_tier: soft gate. Set on insert; RE-tiered on update only when
     the incoming item carries enrichment signals (`_has_enrichment_signals`) so a
     re-crawl that enriches (e.g. mcp_registry) heals rows first ingested without
     repo signals. A signal-less update never downgrades a tiered row.
@@ -86,7 +86,7 @@ def _has_enrichment_signals(n: NormalizedItem) -> bool:
 
     Gates re-tiering on update: only a source that actually fetched repo facts may
     recompute `quality_tier`. A bare/aggregator update with no signals must never
-    downgrade a well-tiered row back to `empty` (D-04-19 soft gate)."""
+    downgrade a well-tiered row back to `empty` (the soft gate)."""
     return bool(n.metadata_files) or n.stars is not None or bool(n.payload_hint.get("commit_count"))
 
 
@@ -200,8 +200,8 @@ class MergeEngine:
             logger.debug("merger.on_add_scan_defer_skipped", github_url=github_url)
 
     async def _defer_on_add_recompute(self, catalog_item_id: uuid.UUID) -> None:
-        """On-add lightweight popularity recompute for the new public-github row
-        (D-04-13). Best-effort: the nightly `popularity_recompute` is the real
+        """On-add lightweight popularity recompute for the new public-github row.
+        Best-effort: the nightly `popularity_recompute` is the real
         guarantee, so a defer failure (e.g. the Procrastinate app isn't open in a
         unit test) must never break the upsert."""
         try:
@@ -342,7 +342,7 @@ class MergeEngine:
         # Re-tier from fresh enrichment so a re-crawl heals rows ingested before the
         # source learned to enrich (e.g. the mcp_registry backfill — its cursor-based
         # feed only re-yields a server on a reset). Gated to items that actually
-        # carry repo signals so a bare update never downgrades a tiered row (D-04-19).
+        # carry repo signals so a bare update never downgrades a tiered row.
         if _has_enrichment_signals(n):
             _ckind, kind_signals, quality_tier, quality_signals, _agents = classify_all(n)
             existing.quality_tier = quality_tier
@@ -370,7 +370,7 @@ class MergeEngine:
         await self._upsert_author(n)
 
     async def _maybe_queue_fuzzy(self, n: NormalizedItem, source: str) -> str:
-        """No GitHub coordinate → stage the row + queue fuzzy candidates (D-04-09)."""
+        """No GitHub coordinate → stage the row + queue fuzzy candidates."""
         rows = (
             await self.session.execute(
                 text(

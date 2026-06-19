@@ -1,6 +1,6 @@
 /** 5-axis rubric taxonomy + locked weights (35/20/15/15/15) — the single source
  * shared by the item-detail score breakdown (`ItemTabs`) and the upload report
- * breakdown (`CapabilityReportTabs`). NOT the mockup's 40/20/15/15/10. Detector
+ * breakdown (`CapabilityReportTabs`). NOT an earlier draft's 40/20/15/15/10. Detector
  * blurbs are descriptive config. */
 export interface ScoreCategory {
   key: string

@@ -2,7 +2,7 @@ import type { Story } from '@ladle/react'
 import ActionCard from '../../components/molecules/ActionCard'
 
 /**
- * ActionCard — Phase A2 `.p1-card` vocabulary.
+ * ActionCard — `.p1-card` vocabulary.
  * Card head (ink machine-bar with seq + kicker + pulse), body slot for a
  * rich input + chips/progress, and a foot strip with CTA + meta.
  */

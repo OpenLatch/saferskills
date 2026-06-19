@@ -53,14 +53,14 @@ async def _seed(session: AsyncSession, n: int = 5) -> str:
 async def test_artifact_source_filter_and_summary_field(
     db_client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """I-3.5: catalog rows carry `source_kind`; `?artifact_source=upload` narrows
+    """Catalog rows carry `source_kind`; `?artifact_source=upload` narrows
     to uploads; the facet splits github|upload."""
     prefix = uuid.uuid4().hex[:8]
     db_session.add(
         CatalogItem(
             kind="skill",
             slug=f"upload--{prefix}--skill-up",
-            # Prefix lives in display_name so the FTS `q` search (D-04-32 — searches
+            # Prefix lives in display_name so the FTS `q` search (which searches
             # display_name/org/repo/description, NOT slug) isolates this row. An
             # upload has no github coords, so display_name is the only searchable field.
             display_name=f"Uploaded {prefix}",
@@ -277,7 +277,7 @@ async def test_search_default_sort_stays_relevance(
     db_client: AsyncClient, db_session: AsyncSession
 ) -> None:
     """The default (Trend / most_installed) order while searching stays the
-    relevance blend (ts_rank + popularity), NOT score — so the D-04-32 search
+    relevance blend (ts_rank + popularity), NOT score — so the search
     default is preserved, only explicit sorts override it."""
     # Scores ascend with index (30,60,90) but popularity descends (100,99,98),
     # so a relevance/popularity order is the reverse of a score order.

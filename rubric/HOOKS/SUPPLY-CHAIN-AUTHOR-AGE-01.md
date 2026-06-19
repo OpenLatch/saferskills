@@ -4,7 +4,7 @@ severity: medium
 subScore: supply_chain
 weight: 15
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [hooks]
 frameworks: ["owasp-llm:llm03", "mitre-atlas:AML.T0010"]
 title: >-
@@ -33,7 +33,7 @@ trigger:
 limitations:
   - "GitHub user account age is a weak signal — long-established accounts can also publish malicious hooks; brand-new accounts publish many legitimate ones."
   - "Does not consider per-user reputation across other repos. v2 may consult OpenSSF reputation signals."
-  - "Phase A registers the rule shape; the trigger executor querying GitHub user metadata wires in Phase B."
+  - "The initial rule registers the rule shape; the trigger executor querying GitHub user metadata is wired in a later iteration."
 priorArt:
   - https://socket.dev/blog/supply-chain-attack-targets-tea-token-protocol
   - https://github.com/ossf/scorecard/blob/main/docs/checks.md#packaging
@@ -49,8 +49,8 @@ new-account-publish-and-disappear pattern for npm packages, and the
 equivalent risk applies to hooks. The signal is noisy (many legitimate
 developers create accounts as adults), so we land in shadow.
 
-The Phase A rule registers the shape; the GitHub user-metadata query
-wires in Phase B. Shadow window collects FP data on the structural signal.
+The initial rule registers the shape; the GitHub user-metadata query
+is wired in a later iteration. The shadow window collects FP data on the structural signal.
 
 Medium severity reflects the secondary nature: account age alone is
 neither necessary nor sufficient for a supply-chain attack; the signal is
@@ -63,4 +63,4 @@ signing) to form an overall supply-chain picture.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; trigger executor in Phase B.
+- v1 (2026-01-09): initial rule. Lands shadow; trigger executor in a later iteration.

@@ -71,9 +71,9 @@ const SORT_OPTIONS: MultiSelectOption[] = [
 ]
 
 /**
- * AgentFilterBar — the one-line `/agents` filter toolbar band (I-5.6 §12.2,
- * D-5.6-09): search · dual-handle score-range slider · Period preset ·
- * Agent (runtime) / Findings multiselects · sort. Markup mirrors the locked
+ * AgentFilterBar — the one-line `/agents` filter toolbar band: search ·
+ * dual-handle score-range slider · Period preset ·
+ * Agent (runtime) / Findings multiselects · sort. Markup mirrors the
  * mockup `.filterbar` band (a full-bleed paper-deep strip whose container is
  * the flex row). Presentational: the parent island owns URL-sync + the fetch.
  * CSS (`.filterbar` / `.fb-*` / `.ms-*`) is in `page-agent-directory.css`.

@@ -1,4 +1,4 @@
-# glama.ai MCP-server aggregator (I-04 Phase B). Feed-first via the public REST API
+# glama.ai MCP-server aggregator. Feed-first via the public REST API
 # (glama.ai/api/mcp/v1/servers, Relay cursor, no auth). Records carry repository.url
 # (GitHub), so enrich() tiers most items to medium/high — the catalog-growth driver.
 name: glama

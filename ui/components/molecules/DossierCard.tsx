@@ -47,8 +47,8 @@ export interface DossierCardProps {
 }
 
 /**
- * DossierCard — one agent in the `/agents` directory grid (I-5.6 §12.3). Markup
- * mirrors the locked mockup dossier card: band-edged frame (`.dossier.{g|y|o|r}`),
+ * DossierCard — one agent in the `/agents` directory grid. Markup
+ * mirrors the mockup dossier card: band-edged frame (`.dossier.{g|y|o|r}`),
  * name + relative time (live pulse on the newest), score row (ink `{score}/100` +
  * 10-dot meter + right-aligned capability stack), findings row (severity chips or
  * `✓ No findings`), and a paper-deep foot (runtime monogram + name).

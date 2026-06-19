@@ -1,23 +1,22 @@
 """Playwright homepage smoke.
 
 Loads `<base_url>` in headless Chromium and asserts the public landing
-page's contract per the Phase A2 hi-fi rebuild (2026-05-28):
+page's contract:
 
   (a) The "SaferSkills" wordmark is visible.
   (b) The hero headline carries the canonical "Audit every capability"
-      copy that anchors the I-5.7 v3 two-scan hero.
+      copy that anchors the two-scan hero.
   (c) The "Run a scan" CTA in the nav-right pair is visible AND
-      enabled — this is the primary conversion affordance on the
-      A2 page.
+      enabled — this is the primary conversion affordance on the page.
 
 A timestamped screenshot is written under `<repo_root>/.local/screenshots/`
 on every run (pass or fail) so failed CI runs leave an artifact and
 local runs accumulate a visual diary.
 
-Pre-A2 history: this command used to assert an `<input type="email">`
-plus a "Notify me" submit button (the W1 placeholder hero's email
-capture). The form lives on under `ui/components/atoms/EmailCaptureForm`
-for the I-06 magic-link surface but is no longer mounted on `/`.
+History: this command used to assert an `<input type="email">` plus a
+"Notify me" submit button (the placeholder hero's email capture). The form
+lives on under `ui/components/atoms/EmailCaptureForm` for the future
+magic-link surface but is no longer mounted on `/`.
 """
 
 from __future__ import annotations
@@ -102,7 +101,7 @@ class HomepageCommand(BaseCommand):
             await self._screenshot(page, screenshot_dir, suffix="missing-wordmark")
             return ExitCode.FAIL_HOMEPAGE
 
-        # 2. Hero copy fragment — anchors the I-5.7 v3 two-scan hero
+        # 2. Hero copy fragment — anchors the two-scan hero
         # ("Audit every capability. / Scan the whole agent against ...").
         try:
             await page.get_by_text(HERO_COPY_FRAGMENT, exact=False).first.wait_for(

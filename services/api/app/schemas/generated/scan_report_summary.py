@@ -48,7 +48,7 @@ class ScanReportSummary(OrmBaseModel):
     aggregate_score: conint(ge=0, le=100) = Field(
         ...,
         alias="aggregateScore",
-        description="Weighted aggregate per PRD §5.2 (closed-form deterministic per scan-report.schema.json).",
+        description="Weighted aggregate (closed-form deterministic per scan-report.schema.json).",
     )
     tier: Tier = Field(..., description="5-tier trust badge.")
     scanned_at: AwareDatetime = Field(

@@ -1,11 +1,11 @@
-"""Bounded normalization ladder for canary matching (I-5.5, design section 4).
+"""Bounded normalization ladder for canary matching.
 
 `contains(haystack, needle, *, ladder)` climbs only as far as the needle's class
 warrants - the 128-bit canary may decode obfuscation (confusable-fold, despace,
 base64/base32/hex/rot13 islands depth <=2); a SHORT forbidden literal stops at
 NFC+casefold+ZW-strip, because aggressive folding of short strings is the
-false-positive generator (design section 4). Pure + deterministic - same inputs, same
-verdict, byte-for-byte (prime invariant #2).
+false-positive generator. Pure + deterministic - same inputs, same
+verdict, byte-for-byte.
 """
 
 from __future__ import annotations

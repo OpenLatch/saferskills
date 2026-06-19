@@ -69,7 +69,7 @@ function extractFetchHostsFromPython(code) {
   // `async for raw in self._iter_*(client, url` etc. but the simplest reliable
   // signal is `client.get(` / `client.post(` on the same line as a URL literal.
   // Also recognizes curl_cffi session fetches (`session.get(` / `.request(`) used
-  // by the Phase B ScrapingAdapter tier-1 path (best-effort — the runtime
+  // by the ScrapingAdapter tier-1 path (best-effort — the runtime
   // `allowlist.assert_host_allowed` is the real guard for variable-URL fetches).
   const FETCH_RE =
     /\bawait\s+(client|session)\.(get|post|put|patch|delete|head|request)\s*\(|\.(get|post|put|patch|delete|head|request)\s*\(\s*["'f]/

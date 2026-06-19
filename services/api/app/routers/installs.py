@@ -1,4 +1,4 @@
-"""Install-telemetry intake — `POST /api/v1/installs` (D-05-31).
+"""Install-telemetry intake — `POST /api/v1/installs`.
 
 The install CLI reports a successful install here, but ONLY when the user has
 opted in (first-run consent; off by default, skipped in CI/non-TTY). One row is

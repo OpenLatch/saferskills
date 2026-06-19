@@ -1,4 +1,4 @@
-//! `saferskills uninstall <name> [--from <agent>]` (D-05-18).
+//! `saferskills uninstall <name> [--from <agent>]`.
 //!
 //! Reverses exactly the recorded changes (LIFO via the writer engine) and drops
 //! the registry row. `--from` scopes the removal to a single agent (reverting

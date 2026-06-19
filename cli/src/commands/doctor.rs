@@ -1,4 +1,4 @@
-//! `saferskills doctor` (D-05-18, CLI-5, D-05-15).
+//! `saferskills doctor`.
 //!
 //! A diagnostic pass: API connectivity, detected agents (flagging MED/LOW
 //! confidence writers), registry-vs-filesystem drift (per-writer `verify()`), and

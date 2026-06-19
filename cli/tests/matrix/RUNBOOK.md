@@ -30,7 +30,7 @@ npx saferskills uninstall <a-real-skill-item>
 
 A cell **passes** when: the entry lands under the agent's documented key, the agent loads it, `uninstall` reverses it exactly, and `doctor` reports a clean state.
 
-## Highest failure-risk cases (verify these first — design.md §4/§5)
+## Highest failure-risk cases (verify these first)
 
 - **Windsurf** — global-only MCP (`~/.codeium/windsurf/mcp_config.json`), remote key `serverUrl` (not `url`); hooks (`.windsurf/hooks.json`) are MED-confidence.
 - **Cline** — resolve the actual VS Code variant dir (`Code` / `Code - Insiders` / `VSCodium`) for `…/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`; CLI fallback `~/.cline/mcp.json`.
@@ -54,4 +54,4 @@ Record `✅` / `❌` (+ a note) per cell. DoD bar: **≥ 22/24** pass.
 
 **Result: __ / 24** — signed-off by ______ on ________.
 
-> Failures feed `cli/src/agents/SCHEMAS.md` (per-writer confidence) + a copy-paste fallback note for I-06. A MED/LOW writer's confidence is only raised after a recorded pass here.
+> Failures feed `cli/src/agents/SCHEMAS.md` (per-writer confidence) + a copy-paste fallback note for the docs. A MED/LOW writer's confidence is only raised after a recorded pass here.

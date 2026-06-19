@@ -44,8 +44,8 @@ export async function listRecentSubmissionScans({
 export async function listTrendingScans(
   _opts: { limit?: number } = {}
 ): Promise<ScanReportSummary[]> {
-  // TODO(I-05): wire to real install counts. Install tracking ships with the
-  // install CLI (I-05); until then `source=trending&order=installs_desc` has no
+  // TODO: wire to real install counts. Install tracking ships with the
+  // install CLI; until then `source=trending&order=installs_desc` has no
   // valid backend mapping and would 422. Return empty so the caller cleanly
   // falls back to the launch placeholder — no 422 / Sentry noise.
   return []
@@ -151,7 +151,7 @@ export type ArtifactSource = 'github' | 'upload'
 /** GET /api/v1/scans/runs/<run_id> — the repo scan report (all capabilities). */
 export interface ScanRunReportDetail {
   id: string
-  /** Null for uploads (no repo coordinates) — P0-9. */
+  /** Null for uploads (no repo coordinates). */
   github_url: string | null
   repo_aggregate_score: number
   repo_tier: ScanTier
@@ -165,7 +165,7 @@ export interface ScanRunReportDetail {
   source: string
   status: 'pending' | 'running' | 'completed' | 'failed'
   ref_sha?: string | null
-  // --- I-3.5 upload + visibility additions ---
+  // --- upload + visibility additions ---
   visibility?: Visibility
   source_kind?: ArtifactSource
   artifact_sha256?: string | null
@@ -192,7 +192,7 @@ export async function fetchScanRunById(runId: string): Promise<ScanRunReportDeta
 export interface ScanSubmitRequest {
   github_url: string
   rescan?: boolean
-  /** I-3.5 — public (default) or unlisted listing posture. */
+  /** Public (default) or unlisted listing posture. */
   visibility?: Visibility
 }
 
@@ -230,8 +230,8 @@ export async function submitScan(
 }
 
 // ============================================================================
-// I-3.5 — direct upload + unlisted (capability-URL) lifecycle.
-// Types mirror PR1's Pydantic DTOs (services/api/app/schemas/*) — the repo's
+// Direct upload + unlisted (capability-URL) lifecycle.
+// Types mirror the backend Pydantic DTOs (services/api/app/schemas/*) — the repo's
 // established hand-written-wire-type pattern (the openapi→TS generator emits
 // nothing consumable here). snake_case keys per naming-conventions.md.
 // ============================================================================
@@ -255,7 +255,7 @@ export interface PromotedItem {
   merged: boolean
 }
 
-/** 200 body of POST /api/v1/scans/r/{token}/promote (never a 301 — D-UP-31). */
+/** 200 body of POST /api/v1/scans/r/{token}/promote (never a 301). */
 export interface PromoteRunResponse {
   promoted: boolean
   run_id: string
@@ -350,7 +350,7 @@ export type UnlistedReportResult =
 /**
  * GET /api/v1/scans/r/{token}. A promoted run answers 307 → the public run
  * report; we read the Location with redirect:'manual' and hand back a webapp
- * path so SSR doesn't silently follow the redirect to the API origin (P0-12).
+ * path so SSR doesn't silently follow the redirect to the API origin.
  * Invalid/expired/deleted → generic not_found (no oracle).
  */
 export async function fetchUnlistedReport(token: string): Promise<UnlistedReportResult> {
@@ -379,7 +379,7 @@ export async function promoteUnlisted(token: string): Promise<PromoteRunResponse
   return (await res.json()) as PromoteRunResponse
 }
 
-/** Token-gated `.zip` of an unlisted run's scanned bytes (mockup 4 keeps it).
+/** Token-gated `.zip` of an unlisted run's scanned bytes.
  * Origin-RELATIVE: this is rendered into an `<a href>` that is SSR'd then hydrated,
  * so it must be identical on server and client. `env.PUBLIC_API_URL` resolves
  * per-context (API_ORIGIN vs window.location.origin) → baking it would cause a React

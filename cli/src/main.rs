@@ -40,7 +40,7 @@ fn main() {
     // Chain our panic hook onto sentry's (which init installed under unwind).
     crash_report::install_panic_hook();
 
-    // SIGINT → exit 130 (D-05-11). Flush pending crash reports first —
+    // SIGINT → exit 130. Flush pending crash reports first —
     // `process::exit` skips Drop impls, so the guard's flush-on-drop never runs.
     // The single PostHog `command_invoked` event is sent at the end of a normal
     // run (not buffered), so there is nothing to lose there on interrupt.
@@ -108,7 +108,7 @@ async fn run() -> i32 {
     crash_report::enrich_cli_scope(cmd_label, sub_label);
     let started = std::time::Instant::now();
 
-    // First-launch security audit (D-05-26): a one-time opt-in offer to scan
+    // First-launch security audit: a one-time opt-in offer to scan
     // everything already installed. Fail-open + persisted, so it never re-prompts
     // and never affects the user's command outcome. Calls run_scan directly (no
     // dispatch recursion).
@@ -138,7 +138,7 @@ async fn run() -> i32 {
 
 /// Single `match` over the clap enum → one free `run_*` fn per command. The
 /// gating commands (install/uninstall/update/doctor) also receive the resolved
-/// interaction flags (D-05-21).
+/// interaction flags.
 async fn dispatch(
     command: &Commands,
     inter: cli::Interaction,

@@ -1,10 +1,9 @@
 """FP-audit runner.
 
-Loads the rubric (frontmatter only — no engine at Phase A), enumerates
-fixtures from `fixtures/known-{good,bad}/manifest.yaml`, and produces a
-report. The engine call is stubbed to return `deferred_engine_unavailable`
-for every rule until Phase B imports the real detector engine from
-`services/api/app/scan/`.
+Loads the rubric (frontmatter only — no engine yet), enumerates fixtures from
+`fixtures/known-{good,bad}/manifest.yaml`, and produces a report. The engine
+call is stubbed to return `deferred_engine_unavailable` for every rule until
+the real detector engine from `services/api/app/scan/` is wired in.
 """
 
 from __future__ import annotations
@@ -130,7 +129,7 @@ def _load_fixtures(repo_root: Path) -> tuple[list[dict[str, object]], list[dict[
 
 
 def _engine_available() -> bool:
-    """Whether the scan engine is importable. Phase A: False. Phase B: True."""
+    """Whether the scan engine is importable (False until it is wired in)."""
     try:
         import importlib
 
@@ -180,7 +179,7 @@ def run_audit(
             )
             continue
 
-        # Phase B+ live path: engine evaluates each fixture, populates counts,
+        # Live path: engine evaluates each fixture, populates counts,
         # decision derived from thresholds.yaml. Stubbed here until that lands.
         per_rule.append(
             RuleReport(

@@ -1,4 +1,4 @@
-"""Shared CatalogItem factory for Phase C ingestion tests."""
+"""Shared CatalogItem factory for ingestion tests."""
 
 from __future__ import annotations
 

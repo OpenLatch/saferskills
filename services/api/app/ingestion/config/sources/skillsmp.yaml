@@ -1,4 +1,4 @@
-# skillsmp.com skill aggregator (I-04 Phase B PR2). Sitemap-index → skills-recent
+# skillsmp.com skill aggregator. Sitemap-index → skills-recent
 # child → /skills/<slug> item pages (curl_cffi; Cloudflare-proxied).
 name: skillsmp
 kind: scrape

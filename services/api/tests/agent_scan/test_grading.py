@@ -1,4 +1,4 @@
-"""Deterministic grading (I-5.5, AE-2/3/4/10). Pure — no DB, no LLM, no network."""
+"""Deterministic grading. Pure — no DB, no LLM, no network."""
 
 from __future__ import annotations
 

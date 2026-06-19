@@ -1,6 +1,6 @@
 // Build script for the SaferSkills CLI.
 //
-// Scope (D-05-08, D-05-13): this build script does EXACTLY ONE thing — bake the
+// Scope: this build script does EXACTLY ONE thing — bake the
 // PostHog project key into the binary as a compile-time constant. There is NO
 // wire-type codegen here. The CLI's wire DTOs are hand-written in
 // `src/api/dto.rs` and guarded by a contract test against `services/api/
@@ -10,7 +10,7 @@
 //
 // Production: CI sets `SAFERSKILLS_POSTHOG_KEY` from a secret on the release
 // build. Developers / forks: leave it unset — the baked constant is then empty
-// and the telemetry subsystem is a hard no-op (D-05-13, invariant: zero
+// and the telemetry subsystem is a hard no-op (invariant: zero
 // network without a key).
 
 fn main() {
@@ -23,10 +23,10 @@ fn main() {
         .unwrap_or_else(|_| "https://eu.i.posthog.com".to_string());
     println!("cargo:rustc-env=SAFERSKILLS_POSTHOG_HOST={host}");
 
-    // Agent-scan pack pubkey map (I-5.5 Phase 3). Baked as a comma-separated
+    // Agent-scan pack pubkey map. Baked as a comma-separated
     // `<key_id>=<base64-std-pubkey>` map so the CLI can look the verifying key up by
     // the served `X-Pack-Key-Id` AND support rotation by adding a second entry.
-    // Production CI sets `SAFERSKILLS_PACK_PUBKEY` from a secret (outbox/01).
+    // Production CI sets `SAFERSKILLS_PACK_PUBKEY` from a secret.
     // Developers / forks: leave it unset — the map is then empty and pack-signature
     // verification is skipped with a warning (the `manual-bootstrap` posture), the
     // same "no baked key ⇒ inert" discipline as telemetry.

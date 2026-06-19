@@ -1,4 +1,4 @@
-"""Stateless HMAC-signed Proof-of-Work gate for CLI scan-submit (I-05, D-05-30).
+"""Stateless HMAC-signed Proof-of-Work gate for CLI scan-submit.
 
 The install CLI cannot solve a Cloudflare Turnstile CAPTCHA, so a stateless PoW
 challenge replaces Turnstile on the CLI scan-submit path. The server issues a

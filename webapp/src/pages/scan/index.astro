@@ -18,7 +18,7 @@ import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-
 
 import '@/styles/page-scan-submit.css'
 
-// SSR-respected deep-link (D-5.7-04): /scan?mode=agent renders the Agent pane
+// SSR-respected deep-link: /scan?mode=agent renders the Agent pane
 // FIRST-PAINT-correct (no capability flash). Passed as initialMode into the
 // ScanModeShell island AND the static methodology aside.
 const initialMode = Astro.url.searchParams.get('mode') === 'agent' ? 'agent' : 'capability'

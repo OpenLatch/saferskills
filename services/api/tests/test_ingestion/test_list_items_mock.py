@@ -487,7 +487,7 @@ async def test_npm_cursor_increments_on_interrupt() -> None:
 @pytest.mark.asyncio
 async def test_npm_cursor_failure_on_non_200() -> None:
     """A non-200 on the changes stream records the cycle as failed (success=False)
-    via the finally, never silently greening a no-op (WS-8b)."""
+    via the finally, never silently greening a no-op."""
     from app.ingestion.sources.npm import NpmAdapter
 
     adapter = NpmAdapter(_npm_config())

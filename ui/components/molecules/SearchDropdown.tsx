@@ -52,8 +52,8 @@ type LoadState =
  * Inline command-palette dropdown anchored below a search input.
  *
  * Generic over the data source — the consumer passes a `search` callback
- * so the molecule has no coupling to the catalog repository (mock JSON at
- * W1, HTTP at W2 once `/api/v1/catalog/search` ships).
+ * so the molecule has no coupling to the catalog repository (mock JSON
+ * initially, HTTP once `/api/v1/catalog/search` ships).
  *
  * Behaviour
  * ─────────────────────────────────────────────────────────────────────

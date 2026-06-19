@@ -1,9 +1,9 @@
 /* /scan + /agents/scan — pixel-faithful port of the v3 scan-submit mockup.
  *
- * Source: .local/.brainstorms/website-refresh/mockups/SaferSkills-Scan-v3-unpacked.html
- *   scan view (.scan-split / .scan-form-pane / .modepanel / .scan-method-pane /
- *   .rec-grid). Ported with `body.va.dark` → `html.dark` and raw values →
- *   tokens (rule (a): shell page CSS is token-only). DS vocabulary (.band-pill,
+ * Covers the scan view (.scan-split / .scan-form-pane / .modepanel /
+ *   .scan-method-pane / .rec-grid). Ported with `body.va.dark` → `html.dark`
+ *   and raw values → tokens (rule (a): shell page CSS is token-only). DS
+ *   vocabulary (.band-pill,
  *   .page-head .ph-*, .seg, .prompt-card, .weight-bars) lives in
  *   ui/styles/components.css and is reused. The agent activation vocabulary
  *   (.agent-activation / .plat-* / .cli-alt) is shared by /scan and
@@ -124,7 +124,7 @@ html.dark .scan-form-pane .hint b {
 }
 
 /* ============================================================
-   DUAL-MODE CONSOLE (ScanConsole, D-UP-24) — composition glue around
+   DUAL-MODE CONSOLE (ScanConsole) — composition glue around
    the DS SegmentedTabs / Toggle / DropZone atoms (whose CSS is DS-owned
    in ui/styles/components.css). Mockup 2 submit card.
    ============================================================ */
@@ -259,7 +259,7 @@ html.dark .scan-form-pane .hint b {
   margin-top: 10px;
   font-family: var(--font-mono);
   font-size: 11.5px;
-  /* P2-3: teal --brand-primary on paper is ~3.9:1 (fails AA). The darker
+  /* Teal --brand-primary on paper is ~3.9:1 (fails AA). The darker
      --brand-primary-dark clears AA (~4.8:1) while staying on-brand. */
   color: var(--brand-primary-dark);
 }
@@ -281,7 +281,7 @@ html.dark .scan-form-pane .hint b {
   border: 0;
   /* brand-primary-dark (not --brand-cta) so white text clears WCAG AA on this
      unmasked full-width button — the DS hex-cap .btn.primary escapes the axe
-     contrast check via its mask, but this rectangular CTA is evaluated. P2-3:
+     contrast check via its mask, but this rectangular CTA is evaluated.
      a11y beats the mockup's exact #0D9488 (subtle teal-darken, both themes). */
   background: var(--brand-primary-dark);
   color: var(--brand-cta-fg);
@@ -300,7 +300,7 @@ html.dark .scan-form-pane .hint b {
 .scan-go[data-mode="url"],
 .scan-go[data-mode="agent"] {
   background: var(--brand-accent);
-  /* P2-3: the mockup uses near-white text on #F97316 (~2.3:1, fails AA). Orange
+  /* The mockup uses near-white text on #F97316 (~2.3:1, fails AA). Orange
      can't darken without losing identity, so dark ink on orange (~6.8:1) is the
      a11y-correct deviation. A fixed palette ink (not theme-flipping --color-ink)
      keeps it dark in BOTH themes — the orange accent is constant across modes. */
@@ -370,7 +370,7 @@ html.dark .scan-form-pane .hint b {
   box-shadow: var(--focus-ring);
 }
 
-/* Passive consent line (PRD lock; muted, under the button). */
+/* Passive consent line (muted, under the button). */
 .scan-consent {
   margin-top: 14px;
   font-family: var(--font-mono);
@@ -469,7 +469,7 @@ html.dark .pcf-note b {
 .pcf-link {
   font-family: var(--font-mono);
   font-size: 11px;
-  /* P2-3 a11y: teal --brand-primary on the light form pane is ~3.6:1 (fails AA).
+  /* a11y: teal --brand-primary on the light form pane is ~3.6:1 (fails AA).
      --brand-primary-dark clears AA on light (~5.2:1); the bright theme-flipped
      --brand-primary (~7:1 on dark) is restored below for dark mode. */
   color: var(--brand-primary-dark);
@@ -508,7 +508,7 @@ html.dark .cli-alt .cli-cmd {
   color: var(--fg-3);
 }
 .cli-alt .cli-note a {
-  /* P2-3 a11y: --brand-primary-dark clears AA on the light form pane (~5.2:1);
+  /* a11y: --brand-primary-dark clears AA on the light form pane (~5.2:1);
      the bright theme-flipped --brand-primary (~7:1) is restored on dark. */
   color: var(--brand-primary-dark);
   border-bottom: 1px solid currentColor;
@@ -721,7 +721,7 @@ html.dark .scan-method-pane {
      with the WeightBars rows directly below it (wider than the old 52ch). */
 }
 .method-intro .link {
-  /* P2-3 a11y: this link sits on the method pane's --color-paper-deep. Light
+  /* a11y: this link sits on the method pane's --color-paper-deep. Light
      --brand-primary is ~3.4:1 (fails AA) → --brand-primary-dark (~5:1). On dark,
      --brand-primary-dark would be only ~3.9:1 on paper-deep, so the bright
      theme-flipped --brand-primary (~5.9:1) is restored below. */
@@ -741,7 +741,7 @@ html.dark .method-intro .link {
   background: var(--brand-accent);
 }
 .method-body--agent .weight-bars .wb-wt {
-  /* P2-3 a11y: the bright --brand-accent percent is only ~2.6:1 on the light
+  /* a11y: the bright --brand-accent percent is only ~2.6:1 on the light
      method pane (fails even the 3:1 large-text bar). --brand-accent-dark is the
      theme-aware accessible orange (~3.3:1 light / bright accent on dark). */
   color: var(--brand-accent-dark);

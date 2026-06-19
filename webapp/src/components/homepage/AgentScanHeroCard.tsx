@@ -10,8 +10,8 @@ import {
 } from '@/lib/hooks/useAgentScanMint'
 
 /**
- * Homepage hero card 02 — "Scan a Running Agent" (I-5.7 D-5.7-03, the inline
- * mint card). Pre-mint the PromptCodeCard shows the canonical TEMPLATE block
+ * Homepage hero card 02 — "Scan a Running Agent" (the inline mint card).
+ * Pre-mint the PromptCodeCard shows the canonical TEMPLATE block
  * (the `{{…}}` placeholders make it clearly a preview); Copy = mint: the hook
  * Turnstile-gates, POSTs /api/v1/agent-scans/bootstrap, copies the REAL
  * substituted prompt, and the card foot swaps to the /agents/<run_id> report

@@ -1,9 +1,9 @@
-"""Catalog/scan discovery helpers for the Phase-C smoke commands.
+"""Catalog/scan discovery helpers for the smoke commands.
 
 The item-detail / vendor-respond / badge / og commands all need to find a real
-slug or scan from the running API (the catalog is empty at I-03 ship until
-data-seed runs, so callers skip gracefully on `None`). Centralised here so the
-four commands share one `make_client`-based fetch instead of re-rolling httpx.
+slug or scan from the running API (the catalog can be empty until data-seed
+runs, so callers skip gracefully on `None`). Centralised here so the four
+commands share one `make_client`-based fetch instead of re-rolling httpx.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ async def discover_first_item_slug(config: Config) -> str | None:
 
 
 async def discover_first_upload_item(config: Config) -> str | None:
-    """Slug of the first PUBLIC upload-sourced catalog item, or None (I-3.5).
+    """Slug of the first PUBLIC upload-sourced catalog item, or None.
 
     Uses the `artifact_source=upload` filter — empty on a fresh staging until an
     upload is published, so callers skip gracefully on `None`."""

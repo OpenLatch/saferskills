@@ -25,7 +25,7 @@ export const Single: Story = () => (
   />
 )
 
-/** I-5.7 §2a two-line hero: each `baseLines` entry is its own block line; the
+/** Two-line hero: each `baseLines` entry is its own block line; the
  *  last line carries the rotator inline. */
 export const TwoLines: Story = () => (
   <RotatingHeadline

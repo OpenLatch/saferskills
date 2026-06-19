@@ -7,7 +7,7 @@ Standalone uv project. Mirrors `openlatch-platform/tools/data-seed/`. The CLI ta
 1. **Purge is loopback-only + runtime-discovered.** `purge run --apply` exits 2 unless the **DB host** resolves to loopback (`HOST_ALLOWLIST` = `localhost`/`127.0.0.1`/`::1`). It `TRUNCATE`s every public table *discovered at runtime* from `pg_tables` **except `alembic_version`** (which pins the schema version) — there is **no hardcoded table list to drift against the schema** (new tables like `scan_runs`/`scan_events`/`upload_files`/`artifact_blobs`/`item_sources` are covered automatically, no FK orphans). Widening the host allowlist requires editing `saferskills_data_seed/domains/purge/app.py` + a review.
 2. **Paced publish, loopback-exempt.** `catalog publish` paces at ≤2 scans/sec to avoid hammering the API (the 50-item seed takes ~25-30s). It does **not** rely on staying under the public 10/day/IP cap — that cap is a daily *count*, not a rate, so pacing can't keep a 50-item corpus under it. Instead the API exempts loopback callers from the per-IP scan-submit limit (`services/api/app/routers/scans.py::_is_loopback`), so seeding from the operator's own machine is unlimited while public submissions stay capped. Seed against a remote host and the cap applies again.
 3. **No imports from `services/api/`.** The seed tool talks to the API through HTTP only — **except `purge`**, which connects to Postgres directly via psycopg (there is no admin bulk-delete endpoint by design — deletion is vendor-appeals / operator-runbook only, see `security.md`). Even so, `purge` imports **no** `services/api` Python — it only takes a libpq DSN (default mirrors `config.py::database_url`, sans the `+asyncpg` suffix). Sharing Python modules makes the seed brittle to backend refactors.
-4. **Fixture corpus is canonical.** `saferskills_data_seed/domains/catalog/files/catalog.yaml` is the demo dataset. ~50 entries spanning all 5 PRD categories with the score distribution from D-FE-14. A1 ships with 8 representative entries; the full 50 lands in a follow-up.
+4. **Fixture corpus is canonical.** `saferskills_data_seed/domains/catalog/files/catalog.yaml` is the demo dataset. ~50 entries spanning all 5 capability categories with a representative score distribution. It currently ships with 8 representative entries; the full 50 lands in a follow-up.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ Every domain is a `typer.Typer()` subapp registered in `cli.py`. Shared context 
 
 ## When endpoints don't exist yet
 
-A1 ships before Phase B (scan backend) and Phase C (vendor right-of-reply). Endpoints that don't exist yet return 404. Each subcommand handles 404 explicitly — prints a yellow info message and exits 0 (not an error; the surface just isn't shipped yet). The structure exists so each phase can wire the corresponding endpoint without touching the CLI.
+Some endpoints a subcommand targets may not be available on a given backend. Each subcommand handles 404 explicitly — prints a yellow info message and exits 0 (not an error; the surface just isn't shipped yet). The structure lets each endpoint be wired up without touching the CLI.
 
 ## CI
 

@@ -1,4 +1,4 @@
-//! Scan-submit happy paths (D-05-26/27, D-05-30) driven against a mock server.
+//! Scan-submit happy paths driven against a mock server.
 //!
 //! Exercises the full challenge → solve → submit → poll chain through the typed
 //! `Api` surface (no subprocess; named `scan_flow` to dodge the Windows

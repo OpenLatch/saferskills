@@ -11,7 +11,7 @@ const VERB: Record<AgentVerbBand, string> = {
 /**
  * The band verb in the behavioral-score hero (`Ship` / `Review` / `Remediate` /
  * `Do-Not-Deploy`). Loud Anybody display type; color is inherited from the
- * enclosing `.score-cell.{g|y|o|r}` (I-5.6 design §6). A leading `·` separator
+ * enclosing `.score-cell.{g|y|o|r}`. A leading `·` separator
  * sets it off from the band pill.
  */
 export default function AgentVerb({

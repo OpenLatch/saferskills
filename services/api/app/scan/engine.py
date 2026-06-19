@@ -1,6 +1,6 @@
 """Generic detector runtime.
 
-Three trigger types fire in Phase B:
+Three trigger types fire in the static-detection engine:
 
 - `regex_match` — compile the rule's pattern (with flags), scan every file
   whose path matches the rule's `trigger.scope.paths` glob list. Each match
@@ -8,8 +8,8 @@ Three trigger types fire in Phase B:
 - `file_glob_absent` — for each pattern in `trigger.absentPaths`, if NO file
   matches, fire one Finding pinned to that pattern.
 - `metadata_check` — for each pattern in `trigger.fileGlob`, parse JSON/YAML,
-  evaluate `trigger.predicate` against the resulting dict. Phase B supports the
-  `missing_field` and `field_equals` predicates.
+  evaluate `trigger.predicate` against the resulting dict. The engine supports
+  the `missing_field` and `field_equals` predicates.
 
 `commit_history_check` and `composite_and_or` rules are recognised but the
 engine does NOT fire them — they are reported as `skipped_rules` on the
@@ -22,13 +22,12 @@ Scoring follows the rubric `scan-report.schema.json` contract:
 - `raw_sub_score = max(0, 100 - sum(penalties))`.
 - If any contributing finding has severity=critical: `final_sub_score = min(raw, 20)`.
 - Aggregate = sum of (final_sub_score * weight) where weights are
-  35 / 20 / 15 / 15 / 15 per the PRD (security / supply_chain / maintenance /
+  35 / 20 / 15 / 15 / 15 (security / supply_chain / maintenance /
   transparency / community).
-- **Severity ceiling** (supersedes D-13's per-sub-score-only floor, amends D-01):
-  a single ACTIVE critical caps the whole aggregate at ≤15, a high at ≤45, so a
-  security failure can't be diluted by the 65% non-security weight. `info` +
-  `shadow` findings never trigger it. The repo rollup applies the same ceiling
-  over the union of every capability's findings.
+- **Severity ceiling**: a single ACTIVE critical caps the whole aggregate at
+  ≤15, a high at ≤45, so a security failure can't be diluted by the 65%
+  non-security weight. `info` + `shadow` findings never trigger it. The repo
+  rollup applies the same ceiling over the union of every capability's findings.
 - Tier: ≥80 green, ≥60 yellow, ≥40 orange, <40 red.
 """
 
@@ -52,7 +51,7 @@ from app.scan.rubric import RULES, RubricRule, SubScore
 if TYPE_CHECKING:
     from app.scan.discovery import Capability
 
-# Severity → penalty mapping per D-02. `info` is advisory (weight 0).
+# Severity → penalty mapping. `info` is advisory (weight 0).
 SEVERITY_PENALTY: dict[str, int] = {
     "info": 0,
     "low": 5,
@@ -61,7 +60,7 @@ SEVERITY_PENALTY: dict[str, int] = {
     "critical": 40,
 }
 
-# Aggregate severity ceiling (supersedes the D-13 per-sub-score-only floor).
+# Aggregate severity ceiling.
 # A single ACTIVE high/critical finding caps the WHOLE aggregate, so a security
 # failure is never diluted by good docs/community. info + shadow never trigger it.
 SEVERITY_CEILING: dict[str, int] = {"critical": 15, "high": 45}
@@ -361,7 +360,7 @@ def _metadata_finding_for_file(
 
 
 def _predicate_holds(predicate: dict[str, Any], parsed: Any) -> bool:
-    """Evaluate a metadata-check predicate. Phase B supports two ops:
+    """Evaluate a metadata-check predicate. The engine supports two ops:
 
     - `missing_field`: parsed is dict + the specified field is absent.
     - `field_equals`: parsed[field] == specified value.
@@ -761,7 +760,7 @@ def run_repo_scan_from_index(
     ref_sha: str = "0" * 40,
     source_kind: str | None = None,
 ) -> RepoScanResult:
-    """Scan a pre-extracted in-memory file index (the upload front-end, I-3.5).
+    """Scan a pre-extracted in-memory file index (the upload front-end).
 
     The engine is source-agnostic: an uploaded artifact produces the identical
     `list[(path, bytes)]` index the GitHub fetch path produces, so discovery →

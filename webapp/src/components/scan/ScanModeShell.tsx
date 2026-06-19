@@ -12,12 +12,12 @@ const MODE_TABS = [
 ]
 
 interface Props {
-  /** SSR-resolved from `?mode=agent` (D-5.7-04) — first paint is correct. */
+  /** SSR-resolved from `?mode=agent` — first paint is correct. */
   initialMode?: ScanPageMode
 }
 
 /**
- * The /scan mode shell (I-5.7 plan 03 Module 2) — ONE island owning the
+ * The /scan mode shell — ONE island owning the
  * `[01 Capability | 02 Agent]` SegmentedTabs (genuine tabs-over-panels) plus
  * both panes: the existing `ScanConsole` (capability) and the
  * `AgentScanActivation` activation surface (agent).
@@ -30,7 +30,7 @@ interface Props {
  * `ScanMethodologyPreview.astro` — option (a): zero extra hydration).
  *
  * A run is minted ONLY on the explicit "Generate my scan prompt" click —
- * never on tab switch (plan 03 REJECTED list).
+ * never on tab switch.
  */
 export default function ScanModeShell({ initialMode = 'capability' }: Props) {
   const [mode, setMode] = useState<ScanPageMode>(initialMode)

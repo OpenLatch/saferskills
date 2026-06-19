@@ -1,8 +1,8 @@
-"""Bootstrap-prompt rendering (I-5.5, Phase 3, D-5.5-07).
+"""Bootstrap-prompt rendering.
 
 Loads the per-platform bootstrap template (`app/agent_scan/bootstrap/<platform>.md`,
 cached) and substitutes the per-run coordinates. The prompt is **text the agent
-runs** - no canaries, no scoring logic (prime invariant #1 / thin client). The
+runs** - no canaries, no scoring logic (the client stays thin). The
 canaries live only in the signed pack the agent fetches at `pack_url`.
 
 Placeholders are `{{UPPER_SNAKE}}` markers (NOT `str.format`) so the literal `{`/`}`

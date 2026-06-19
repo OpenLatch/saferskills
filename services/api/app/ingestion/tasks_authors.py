@@ -1,7 +1,7 @@
-"""author_summary_refresh — nightly 04:30 UTC (D-04-33).
+"""author_summary_refresh — nightly 04:30 UTC.
 
 Refreshes the `author_summary` materialized view (created in migration 0010) that
-the I-02 Supply-Chain detector + the item-detail "author has N other items, M
+the Supply-Chain detector + the item-detail "author has N other items, M
 Red" row read. CONCURRENTLY (the view has a unique index on github_username) so
 reads aren't blocked — which means it CANNOT run inside a transaction, so we use
 an AUTOCOMMIT connection rather than an AsyncSession.

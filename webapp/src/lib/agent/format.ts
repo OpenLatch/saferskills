@@ -1,8 +1,8 @@
-/** Agent Report display formatting (mockup-verbatim shapes). */
+/** Agent Report display formatting. */
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** `6 Jun 2026 · 09:14 UTC` — the mockup's scanned-at format (UTC, no locale drift). */
+/** `6 Jun 2026 · 09:14 UTC` — the scanned-at format (UTC, no locale drift). */
 export function formatScannedAt(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)

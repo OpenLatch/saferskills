@@ -1,5 +1,5 @@
 /* ============================================================
-   page-agent-report.css — Agent Report (Agent Scan result), I-5.6.
+   page-agent-report.css — Agent Report (Agent Scan result).
    Sibling of page-scan-report.css. REUSES its vocabulary
    (.sr-stat-band / .sr-stat-grid / .score-cell / .sr-facts / .fact /
    .sr-method / .sr-head-row / .sr-head-meta) — the agent route imports
@@ -47,7 +47,7 @@ html.dark .ar-panel-lead b {
   color: var(--fg-1);
 }
 
-/* Placeholder body for the Findings / Component Scores tabs (Phase B fills them). */
+/* Placeholder body for the Findings / Component Scores tabs. */
 .ar-tab-placeholder {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -127,7 +127,7 @@ html.dark .ev-cap b {
   margin-top: 16px;
 }
 
-/* ---- Vendor right-of-reply (read-only on every report, D-5.6-08) ---- */
+/* ---- Vendor right-of-reply (read-only on every report) ---- */
 .ar-vendor-reply {
   margin: 28px 0 0;
   border: 1px solid var(--color-line);

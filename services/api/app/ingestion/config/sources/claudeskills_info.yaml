@@ -1,4 +1,4 @@
-# claudeskills.info skill aggregator (I-04 Phase B PR2). Sitemap-index → skills
+# claudeskills.info skill aggregator. Sitemap-index → skills
 # child → /skill/<slug> item pages (curl_cffi; Cloudflare-proxied). Item pages carry
 # item-specific og tags + GitHub links (mostly the anthropics/skills monorepo).
 name: claudeskills_info

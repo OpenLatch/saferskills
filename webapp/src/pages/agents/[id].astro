@@ -27,8 +27,8 @@ if (!id) {
   return Astro.redirect('/404')
 }
 
-// DEV-only fixture loader (D-5.6-04 — build against the fixture before the live
-// grader is wired). Server-side + behind `import.meta.env.DEV`, which Vite strips
+// DEV-only fixture loader — build against the fixture before the live
+// grader is wired. Server-side + behind `import.meta.env.DEV`, which Vite strips
 // to `false` in a prod build, dead-code-eliminating the dynamic import entirely.
 let run = null
 if (import.meta.env.DEV) {

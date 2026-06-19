@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/agent-finding.schema.json",
   "title": "AgentFinding",
-  "description": "One observed-vulnerable behavioral test on an agent scan (an `agent_findings` row). Findings rows are `verdict='vulnerable'`; the `not_observed`/`n_a`/`error` outcomes live on the report `checks` array (proof-of-tests), not here. Hash/slot-only evidence — NEVER raw agent output per .claude/rules/security.md § Scan-trace transparency. The explainable-finding prose (title/explanation/severityRationale/remediation) is NOT a column — it is pack-sourced and inlined by the report builder at request time (Phase 2), exactly as report_builder.py inlines component rule prose. The post-redaction transcript window (`evidenceExcerpt`) is report-DTO-only, hydrated only on the unlisted token route.",
+  "description": "One observed-vulnerable behavioral test on an agent scan (an `agent_findings` row). Findings rows are `verdict='vulnerable'`; the `not_observed`/`n_a`/`error` outcomes live on the report `checks` array (proof-of-tests), not here. Hash/slot-only evidence — NEVER raw agent output per .claude/rules/security.md § Scan-trace transparency. The explainable-finding prose (title/explanation/severityRationale/remediation) is NOT a column — it is pack-sourced and inlined by the report builder at request time, exactly as report_builder.py inlines component rule prose. The post-redaction transcript window (`evidenceExcerpt`) is report-DTO-only, hydrated only on the unlisted token route.",
   "x-postgresql-tablename": "agent_findings",
   "x-postgresql-indexes": [
     { "name": "idx_agent_findings_run_id", "columns": ["agent_run_id"] }
@@ -47,7 +47,7 @@
       "type": "string",
       "enum": ["info", "low", "medium", "high", "critical"],
       "x-postgresql-enum-type": "severity",
-      "description": "5-tier severity ladder (D-02), reused from the component engine."
+      "description": "5-tier severity ladder, reused from the component engine."
     },
     "verdict": {
       "type": "string",

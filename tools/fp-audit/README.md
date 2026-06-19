@@ -14,18 +14,18 @@
 
 ## What it is
 
-The false-positive audit harness implements locked decision **D-21**: per-rule FP-rate measurement against a 100-item hand-labelled [fixture suite](./fixtures/README.md). Promotion gate — a `status: shadow` rule with an FP rate <10% on the fixture suite advances to `status: active`.
+The false-positive audit harness implements the FP-audit spec: per-rule FP-rate measurement against a 100-item hand-labelled [fixture suite](./fixtures/README.md). Promotion gate — a `status: shadow` rule with an FP rate <10% on the fixture suite advances to `status: active`.
 
 ## Commands
 
 ```bash
 cd tools/fp-audit && uv sync
 
-# Dry-run against the fixture suite (Phase A: stubs the engine call —
-# returns "engine not yet wired" until Phase B lands the detector).
+# Dry-run against the fixture suite (stubs the engine call — returns
+# "engine not yet wired" until the detector is wired in).
 uv run fp-audit run --dry-run
 
-# Phase B+: real run against all rules.
+# Real run against all rules (once the engine is wired in).
 uv run fp-audit run --all
 
 # Or against a single rule.
@@ -63,9 +63,9 @@ Add a new known-good fixture by:
 
 The runner compares each rule's FP rate (over the 50-good fixture set) against `thresholds.yaml` (default 10%, per-rule overrides supported). The decision appears in the report's `per_rule[*].decision` field — `promote_to_active`, `active_confirmed`, `shadow_extended`, `demote_to_shadow`, or `deferred_engine_unavailable`. The report shape is locked in [`../../schemas/fp-audit-report.schema.json`](../../schemas/fp-audit-report.schema.json).
 
-## Phase A scope
+## Current scope
 
-Phase A lands the CLI surface + 100 stub fixture entries (manifests only; fixture content is added as the engine matures in Phase B). The runner detects the absent engine module and emits a `deferred_engine_unavailable` decision for every rule; the CLI exit code is 0 in this state so the Phase A CI lane stays green.
+The initial release lands the CLI surface + 100 stub fixture entries (manifests only; fixture content is added as the engine matures in a later release). The runner detects the absent engine module and emits a `deferred_engine_unavailable` decision for every rule; the CLI exit code is 0 in this state so the CI lane stays green.
 
 ## See also
 

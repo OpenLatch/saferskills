@@ -1,4 +1,4 @@
-"""Route integration: the CLI Proof-of-Work gate replaces Turnstile (D-05-30).
+"""Route integration: the CLI Proof-of-Work gate replaces Turnstile.
 
 - `GET /scans/cli-challenge` → 200 when the secret is set, 503 when unset.
 - A non-loopback CLI caller with a solved `X-SaferSkills-CLI-PoW` header and NO

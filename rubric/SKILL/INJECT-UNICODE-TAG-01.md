@@ -80,4 +80,4 @@ a documented namespace, not the tag-channel range.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing per FP-audit prior to merge.
+- v1 (2026-01-09): initial rule. Active at landing per FP-audit prior to merge.

@@ -44,7 +44,7 @@ Linters can't enforce DB naming — these are project conventions:
 
 ## Rule IDs
 
-Scan rules use the format `SS-<CATEGORY>-<NAME>-<NN>` (locked decision D-03):
+Scan rules use the format `SS-<CATEGORY>-<NAME>-<NN>`:
 
 - `SS-` prefix is fixed (distinguishes SaferSkills rules from any imported third-party detector vocabulary).
 - `<CATEGORY>` is one of the closed set defined in `methodology.md` (`MCP`, `SKILL`, `RULES`, `HOOKS`, `PLUGIN`).
@@ -61,20 +61,20 @@ The regex (validated in `schemas/rubric-rule.schema.json` + `schemas/finding.sch
 
 ### Agent-pack test IDs (`AS-NN`) — a separate taxonomy
 
-`rubric/AGENT/` (I-5.5) is a **separate pack tree** from the component rules above, with its own id grammar: `AS-NN` (regex `^AS-\d{2}$`, e.g. `AS-01` … `AS-22`). These are behavioral-test ids validated against `schemas/agent-pack-test.schema.json`, **not** rubric-rule ids — the `SS-<CATEGORY>-<NAME>-NN` grammar does **not** apply to them, and `generate-methodology.cjs` excludes `rubric/AGENT/` from the component rule walk. The agent-pack generator (step 9) is the only consumer.
+`rubric/AGENT/` is a **separate pack tree** from the component rules above, with its own id grammar: `AS-NN` (regex `^AS-\d{2}$`, e.g. `AS-01` … `AS-22`). These are behavioral-test ids validated against `schemas/agent-pack-test.schema.json`, **not** rubric-rule ids — the `SS-<CATEGORY>-<NAME>-NN` grammar does **not** apply to them, and `generate-methodology.cjs` excludes `rubric/AGENT/` from the component rule walk. The agent-pack generator (step 9) is the only consumer.
 
 ## Catalog slugs
 
 One catalog_item = one capability (Skill/MCP/Hook/Plugin/Rules); several capabilities can share one GitHub repo. The slug is the `/items/<slug>` permalink key and stays UNIQUE.
 
 - **Per-capability slug**: `<org>--<repo>--<kind>-<name>[-<hash6>]` (e.g. `acme--devtools-agent-kit--skill-pdf-extract`). `<kind>` is the `catalog_item.kind` enum with underscores hyphenated (`mcp_server` → `mcp-server`, since the grammar disallows `_`); `<name>` is slugified; same-`(kind, name)` collisions within a repo get a `-<hash6>` of the capability's `component_path` (allocated in `app.scan.discovery`).
-- **Public upload slug** (I-3.5): `upload--<arthash8>--<kind>-<name>` — `<arthash8>` is `scan_runs.content_hash_sha256[:8]` (no repo coordinates for an upload). Built in `app/scan/persistence.py::upload_capability_slug`.
-- **Unlisted shadow slug** (I-3.5): `unlisted--<run8>--<kind>-<name>` — `<run8>` is `str(run_id)[:8]`. Per-run shadow rows are never served from the public catalog. Built in `app/scan/persistence.py::unlisted_capability_slug`.
+- **Public upload slug**: `upload--<arthash8>--<kind>-<name>` — `<arthash8>` is `scan_runs.content_hash_sha256[:8]` (no repo coordinates for an upload). Built in `app/scan/persistence.py::upload_capability_slug`.
+- **Unlisted shadow slug**: `unlisted--<run8>--<kind>-<name>` — `<run8>` is `str(run_id)[:8]`. Per-run shadow rows are never served from the public catalog. Built in `app/scan/persistence.py::unlisted_capability_slug`.
 - **Legacy repo-level slug** `<org>--<repo>` stays valid — the grammar was **widened, not replaced**: `^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$`. Source: `schemas/catalog-item.schema.json` (flows to generated Pydantic/Zod/TS). Built in `app/scan/persistence.py::capability_slug`. The upload + unlisted slugs above satisfy this **same** grammar — **no regex change** (the `mcp_server` → `mcp-server` hyphenation still applies, since the grammar disallows `_`).
 
 ## Severity tiers
 
-Rules and findings use a 5-tier severity ladder (locked decision D-02):
+Rules and findings use a 5-tier severity ladder:
 
 ```
 info | low | medium | high | critical

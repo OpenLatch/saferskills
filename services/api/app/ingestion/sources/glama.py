@@ -1,6 +1,6 @@
-"""Glama.ai MCP-server aggregator adapter (I-04 Phase B, reference #2).
+"""Glama.ai MCP-server aggregator adapter.
 
-Feed-first (D-04-36): paginates the public REST API
+Feed-first: paginates the public REST API
 `glama.ai/api/mcp/v1/servers?first=N&after=<cursor>` (Relay-style cursor, no auth).
 Glama records carry `repository.url` (a real GitHub coordinate for most servers), so
 `enrich_repo_facts` populates stars/manifests and items tier to medium/high — the

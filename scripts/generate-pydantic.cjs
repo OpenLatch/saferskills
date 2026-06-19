@@ -8,7 +8,7 @@
  * module per schema under services/api/app/schemas/generated/<entity>.py,
  * inheriting OrmBaseModel (snake_case wire format — naming-conventions.md).
  *
- * See .claude/rules/schema-driven-development.md + docs/codegen.md.
+ * See .claude/rules/schema-driven-development.md + contributor-docs/codegen.md.
  */
 'use strict'
 

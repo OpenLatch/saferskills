@@ -1,4 +1,4 @@
-# Agent config schemas + live-verification checklist (D-05-15)
+# Agent config schemas + live-verification checklist
 
 Pinned known-good config shapes the 8 writers target, with the official source +
 retrieval date. The MEDIUM/LOW (volatile) surfaces carry a **live-verification
@@ -8,7 +8,7 @@ cannot be verified ships **detect-only with a copy-paste fallback** for that one
 surface — never a per-agent descope (the full-8 wedge is non-negotiable).
 
 > This CLI installs **every capability kind** the platform catalogs across every
-> compatible agent (the original two-shape scope of D-05-16 was widened): the five
+> compatible agent (the original two-shape scope was widened): the five
 > install shapes are `mcp_server` (format-preserving map-merge), `skill` (folder
 > copy), `rules` (single-file copy), `hook` (per-event `settings.json` merge), and
 > `plugin` (native bundle install). The per-capability config the CLI needs comes
@@ -136,7 +136,7 @@ Out-of-scope surfaces (NOT written by this CLI — no live-verify needed here):
 Gemini skill dir, Codex `openai.yaml`. (Windsurf hooks remain MCP-only here — the
 hook shape is wired for claude-code + openclaw only.)
 
-## Read-only enumeration reuse (the no-target `capability` audit, D-05-27)
+## Read-only enumeration reuse (the no-target `capability` audit)
 
 `agents/enumerate.rs` (the no-target `capability` audit) **reads** these same config
 shapes to enumerate what's already installed — it never writes. It reuses the

@@ -1,9 +1,9 @@
 """Typed emit-helpers for the scan-engine + ingestion observability allowlists.
 
-Locked decision D-30 + `.claude/rules/telemetry.md` § Event allowlist - scan
-engine + D-04-22 ingestion events. This module is the ONLY sanctioned emission
-path for scan-engine and ingestion events. Raw `posthog.capture()` /
-`sentry_sdk.set_tag()` calls outside this module are a regression.
+See `.claude/rules/telemetry.md` § Event allowlist — scan engine + ingestion
+events. This module is the ONLY sanctioned emission path for scan-engine and
+ingestion events. Raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside
+this module are a regression.
 
 All property values are bucketed or closed-enum. No raw IPs, no emails, no
 URLs, no `matched_content` strings. Bucket helpers are colocated below.
@@ -46,7 +46,7 @@ type HashDeltaBucket = Literal["1", "2-5", "6-20", "21+"]
 type BodyLengthBucket = Literal["<500", "500-1000", "1000-2000"]
 type FpRateBucket = Literal["0", "<5%", "5-10%", ">10%"]
 
-# I-3.5 upload / visibility (D-UP-22). `artifact_source` is a SEPARATE property
+# Upload / visibility. `artifact_source` is a SEPARATE property
 # from `scan_submitted.source` (the trigger enum) - never overload the trigger.
 type ArtifactSource = Literal["github", "upload"]
 type Visibility = Literal["public", "unlisted"]
@@ -55,7 +55,7 @@ type UploadRejectReason = Literal[
     "too_big", "bad_type", "binary", "archive_rejected", "rate_limited"
 ]
 
-# I-04 ingestion events (D-04-22)
+# Ingestion events
 type IngestionItemsBucket = Literal["0", "1-10", "11-100", "101-1k", "1k+"]
 type Ingestion304RatioBucket = Literal["0-25", "25-50", "50-75", "75-100"]
 type IngestionFailureReason = Literal[
@@ -63,7 +63,7 @@ type IngestionFailureReason = Literal[
 ]
 type CatalogItemArchivedReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
-# I-05 install telemetry (D-05-31). agent ∈ the canonical agent ids — sourced from
+# Install telemetry. agent ∈ the canonical agent ids — sourced from
 # the single source of truth `app.services.agent_compat.AgentName`, NEVER re-listed
 # here (naming-conventions.md § Agent identifiers). kind ∈ the 5-kind taxonomy.
 type InstallAgent = AgentName
@@ -154,7 +154,7 @@ def upload_size_bucket(n: int) -> UploadSizeBucket:
 
 
 def ingestion_items_bucket(n: int) -> IngestionItemsBucket:
-    """Bucket for items_added / items_updated in ingestion cycle events (D-04-22)."""
+    """Bucket for items_added / items_updated in ingestion cycle events."""
     if n == 0:
         return "0"
     if n <= 10:
@@ -167,7 +167,7 @@ def ingestion_items_bucket(n: int) -> IngestionItemsBucket:
 
 
 def ingestion_304_ratio_bucket(ratio: float) -> Ingestion304RatioBucket:
-    """Bucket a 304-hit ratio (0.0-1.0) into a percentage band (D-04-22)."""
+    """Bucket a 304-hit ratio (0.0-1.0) into a percentage band."""
     pct = ratio * 100
     if pct < 25:
         return "0-25"
@@ -279,8 +279,8 @@ def emit_scan_submitted(
     visibility: Visibility = "public",
     upload_size_bucket: UploadSizeBucket | None = None,
 ) -> None:
-    """`source` stays the trigger enum (submission/ingestion/rescan_*); the I-3.5
-    provenance lives in the SEPARATE `artifact_source` property (D-UP-22, P1-4).
+    """`source` stays the trigger enum (submission/ingestion/rescan_*); the
+    provenance lives in the SEPARATE `artifact_source` property.
     `upload_size_bucket` is set only for uploads."""
     props: dict[str, object] = {
         "source": source,
@@ -294,7 +294,7 @@ def emit_scan_submitted(
 
 
 def emit_promote_to_public(*, catalog_item_id: object) -> None:
-    """An unlisted run was promoted to public (D-UP-22)."""
+    """An unlisted run was promoted to public."""
     _emit("promote_to_public", catalog_item_id_bucket=hash_to_bucket(catalog_item_id))
 
 
@@ -404,7 +404,7 @@ def emit_rescan_triggered_drift(*, catalog_item_id: object, hash_delta_files_cou
     )
 
 
-# ─── Ingestion event emitters (D-04-22) ──────────────────────────────────────
+# ─── Ingestion event emitters ─────────────────────────────────────────────────
 
 
 def emit_ingestion_cycle_started(*, source: str, cadence: str) -> None:
@@ -454,7 +454,7 @@ type ArchiveReason = Literal["404_timeline", "maintainer_archived", "yanked"]
 
 
 def emit_ingestion_cycle_archived(*, source: str, reason: ArchiveReason) -> None:
-    """`catalog_item_archived` (D-04-22 #20) - one per item flipped to archived.
+    """`catalog_item_archived` - one per item flipped to archived.
 
     `source` is the trigger (e.g. 'archive_check'); `reason` is a closed enum.
     No item ID, no slug, no URL.
@@ -463,7 +463,7 @@ def emit_ingestion_cycle_archived(*, source: str, reason: ArchiveReason) -> None
 
 
 def emit_popularity_recompute_completed(*, top500_changed_count: int) -> None:
-    """`popularity_recompute_completed` (D-04-22 #21) - fired once per nightly
+    """`popularity_recompute_completed` - fired once per nightly
     recompute. The top-500 churn count is bucketed before emission (no raw count).
     """
     _emit(
@@ -472,7 +472,7 @@ def emit_popularity_recompute_completed(*, top500_changed_count: int) -> None:
     )
 
 
-# ─── Install-telemetry emitter (#23, D-05-31) ────────────────────────────────
+# ─── Install-telemetry emitter ────────────────────────────────────────────────
 
 
 def emit_install_reported(*, agent: InstallAgent, kind: InstallKind) -> None:
@@ -483,7 +483,7 @@ def emit_install_reported(*, agent: InstallAgent, kind: InstallKind) -> None:
     _emit("install_reported", agent=agent, kind=kind)
 
 
-# ─── Agent-scan emitter (I-5.5, D-5.5-08) ─────────────────────────────────────
+# ─── Agent-scan emitter ─────────────────────────────────────────────────────────
 
 type AgentRuntime = AgentName | Literal["other"]
 # Runtime guard for the PostHog enum — derived from the canonical `ALL_AGENTS`
@@ -507,9 +507,9 @@ def emit_agent_scan_completed(*, tier: TierBucket, findings_count: int, runtime:
     )
 
 
-# ─── Capability-token redaction (D-UP-32) ─────────────────────────────────────
+# ─── Capability-token redaction ───────────────────────────────────────────────
 
-# Covers the scan capability URL (/scans/r/) AND the I-5.6 Agent Report URLs
+# Covers the scan capability URL (/scans/r/) AND the Agent Report URLs
 # (/agents/r/ public-page + /agent-scans/r/ API). The leading `/` anchors each
 # alternative, so `/agent-scans/r/` never mis-matches the bare `scans` branch.
 _CAP_TOKEN_RE = re.compile(r"(/(?:scans|agent-scans|agents)/r/)[^/?#\s]+")
@@ -527,7 +527,7 @@ def scrub_sentry_event(
     event: dict[str, object], _hint: dict[str, object] | None = None
 ) -> dict[str, object] | None:
     """Sentry `before_send` callback - redact the capability token from the event
-    request URL + any breadcrumb URL (D-UP-32(b))."""
+    request URL + any breadcrumb URL."""
     request = event.get("request")
     if isinstance(request, dict):
         typed_req = cast(dict[str, object], request)

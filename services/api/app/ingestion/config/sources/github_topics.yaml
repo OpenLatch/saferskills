@@ -1,4 +1,4 @@
-# GitHub topic-search + code-search discovery (D-04-35). Daily 01:00 UTC.
+# GitHub topic-search + code-search discovery. Daily 01:00 UTC.
 name: github_topics
 kind: api
 hosts:
@@ -20,7 +20,7 @@ discovery:
     - "stars:10..49"
     - "stars:1..9"
     - "stars:0"
-  # Second discovery pass (D-04-35) — gated by INGESTION_GITHUB_CODE_SEARCH_ENABLED.
+  # Second discovery pass — gated by INGESTION_GITHUB_CODE_SEARCH_ENABLED.
   code_search_queries:
     - "filename:SKILL.md"
     - "filename:mcp.json"

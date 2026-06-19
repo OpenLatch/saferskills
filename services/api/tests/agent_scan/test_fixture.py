@@ -1,7 +1,7 @@
-"""The committed I-5.6 fixture (`fixtures/agent-scan-report.sample.json`) must stay
+"""The committed fixture (`fixtures/agent-scan-report.sample.json`) must stay
 a valid agent-scan report. We round-trip each projection through the WIRE DTO
 (`AgentScanReportDetail.model_validate`) — the same shape the report endpoints emit
-— so a schema/DTO drift fails here, not silently in the frontend (Codex#3: the
+— so a schema/DTO drift fails here, not silently in the frontend (the
 generated Zod is a `z.unknown()` placeholder and validates anything)."""
 
 from __future__ import annotations

@@ -1,9 +1,7 @@
 /* webapp/src/styles/page-home.css
  *
- * Homepage-only page-vocabulary CSS. Ported from the canonical hi-fi mockup at
- * .local/.brainstorms/frontend/mockups/SaferSkills-Homepage-v3-unpacked.html
- * (variant-A second style block), via .local/.brainstorms/frontend/mockups/
- * build-page-home.py.
+ * Homepage-only page-vocabulary CSS. Ported from the canonical hi-fi homepage
+ * mockup (variant-A second style block).
  *
  * Scoping:
  *   - Selectors prefixed with `body.va` only apply when index.astro passes

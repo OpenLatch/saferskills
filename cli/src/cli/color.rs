@@ -1,6 +1,6 @@
 //! Terminal color detection + colorblind-safe severity / tier rendering.
 //!
-//! Color precedence (D-05-11):
+//! Color precedence:
 //! `--color=never` > `--no-color` / `NO_COLOR` > `--color=always` /
 //! `CLICOLOR_FORCE` > `TERM=dumb` > `stdout().is_terminal()`.
 //!

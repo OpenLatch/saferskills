@@ -1,6 +1,6 @@
 /* SaferSkills webapp — page-vocabulary CSS.
  *
- * Ported from .local/.brainstorms/frontend/mockups/hifi/shared.css + app-chrome.css.
+ * Ported from the hi-fi mockup CSS (shared.css + app-chrome.css).
  * Selectors translated: `body.va.dark .X` → `html.dark .X`, `body.va` namespace dropped.
  * Resets + token redeclarations stripped (those live in tokens.css + reset.css).
  *
@@ -8031,7 +8031,7 @@ html.dark .fc-trace > summary:hover {
 }
 
 /* ============================================================
-   AGENT REPORT (I-5.6) — DS-owned CSS for the agent-report
+   AGENT REPORT — DS-owned CSS for the agent-report
    components: AgentVerb / TrustTierPill / CapCallout /
    ProofOfTestsTable / EvidenceWithheldNote / StalePackBanner /
    RightOfReplyForm. Page-composition glue
@@ -8485,9 +8485,9 @@ html.dark .ror-field textarea { color: var(--fg-1); background: var(--bg-surface
 .ror-existing p { margin: 6px 0 0; font-family: var(--font-sans); font-size: 13.5px; line-height: 1.55; color: var(--fg-2); }
 
 /* ============================================================
-   AGENT REPORT — Phase B (I-5.6): findings / evidence / score-math /
+   AGENT REPORT — findings / evidence / score-math /
    remediation / component scores / badge provenance. DS-owned CSS for
-   the ui/ molecules; ported from the locked mockup (body.va.dark →
+   the ui/ molecules; ported from the mockup (body.va.dark →
    html.dark), tokens only, reduced-motion guards on every transition.
    ============================================================ */
 
@@ -8746,7 +8746,7 @@ html.dark .transcript { border-color: var(--color-line); }
 .prov-chip.pack { border-color: var(--brand-accent); color: var(--brand-accent); }
 
 /* ============================================================
-   ROTATING HEADLINE — multi-line base (`baseLines`, I-5.7 §2a)
+   ROTATING HEADLINE — multi-line base (`baseLines`)
    Each `baseLines` entry renders as its own block line; typography
    inherits from the headline. The last line hosts the rotator inline.
    ============================================================ */
@@ -8916,7 +8916,7 @@ html.dark .transcript { border-color: var(--color-line); }
 .pc-line .pc-ln {
   text-align: right;
   padding-right: 14px;
-  /* P2-3 a11y: the aria-hidden gutter is still visible text axe checks; #454a54
+  /* a11y: the aria-hidden gutter is still visible text axe checks; #454a54
      was 2.05:1 on the dark #14151a body (fails AA). #7a8089 clears 4.5:1. */
   color: #7a8089;
   user-select: none;
@@ -8970,7 +8970,7 @@ html:not(.dark) .pc-head {
   border-bottom-color: #dce3ec;
 }
 html:not(.dark) .pc-name {
-  /* P2-3 a11y: #64748b was 4.23:1 on the light #eef2f7 head (fails AA); #5e6a7b
+  /* a11y: #64748b was 4.23:1 on the light #eef2f7 head (fails AA); #5e6a7b
      clears 4.5:1. */
   color: #5e6a7b;
 }
@@ -9003,7 +9003,7 @@ html:not(.dark) .pc-body::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 html:not(.dark) .pc-line .pc-ln {
-  /* P2-3 a11y: #b6becb was 1.87:1 on the light #ffffff body (fails AA); #6d7585
+  /* a11y: #b6becb was 1.87:1 on the light #ffffff body (fails AA); #6d7585
      clears 4.5:1. */
   color: #6d7585;
 }

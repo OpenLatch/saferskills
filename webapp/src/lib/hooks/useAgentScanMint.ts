@@ -1,6 +1,6 @@
-// Inline agent-scan mint state machine (I-5.7 D-5.7-03) — shared by the
-// homepage "Scan a Running Agent" card (plan 02) and the /scan agent pane +
-// platform picker (plan 03). Copy = mint: the Copy click Turnstile-gates
+// Inline agent-scan mint state machine — shared by the
+// homepage "Scan a Running Agent" card and the /scan agent pane +
+// platform picker. Copy = mint: the Copy click Turnstile-gates
 // (same useCaptchaGate pattern as the scan-submit path — gate only when
 // PUBLIC_TURNSTILE_SITE_KEY is set), POSTs /api/v1/agent-scans/bootstrap,
 // writes the fully-substituted prompt to the clipboard, and swaps the card
@@ -39,8 +39,7 @@ export type MintPlatform =
  * surface renders (homepage card 02, the /scan agent pane, the platform
  * picker). The `{{…}}` placeholders stay visible on purpose: this text is
  * never copied; the mint response's fully-substituted prompt replaces it.
- * Copy source of truth: the v3 mockup card 02 /
- * `.local/.brainstorms/done/agent-scan/bootstrap-prompt.md` § Universal.
+ * Copy source of truth: the universal bootstrap-prompt template.
  */
 export const AGENT_SCAN_TEMPLATE_LINES: string[] = [
   'Run a **SaferSkills Agent Scan** on this agent — an open, adversarial self-assessment.',

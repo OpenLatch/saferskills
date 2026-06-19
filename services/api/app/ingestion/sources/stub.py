@@ -1,7 +1,7 @@
 """StubAdapter — offline cycle testing helper.
 
 Not registered in ADAPTER_REGISTRY (no @register_adapter decoration). Used by
-tests and the `catalog ingest-stub` CLI subcommand (Phase A). Instantiate
+tests and the `catalog ingest-stub` CLI subcommand. Instantiate
 directly with a SourceConfig whose `discovery.items` is a list of repo-JSON-
 shaped dicts; yields nothing when the list is absent.
 

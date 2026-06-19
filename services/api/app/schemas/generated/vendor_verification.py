@@ -23,7 +23,7 @@ class State(StrEnum):
 
 class VendorVerification(OrmBaseModel):
     """
-    Vendor maintainer-verification token lifecycle (D-05 / D-06 / D-07 / D-08). A maintainer claims a catalog item by committing the token to `.saferskills/verify.txt` on the repo default branch; the server fetches, constant-time-compares the sha256, marks verified, then weekly-polls for drift (does not revoke on drift).
+    Vendor maintainer-verification token lifecycle. A maintainer claims a catalog item by committing the token to `.saferskills/verify.txt` on the repo default branch; the server fetches, constant-time-compares the sha256, marks verified, then weekly-polls for drift (does not revoke on drift).
     """
 
     model_config = ConfigDict(
@@ -42,7 +42,7 @@ class VendorVerification(OrmBaseModel):
     expires_at: AwareDatetime = Field(
         ...,
         alias="expiresAt",
-        description="Pre-redemption expiry = issuedAt + 7 days (D-06). After redemption, verification persists indefinitely.",
+        description="Pre-redemption expiry = issuedAt + 7 days. After redemption, verification persists indefinitely.",
     )
     redeemed_at: AwareDatetime | None = Field(
         None,
@@ -61,5 +61,5 @@ class VendorVerification(OrmBaseModel):
     last_drift_check_at: AwareDatetime | None = Field(
         None,
         alias="lastDriftCheckAt",
-        description="Most recent weekly drift-check. Verification persists even if the file is later removed (D-07 — Apple Pay / Google Search Console pattern).",
+        description="Most recent weekly drift-check. Verification persists even if the file is later removed (Apple Pay / Google Search Console pattern).",
     )

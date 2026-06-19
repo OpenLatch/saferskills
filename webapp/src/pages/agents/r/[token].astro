@@ -35,7 +35,7 @@ if (!token) {
   return Astro.redirect('/404')
 }
 
-// DEV-only fixture loader (D-5.6-04) — server-side, stripped from prod by Vite.
+// DEV-only fixture loader — server-side, stripped from prod by Vite.
 let run = null
 if (import.meta.env.DEV) {
   const fixtureKey = Astro.url.searchParams.get('fixture')

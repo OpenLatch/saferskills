@@ -1,7 +1,7 @@
 """Catalog browse surface — list + detail + facets.
 
 Reads `catalog_items` + optionally joins on the most-recent `scans` row to
-project `latest_scan_score` / `latest_scan_tier` per item. Phase B supports
+project `latest_scan_score` / `latest_scan_tier` per item. Supports
 keyset-style cursor pagination + a small set of filters that the catalog
 filter sidebar drives.
 """
@@ -198,7 +198,7 @@ async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFac
     # Tier facet: bucket by latest_scan_tier — shared with /stats (queries.py).
     tier_dist = await latest_scan_tier_distribution(session)
 
-    # Provenance facet (I-3.5): github | upload split for the source filter.
+    # Provenance facet: github | upload split for the source filter.
     source_rows = (
         await session.execute(
             select(CatalogItem.source_kind, func.count(CatalogItem.id))
@@ -230,14 +230,14 @@ async def list_items(
         default=None,
         description=(
             "Provenance filter on the catalog item's source_kind. NOT named "
-            "`source` (that is the scan TRIGGER enum) — P1-4."
+            "`source` (that is the scan TRIGGER enum)."
         ),
     ),
     q: str | None = Query(default=None, max_length=200),
     show_low_quality: bool = Query(
         default=False,
         alias="showLowQuality",
-        description="Include low/empty quality_tier items (default hides them — D-04-19).",
+        description="Include low/empty quality_tier items (default hides them).",
     ),
     sort: SortKey = Query(default="most_installed"),
     limit: int = Query(default=25, ge=1, le=100),
@@ -307,11 +307,11 @@ async def list_items(
         )
         .join(findings_sub, findings_sub.c.scan_id == Scan.id, isouter=True)
         .join(install_quarter, install_quarter.c.ci_id == CatalogItem.id, isouter=True)
-        # Public-only catalog: unlisted shadow rows are never listed (D-UP-19).
+        # Public-only catalog: unlisted shadow rows are never listed.
         .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
     )
 
-    # Soft quality gate (D-04-19): the default catalog hides low/empty items;
+    # Soft quality gate: the default catalog hides low/empty items;
     # `?showLowQuality=true` exposes them. Hidden items stay reachable by slug.
     if not show_low_quality:
         stmt = stmt.where(CatalogItem.quality_tier.in_(["high", "medium"]))
@@ -337,7 +337,7 @@ async def list_items(
         )
     if q:
         # Postgres FTS (search_vector tsvector, migration 0010) OR pg_trgm fuzzy
-        # on display_name (D-04-32). search_vector is a DB-generated column, not a
+        # on display_name. search_vector is a DB-generated column, not a
         # mapped attribute — referenced via text() with a bound param.
         stmt = stmt.where(
             text(
@@ -366,7 +366,7 @@ async def list_items(
     if q and sort == "most_installed":
         # Relevance-first when searching: blend ts_rank (0.7) + normalized
         # popularity (0.3) so a strong name match isn't drowned by a popular
-        # near-miss (D-04-32). Ties broken by slug for a stable keyset.
+        # near-miss. Ties broken by slug for a stable keyset.
         # This is the *default* (Trend) ordering for a search; an explicit
         # column-header sort (highest/lowest_score, recent, most_starred) below
         # overrides it so sorting works while a query is active — the `q` WHERE
@@ -473,7 +473,7 @@ async def list_items(
 
 
 async def _install_activity(session: AsyncSession, catalog_item_id: object) -> InstallActivity:
-    """Real opt-in install counts + agent distribution (D-05-31).
+    """Real opt-in install counts + agent distribution.
 
     GROUP-BY aggregate over `install_events` — replaces the deterministic mock.
     Anonymized counts ONLY (never company-level data — company intelligence is
@@ -652,7 +652,7 @@ async def _related_items(
 ) -> list[RelatedItem]:
     """Same-kind, highest-scored peers (excluding self).
 
-    Placeholder until I-04 adds the tag/category/co-install signal.
+    Placeholder until the tag/category/co-install signal lands.
     """
     latest_scan_sub = (
         select(
@@ -696,8 +696,8 @@ async def _vendor_responses(session: AsyncSession, item: CatalogItem) -> list[Ve
     `.saferskills/verify.txt` flow proves *control of the repo*, not the
     identity of a specific GitHub user — so attributing to a self-asserted
     handle would let a repo-controller impersonate an arbitrary `@user`.
-    Identity-level verification (OAuth + push-permission) lands with auth in
-    I-06; until then the repo coordinate is the only trustworthy attribution.
+    Identity-level verification (OAuth + push-permission) lands with auth
+    later; until then the repo coordinate is the only trustworthy attribution.
     """
     repo_authority = f"{item.github_org}/{item.github_repo} maintainer"
     rows = (
@@ -726,7 +726,7 @@ async def _vendor_responses(session: AsyncSession, item: CatalogItem) -> list[Ve
 @router.get("/{slug}", response_model=ItemDetailResponse)
 async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> ItemDetailResponse:
     # Public-only detail: an unlisted shadow slug 404s here (reachable only via
-    # its capability URL, never the public catalog surface — D-UP-19).
+    # its capability URL, never the public catalog surface).
     stmt = select(CatalogItem).where(CatalogItem.slug == slug, CatalogItem.visibility == "public")
     item = (await session.execute(stmt)).scalar_one_or_none()
     if item is None:

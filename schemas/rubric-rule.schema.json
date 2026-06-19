@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/rubric-rule.schema.json",
   "title": "RubricRule",
-  "description": "YAML-frontmatter contract for `rubric/<CATEGORY>/<NAME>-NN.md` files. Per-rule contract per .claude/rules/methodology.md § Per-rule contract. The detector engine (Phase B) loads rule files via this schema; the methodology codegen step (#7) emits webapp/src/generated/methodology/index.mdx from validated frontmatter. x-postgresql-skip: true because this is a file-format spec, not a persisted entity (the rule lives in git).",
+  "description": "YAML-frontmatter contract for `rubric/<CATEGORY>/<NAME>-NN.md` files. Per-rule contract per .claude/rules/methodology.md § Per-rule contract. The detector engine loads rule files via this schema; the methodology codegen step (#7) emits webapp/src/generated/methodology/index.mdx from validated frontmatter. x-postgresql-skip: true because this is a file-format spec, not a persisted entity (the rule lives in git).",
   "x-postgresql-skip": true,
   "type": "object",
   "additionalProperties": false,
@@ -24,7 +24,7 @@
     "ruleId": {
       "type": "string",
       "pattern": "^SS-(MCP|SKILL|RULES|HOOKS|PLUGIN)-[A-Z][A-Z0-9-]*-\\d{2}$",
-      "description": "Format `SS-<CATEGORY>-<NAME>-NN` (D-03)."
+      "description": "Format `SS-<CATEGORY>-<NAME>-NN`."
     },
     "title": {
       "type": "string",
@@ -77,12 +77,12 @@
     "severity": {
       "type": "string",
       "enum": ["info", "low", "medium", "high", "critical"],
-      "description": "5-tier ladder (D-02). `info` carries weight 0."
+      "description": "5-tier ladder. `info` carries weight 0."
     },
     "subScore": {
       "type": "string",
       "enum": ["security", "supply_chain", "maintenance", "transparency", "community"],
-      "description": "5-axis sub-score (D-01)."
+      "description": "5-axis sub-score."
     },
     "weight": {
       "type": "integer",
@@ -93,11 +93,11 @@
     "status": {
       "type": "string",
       "enum": ["shadow", "active", "deprecated"],
-      "description": "Rule lifecycle state (D-14). New rules land `shadow` for 7 days; FP-audit gates promotion."
+      "description": "Rule lifecycle state. New rules land `shadow` for 7 days; FP-audit gates promotion."
     },
     "shadowUntil": {
       "type": ["string", "null"],
-      "description": "ISO 8601 date or week-marker (e.g. `2026-W3-end`) when the FP-audit harness re-evaluates promotion. Required iff status=shadow; null otherwise."
+      "description": "ISO 8601 date when the FP-audit harness re-evaluates promotion. Required iff status=shadow; null otherwise."
     },
     "appliesTo": {
       "type": "array",

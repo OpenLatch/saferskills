@@ -12,7 +12,7 @@ from app.models.generated._base import Base
 
 
 class VendorResponse(Base):
-    """Verified-vendor public response on a catalog item (PRD §11.2). Transparency over erasure — old versions..."""
+    """Verified-vendor public response on a catalog item. Transparency over erasure — old versions retained; the..."""
 
     __tablename__ = "vendor_responses"
 

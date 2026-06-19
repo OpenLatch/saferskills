@@ -32,7 +32,7 @@ interface Props {
   requestNonce?: number
 }
 
-/** The evidence block per finding — route-driven split (D-5.6-03). */
+/** The evidence block per finding — route-driven split. */
 function Evidence({ finding, unlisted }: { finding: AgentFindingRow; unlisted: boolean }) {
   const ex = finding.evidence_excerpt
   if (unlisted && ex) {
@@ -57,7 +57,7 @@ function Evidence({ finding, unlisted }: { finding: AgentFindingRow; unlisted: b
 }
 
 /**
- * Findings tab body (I-5.6 Phase B): findings grouped by OWASP family, each an
+ * Findings tab body: findings grouped by OWASP family, each an
  * expandable `.find-card` reusing the DS finding-card chrome. Per card: severity
  * pill, rule meta, ref chips, why-it-matters, the per-finding score-math ledger,
  * the route-driven evidence (withheld note / redacted transcript / manifest note),

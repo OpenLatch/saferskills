@@ -1,4 +1,4 @@
-"""Storage-split snapshot byte resolver (I-3.5, D-UP-12).
+"""Storage-split snapshot byte resolver.
 
 A scan's `file_hashes` maps `{path -> sha256 | null}`. The bytes live in one of
 two stores depending on the run's source x visibility:

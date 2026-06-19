@@ -17,8 +17,8 @@ interface Props {
 
 /**
  * The page-head manage bar (mockup `.manage-bar`/`.mbtn` row, top-right of the
- * Agent Report head). Public: copy-share + Markdown export (the §5 enterprise
- * share pair). Unlisted: adds Promote-to-public + Delete with confirm dialogs.
+ * Agent Report head). Public: copy-share + Markdown export.
+ * Unlisted: adds Promote-to-public + Delete with confirm dialogs.
  * Mounted inside the `.sr-head-r` cell of `agents/[id].astro` + `r/[token].astro`.
  */
 export default function AgentReportActions({ run, shareUrl, unlisted = false, token }: Props) {

@@ -1,6 +1,6 @@
-# Operator deletion runbook — abusive PUBLIC upload (I-3.5)
+# Operator deletion runbook — abusive PUBLIC upload
 
-> Brainstorm handoff id: `outbox/04-operator-deletion-runbook`. This is the
+> This is the
 > **only** removal path for an abusive **public** upload. Uploads have **no
 > vendor right-of-reply** (see `.claude/rules/vendor-appeals.md`); unlisted runs
 > self-serve deletion via `DELETE /api/v1/scans/r/{token}`. There is **no**

@@ -18,9 +18,9 @@ const { data } = Astro.props
 const scClass = (tier: PopularChip['tier']): string =>
   tier === 'green' ? 'green' : tier === 'yellow' ? 'yellow' : 'orange'
 ---
-{/* v3 hero 3-card grid (I-5.7 Module 2b): card 01 Find full-width on top,
+{/* Hero 3-card grid: card 01 Find full-width on top,
     cards 02 (Scan a Running Agent — inline mint) + 03 (Audit a Capability)
-    side by side below. All copy verbatim from the v3 mockup. */}
+    side by side below. All copy verbatim from the mockup. */}
 
 {/* Card 01 — FIND (full-width) */}
 <div class="p1-card find b-wide">
@@ -31,7 +31,7 @@ const scClass = (tier: PopularChip['tier']): string =>
   </div>
   <div class="p1-body">
     {/* No blurb label — the count + registries already live in the card foot
-        below, so the search input itself is the invitation (D-5.7 fix). */}
+        below, so the search input itself is the invitation. */}
     <div class="b-find-search">
       <HeroInputBar
         client:idle
@@ -59,7 +59,7 @@ const scClass = (tier: PopularChip['tier']): string =>
   </div>
 </div>
 
-{/* Card 02 — SCAN A RUNNING AGENT (inline mint, D-5.7-03). The island renders
+{/* Card 02 — SCAN A RUNNING AGENT (inline mint). The island renders
     the full .p1-card so the foot can swap after a successful mint. Hydrated
     client:visible — the cards-02/03 row straddles the fold at 1440×900, and
     visible-trigger fires immediately whenever it is on screen. */}

@@ -1,4 +1,4 @@
-"""skillhub.club aggregator HTML scraper (I-04 Phase B PR2).
+"""skillhub.club aggregator HTML scraper.
 
 Thin SitemapHtmlAdapter subclass — all per-site configuration (sitemap URL, item-URL
 filter, name/github extraction knobs) lives in config/sources/skillhub_club.yaml. See

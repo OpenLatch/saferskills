@@ -8,7 +8,7 @@ This package ships two entrypoints from one image:
 - **`app.main:app`** — the uvicorn web tier (HTTP, SSE, interactive scans). Deployed with `INGESTION_WORKER_ENABLED=false`, so it does NOT run the Procrastinate worker, but it still opens the connector so its own defer paths work.
 - **`python -m app.worker_main`** — the standalone Procrastinate worker (ingest queues + bulk `scan` queue + periodic tasks + boot reapers). Deployed as the separate `services/worker/` Fly app. Locally + in `docker compose up`, the worker runs in-process in the web lifespan (the `INGESTION_WORKER_ENABLED=true` default). See `.claude/rules/ingestion.md` § Procrastinate worker.
 
-## W1 surface
+## Routes
 
 - `GET /api/v1/health` — liveness + version + git_sha
 - `GET /openapi.json` — captured by the codegen pipeline; consumed by the TS DTO generator
@@ -28,7 +28,7 @@ That's the entire shipped surface at W1. Everything else (catalog list, scan sub
 - **Response models inherit `OrmBaseModel`** — `app/schemas/orm_base.py`. Never plain `BaseModel`. (`.claude/rules/naming-conventions.md`)
 - **Paginated arrays use `data` not `items`** — same rule.
 - **All env vars via `app/core/config.py`** — never `os.environ` directly. (`.claude/rules/environment-config.md`)
-- **No detection logic in this layer at W1** — the scan engine is its own package (`app/scan/`) landing W2.
+- **No detection logic in this layer** — the scan engine is its own package (`app/scan/`).
 
 ## When you add a router
 

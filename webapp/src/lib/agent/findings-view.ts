@@ -1,5 +1,5 @@
 /**
- * Pure view-model helpers for the Agent Report Findings tab (I-5.6 §9). Maps the
+ * Pure view-model helpers for the Agent Report Findings tab. Maps the
  * `AgentScanReportDetail` finding shape onto the framework-agnostic `ui/` molecule
  * props: deep-linked ref chips, OWASP-family grouping, and the per-finding
  * score-math ledger (sourced verbatim from the report `score_breakdown`).
@@ -9,7 +9,7 @@ import type { ScoreMathModifier } from '@ui/components/molecules/ScoreMathTable'
 
 import type { AgentFindingRow, AgentScoreBreakdown } from '@/lib/api/agent-scan-types'
 
-// Deep-link targets (design.md §9). MITRE deep-links the technique id.
+// Deep-link targets. MITRE deep-links the technique id.
 export const OWASP_AGENTIC_URL =
   'https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/'
 export const OWASP_LLM_URL = 'https://genai.owasp.org/llm-top-10/'

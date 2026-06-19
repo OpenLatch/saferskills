@@ -4,16 +4,16 @@ retry + queueing-lock. Drives: list_items → normalize → enrich → content h
 MergeEngine.upsert, writing one ingestion_events row per fetch in the same tx as
 the catalog upsert.
 
-Robustness overhaul (WS-5 + WS-6):
-  - **Two-phase batching (WS-6).** Each batch is first PREPARED entirely outside any
+Robustness overhaul:
+  - **Two-phase batching.** Each batch is first PREPARED entirely outside any
     open transaction — `normalize()` + `enrich()` (the multi-fetch, 60s-timeout
     network step) hold NO pooled DB connection — then WRITTEN in one short
     transaction (upsert + outbox per item) and committed. Previously the loop held a
     pooled connection across every item's enrich I/O for a whole batch, starving the
     shared pool the public API serves from. Phase boundaries keep the per-item outbox
-    invariant (catalog row + its ingestion_events row in one commit) per batch
-    (D-04-08); batching never splits a pair across commits.
-  - **Per-item isolation (WS-5).** One poisoned item in a 10k-item crawl (a
+    invariant (catalog row + its ingestion_events row in one commit) per batch;
+    batching never splits a pair across commits.
+  - **Per-item isolation.** One poisoned item in a 10k-item crawl (a
     `ValueError`/`KeyError`/`TypeError`/`AttributeError` from provider shape-drift in
     normalize/enrich/upsert) becomes ONE clean `ingestion.item_skipped` WARN + a
     skipped outbox row + `continue` — never a whole-cycle traceback + retry storm.
@@ -47,7 +47,7 @@ logger = structlog.get_logger(__name__)
 _COMMIT_BATCH = 25
 
 # Provider shape-drift surfaces as these; per-item isolation skips the one item
-# rather than letting it abort the cycle (WS-5). Deliberately NOT catching
+# rather than letting it abort the cycle. Deliberately NOT catching
 # DBAPIError / httpx errors here — those are transient/infra and belong to the
 # cycle-level handling in `tasks.run_source_cycle`.
 _ITEM_SKIP_EXCEPTIONS = (ValueError, KeyError, TypeError, AttributeError)

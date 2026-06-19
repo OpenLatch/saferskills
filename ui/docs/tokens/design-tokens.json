@@ -53,7 +53,7 @@
       "primaryTint":         { "$type": "color", "$value": "#EFF6FF", "$description": "5% cobalt wash" }
     },
     "score": {
-      "$description": "4-band scoring color language. Each band MUST be paired with its text label — color alone is never the signal. See docs/methodology.md.",
+      "$description": "4-band scoring color language. Each band MUST be paired with its text label — color alone is never the signal. See contributor-docs/methodology.md.",
       "green":  { "$type": "color", "$value": "#107A4F", "$description": "0–39 — clean / passes / low risk" },
       "yellow": { "$type": "color", "$value": "#CA8A04", "$description": "40–69 — caution / advisory / medium risk" },
       "orange": { "$type": "color", "$value": "#EA580C", "$description": "70–89 — flagged / high risk" },

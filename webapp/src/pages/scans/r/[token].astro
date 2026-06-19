@@ -21,7 +21,7 @@ import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-
 import '@/styles/page-scan-progress.css'
 import '@/styles/page-scan-report.css'
 
-// ── Anti-leakage headers — ALL THREE at the Astro PAGE level (P0-6 / D-UP-32).
+// ── Anti-leakage headers — ALL THREE at the Astro PAGE level.
 // The browser/crawler/cache/SDK sees THIS response, not the API's; API headers
 // are defense-in-depth only. Set before any output.
 Astro.response.headers.set('Referrer-Policy', 'no-referrer')
@@ -35,7 +35,7 @@ if (!token) {
 
 // `redirect: 'manual'` so the SSR fetch never silently follows the API's 307 to
 // the API origin — fetchUnlistedReport reads the Location and hands back a
-// webapp path (P0-12). Invalid/expired/deleted → generic not_found (no oracle).
+// webapp path. Invalid/expired/deleted → generic not_found (no oracle).
 const result = await fetchUnlistedReport(token).catch(() => ({ status: 'not_found' as const }))
 
 if (result.status === 'promoted') {

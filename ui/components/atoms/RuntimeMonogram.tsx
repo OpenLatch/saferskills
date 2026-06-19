@@ -2,7 +2,7 @@ import { AGENT_LOGOS } from './agent-logos'
 
 /**
  * RuntimeMonogram — a compact agent-runtime badge (brand mark + optional name)
- * for the `/agents` directory (I-5.6 §12). The bordered square carries the
+ * for the `/agents` directory. The bordered square carries the
  * agent's real brand logo (the same `AGENT_LOGOS` marks the homepage hero
  * marquee uses); a runtime with no known logo (e.g. `other`) falls back to the
  * 2-letter monogram. The id set mirrors `app/services/agent_compat.py::AgentName`

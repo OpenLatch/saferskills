@@ -1,6 +1,5 @@
 /**
- * CorpusRiskMeter — the headline figure on the `/agents` header (I-5.6 §12.1,
- * D-5.6-07). Two states:
+ * CorpusRiskMeter — the headline figure on the `/agents` header. Two states:
  *
  * - PUBLISHED (corpus ≥ gate): the big `{pct}%` carry-a-critical rate + the claim
  *   + the inline critical definition (`.obs-figure`/`.obs-pct`/`.obs-claim`/`.obs-sub`).

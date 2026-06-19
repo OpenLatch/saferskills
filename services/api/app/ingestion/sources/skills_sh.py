@@ -1,4 +1,4 @@
-"""skills.sh aggregator HTML scraper (I-04 Phase B PR2).
+"""skills.sh aggregator HTML scraper.
 
 Thin SitemapHtmlAdapter subclass — all per-site configuration (sitemap URL, item-URL
 filter, name/github extraction knobs) lives in config/sources/skills_sh.yaml. See

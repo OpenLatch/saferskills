@@ -1,6 +1,6 @@
 //! Cursor writer — HIGH confidence (MCP).
 //!
-//! Landmines (design.md §4): MCP key `mcpServers` in `~/.cursor/mcp.json`
+//! Config-schema landmines: MCP key `mcpServers` in `~/.cursor/mcp.json`
 //! (global) / `.cursor/mcp.json` (project). URL transport uses `url`. Cursor has
 //! no native Skills concept (it uses Rules `.cursor/rules/*.mdc`), so a skill
 //! install surfaces a copy-paste fallback — but a skill is never offered for

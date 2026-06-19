@@ -1,4 +1,4 @@
-"""Playwright check of the catalog UPLOAD badge + `artifact_source` filter (I-3.5).
+"""Playwright check of the catalog UPLOAD badge + `artifact_source` filter.
 
 Staging acceptance, NOT a required pr-checks lane. Skip-friendly:
 

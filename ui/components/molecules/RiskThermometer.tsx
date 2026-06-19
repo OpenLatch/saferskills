@@ -1,8 +1,8 @@
 /**
- * RiskThermometer — the corpus risk-distribution bar on the `/agents` header
- * (I-5.6 §12.1). Four proportional segments (Red / Orange / Yellow / Green) with
+ * RiskThermometer — the corpus risk-distribution bar on the `/agents` header.
+ * Four proportional segments (Red / Orange / Yellow / Green) with
  * their percentages, the `Risk distribution · Whole corpus · Last 3 months` head
- * + corpus count, and the band-range legend. Markup mirrors the locked mockup
+ * + corpus count, and the band-range legend. Markup mirrors the mockup
  * (`.therm-wrap` / `.therm-head` / `.therm` / `.seg` / `.therm-legend`); segment
  * colors are the score-band tokens. CSS is in `page-agent-directory.css`.
  */

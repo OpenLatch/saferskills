@@ -8,7 +8,7 @@ export interface ProvenanceChip {
 }
 
 /**
- * Badge-band provenance chips (I-5.6 §10) — `OWASP Agentic` · `MITRE ATLAS` ·
+ * Badge-band provenance chips — `OWASP Agentic` · `MITRE ATLAS` ·
  * `cloud-validated`/`client-administered` · `Apache-2.0`, each with a tooltip.
  * Pure presentational; CSS `.prov-chip` / `.ar-prov-chips` is DS-owned in
  * components.css.

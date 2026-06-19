@@ -1,6 +1,6 @@
 /**
  * Public-route evidence note — stands in for the redacted transcript on the public
- * report (the transcript hydrates only on the unlisted token route, I-5.6 §8).
+ * report (the transcript hydrates only on the unlisted token route).
  * Default copy: "transcript withheld on the public report".
  */
 export default function EvidenceWithheldNote({

@@ -155,7 +155,7 @@ export interface CatalogFacets {
   tier: Record<string, number>
   registry: Record<string, number>
   agent: Record<string, number>
-  /** github | upload split for the source filter (I-3.5). */
+  /** github | upload split for the source filter. */
   artifact_source: Record<string, number>
   total: number
 }

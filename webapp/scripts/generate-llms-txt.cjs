@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* generate-llms-txt.cjs — emit /docs/llms.txt + /docs/llms-full.txt (I-06 Plan 3).
+/* generate-llms-txt.cjs — emit /docs/llms.txt + /docs/llms-full.txt.
  *
  * Two machine-readable manifests for LLM consumers, auto-generated at every
  * build (NEVER hand-curated, NEVER committed — emitted into the gitignored

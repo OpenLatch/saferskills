@@ -1,5 +1,5 @@
 //! Command-line surface: the clap tree, global flags, and output-config
-//! resolution (D-05-03, D-05-11, D-05-18).
+//! resolution.
 
 pub mod color;
 pub mod header;
@@ -305,7 +305,7 @@ pub struct CapabilityArgs {
     pub detailed: bool,
 }
 
-/// `agent [--to <id>…]` — the behavioral Agent Scan (I-5.5 Phase 3). With no
+/// `agent [--to <id>…]` — the behavioral Agent Scan. With no
 /// `--to`, multi-select which detected agents to scan; each is scanned in turn.
 #[derive(Debug, clap::Args)]
 pub struct AgentArgs {
@@ -367,7 +367,7 @@ pub struct DoctorArgs {
 }
 
 /// The resolved global interaction flags threaded into the gating commands
-/// (`install` / `uninstall` / `update` / `doctor`), per D-05-21.
+/// (`install` / `uninstall` / `update` / `doctor`).
 #[derive(Debug, Clone, Copy)]
 pub struct Interaction {
     /// Assume "yes" for confirmations up to `high` severity.
@@ -387,7 +387,7 @@ pub fn interaction(cli: &Cli) -> Interaction {
     }
 }
 
-/// Resolve the output configuration from parsed flags (D-05-11). `--json`
+/// Resolve the output configuration from parsed flags. `--json`
 /// forces Json format AND disables color (machine output is never colorized).
 pub fn build_output_config(cli: &Cli) -> OutputConfig {
     let format = if cli.json {
@@ -410,7 +410,7 @@ pub fn build_output_config(cli: &Cli) -> OutputConfig {
 }
 
 /// Map a parsed command to its stable telemetry label `(command, subcommand)`
-/// — drawn from the grammar, never from flag values (D-05-13).
+/// — drawn from the grammar, never from flag values.
 pub fn command_label(cmd: &Commands) -> (&'static str, Option<&'static str>) {
     match cmd {
         Commands::Info(_) => ("info", None),

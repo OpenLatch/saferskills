@@ -1,4 +1,4 @@
-"""Route integration: the agent-scan run lifecycle (I-5.5, Phase 1).
+"""Route integration: the agent-scan run lifecycle.
 
 Pins: create mints a run+token; the pack is token-gated (403 without, 200 with) +
 substituted; the public GET projects a run (and 404s an unlisted one); the token

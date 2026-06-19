@@ -4,7 +4,7 @@ severity: low
 subScore: maintenance
 weight: 8
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [skill, mcp, rules, hooks, plugin]
 title: >-
   Median issue response time is over 30 days
@@ -63,4 +63,4 @@ maintenance-failure picture; alone, it is a soft signal subject to noise.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

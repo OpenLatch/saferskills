@@ -1,4 +1,4 @@
-//! End-to-end lifecycle coverage through the real binary (D-05-18).
+//! End-to-end lifecycle coverage through the real binary.
 //!
 //! Drives `install → list → doctor → update → uninstall` as subprocesses against
 //! a mock API, with a **faked** claude-code agent in a throw-away `HOME`. This is

@@ -1,11 +1,11 @@
-"""Company-level agent-scan telemetry capture (I-5.5, D-5.5-08/16).
+"""Company-level agent-scan telemetry capture.
 
-Write-only at I-5.5 (reader -> I-06, mirrors `access_log`). Stores ONLY a derived
-ASN / org / country + a server-derived closed-key fingerprint - NEVER a raw IP, a
-slug, or any PII. Redact-then-derive: the submitter IP is redacted to the `/24`
-(v4) / `/48` (v6) network base FIRST, and only that base is passed to the ASN
-lookup, so no raw IP is ever read or stored (privacy.md). Best-effort - the caller
-wraps this in try/except so a telemetry failure never breaks the scan.
+Write-only for now (the reader ships later, mirrors `access_log`). Stores ONLY a
+derived ASN / org / country + a server-derived closed-key fingerprint - NEVER a
+raw IP, a slug, or any PII. Redact-then-derive: the submitter IP is redacted to
+the `/24` (v4) / `/48` (v6) network base FIRST, and only that base is passed to
+the ASN lookup, so no raw IP is ever read or stored (privacy.md). Best-effort -
+the caller wraps this in try/except so a telemetry failure never breaks the scan.
 """
 
 from __future__ import annotations
@@ -24,10 +24,10 @@ from app.models.generated.agent_run import AgentRun
 from app.routers.scans import rate_limit_ip
 from app.schemas.agent_scan import AgentScanResultV1
 
-# NOTE: at I-5.5 the EU gate is a deliberate no-op — the anonymous baseline
+# NOTE: the EU gate is currently a deliberate no-op — the anonymous baseline
 # (asn/org/country + closed-key fingerprint) is stored for EVERY region; aggressive
-# enrichment is an I-06 reader concern (plan §6, "not built here"). The country
-# code is recorded so the I-06 reader can apply the EEA/UK/CH minimal-enrichment
+# enrichment is a future reader concern ("not built here"). The country
+# code is recorded so the future reader can apply the EEA/UK/CH minimal-enrichment
 # gate; the predicate itself lands with that reader, not here.
 
 

@@ -1,4 +1,4 @@
-//! Per-agent detection + path resolution (D-05-17, design.md §4 matrix).
+//! Per-agent detection + path resolution.
 //!
 //! Each agent's [`detect`] arm validates by checking for a concrete signal — a
 //! config file/dir or a binary on `PATH` — never a bare guess, so a missing

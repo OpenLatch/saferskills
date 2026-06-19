@@ -1,12 +1,11 @@
 """Playwright check of the dual-mode /scan upload affordance + the public
-upload report (I-3.5).
+upload report.
 
 Staging acceptance, NOT a required pr-checks lane. Two parts, both skip-friendly:
 
 1. `/scan` renders with the **Capability** mode tab selected by default (the
-   I-5.7 v3 umbrella page — the old Upload/Scan-repo inner tabs became the
-   single pane with an "or paste a URL" divider), a DropZone, the
-   public-default toggle, and the passive consent line. (UI presence — a live
+   umbrella page is a single pane with an "or paste a URL" divider), a DropZone,
+   the public-default toggle, and the passive consent line. (UI presence — a live
    upload+scan is async + rate-limited, so it is asserted via the API contract
    in `tests/routers/test_upload_routes.py`, not here.)
 2. If a public upload item exists in the catalog, its `/items/<slug>` page

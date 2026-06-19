@@ -383,7 +383,7 @@ export const ruleRows: RuleRow[] = [
     "limitations": [
       "GitHub user account age is a weak signal — long-established accounts can also publish malicious hooks; brand-new accounts publish many legitimate ones.",
       "Does not consider per-user reputation across other repos. v2 may consult OpenSSF reputation signals.",
-      "Phase A registers the rule shape; the trigger executor querying GitHub user metadata wires in Phase B."
+      "The initial rule registers the rule shape; the trigger executor querying GitHub user metadata is wired in a later iteration."
     ],
     "sourceUrl": "https://github.com/OpenLatch/saferskills/blob/main/rubric/HOOKS/SUPPLY-CHAIN-AUTHOR-AGE-01.md",
     "searchIndex": "ss-hooks-supply-chain-author-age-01 hook published by a brand-new account the account publishing this hook is less than 90 days old. new accounts that publish and disappear are a known supply-chain pattern — and a hook runs with your privileges automatically, so an unestablished author warrants extra scrutiny before you trust it. supply chain llm03 supply chain aml.t0010 ai supply chain compromise metadata owner_age_days lt 90"
@@ -418,7 +418,7 @@ export const ruleRows: RuleRow[] = [
     ],
     "detection": "contributor_count lte 5",
     "limitations": [
-      "v1 detects only the structural signal — small contributor pool combined with the absence of an ownership-transfer announcement. The actual cross-time owner-transfer detection (GitHub ownership change events) lands in Phase B.",
+      "v1 detects only the structural signal — small contributor pool combined with the absence of an ownership-transfer announcement. The actual cross-time owner-transfer detection (GitHub ownership change events) lands in a later iteration.",
       "Cannot detect repo transfers between organizations that the maintainer announces clearly — the rule fires on the structural state.",
       "Hook artifacts with longer ownership history naturally pass; the rule's threshold is intentionally conservative for the hook category specifically."
     ],
@@ -479,7 +479,7 @@ export const ruleRows: RuleRow[] = [
     "detection": "metadata registry_listings_count gte 2",
     "limitations": [
       "Info severity, weight 0: this rule does NOT affect the score. It surfaces in the trace only as community-presence context.",
-      "Requires the Phase B registry-index data to populate the metadata field. v1 lands the rule shape; the trigger executor is wired in Phase B.",
+      "Requires the registry-index data to populate the metadata field. v1 lands the rule shape; the trigger executor is wired in a later iteration.",
       "Cannot detect registry-listing manipulation (an attacker who lists their MCP across multiple registries inflates the score). The signal is informational only for this reason."
     ],
     "sourceUrl": "https://github.com/OpenLatch/saferskills/blob/main/rubric/MCP/COMMUNITY-CROSS-REG-01.md",
@@ -698,7 +698,7 @@ export const ruleRows: RuleRow[] = [
     ],
     "detection": "metadata stars exists true",
     "limitations": [
-      "v1 trigger is a stub — the real hash-drift comparison runs against `catalog_items.content_hash_sha256` and `scans.file_hashes` JSONB diff, which lands in Phase B engine.",
+      "v1 trigger is a stub — the real hash-drift comparison runs against `catalog_items.content_hash_sha256` and `scans.file_hashes` JSONB diff, which lands in the engine.",
       "Cannot fire on first scan of a never-seen-before MCP server (no prior hash to drift from). First-scan baseline is the trigger condition.",
       "Cannot distinguish maintainer-rotation drift (legitimate ownership change) from rug-pull drift (adversarial replacement)."
     ],
@@ -735,9 +735,9 @@ export const ruleRows: RuleRow[] = [
     ],
     "detection": "metadata registry_listings_count gte 1",
     "limitations": [
-      "v1 is structural — detects MCP servers whose name is within Levenshtein distance 1 of an established registry entry. Distance and the established-set definition land in Phase B engine. Phase A stubs the trigger.",
+      "v1 is structural — detects MCP servers whose name is within Levenshtein distance 1 of an established registry entry. Distance and the established-set definition land in the engine. The initial version stubs the trigger.",
       "Cannot detect typosquatting where the name is intentionally identical but the org is different (full repo-name collision).",
-      "Cross-registry typosquat detection requires the registries-index population that ships with I-03 (W4)."
+      "Cross-registry typosquat detection requires the registries-index population that ships with catalog ingestion."
     ],
     "sourceUrl": "https://github.com/OpenLatch/saferskills/blob/main/rubric/MCP/SUPPLY-CHAIN-TYPOSQUAT-01.md",
     "searchIndex": "ss-mcp-supply-chain-typosquat-01 name is one character off an established mcp server this server's name is within one character (levenshtein distance 1) of an established registry entry. it may be a legitimate fork — or a typosquat hoping a user fat-fingers the install command and pulls a hostile server instead of the trusted one. supply chain llm03 supply chain aml.t0010 ai supply chain compromise metadata registry_listings_count gte 1"
@@ -1524,7 +1524,7 @@ export const ruleRows: RuleRow[] = [
     "detection": "regex `(?i)\\b(ignore|disregard|forget|override)\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|prompts?|rules?|system\\s+prompts?)\\b` against **/*.md, **/*.yaml, **/*.yml, **/*.json, **/SKILL.md",
     "limitations": [
       "False-positives on roleplay skills, jailbreak research documentation, prompt-engineering tutorials, and any meta-discussion of LLM safety. Shadow window measures real-world FP rate.",
-      "Cannot detect non-English equivalents of the imperative pattern. Coverage at W2 is English-only; multilingual extension is a Phase 2 RFC.",
+      "Cannot detect non-English equivalents of the imperative pattern. Coverage is currently English-only; multilingual extension is a future RFC.",
       "Cannot detect the pattern when split across formatting or hidden in comments."
     ],
     "sourceUrl": "https://github.com/OpenLatch/saferskills/blob/main/rubric/SKILL/INJECT-IGNORE-01.md",
@@ -1951,7 +1951,7 @@ export const ruleRows: RuleRow[] = [
     "detection": "no file at LICENSE or LICENSE.md or LICENSE.txt or COPYING or COPYING.md or LICENCE or LICENCE.md",
     "limitations": [
       "Does not validate license content — a LICENSE file containing arbitrary text satisfies the rule. License-validity is enforced via a separate SPDX-identifier check (deferred).",
-      "Cannot detect license declarations embedded only in package.json / pyproject.toml without a separate LICENSE file. The W2 v1 rule treats the file's presence as the canonical declaration."
+      "Cannot detect license declarations embedded only in package.json / pyproject.toml without a separate LICENSE file. The v1 rule treats the file's presence as the canonical declaration."
     ],
     "sourceUrl": "https://github.com/OpenLatch/saferskills/blob/main/rubric/SKILL/TRANSPARENCY-LICENSE-01.md",
     "searchIndex": "ss-skill-transparency-license-01 no license file in the repository no license file was found. without one, the artifact is \"all rights reserved\" by default under copyright law, which leaves you with no clear right to redistribute, modify, or even install it depending on your compliance posture. transparency no file at license or license.md or license.txt or copying or copying.md or licence or licence.md"

@@ -1,4 +1,4 @@
-//! Output authority for the `saferskills` CLI (D-05-11).
+//! Output authority for the `saferskills` CLI.
 //!
 //! [`OutputConfig`] is the single source of truth for how a command emits
 //! output. The discipline is absolute:

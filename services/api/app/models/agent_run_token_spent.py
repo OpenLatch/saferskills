@@ -4,10 +4,9 @@ Hand-written internal store (no JSON-Schema source, no wire DTO). Mirrors
 `cli_pow_spent` EXACTLY: a minted submit token is claimed once via
 `INSERT ... ON CONFLICT DO NOTHING`; a replay collides on the PK and is rejected
 (403, silent). Keyed by `token_sha256` — there is NO `run_id` FK, so it is reaped
-purely by expiry (an `app/core/sweeps.py::sweep_agent_run_tokens` tick lands in
-Phase 2), never by the run cascade. `verify_run_token` already rejects past `exp`,
-so a not-yet-swept row is inert. See `.claude/rules/database.md` § Agent scan +
-`security.md` D-5.5-11.
+purely by expiry (the `app/core/sweeps.py::sweep_agent_run_tokens` tick), never by
+the run cascade. `verify_run_token` already rejects past `exp`, so a not-yet-swept
+row is inert. See `.claude/rules/database.md` § Agent scan + `security.md`.
 """
 
 from __future__ import annotations

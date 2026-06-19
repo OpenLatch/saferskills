@@ -3,7 +3,7 @@
   "$id": "https://saferskills.ai/schemas/ingestion-event.schema.json",
   "title": "IngestionEvent",
   "$comment": "The `source.enum` array is generated from services/api/app/ingestion/config/sources/*.yaml by scripts/generate-ingestion-sources.cjs — edit the YAMLs, then run `pnpm run generate`. Do not hand-edit the enum.",
-  "description": "One row per adapter fetch (outbox pattern, D-04-08). Immutable, append-only, replayable: re-deriving the catalog from these alone produces the same state. Vendor appeals reference bodySha256 to prove the source content at fetch time.",
+  "description": "One row per adapter fetch (outbox pattern). Immutable, append-only, replayable: re-deriving the catalog from these alone produces the same state. Vendor appeals reference bodySha256 to prove the source content at fetch time.",
   "x-postgresql-tablename": "ingestion_events",
   "x-postgresql-indexes": [
     { "name": "idx_ingestion_events_source", "columns": ["source"] },
@@ -90,7 +90,7 @@
       "default": 1,
       "x-postgresql-default": "1",
       "x-postgresql-nullable": false,
-      "description": "0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=Playwright stealth fallback (Phase B)."
+      "description": "0=webhook (no fetch); 1=curl_cffi or stdlib HTTPX; 2=tier1+retry; 3=stealth fallback."
     },
     "payload": {
       "type": ["object", "null"],

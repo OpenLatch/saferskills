@@ -217,7 +217,7 @@ def test_cli_pow_secret_required_in_prod(env: EnvTier) -> None:
 
 
 def test_agent_master_key_required_in_prod() -> None:
-    """Boot MUST hard-fail when the canary/run-token master key is unset in prod (I-5.5)."""
+    """Boot MUST hard-fail when the canary/run-token master key is unset in prod."""
     with pytest.raises(ValueError, match="SAFERSKILLS_AGENT_MASTER_KEY"):
         Settings(
             env="production",
@@ -229,7 +229,7 @@ def test_agent_master_key_required_in_prod() -> None:
 
 
 def test_pack_signing_key_required_in_prod() -> None:
-    """Boot MUST hard-fail when the Ed25519 pack-signing key is unset in prod (I-5.5)."""
+    """Boot MUST hard-fail when the Ed25519 pack-signing key is unset in prod."""
     with pytest.raises(ValueError, match="SAFERSKILLS_PACK_SIGNING_KEY"):
         Settings(
             env="production",

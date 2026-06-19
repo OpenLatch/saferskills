@@ -34,7 +34,7 @@ if (!run) {
 // An unlisted run is reachable ONLY via its capability URL (/scans/r/<token>),
 // never the public run-report URL — otherwise it would render without the
 // noindex/anti-leakage chrome and could be indexed. The token route is the only
-// canonical entry; here it 404s (D-UP-19/D-UP-32).
+// canonical entry; here it 404s.
 if (run.visibility === 'unlisted') {
   return Astro.redirect('/404')
 }
@@ -45,7 +45,7 @@ const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 const isInProgress = run.status === 'pending' || run.status === 'running'
 
 // Title-only identity (the full source-aware report body lives in ScanRunReport).
-// Uploads have no github_url — `reportIdentity` null-guards (P0-9 / D-UP-33).
+// Uploads have no github_url — `reportIdentity` null-guards.
 const { uploadName, baseTitle } = reportIdentity(run)
 ---
 

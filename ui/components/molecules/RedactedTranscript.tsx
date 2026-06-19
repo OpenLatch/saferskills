@@ -28,7 +28,7 @@ const FlagGlyph = () => (
 )
 
 /**
- * Unlisted-route redacted transcript (I-5.6 §8, D-5.6-03). The report
+ * Unlisted-route redacted transcript. The report
  * `evidence_excerpt` is a FLAT line-window `{file, lang, truncated, lines[]}` —
  * NOT role-tagged turns — so we render a verbatim line-window (reusing the `.ex`
  * gutter+code grammar inside the dark `.transcript` chrome) and highlight the

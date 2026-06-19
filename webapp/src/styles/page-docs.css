@@ -1,4 +1,4 @@
-/* Per-page CSS for the native docs (/docs/*, I-06 rebuild).
+/* Per-page CSS for the native docs (/docs/*).
  *
  * The whole docs body in the design system — DM Sans prose, teal links, Space
  * Mono 0-radius code, hairline asides, mono section labels — so docs read as a
@@ -12,7 +12,7 @@
  */
 
 /* ============================================================
-   PAGE HEAD + BODY SURFACE (I-06 header pass)
+   PAGE HEAD + BODY SURFACE
    Docs adopt the non-homepage template — NavBar → PageHead → PageRidge
    (variant="swell", the /docs-reserved ridge) → 3-column shell. The body
    trades its default plus-grid for the quiet soft dot field (the

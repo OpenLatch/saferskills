@@ -4,7 +4,7 @@ severity: medium
 subScore: security
 weight: 15
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [hooks]
 frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0050", "cwe:732"]
 title: >-
@@ -64,4 +64,4 @@ directories); the FP audit determines the operational threshold.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

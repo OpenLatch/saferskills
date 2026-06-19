@@ -1,5 +1,5 @@
 interface Props {
-  /** Markdown source — rendered as plain pre-wrapped text (Phase B stub; Phase C
+  /** Markdown source — rendered as plain pre-wrapped text (stub; a later pass
    *  will swap in a sanitized markdown renderer). */
   bodyMarkdown: string
   /** Verified vendor display name (e.g. github org). */
@@ -8,7 +8,7 @@ interface Props {
   submittedAt: string
   /** Optional version label rendered next to the date. */
   version?: number
-  /** Optional href for the vendor-response form (Phase C ships /respond). */
+  /** Optional href for the vendor-response form (the /respond surface). */
   respondHref?: string
 }
 

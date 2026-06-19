@@ -1,8 +1,8 @@
 """Smoke test the 7-table scan surface — one round-trip insert per table.
 
-Confirms the Phase A migration runs end-to-end and that all 7 tables accept
+Confirms the scan-surface migration runs end-to-end and that all 7 tables accept
 canonical-shape inserts. Does NOT exercise the SQLAlchemy generated models
-(W1-stub-emitter still — Phase B replaces them); uses raw SQL via the session
+(currently stub-emitted); uses raw SQL via the session
 connection so the test rides only on the migration's authoritative schema.
 """
 

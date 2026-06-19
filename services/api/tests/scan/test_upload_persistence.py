@@ -1,8 +1,8 @@
-"""DB integration: the upload/visibility persistence fork (I-3.5).
+"""DB integration: the upload/visibility persistence fork.
 
-Covers the §13 matrix: NULL-github scans insert, public-upload canonical item,
+Covers the upload matrix: NULL-github scans insert, public-upload canonical item,
 unlisted shadow rows (upload → upload_files, github → artifact_blobs), shadow
-coexistence with a canonical row (P0-1), the ordered `delete_run_cascade`, and
+coexistence with a canonical row, the ordered `delete_run_cascade`, and
 promote (bytes migration + re-slug + merge).
 """
 
@@ -120,7 +120,7 @@ async def test_public_upload_canonical_item_null_github_scan(db_session: AsyncSe
     assert item.sources and item.sources[0]["registryId"] == "upload"
 
     scan = (await db_session.execute(select(Scan).where(Scan.scan_run_id == run.id))).scalar_one()
-    assert scan.github_url is None and scan.ref_sha is None  # P0-2 NULL insert
+    assert scan.github_url is None and scan.ref_sha is None  # NULL insert
     assert scan.catalog_item_id == item.id
 
 

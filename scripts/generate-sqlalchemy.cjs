@@ -8,8 +8,8 @@
  * schemas/*.schema.json, reads x-postgresql-* extensions, and emits full
  * column projections under services/api/app/models/generated/.
  *
- * Replaces the W1 stub (id/created_at/updated_at/metadata only). See
- * .claude/rules/schema-driven-development.md + docs/codegen.md.
+ * Replaces the earlier minimal stub (id/created_at/updated_at/metadata only). See
+ * .claude/rules/schema-driven-development.md + contributor-docs/codegen.md.
  */
 'use strict'
 

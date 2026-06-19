@@ -15,7 +15,7 @@ class HealthResponse(OrmBaseModel):
     git_sha: str
     migrations_ok: bool
     migrations_error: str | None = None
-    # "ok" | "degraded" — the in-process ingestion worker's start status (WS-2).
+    # "ok" | "degraded" — the in-process ingestion worker's start status.
     # "degraded" means background ingestion is dead while the API still serves;
     # it does NOT flip `status` (the API is live).
     ingestion: str

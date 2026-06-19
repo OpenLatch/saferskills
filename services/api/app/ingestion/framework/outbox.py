@@ -1,4 +1,4 @@
-"""OutboxWriter — writes one ingestion_events row per fetch (D-04-08).
+"""OutboxWriter — writes one ingestion_events row per fetch.
 
 The row is written in the SAME transaction as any catalog_items upsert the fetch
 produced; the caller (RegistryAdapter.run_cycle) commits once at the end. Payload

@@ -8,9 +8,9 @@ name: Publish to npm
 # workflow filename (`publish-npm.yml`) — it is part of the verified OIDC
 # subject. Renaming the file without updating every binding silently breaks the
 # publish (the run looks fine; the registry rejects the token). Bindings needed
-# (founder action, outbox/01): the unscoped `saferskills` main package + the 5
+# (one-time maintainer action): the unscoped `saferskills` main package + the 5
 # `@openlatch/saferskills-<platform>` packages on npm, and the `saferskills`
-# crate on crates.io. See outbox/01-npm-crates-trusted-publishers.md.
+# crate on crates.io.
 #
 # Hard rules (mirroring openlatch-client's publish.yml):
 #   1. `id-token: write` on every publishing job — required by OIDC.
@@ -19,7 +19,7 @@ name: Publish to npm
 #   3. Node 24 (ships npm 11+ with OIDC Trusted Publishing).
 #   4. NO `--provenance` CLI flag — `publishConfig.provenance: true` in
 #      cli/npm/saferskills/package.json is the single switch. (Provenance needs
-#      a PUBLIC repo; expect rejection while the repo is private — see outbox/01.)
+#      a PUBLIC repo; expect rejection while the repo is private.)
 #   5. Publish the 5 platform packages BEFORE the main package (explicit dir
 #      list, never a glob — a glob would also match unrelated npm/ dirs).
 
@@ -77,7 +77,7 @@ jobs:
 
       # Telemetry + crash-report key bake. Both come from repo-level secrets on the
       # shared OpenLatch-portfolio tenants: POSTHOG_PROJECT_KEY (one PostHog project
-      # for cost — D-19's separate-project rule superseded 2026-06-04; SaferSkills
+      # for cost — the separate-project rule was superseded; SaferSkills
       # events carry a `product: saferskills` discriminator, see
       # cli/src/core/telemetry.rs) and SENTRY_DSN_CLI (the saferskills-cli Sentry
       # project). The compile-time env names stay SAFERSKILLS_POSTHOG_KEY /
@@ -329,8 +329,8 @@ jobs:
         run: cargo publish --manifest-path cli/Cargo.toml
 
   # ---------------------------------------------------------------------------
-  # Post-publish smoke on all 3 OSes. Phase A surface only (read/install land in
-  # later phases + need prod live): version + help + completion.
+  # Post-publish smoke on all 3 OSes. Initial surface only (read/install land in
+  # later releases + need prod live): version + help + completion.
   # ---------------------------------------------------------------------------
   verify-publish:
     name: Verify Published (${{ matrix.os }})

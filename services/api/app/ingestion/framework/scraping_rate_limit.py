@@ -1,4 +1,4 @@
-"""Per-source token-bucket rate limiter for scrape fetches (D-04-07 ToS-respect #5).
+"""Per-source token-bucket rate limiter for scrape fetches (ToS-respect #5).
 
 The HTTPX client's request hook (`http_client._rate_limit_hook`) gates the tier-0
 feed/sitemap fetches that go through the shared HTTPX client. The tier-1 HTML

@@ -1,6 +1,5 @@
-"""JCS-canonical SHA-256 per RFC 8785 (D-04-16).
+"""JCS-canonical SHA-256 per RFC 8785.
 
-The same function OpenLatch Capability Control uses (Two-Motion Strategy lock).
 Computed over a stable projection of the artifact manifest (filename → per-file
 sha256), so it is invariant to dict ordering and detects rug-pull content drift.
 """

@@ -55,7 +55,7 @@ struct Case {
 }
 
 /// The 8 agents — detection signal, MCP config path, key landmine, skill support.
-/// Derived from `design.md` §4 + `cli/src/agents/{detect,writers}`.
+/// Derived from the agent-config schemas + `cli/src/agents/{detect,writers}`.
 const CASES: &[Case] = &[
     Case {
         id: "claude-code",
@@ -348,7 +348,7 @@ fn skill_install_copies_and_reverses_for_supporting_agents() {
 
 /// OpenClaw's key shape is ambiguous (`mcpServers` vs nested `mcp.servers`). When
 /// the config already uses the nested shape, the writer must respect it — the
-/// load-bearing landmine from `design.md` §4.
+/// load-bearing config-schema landmine.
 #[test]
 fn openclaw_respects_preexisting_nested_mcp_servers_key() {
     let server = mock_api(MCP_SLUG, "mcp_server");

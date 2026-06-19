@@ -31,7 +31,7 @@ trigger:
   operator: exists
   value: true
 limitations:
-  - "v1 trigger is a stub — the real hash-drift comparison runs against `catalog_items.content_hash_sha256` and `scans.file_hashes` JSONB diff, which lands in Phase B engine."
+  - "v1 trigger is a stub — the real hash-drift comparison runs against `catalog_items.content_hash_sha256` and `scans.file_hashes` JSONB diff, which lands in the engine."
   - "Cannot fire on first scan of a never-seen-before MCP server (no prior hash to drift from). First-scan baseline is the trigger condition."
   - "Cannot distinguish maintainer-rotation drift (legitimate ownership change) from rug-pull drift (adversarial replacement)."
 priorArt:
@@ -55,8 +55,8 @@ tool-poisoning where none existed before.
 The rule operates by comparing the current scan's `file_hashes` JSONB
 against the prior scan's. A material change in any file's hash, combined
 with the absence of a corresponding maintainer announcement (CHANGELOG
-update, release notes), is the rug-pull signal. The Phase A trigger config
-is a stub; the actual hash-comparison logic lives in the Phase B engine
+update, release notes), is the rug-pull signal. The initial trigger config
+is a stub; the actual hash-comparison logic lives in the engine
 (it requires access to the prior `scans` row, which the engine query layer
 provides).
 
@@ -71,4 +71,4 @@ the engine logic exists — a true hash-drift is unambiguous.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Active at landing; Phase B engine wires the hash-comparison executor.
+- v1 (2026-01-09): initial rule. Active at landing; the engine wires the hash-comparison executor.

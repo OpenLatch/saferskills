@@ -1,4 +1,4 @@
-"""Per-run canary derivation (I-5.5)."""
+"""Per-run canary derivation."""
 
 from __future__ import annotations
 

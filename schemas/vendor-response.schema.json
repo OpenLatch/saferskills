@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://saferskills.ai/schemas/vendor-response.schema.json",
   "title": "VendorResponse",
-  "description": "Verified-vendor public response on a catalog item (PRD §11.2). Transparency over erasure — old versions retained; the latest version renders on the report page. Body is Markdown, 2000-char cap per PRD B-8.",
+  "description": "Verified-vendor public response on a catalog item. Transparency over erasure — old versions retained; the latest version renders on the report page. Body is Markdown, 2000-char cap.",
   "x-postgresql-tablename": "vendor_responses",
   "x-postgresql-indexes": [
     { "name": "idx_vendor_responses_catalog_item_version_desc", "columns": ["catalog_item_id", "version"] }

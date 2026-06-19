@@ -66,7 +66,7 @@ jobs:
             exit 1
           fi
       - name: Assert no CDN-hosted fonts
-        # I-03 D-FE-06: every font ships via @fontsource/* or self-hosted
+        # Every font ships via @fontsource/* or self-hosted
         # subsetted woff2. CDN imports leak third-party network at runtime
         # and violate the design-system rule.
         run: |
@@ -78,16 +78,16 @@ jobs:
             exit 1
           fi
           echo "No CDN fonts ✓"
-      - name: Assert W1-placeholder taxonomy purged
-        # Phase A locked-decision D-01 swapped the W1 placeholder 4-axis
-        # sub-score taxonomy (identity / integrity / behavior / provenance)
-        # for the PRD-locked 5-axis taxonomy (security / supply_chain /
+      - name: Assert placeholder taxonomy purged
+        # An earlier placeholder 4-axis sub-score taxonomy
+        # (identity / integrity / behavior / provenance) was swapped
+        # for the canonical 5-axis taxonomy (security / supply_chain /
         # maintenance / transparency / community). Any reappearance of the
-        # W1 tokens in schemas/ or generated outputs is a regression.
+        # old placeholder tokens in schemas/ or generated outputs is a regression.
         # Scoped strictly to those dirs so legitimate English uses elsewhere
         # ("data integrity", "behavior test", etc.) do not false-positive.
         # The generated rule-PROSE outputs (content.ts / methodology index.mdx /
-        # methodology rules-table.ts / the I-5.5 agent-pack practice.json) are
+        # methodology rules-table.ts / the agent-pack practice.json) are
         # excluded: they carry human rule explanations where these are plain
         # English words ("the agent disclosed its identity", "changes the agent's
         # behavior"), not sub-score axis tokens (the structured `subScore` values
@@ -100,7 +100,7 @@ jobs:
                 services/api/app/schemas/generated/ \
                 services/api/app/models/generated/ \
                 webapp/src/generated/ 2>/dev/null; then
-            echo "::error::W1 placeholder sub-score taxonomy detected in schemas/ or generated/. The PRD-locked 5-axis taxonomy is security / supply_chain / maintenance / transparency / community."
+            echo "::error::Placeholder sub-score taxonomy detected in schemas/ or generated/. The canonical 5-axis taxonomy is security / supply_chain / maintenance / transparency / community."
             exit 1
           fi
           echo "Placeholder taxonomy purged ✓"
@@ -178,7 +178,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
       - run: cd ui && pnpm test
-      - run: cd webapp && pnpm test || true   # webapp has no W1 tests yet
+      - run: cd webapp && pnpm test || true   # webapp has no tests yet
 
   test-be:
     name: PR - pytest
@@ -281,7 +281,7 @@ jobs:
         run: |
           # Only `--wait` on services we curl-test (postgres + api). webapp's
           # busybox wget --spider healthcheck races against nginx fdcache
-          # warmup and intermittently times out — gate that in W2/Track A
+          # warmup and intermittently times out — gate that later
           # when smoke covers real catalog endpoints.
           docker compose -f ci/docker-compose.smoke.yml up -d --wait --wait-timeout 90 postgres api
           docker compose -f ci/docker-compose.smoke.yml up -d webapp
@@ -312,12 +312,12 @@ jobs:
     needs: docker-build
     if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
-    # W1: base-image alpine OS-package CVEs from nginx:1.27-alpine +
+    # Base-image alpine OS-package CVEs from nginx:1.27-alpine +
     # python:3.14-slim require cross-minor bumps (JUDGMENT per
     # .claude/rules/ci-cd.md). The trivy step is set `exit-code: "0"`
     # below so the SARIF still uploads to GitHub Security (CVE list
     # visible there) but the job conclusion is SUCCESS. Re-enable
-    # `exit-code: "1"` in W2/Track A when there's real product code.
+    # `exit-code: "1"` once there's real product code.
     permissions:
       contents: read
       security-events: write
@@ -338,7 +338,7 @@ jobs:
           format: sarif
           output: trivy-${{ matrix.service }}.sarif
           severity: CRITICAL,HIGH
-          exit-code: "0"  # W1: see job-level comment above; flip to "1" in W2
+          exit-code: "0"  # see job-level comment above; flip to "1" once there's real product code
           ignore-unfixed: true
       - uses: github/codeql-action/upload-sarif@v4
         if: always()
@@ -425,7 +425,7 @@ jobs:
         env:
           PUBLIC_API_URL: http://localhost:8000
         run: pnpm run generate && pnpm --filter @saferskills/webapp build
-      # Native docs (I-06) prerender into dist/client/docs as part of the build
+      # Native docs prerender into dist/client/docs as part of the build
       # above (`pnpm build` also runs generate-llms-txt + build-pagefind). Gate
       # the build artifacts: llms manifests non-empty + no broken internal links.
       - name: Verify docs build (llms.txt + internal links)
@@ -449,7 +449,7 @@ jobs:
       - name: Lighthouse CI
         run: npx --yes @lhci/cli@0.14.x autorun --config=.lighthouserc.json
       - name: axe (WCAG 2 A/AA)
-        # Main-site SSR pages AND the native docs (I-06) — both are served by
+        # Main-site SSR pages AND the native docs — both are served by
         # this :5173 Node app (docs are prerendered into dist/client/docs), so
         # the docs axe spec runs here too (both default to :5173 via baseURL).
         run: cd webapp && npx playwright test test/a11y/pages.spec.ts test/a11y/docs.spec.ts
@@ -472,7 +472,7 @@ jobs:
         with: { egress-policy: audit }
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-saferskills-build
-      # Fast frontmatter gate (D-8) — no build/API needed. The build-dependent
+      # Fast frontmatter gate — no build/API needed. The build-dependent
       # docs gates (llms.txt, internal links, axe) now run in `lighthouse-a11y`,
       # which already builds the full app (docs prerender into dist/client/docs)
       # and serves /docs/* on :5173. The native docs build with `pnpm build`.

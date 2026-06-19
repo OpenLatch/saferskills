@@ -1,8 +1,8 @@
-"""Regression (I-5.6 D-5.6-17 / Codex P0-1): the Agent Report DTO carries WEB-page
+"""Regression: the Agent Report DTO carries WEB-page
 `report_url`/`share_url` at `/agents/*`, NOT the API prefix `/agent-scans/*`.
 
 `report_url`/`share_url` feed the share button, the badge reproducibility line, and
-`EmbedBadgeBox`. The web routes are `/agents/{id}` + `/agents/r/{token}` (D-5.6-01),
+`EmbedBadgeBox`. The web routes are `/agents/{id}` + `/agents/r/{token}`,
 while the API stays `/api/v1/agent-scans/*` — if the builder emits `/agent-scans/…`
 as the page URL, every share link 404s.
 

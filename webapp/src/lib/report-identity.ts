@@ -2,7 +2,7 @@ import type { ScanRunReportDetail } from '@/lib/api/scans'
 
 /** Display identity for a run report — shared by `/scans/[id]`, `/scans/r/[token]`,
  * and `ScanRunReport.astro` so the page `<title>`, the report `<h1>`, and the
- * breadcrumb all derive the same name (P0-9: null-guarded `github_url`). */
+ * breadcrumb all derive the same name (null-guarded `github_url`). */
 export interface ReportIdentity {
   isUpload: boolean
   /** Best display name: capability name → uploaded filename → generic. */

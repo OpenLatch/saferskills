@@ -1,4 +1,4 @@
-//! Subprocess coverage for the `capability` command (D-05-26/27) through the real
+//! Subprocess coverage for the `capability` command through the real
 //! binary against a mock API. Cross-platform: `capability` needs no detected agent,
 //! so unlike the lifecycle test this runs everywhere (and exercises the PoW solve →
 //! submit → poll chain end-to-end via `run_capability`/`scan_url`/`scan_path`/
@@ -150,7 +150,7 @@ fn capability_missing_target_errors() {
 }
 
 /// `capability` (no target) now enumerates capabilities installed across detected
-/// agents (D-05-27) instead of the CLI's own install ledger. With an empty HOME no
+/// agents instead of the CLI's own install ledger. With an empty HOME no
 /// agents are detected, so the audit short-circuits to the empty machine shape
 /// `{"run_id":null,"capabilities":[],"skipped":[]}` (exit 0).
 ///

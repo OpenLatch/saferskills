@@ -4,7 +4,7 @@ The `access_log` writer (`app/core/access_log_middleware.py`) already redacts th
 IP to /24 (v4) / /48 (v6) AT WRITE TIME — raw IPs are never stored (privacy.md §
 IP redaction). So retention is a straight 30-day row sweep matching privacy.md §
 Retention ("rows are swept after 30 days") + security.md Operational tier (30
-days). Aggregated rollups (the I-06 reader's job) survive independently of the
+days). Aggregated rollups (a later reader's job) survive independently of the
 row-level store; there is nothing to redact here, only to delete.
 
 `sweep_access_log` is the testable session-taking entry point.

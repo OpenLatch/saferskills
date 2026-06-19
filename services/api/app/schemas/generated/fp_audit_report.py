@@ -39,7 +39,7 @@ class PerRuleItem(OrmBaseModel):
 
 class FpAuditReport(OrmBaseModel):
     """
-    Output of `tools/fp-audit/` runner (D-21). Per-rule FP rate against the 100-item hand-labeled fixture (50 known-good + 50 known-bad). Promotion gate at 10% FP rate per rule. x-postgresql-skip: true — this is a tool report shape, not a persisted entity.
+    Output of `tools/fp-audit/` runner. Per-rule FP rate against the 100-item hand-labeled fixture (50 known-good + 50 known-bad). Promotion gate at 10% FP rate per rule. x-postgresql-skip: true — this is a tool report shape, not a persisted entity.
     """
 
     model_config = ConfigDict(
@@ -52,7 +52,7 @@ class FpAuditReport(OrmBaseModel):
     engine_version: constr(pattern=r"^[a-f0-9]{7,40}$") | None = Field(
         None,
         alias="engineVersion",
-        description="Engine SHA. Null when fp-audit runs without engine (Phase A stub).",
+        description="Engine SHA. Null when fp-audit runs without the engine wired (stub mode).",
     )
     total_fixtures: conint(ge=0) = Field(
         ..., alias="totalFixtures", description="Count of fixture items evaluated."

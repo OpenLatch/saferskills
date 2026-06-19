@@ -1,4 +1,4 @@
-"""Route-driven evidence split (I-5.5, Codex#7). Public omits the transcript; the
+"""Route-driven evidence split. Public omits the transcript; the
 unlisted token route hydrates a redacted window with the leaked canary highlighted."""
 
 from __future__ import annotations

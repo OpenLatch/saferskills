@@ -2,7 +2,7 @@ import posthog from 'posthog-js'
 
 type EventMap = {
   homepage_search_submitted: { query_length_bucket: '<10' | '<25' | '<50' | '>=50' }
-  // Dual-mode scan submit from the /scan console (I-3.5). Closed-enum only —
+  // Dual-mode scan submit from the /scan console. Closed-enum only —
   // never the URL, filename, bytes, or share_token (telemetry.md). The backend
   // emits the authoritative `scan_submitted`; this is the FE intent signal.
   homepage_scan_submitted: {
@@ -10,7 +10,7 @@ type EventMap = {
     visibility: 'public' | 'unlisted'
   }
   // Homepage audit-panel affordance: the user picked a file / hit ↵ and is being
-  // navigated to /scan to confirm (P1-5 — the panel never submits inline).
+  // navigated to /scan to confirm (the panel never submits inline).
   homepage_scan_panel_started: {
     artifact_source: 'github' | 'upload'
     visibility: 'public' | 'unlisted'
@@ -51,17 +51,17 @@ type EventMap = {
   // /methodology mode control — which scan-mode catalog a reader switches to.
   // Closed-enum only; no PII (telemetry.md, rule_* prefix).
   rule_methodology_tab_selected: { tab: 'capability' | 'agent' }
-  // I-3.5 — unlisted (capability-URL) manage-bar actions. Closed-enum action
+  // Unlisted (capability-URL) manage-bar actions. Closed-enum action
   // only; NEVER the share_token, slug, filename, or any path content (telemetry.md).
   unlisted_manage_action: { action: 'copy_link' | 'promote' | 'delete' }
-  // I-5.7 — a bootstrap prompt was minted + copied (homepage card 02 / /scan
+  // A bootstrap prompt was minted + copied (homepage card 02 / /scan
   // agent pane / platform picker). Closed-enum only; NEVER the run_id, the
   // one-time token, or any prompt content (telemetry.md).
   agent_scan_prompt_minted: {
     surface: 'homepage' | 'scan' | 'picker'
     visibility: 'public' | 'unlisted'
   }
-  // I-5.6 — Agent Report surface interactions. Closed-enum only; NEVER the
+  // Agent Report surface interactions. Closed-enum only; NEVER the
   // share_token, agent name, runtime, or any transcript content (telemetry.md).
   agent_report_tab_selected: { tab: 'report' | 'findings' | 'component' }
   agent_report_shared: Record<string, never>

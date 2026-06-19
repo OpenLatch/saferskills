@@ -23,7 +23,7 @@ class ScanSubmitRequest(OrmBaseModel):
         description=(
             "Listing posture. `public` (default) caches + appears in the catalog; "
             "`unlisted` never caches (nonce-salted), mints a share token, and is "
-            "reachable only via its capability URL (I-3.5)."
+            "reachable only via its capability URL."
         ),
     )
 
@@ -39,7 +39,7 @@ class ScanSubmitResponse(OrmBaseModel):
 
 
 class ScanUploadResponse(OrmBaseModel):
-    """202 result of POST /api/v1/scans/upload (D-UP-06).
+    """202 result of POST /api/v1/scans/upload.
 
     `slug` is populated once known for a public upload (or omitted until the run
     completes — the FE polls the run report). `share_url` is the capability URL,
@@ -56,7 +56,7 @@ class ScanUploadResponse(OrmBaseModel):
 
 class CliChallengeResponse(OrmBaseModel):
     """`GET /api/v1/scans/cli-challenge` — a fresh stateless PoW challenge for the
-    install CLI (D-05-30). The CLI solves it offline and replays it in the
+    install CLI. The CLI solves it offline and replays it in the
     `X-SaferSkills-CLI-PoW` header on its next scan-submit."""
 
     challenge: str
@@ -105,8 +105,8 @@ class FindingResponse(OrmBaseModel):
     # card. Null when snapshot bytes are absent (binary / oversize / expired).
     evidence_excerpt: EvidenceExcerpt | None = None
     # Report-DTO-only explainable-finding prose, inlined server-side from the
-    # generated rule-content map (D-05-32 reversed — the CLI renders straight from
-    # the report, never fetches the rule corpus). All None when the rule_id has no
+    # generated rule-content map (the CLI renders straight from the report, never
+    # fetches the rule corpus). All None when the rule_id has no
     # content entry; the finding still renders with rule_id + remediation_link.
     title: str | None = None
     explanation: str | None = None

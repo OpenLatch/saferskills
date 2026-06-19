@@ -95,7 +95,7 @@ def _share_url(settings: Settings, token: str | None) -> str | None:
 
 
 def _set_unlisted_headers(response: Response) -> None:
-    """Anti-leakage headers on a `/scans/r/*` API response (D-UP-32).
+    """Anti-leakage headers on a `/scans/r/*` API response.
 
     Defense-in-depth ONLY — the browser/crawler/SDK sees the Astro PAGE response,
     which sets the same three headers at page level (the primary protection)."""
@@ -150,7 +150,7 @@ async def _enforce_captcha(request: Request) -> None:
 async def _gate_submission(
     request: Request, session: AsyncSession, *, ip: str, settings: Settings
 ) -> None:
-    """Human/bot gate + per-IP rate limit for BOTH scan-submit endpoints (D-05-30).
+    """Human/bot gate + per-IP rate limit for BOTH scan-submit endpoints.
 
     Loopback callers (trusted seed) are exempt and never reach here. Otherwise:
 
@@ -243,7 +243,7 @@ async def _enforce_private_lookup_limit(request: Request, session: AsyncSession)
         )
 
 
-# ── Public re-exports for sibling routers (I-5.5 `agent_scans`) ───────────────
+# ── Public re-exports for sibling routers (`agent_scans`) ─────────────────────
 # These request-gate + unlisted helpers are the SINGLE SOURCE OF TRUTH for the
 # trusted-proxy client-IP, the generic-404 contract, and the anti-leakage headers.
 # Exposed under public names so `agent_scans.py` reuses the exact same behaviour
@@ -318,7 +318,7 @@ async def list_scans(
         .subquery()
     )
 
-    # Public-only feed — unlisted runs never appear in any list (D-UP-19). The
+    # Public-only feed — unlisted runs never appear in any list. The
     # bulk auto-scan firehose (`ingestion` coverage/freshness + `rescan_rules`
     # version re-evals) is excluded too: the feed is submissions + notable scans,
     # not the thousands of background runs the reconciliation drainer produces.
@@ -377,7 +377,7 @@ async def submit_scan(
 ) -> ScanSubmitResponse:
     settings = get_settings()
 
-    # The public per-IP daily cap (D-FE-11) is an anti-abuse control for
+    # The public per-IP daily cap is an anti-abuse control for
     # anonymous submissions. Trusted local seeding (the data-seed CLI publishing
     # the fixture corpus) connects over loopback and is exempt — otherwise the
     # ~50-item corpus would blow past the 10/day budget on the first run. See
@@ -403,16 +403,16 @@ async def submit_scan(
 
     # Resolve a stable idempotency key. We don't know the head SHA until the
     # engine fetches; the key is computed against the URL + rubric only — this
-    # is a reasonable tradeoff for Phase B since a rubric-version pin is what
+    # is a reasonable tradeoff since a rubric-version pin is what
     # vendors expect for a "permanent" report.
     del ref  # validated above; the engine re-parses on the worker side.
     rubric_version = settings.rubric_version or settings.git_sha or "unknown"
     engine_version = settings.engine_version or settings.git_sha or "unknown"
     is_unlisted = body.visibility == "unlisted"
 
-    # Public key stays byte-identical to the pre-I-3.5 form (no nonce), so cached
-    # public runs still hit. Unlisted salts with a per-submission nonce AND skips
-    # the cache lookup entirely (D-UP-28) — never couple two private submitters.
+    # Public key stays byte-identical to the earlier public-only form (no nonce),
+    # so cached public runs still hit. Unlisted salts with a per-submission nonce
+    # AND skips the cache lookup entirely — never couple two private submitters.
     if is_unlisted:
         idempotency_key = persistence.compute_idempotency_key(
             body.github_url,
@@ -486,7 +486,7 @@ async def _read_multipart_upload(
     request: Request, *, max_bytes: int
 ) -> tuple[list[tuple[str, bytes]], dict[str, str]]:
     """Stream-parse a `multipart/form-data` body, aborting at `max_bytes` BEFORE
-    buffering the whole body (D-UP-07 / P1-1). Returns one `(filename, bytes)`
+    buffering the whole body. Returns one `(filename, bytes)`
     tuple per file part + the non-file form fields.
 
     ONE concrete path: `request.stream()` fed to python-multipart's `MultipartParser`
@@ -742,7 +742,7 @@ async def _load_run_capabilities(
 
 def _is_live_unlisted(run: ScanRun | None) -> bool:
     """True only for a present, unlisted, unexpired run — else the route 404s
-    generically (no existence/expiry oracle, D-UP-15)."""
+    generically (no existence/expiry oracle)."""
     if run is None or run.visibility != "unlisted":
         return False
     return not (run.expires_at is not None and run.expires_at < datetime.now(UTC))
@@ -753,7 +753,7 @@ async def _capability_extras(
 ) -> tuple[ManifestSource | None, DownloadInfo | None]:
     """Primary manifest + `.zip` pointer for ONE capability scan — the rich-report
     Source viewer + download. Carried per-capability so a multi-file upload renders
-    one rich report per file (I-3.5). The bytes come from the storage-split
+    one rich report per file. The bytes come from the storage-split
     resolver, so this works for public uploads (`artifact_blobs`) and unlisted
     uploads (`upload_files`) alike."""
     manifest: ManifestSource | None = None
@@ -966,7 +966,7 @@ def settings_private_limit() -> int:
     summary="Issue a stateless Proof-of-Work challenge for the install CLI.",
 )
 async def cli_challenge() -> CliChallengeResponse:
-    """Mint a fresh signed PoW challenge for the install CLI (D-05-30). Declared
+    """Mint a fresh signed PoW challenge for the install CLI. Declared
     BEFORE the greedy `/{scan_id}` route so the literal path wins. 503 when the
     PoW secret is unconfigured (dev/test/CI — the CLI then falls back to Turnstile).
     """

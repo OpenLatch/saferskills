@@ -219,7 +219,7 @@ def _pick_manifest(files_index: list[tuple[str, bytes]], kind: str) -> tuple[str
             text = _decode_manifest_text(content[:_MANIFEST_MAX_BYTES])
             return path, text
 
-    # Fallback (I-3.5): a loose single-file capability (install.sh / server.json /
+    # Fallback: a loose single-file capability (install.sh / server.json /
     # .cursorrules) has no preferred manifest — surface its own bytes so the Source
     # tab isn't empty. Only when exactly one non-repo-wide text file is in scope.
     non_wide = [(p, c) for p, c in files_index if not _is_repo_wide(p) and not _looks_binary(c)]
@@ -236,9 +236,9 @@ def compute_idempotency_key(
     """SHA-256 idempotency key per scan-report.schema.json contract.
 
     `nonce` is OMITTED for public scans, so the public key stays byte-identical to
-    the pre-I-3.5 form (existing cached runs still hit). An unlisted submission
-    passes a per-submission nonce so two identical private submissions never
-    collapse onto one run/token (D-UP-28).
+    the earlier public-only form (existing cached runs still hit). An unlisted
+    submission passes a per-submission nonce so two identical private submissions
+    never collapse onto one run/token.
     """
     raw = f"{github_url}|{ref_sha}|{rubric_version}"
     if nonce is not None:
@@ -247,7 +247,7 @@ def compute_idempotency_key(
 
 
 def slug_for(ref: GithubRef) -> str:
-    """`<org>--<repo>` URL-safe slug per I-02 D-15."""
+    """`<org>--<repo>` URL-safe slug."""
     return f"{ref.org.lower()}--{ref.repo.lower()}"
 
 
@@ -276,7 +276,7 @@ def capability_slug(ref: GithubRef, kind: str, name: str) -> str:
 
 
 def upload_capability_slug(content_hash: str, kind: str, name: str | None) -> str:
-    """Public-upload per-capability slug `upload--<arthash8>--<kind>-<name>` (I-3.5).
+    """Public-upload per-capability slug `upload--<arthash8>--<kind>-<name>`.
 
     `arthash8` = `scan_runs.content_hash_sha256[:8]`. Satisfies the widened slug
     grammar `^[a-z0-9][a-z0-9-]*(--[a-z0-9][a-z0-9-]*)+$` (multiple `--` segments).
@@ -346,7 +346,7 @@ def _upload_display_name(run: ScanRun, cap: CapabilityResult) -> str:
 
 
 def _upload_source(run: ScanRun) -> dict[str, object]:
-    """The `sources[]` entry for a public-upload catalog row (D-UP-34).
+    """The `sources[]` entry for a public-upload catalog row.
 
     `registryId='upload'`; `registryUrl` is the run-report URL so the upload item
     validates against the (non-empty) catalog-item `sources` contract.
@@ -402,10 +402,10 @@ async def ensure_upload_capability_item(
 async def create_unlisted_shadow_item(
     session: AsyncSession, run: ScanRun, cap: CapabilityResult, *, ref: GithubRef | None
 ) -> CatalogItem:
-    """Create a FRESH per-run unlisted SHADOW catalog row (D-UP-27).
+    """Create a FRESH per-run unlisted SHADOW catalog row.
 
     Never reuses/mutates a canonical row (that would collapse a public+unlisted
-    scan of the same repo onto one slug, or violate the slug UNIQUE — P0-1). Slug
+    scan of the same repo onto one slug, or violate the slug UNIQUE). Slug
     `unlisted--<run8>--<kind>-<name>`; `visibility='unlisted'`,
     `owner_run_id=run.id` (FK CASCADE). `github_url` stays NULL even for a github
     source — the canonical public row owns the UNIQUE(github_url); the shadow row
@@ -633,9 +633,9 @@ async def persist_pending_scan_run(
     """Insert the initial `scan_runs` row + return it. Idempotent on the run's
     idempotency_key — this is the id the submit response + SSE channel key on.
 
-    The I-3.5 kwargs (`visibility`/`source_kind`/`share_token`/`expires_at`/
-    `original_filename`/`content_hash_sha256`) default to the GitHub-public shape,
-    so existing callers are unchanged.
+    The upload/visibility kwargs (`visibility`/`source_kind`/`share_token`/
+    `expires_at`/`original_filename`/`content_hash_sha256`) default to the
+    GitHub-public shape, so existing callers are unchanged.
     """
     cached = (
         await session.execute(select(ScanRun).where(ScanRun.idempotency_key == idempotency_key))
@@ -675,7 +675,7 @@ def _capability_scan_key(run: ScanRun, cap: CapabilityResult) -> str:
     Source-aware identity so cross-run collisions can't happen (uploads have
     `github_url = NULL`):
     - **github public** — keyed on the repo URL, so a rescan updates the same
-      scan row in place (byte-identical to the pre-I-3.5 key).
+      scan row in place (byte-identical to the earlier github-only key).
     - **upload public** — keyed on the artifact content hash (distinct artifacts →
       distinct rows; identical bytes cache at the run level, never re-persist).
     - **unlisted (any)** — keyed on the run id, so every unlisted run is fully
@@ -705,7 +705,7 @@ async def persist_completed_scan_run(
     write the repo rollup onto the run.
 
     The per-capability fan-out is shared; only **(a) the catalog-item builder**
-    and **(b) the byte store** fork on source x visibility (D-UP-12, D-UP-27):
+    and **(b) the byte store** fork on source x visibility:
 
     | visibility | catalog item | byte store |
     |---|---|---|
@@ -777,7 +777,7 @@ async def persist_completed_scan_run(
         )
         if is_upload:
             # `_apply_scan_result` copies the engine's sentinel ref_sha; uploads
-            # have no git ref, so keep both NULL (no synthetic value — P0-2).
+            # have no git ref, so keep both NULL (no synthetic value).
             scan.github_url = None
             scan.ref_sha = None
 
@@ -822,7 +822,7 @@ async def _run_catalog_items(session: AsyncSession, run_id: UUID) -> list[Catalo
 async def promote_run_to_public(
     session: AsyncSession, run: ScanRun
 ) -> tuple[bool, list[dict[str, object]]]:
-    """Promote an unlisted run → public, one-way (D-UP-16/D-UP-31). Returns
+    """Promote an unlisted run → public, one-way. Returns
     `(promoted, items)` where `items` is one `{slug,kind,display_name,merged}`
     per capability. Idempotent: an already-public run is a `(False, items)` no-op.
 
@@ -925,7 +925,7 @@ async def select_existing_by_idempotency(
 async def delete_run_cascade(
     session: AsyncSession, run_id: UUID, *, allow_public: bool = False
 ) -> None:
-    """Explicit ordered delete of a run and everything it owns (D-UP-30).
+    """Explicit ordered delete of a run and everything it owns.
 
     The `scans -> scan_runs` FK is `ON DELETE SET NULL` (0007), so scans MUST be
     deleted BEFORE the run — never rely on the FK (it would orphan scans and leave

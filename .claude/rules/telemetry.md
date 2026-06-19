@@ -16,19 +16,19 @@ paths:
 
 ## Purpose
 
-Telemetry has three independent legs at W1:
+Telemetry has three independent legs:
 
-1. **PostHog** — product analytics (client-side, opt-in via cookie banner W5+; W1 fires only privacy-safe events).
+1. **PostHog** — product analytics (client-side, opt-in via cookie banner when auth lands; for now fires only privacy-safe events).
 2. **Sentry** — errors only (no breadcrumbs containing scanned-artifact content).
 3. **OpenTelemetry** — server-side traces + metrics (OTLP exporter to a SaferSkills-owned collector).
 
-**Sentry + OpenTelemetry** are **SaferSkills-specific and separate from any OpenLatch projects** (per the brand-independence locked-decision D-19): a SaferSkills outage never bleeds into OpenLatch error dashboards or traces.
+**Sentry + OpenTelemetry** are **SaferSkills-specific and separate from any OpenLatch projects** (brand independence): a SaferSkills outage never bleeds into OpenLatch error dashboards or traces.
 
-**PostHog is the exception — D-19 is superseded for PostHog only** (founder cost decision **2026-06-04**: the PostHog plan caps the number of projects). SaferSkills shares **one** PostHog project with the rest of the OpenLatch portfolio. Separation is **by property, not by project**: every SaferSkills PostHog event carries a `product = "saferskills"` discriminator, so SaferSkills data stays filterable apart in the shared project. PostHog is **internal** analytics, never user-facing — so public brand independence (anti-recommendation, footer-only attribution) is unaffected.
+**PostHog is the exception — separate-project rule relaxed for PostHog only** (founder cost decision **2026-06-04**: the PostHog plan caps the number of projects). SaferSkills shares **one** PostHog project with the rest of the OpenLatch portfolio. Separation is **by property, not by project**: every SaferSkills PostHog event carries a `product = "saferskills"` discriminator, so SaferSkills data stays filterable apart in the shared project. PostHog is **internal** analytics, never user-facing — so public brand independence (anti-recommendation, footer-only attribution) is unaffected.
 
 ## PostHog (client-side)
 
-Initialized in the webapp via `PUBLIC_POSTHOG_KEY` (cf. `environment-config.md`). At W1 the page is anonymous; PostHog identification arrives with auth in W5.
+Initialized in the webapp via `PUBLIC_POSTHOG_KEY` (cf. `environment-config.md`). The page is anonymous for now; PostHog identification arrives with auth.
 
 **Shared-project discriminator (mandatory).** Because PostHog is one project shared across the OpenLatch portfolio (see Purpose above), **every** SaferSkills PostHog event — webapp, backend, and the install CLI (`cli/src/core/telemetry.rs`) — MUST carry the property `product: "saferskills"`. It is the filter that keeps SaferSkills insights/dashboards isolated inside the shared project. All three legs emit it: the install CLI in its `command_invoked` payload; the **webapp** as a `posthog.register({ product, environment })` super-property (`webapp/src/lib/observability.ts`); the **backend** in `app/observability/events.py::_emit`, which mirrors every `emit_*` event to PostHog (`capture(distinct_id, event, {**props, "product": "saferskills"})`) when `POSTHOG_PROJECT_KEY` is set — degrading to structlog-only when it is not.
 
@@ -40,30 +40,30 @@ Every event name lives in `webapp/src/lib/analytics.ts::events` — adding an ev
 
 | Event prefix | When it fires |
 |---|---|
-| `homepage_*` | Homepage CTA + hero clicks; the dual-mode scan submit (`homepage_scan_submitted`) + the homepage audit-panel affordance (`homepage_scan_panel_started`) — I-3.5 |
-| `catalog_*` | Catalog browse + filter + search — landed Phase B |
-| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy — incl. the `zip` download-bytes button on upload reports, embed badge copy, **capability type-filter + capability-row expand** on the repo scan report, **file-tab select** (`scan_report_file_selected`) on a multi-file upload report — I-3.5, **finding-card expand** (`scan_report_finding_expanded` `{rule_id}`) on every report surface) — landed Phase B |
-| `item_detail_*` | Item-detail page interactions (chart hover/click) — lands Phase C |
-| `unlisted_*` | Unlisted (capability-URL) manage-bar actions — `unlisted_manage_action` `{action: copy_link\|promote\|delete}` (I-3.5). **Never** carries the `share_token`, slug, filename, or any path content. |
+| `homepage_*` | Homepage CTA + hero clicks; the dual-mode scan submit (`homepage_scan_submitted`) + the homepage audit-panel affordance (`homepage_scan_panel_started`). |
+| `catalog_*` | Catalog browse + filter + search. |
+| `scan_report_*` | Scan-report page interactions (sub-score accordion expand, install command copy — incl. the `zip` download-bytes button on upload reports, embed badge copy, **capability type-filter + capability-row expand** on the repo scan report, **file-tab select** (`scan_report_file_selected`) on a multi-file upload report, **finding-card expand** (`scan_report_finding_expanded` `{rule_id}`) on every report surface). |
+| `item_detail_*` | Item-detail page interactions (chart hover/click). |
+| `unlisted_*` | Unlisted (capability-URL) manage-bar actions — `unlisted_manage_action` `{action: copy_link\|promote\|delete}`. **Never** carries the `share_token`, slug, filename, or any path content. |
 | `artifact_*` | Artifact detail page interactions |
 | `rule_*` | Rubric / methodology page interactions — incl. the methodology CSV export (`rule_csv_exported` `{count_bucket}`, the visible-rule count bucketed `0`/`1`/`2-5`/`6-20`/`21+`; never a rule_id list) and the `/methodology` mode control (`rule_methodology_tab_selected` `{tab: capability\|agent}` — closed enum, fired on Capability rules ↔ Agent pack switch) |
-| `agent_report_*` | Agent Report (`/agents/*`) interactions (I-5.6) — `agent_report_tab_selected` `{tab: report\|findings\|component}`, `agent_report_shared`, `agent_report_exported`, `agent_report_reply_submitted` (the last three carry **no** properties). **Never** the `share_token`, agent name, runtime, or any transcript/finding content. |
-| `agent_scan_*` (frontend) | Agent-scan activation surfaces (I-5.7) — `agent_scan_prompt_minted` `{surface: homepage\|scan\|picker, visibility: public\|unlisted}` fires once per successful bootstrap mint+copy (homepage card 02 / `/scan` agent pane / platform picker). Both properties closed enums. **Never** the `run_id`, the one-time `submit_token`/run token, or any prompt content. (Distinct from the backend `agent_scan_completed`, event #24 below.) |
-| `appeal_*` | Vendor-appeal form interactions (W5+ when the web form ships) |
+| `agent_report_*` | Agent Report (`/agents/*`) interactions — `agent_report_tab_selected` `{tab: report\|findings\|component}`, `agent_report_shared`, `agent_report_exported`, `agent_report_reply_submitted` (the last three carry **no** properties). **Never** the `share_token`, agent name, runtime, or any transcript/finding content. |
+| `agent_scan_*` (frontend) | Agent-scan activation surfaces — `agent_scan_prompt_minted` `{surface: homepage\|scan\|picker, visibility: public\|unlisted}` fires once per successful bootstrap mint+copy (homepage card 02 / `/scan` agent pane / platform picker). Both properties closed enums. **Never** the `run_id`, the one-time `submit_token`/run token, or any prompt content. (Distinct from the backend `agent_scan_completed`, event #24 below.) |
+| `appeal_*` | Vendor-appeal form interactions (when the web form ships with auth) |
 
 ### Property allowlist
 
 Closed-enum + bucketed-numeric values only. **No PII, no source-content hashes in property values.**
 
-- Closed enums: `artifact_kind` ∈ {`mcp`, `skill`, `rules`, `hooks`, `plugin`}; `severity` ∈ {`info`, `low`, `medium`, `high`, `critical`} (5-tier per locked decision D-02); `sub_score` ∈ {`security`, `supply_chain`, `maintenance`, `transparency`, `community`} (5-axis per D-01); `rubric_version` (git SHA string).
+- Closed enums: `artifact_kind` ∈ {`mcp`, `skill`, `rules`, `hooks`, `plugin`}; `severity` ∈ {`info`, `low`, `medium`, `high`, `critical`} (5-tier); `sub_score` ∈ {`security`, `supply_chain`, `maintenance`, `transparency`, `community`} (5-axis); `rubric_version` (git SHA string).
 - Bucketed numerics: score buckets `0-39 / 40-69 / 70-89 / 90-100`; counts bucketed to `0 / 1 / 2-5 / 6-20 / 21+`; latency_ms bucketed to `<10 / <60 / <300 / >=300`; backoff_seconds bucketed identically; installation_id hashed via `hash%16`.
 - Forbidden: raw URLs, raw repo names, raw user input in property values. **`rule_id` IS a permitted closed-enum property value** for `rule_*` events **and the `scan_report_finding_expanded` event** (the enum is the active rubric — a bounded set), per the scan-engine event allowlist below.
 - `kind` ∈ {`skill`, `mcp_server`, `hook`, `plugin`, `rules`} (+ `all` on the filter event) is a permitted closed-enum value for the `scan_report_capability_filtered` / `scan_report_capability_expanded` / `scan_report_file_selected` events (the repo scan report's per-capability surface + the multi-file upload report's file-tab strip). `scan_report_file_selected` carries **only** `{kind}` — never the filename, slug, content hash, or token.
-- `artifact_source` ∈ {`github`, `upload`} and `visibility` ∈ {`public`, `unlisted`} are permitted closed-enum values for the `homepage_scan_submitted` / `homepage_scan_panel_started` dual-mode scan events (I-3.5). **Never** the URL, filename, file bytes, or the unlisted `share_token` — the FE event is an intent signal; the backend `scan_submitted` (scan-engine allowlist below) is authoritative.
+- `artifact_source` ∈ {`github`, `upload`} and `visibility` ∈ {`public`, `unlisted`} are permitted closed-enum values for the `homepage_scan_submitted` / `homepage_scan_panel_started` dual-mode scan events. **Never** the URL, filename, file bytes, or the unlisted `share_token` — the FE event is an intent signal; the backend `scan_submitted` (scan-engine allowlist below) is authoritative.
 
-## Event allowlist — scan engine (W2+)
+## Event allowlist — scan engine
 
-The scan engine emits a closed enum of 16 events (per locked decision D-30, +2 from I-3.5). The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside that module are a regression.
+The scan engine emits a closed enum of 16 events. The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside that module are a regression.
 
 | # | Event | Properties (all bucketed / closed-enum) |
 |---|---|---|
@@ -86,9 +86,9 @@ The scan engine emits a closed enum of 16 events (per locked decision D-30, +2 f
 
 No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the capability `share_token` or any path/filename content** (uploads). Bucketing helpers (`hash_to_bucket`, `latency_bucket`, `count_bucket`) live alongside the emit-helpers in `services/api/app/observability/events.py`.
 
-## Ingestion events (I-04)
+## Ingestion events
 
-5 backend + 1 frontend events from locked decision D-04-22. All bucketed/closed-enum, no PII.
+5 backend + 1 frontend events. All bucketed/closed-enum, no PII.
 
 | # | Event | Properties |
 |---|---|---|
@@ -101,9 +101,9 @@ No raw IPs, no emails, no URLs, no `matched_content` strings — and **never the
 
 Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycle_started`, `emit_ingestion_cycle_completed`, `emit_ingestion_cycle_failed`, `emit_ingestion_cycle_archived` → `catalog_item_archived`, `emit_popularity_recompute_completed`). Every helper logs via structlog **and** mirrors to PostHog through the shared `_emit` dispatch (no-op when `POSTHOG_PROJECT_KEY` is unset). The frontend `sources_page_viewed` event uses the existing `webapp/src/lib/analytics.ts` pattern.
 
-## Install-telemetry event (I-05)
+## Install-telemetry event
 
-1 backend event from D-05-31. Closed-enum, no PII.
+1 backend event. Closed-enum, no PII.
 
 | # | Event | Properties |
 |---|---|---|
@@ -111,9 +111,9 @@ Backend emit helpers live in `app/observability/events.py` (`emit_ingestion_cycl
 
 Fired by `app/observability/events.py::emit_install_reported` when the install CLI reports an **opt-in** install to `POST /api/v1/installs`. Never carries the slug, IP, or `cli_version` (those land only in the redacted `install_events` row). The CLI's own opt-out PostHog leg stays the single `command_invoked` event (`cli/src/core/telemetry.rs`) — `install_reported` is the **server-side** event.
 
-## Agent-scan event (I-5.5)
+## Agent-scan event
 
-1 backend event, **live as of Phase 2** (grading). Closed-enum + bucketed, no PII.
+1 backend event, live at grading. Closed-enum + bucketed, no PII.
 
 | # | Event | Properties |
 |---|---|---|
@@ -134,7 +134,7 @@ ASN/fingerprint signal is the separate write-only `agent_scan_telemetry` store
 
 ## Sentry
 
-Separate Sentry projects from OpenLatch (brand-independence D-19), all under the org `openlatch` on the **DE region** (`https://de.sentry.io`). **Four surfaces, three projects:**
+Separate Sentry projects from OpenLatch (brand independence), all under the org `openlatch` on the **DE region** (`https://de.sentry.io`). **Four surfaces, three projects:**
 
 | Project | Surface(s) | DSN env / bake |
 |---|---|---|
@@ -172,7 +172,7 @@ Server-side flags are a thin wrapper over the PostHog client (`app/core/feature_
 1. **No PII anywhere.** PostHog property values, Sentry breadcrumbs, OTel span attributes — all three legs treat user input as untrusted and scrub it.
 2. **Closed-enum event names + property values.** Adding an event = a `webapp/src/lib/analytics.ts` entry change reviewed in the PR.
 3. **Bucketed numerics, never raw counts** in PostHog property values.
-4. **Separate vendor projects** for Sentry + OTel — never share a DSN / endpoint with another product. **PostHog is the exception** (one shared OpenLatch-portfolio project for cost — D-19 superseded 2026-06-04): SaferSkills events are separated by the `product: "saferskills"` property, not by project.
+4. **Separate vendor projects** for Sentry + OTel — never share a DSN / endpoint with another product. **PostHog is the exception** (one shared OpenLatch-portfolio project for cost, 2026-06-04): SaferSkills events are separated by the `product: "saferskills"` property, not by project.
 5. **Brand-independence**: when documentation or dashboards reference "the SaferSkills team", they reference SaferSkills maintainers only — never label cross-product dashboards.
 
 ## When to update this rule

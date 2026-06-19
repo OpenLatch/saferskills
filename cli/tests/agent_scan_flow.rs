@@ -1,4 +1,4 @@
-//! Agent-scan API-surface happy paths (I-5.5 Phase 3) driven against a mock server.
+//! Agent-scan API-surface happy paths driven against a mock server.
 //!
 //! Exercises bootstrap → token-gated pack fetch (with the signature headers) → poll
 //! `/status` → submit a paste-back blob → report, through the typed `Api` surface (no

@@ -6,7 +6,7 @@
 //     A multi-file upload adds a per-file tab strip; one file = no tabs (the
 //     single-file regression gate, byte-identical to the prior Astro body).
 //   • REPO scans → the multi-capability cap-list layout (mockups 5 + 6): the
-//     unchanged I-03 GitHub report body (`ScanReportView` + `ShareResultBand`),
+//     unchanged GitHub report body (`ScanReportView` + `ShareResultBand`),
 //     made visibility-aware.
 // `isRich` still gates the page-HEAD styling (single-file upload = rich head).
 // Unlisted runs additionally get the private banner, eyebrow, manage bar, expiry
@@ -88,7 +88,7 @@ const githubHost = run.github_url
   ? run.github_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
   : ''
 
-// Masked token for the private eyebrow — never the literal token (D-UP-14).
+// Masked token for the private eyebrow — never the literal token.
 const maskedToken = token ? `${token.slice(0, 10)}` : ''
 
 // "Share this result" band — REPO runs only (uploads render their own per-file

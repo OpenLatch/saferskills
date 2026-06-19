@@ -3,7 +3,7 @@ import { isReportable } from '@/lib/api/agent-scan-types'
 import { fetchAgentScanRunById, fetchAgentScanUnlistedReport } from '@/lib/api/agent-scans'
 
 /**
- * Lightweight pre-grade "auditing…" board for an Agent Report (I-5.6 A1). A scan in
+ * Lightweight pre-grade "auditing…" board for an Agent Report. A scan in
  * `created`/`fetched`/`submitted` shows this and polls the page's OWN tokenless GET
  * (`/agent-scans/{id}` public, `/agent-scans/r/{token}` unlisted) every few seconds —
  * NOT the token-gated `/{id}/status` endpoint, which the web page can't authenticate.

@@ -1,4 +1,4 @@
-"""Component-score projection (I-5.5 completion): a linked component `scan_run`'s
+"""Component-score projection: a linked component `scan_run`'s
 per-capability `scans` become the Agent Report's Component Scores rows; the unlisted
 deep-link points every row at the run report; a null link is an honest empty tab.
 

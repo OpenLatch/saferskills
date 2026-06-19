@@ -38,7 +38,7 @@ function groupByFamily(checks: ProofCheck[]): FamilyGroup[] {
 }
 
 /**
- * The Report-tab proof-of-tests table (I-5.6 §3 Report tab). Mirrors the locked
+ * The Report-tab proof-of-tests table. Mirrors the
  * mockup: a `Rules & checks applied · N total` checks-head, then one bordered
  * `.chk-group` per OWASP family — group head carries `{n} failed · {p}/{t} passed`,
  * a passing row shows the ✓ + `PASS` chip, a vulnerable row the ✗ + a red

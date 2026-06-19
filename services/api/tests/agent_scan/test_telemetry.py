@@ -1,4 +1,4 @@
-"""Company-level telemetry capture (I-5.5, AE-9). Redact-then-derive, opt-out,
+"""Company-level telemetry capture. Redact-then-derive, opt-out,
 closed-key fingerprint (no host fields), EU gate predicate."""
 
 from __future__ import annotations

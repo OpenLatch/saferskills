@@ -1,7 +1,7 @@
-"""enqueue_ingest_task — the webhook fan-out task (D-04-04).
+"""enqueue_ingest_task — the webhook fan-out task.
 
-Two-step (D-04-04): ingestion is decoupled from the auto-scan trigger. This task
-applies a webhook payload to catalog_items + ingestion_events ONLY. The Phase C
+Two-step: ingestion is decoupled from the auto-scan trigger. This task
+applies a webhook payload to catalog_items + ingestion_events ONLY. The
 popularity_recompute job decides which items get Lite/Deep scans. Adapters running
 their own periodic cycle call MergeEngine.upsert directly (see RegistryAdapter);
 this path is for the GitHub webhook handler in app/routers/webhooks.py.

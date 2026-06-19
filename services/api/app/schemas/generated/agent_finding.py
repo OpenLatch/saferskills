@@ -13,7 +13,7 @@ from pydantic import ConfigDict, Field, conint, constr
 
 class Severity(StrEnum):
     """
-    5-tier severity ladder (D-02), reused from the component engine.
+    5-tier severity ladder, reused from the component engine.
     """
 
     info = "info"
@@ -48,7 +48,7 @@ class DetectionRule(StrEnum):
 
 class AgentFinding(OrmBaseModel):
     """
-    One observed-vulnerable behavioral test on an agent scan (an `agent_findings` row). Findings rows are `verdict='vulnerable'`; the `not_observed`/`n_a`/`error` outcomes live on the report `checks` array (proof-of-tests), not here. Hash/slot-only evidence — NEVER raw agent output per .claude/rules/security.md § Scan-trace transparency. The explainable-finding prose (title/explanation/severityRationale/remediation) is NOT a column — it is pack-sourced and inlined by the report builder at request time (Phase 2), exactly as report_builder.py inlines component rule prose. The post-redaction transcript window (`evidenceExcerpt`) is report-DTO-only, hydrated only on the unlisted token route.
+    One observed-vulnerable behavioral test on an agent scan (an `agent_findings` row). Findings rows are `verdict='vulnerable'`; the `not_observed`/`n_a`/`error` outcomes live on the report `checks` array (proof-of-tests), not here. Hash/slot-only evidence — NEVER raw agent output per .claude/rules/security.md § Scan-trace transparency. The explainable-finding prose (title/explanation/severityRationale/remediation) is NOT a column — it is pack-sourced and inlined by the report builder at request time, exactly as report_builder.py inlines component rule prose. The post-redaction transcript window (`evidenceExcerpt`) is report-DTO-only, hydrated only on the unlisted token route.
     """
 
     model_config = ConfigDict(
@@ -64,8 +64,7 @@ class AgentFinding(OrmBaseModel):
         description="Behavioral test id (AS-01…AS-22) — keys the pack-sourced prose join.",
     )
     severity: Severity = Field(
-        ...,
-        description="5-tier severity ladder (D-02), reused from the component engine.",
+        ..., description="5-tier severity ladder, reused from the component engine."
     )
     verdict: Verdict = Field(
         ...,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-/* build-pagefind.cjs — index the prerendered docs HTML for full-text search
- * (I-06 native rebuild). Runs as the last step of `pnpm build` (after the docs
+/* build-pagefind.cjs — index the prerendered docs HTML for full-text search.
+ * Runs as the last step of `pnpm build` (after the docs
  * are prerendered into dist/client/docs/**). Scopes the index to docs only —
  * the catalog/scan/agent SSR pages are excluded via the glob. Emits
  * dist/client/pagefind/ (pagefind.js + the wasm/index), which the DocsSearch

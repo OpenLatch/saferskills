@@ -1,4 +1,4 @@
-"""Access-log redaction for capability tokens (I-3.5, D-UP-32(a)).
+"""Access-log redaction for capability tokens.
 
 uvicorn logs the raw request path by default, which would write the unlisted
 capability token (`/scans/r/<token>`) into access logs. This filter rewrites the

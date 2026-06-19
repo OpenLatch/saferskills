@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 
 /**
- * RecentScanCard — Phase A2 `.scan-card.recent` vocabulary.
+ * RecentScanCard — `.scan-card.recent` vocabulary.
  *
  * The Astro shell is mirrored as plain React here so Ladle can render the
  * static HTML structure for visual review. The CSS contract lives in

@@ -16,7 +16,7 @@ interface Props {
   /** Right-rail link rendered last in the meta column. */
   arrow?: { label: string; href: string }
   /**
-   * Multi-destination rows (I-5.7 row 05: privacy + methodology): each entry
+   * Multi-destination rows (e.g. privacy + methodology): each entry
    * renders as a REAL `.ml-link` anchor in the meta column and the row root
    * stays a `<div>` (anchors can't nest). Takes precedence over `arrow`.
    */
@@ -24,7 +24,7 @@ interface Props {
 }
 
 /**
- * "Five reasons it earns the URL" row — Phase A2 vocabulary `.reason-row`.
+ * "Five reasons it earns the URL" row — `.reason-row` vocabulary.
  *
  * Four-column grid per the docs-band mockup: `.n` (44px seq) / `.k` (120px verb)
  * / `.d` (1fr body) / `.m` (220px right-rail meta). Hover state pushes the row

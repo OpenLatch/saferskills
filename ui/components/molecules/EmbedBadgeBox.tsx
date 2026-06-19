@@ -13,12 +13,12 @@ interface Props {
   /**
    * Badge family. `scan` (default) → `/badge/{id}/{score}.svg` + `/scans/{id}`
    * (or `/items/{slug}`). `agent` → `/badge/agent/{id}/{score}.svg` +
-   * `/agents/{id}` (the I-5.6 Agent Report badge — D-5.6-14, Codex P2).
+   * `/agents/{id}` (the Agent Report badge).
    */
   kind?: 'scan' | 'agent'
   /** Alt-text/preview noun. Defaults to `SaferSkills`. */
   altPrefix?: string
-  /** PostHog callback per D-FE-19. */
+  /** PostHog callback. */
   onCopy?: (format: 'markdown' | 'html') => void
 }
 

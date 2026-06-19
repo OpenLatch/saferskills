@@ -1,7 +1,7 @@
 """IP-bucket rate limiter backed by the existing `rate_limits` table.
 
-W1 ships the `rate_limits` table with composite PK `(ip_hash, bucket, window_start)`
-and a `count` column. Phase B is the first consumer.
+The `rate_limits` table has a composite PK `(ip_hash, bucket, window_start)`
+and a `count` column.
 
 The check is a single UPSERT: increment `count` for the current 24h window if it
 exists, else insert a new row with `count=1`. If `count > limit` after the upsert,

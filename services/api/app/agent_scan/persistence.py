@@ -1,9 +1,9 @@
-"""Agent-scan persistence (I-5.5, Phase 1: run-create).
+"""Agent-scan persistence (run-create).
 
 No catalog shadow row is created for an agent run - an Agent Report is its own
-entity (`agent_runs`), NOT a catalog capability; the `/agents` directory (I-5.6)
+entity (`agent_runs`), NOT a catalog capability; the `/agents` directory
 reads `agent_runs`, never `catalog_items`. Grading/submit persistence + the full
-`delete_agent_run_cascade` land in Phase 2.
+`delete_agent_run_cascade` land separately.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from app.models.generated.agent_finding import AgentFinding
 from app.models.generated.agent_run import AgentRun
 from app.schemas.agent_scan import AgentScanResultV1
 
-# Phase-1 engine tag for the behavioral scan (the deterministic grader is Phase 2).
+# Engine tag for the behavioral scan.
 AGENT_ENGINE_VERSION = "agent-scan-1"
 
 
@@ -174,8 +174,8 @@ async def delete_agent_run_cascade(
     FK CASCADE and `agent_scan_telemetry` FK SET-NULLs, so an explicit child-first
     delete is what makes telemetry a FULL erase (not a SET NULL) on a vendor/abuse
     delete. NEVER touches `artifact_blobs`; the `agent_run_token_spent` ledger is
-    keyed by token hash and reaped only by `sweep_agent_run_tokens` (NOT cascaded,
-    Codex#10). Refuses a public run unless `allow_public` (admin runbook only)."""
+    keyed by token hash and reaped only by `sweep_agent_run_tokens` (NOT
+    cascaded). Refuses a public run unless `allow_public` (admin runbook only)."""
     run = await session.get(AgentRun, run_id)
     if run is None:
         return False

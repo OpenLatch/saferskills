@@ -1,9 +1,8 @@
 /* ============================================================================
-   page-agent-directory.css — the /agents directory (I-5.6 Phase C).
-   Faithful token-only port of the locked mockup
-   (.local/.brainstorms/agent-scan-report/mockups/SaferSkills-Agent-List).
-   Verbatim mockup class names so a diff against the mockup CSS is trivial
-   (design §2); `body.va.dark` → `html.dark`; check-css SHELL file (no raw hex
+   page-agent-directory.css — the /agents directory.
+   Faithful token-only port of the agent-list mockup.
+   Verbatim mockup class names so a diff against the mockup CSS is trivial;
+   `body.va.dark` → `html.dark`; check-css SHELL file (no raw hex
    beyond the sanctioned #fff on band fills); reduced-motion guarded.
    ============================================================================ */
 

@@ -1,10 +1,10 @@
-"""Smithery.ai MCP-server aggregator adapter (I-04 Phase B, reference #1).
+"""Smithery.ai MCP-server aggregator adapter.
 
-Feed-first (D-04-36): paginates the public registry JSON API
+Feed-first: paginates the public registry JSON API
 `registry.smithery.ai/servers?page=N&pageSize=M` (no auth). The list records carry
 displayName + description + a `homepage` that is sometimes a GitHub URL (the OSS
 subset) — those get real repo facts via `enrich_repo_facts`; remote/closed servers
-have no GitHub coordinate and fall to the D-04-09 fuzzy queue.
+have no GitHub coordinate and fall to the fuzzy queue.
 
 HTML fallback: if the JSON feed is unreachable, `_fetch_html` pulls the listing page
 (curl_cffi) and yields nothing structured (the SPA is JS-rendered) — the feed is the

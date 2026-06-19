@@ -4,7 +4,7 @@ severity: high
 subScore: security
 weight: 25
 status: shadow
-shadowUntil: 2026-W3-end
+shadowUntil: 2026-01-18
 appliesTo: [mcp]
 frameworks: ["owasp-llm:llm06", "mitre-atlas:AML.T0053"]
 title: >-
@@ -74,4 +74,4 @@ sandbox-escape vector documented in the Invariant Labs and arXiv research.
 
 ## Version history
 
-- v1 (Phase A 2026-W2): initial rule. Lands shadow; FP-audit gates promotion.
+- v1 (2026-01-09): initial rule. Lands shadow; FP-audit gates promotion.

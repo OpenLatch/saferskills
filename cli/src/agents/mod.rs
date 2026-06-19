@@ -1,14 +1,13 @@
-//! Agent model + detection + writer dispatch (D-05-14, D-05-16, D-05-17).
+//! Agent model + detection + writer dispatch.
 //!
 //! The canonical agent id set IS the backend `agent_compat.py::ALL_AGENTS`
 //! enum (`schemas/catalog-item.schema.json::agentCompatibility`). The CLI's
 //! `--to <agent>` flag accepts these kebab tokens; the legacy `codex-cli` /
-//! `gemini-cli` ids are accepted as hidden aliases that warn + canonicalize
-//! (D-05-14).
+//! `gemini-cli` ids are accepted as hidden aliases that warn + canonicalize.
 //!
 //! Detection ([`detect`]) runs every agent's validated probe and returns only
 //! the agents actually present (a missing config = not installed — no false
-//! positives, D-05-17). Writers ([`writer`] + [`writers`]) install/uninstall a
+//! positives). Writers ([`writer`] + [`writers`]) install/uninstall a
 //! capability for a detected agent, recording every change for a clean reversal.
 
 pub mod detect;
@@ -22,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::error::{SsError, ERR_NO_AGENTS};
 
-/// Canonical agent ids — the backend `ALL_AGENTS` set (D-05-14).
+/// Canonical agent ids — the backend `ALL_AGENTS` set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AgentId {
@@ -98,7 +97,7 @@ impl AgentId {
 
     /// Parse a `--to` token. Accepts the canonical ids plus the two hidden legacy
     /// aliases (`codex-cli` → `codex`, `gemini-cli` → `gemini`), returning a
-    /// warning string for an alias so the caller can nudge the user (D-05-14). An
+    /// warning string for an alias so the caller can nudge the user. An
     /// unknown token is `SS-E-1401` with a did-you-mean suggestion.
     pub fn parse_cli(s: &str) -> Result<(Self, Option<String>), SsError> {
         let lower = s.trim().to_ascii_lowercase();
@@ -149,7 +148,7 @@ fn unknown_agent_error(input: &str) -> SsError {
     err
 }
 
-/// Global (default) vs repo-local config scope (D-05-16).
+/// Global (default) vs repo-local config scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
     Global,
@@ -178,7 +177,7 @@ pub struct DetectedAgent {
     pub scope: Scope,
 }
 
-/// Run every agent's validated detection probe (D-05-17). Sequential — each
+/// Run every agent's validated detection probe. Sequential — each
 /// probe is a handful of filesystem `stat`s + PATH lookups (sub-millisecond);
 /// parallelism would add a threading dependency for no measurable gain. De-dupes
 /// naturally (one `DetectedAgent` per id).

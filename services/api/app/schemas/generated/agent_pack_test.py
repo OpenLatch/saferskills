@@ -205,7 +205,7 @@ class AgentPackTest(OrmBaseModel):
     )
     atlas: list[Atla] = Field(
         ...,
-        description="MITRE ATLAS technique ids (corrected current names per D-5.5-12). ≥1 required.",
+        description="MITRE ATLAS technique ids (current names). ≥1 required.",
         min_length=1,
     )
     nist: list[constr(min_length=1)] | None = Field(

@@ -1,11 +1,11 @@
-"""AgentScanTelemetry — write-only company-level signal for one agent scan (I-5.5).
+"""AgentScanTelemetry — write-only company-level signal for one agent scan.
 
-Hand-written internal store (no JSON-Schema source, no wire DTO). WRITE-ONLY at
-I-5.5 (reader → I-06, mirrors `access_log`). Stores ONLY the derived ASN /
+Hand-written internal store (no JSON-Schema source, no wire DTO). WRITE-ONLY for
+now (the reader ships later; mirrors `access_log`). Stores ONLY the derived ASN /
 as_org / country and a server-derived closed-key fingerprint — NEVER a raw IP, a
 slug, or any PII (IP is redacted-then-derived at write time). `agent_run_id` is
 `SET NULL` so deleting a run keeps the anonymous aggregate. See
-`.claude/rules/privacy.md` + `security.md` § Vendor-data isolation + D-5.5-08/16.
+`.claude/rules/privacy.md` + `security.md` § Vendor-data isolation.
 """
 
 from __future__ import annotations

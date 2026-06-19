@@ -1,6 +1,6 @@
 """Pytest fixtures for the SaferSkills API test suite.
 
-W2 Phase A. Provides:
+Provides:
 - `db_engine`: a session-scoped async engine bound to DATABASE_URL_TEST (falls
   back to the dev DSN with a `_test` suffix). The migration head is applied
   once per session.

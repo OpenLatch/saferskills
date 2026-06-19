@@ -1,7 +1,7 @@
 //! Cline writer — HIGH confidence (MCP). Native-skill surface is MED (Cline has
 //! no native skill concept, so a skill is never written here — see SCHEMAS.md).
 //!
-//! Landmines (design.md §4): MCP key `mcpServers` in the VS Code globalStorage
+//! Config-schema landmines: MCP key `mcpServers` in the VS Code globalStorage
 //! `…/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` (the VS Code
 //! variant — `Code` / `Code - Insiders` / `VSCodium` — is resolved at detection
 //! time), or the CLI's `~/.cline/mcp.json`. Entries may also carry
