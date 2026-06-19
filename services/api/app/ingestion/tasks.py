@@ -12,14 +12,16 @@ before the loop builds tasks (Procrastinate also lists them in import_paths).
 from __future__ import annotations
 
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
 import httpx
 import structlog
+from croniter import croniter
 from procrastinate.retry import RetryStrategy
-from sqlalchemy import func, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.memory import rss_mb
@@ -336,6 +338,129 @@ async def ingestion_run_reaper(timestamp: int) -> dict[str, int]:
         logger.exception("ingestion_run_reaper.failed")
         return {"reaped": 0}
     return {"reaped": reaped}
+
+
+# ── Overdue-cycle reconciler (the daily-cron safety net) ───────────────────────
+
+SourceDeferFn = Callable[[str], Awaitable[bool]]
+
+
+def _previous_cron_tick(cron: str, now: datetime) -> datetime | None:
+    """The most recent scheduled fire ≤ `now` for a cron, or None if the expr is bad."""
+    try:
+        return croniter(cron, now).get_prev(datetime)
+    except ValueError, KeyError:
+        return None
+
+
+async def defer_source_cycle(source: str, *, trigger: str = "reconcile") -> bool:
+    """Best-effort defer of an `ingest_cycle_<source>` job, deduped by `queueing_lock`.
+
+    Mirrors `tasks_scan.defer_scan_job` + the admin force-cycle path: the per-source
+    `ingest_cycle_<source>_lock` makes a second enqueue (while the real cron's cycle
+    is already `todo`/`doing`) a no-op, so the reconciler can NEVER double-fire with
+    Procrastinate's own periodic deferrer. The `todo`/`doing` pre-check keeps the
+    steady-state path INSERT-free (the same DB-log-hygiene reason as `defer_scan_job`);
+    the `AlreadyEnqueued` catch is the race backstop. Returns False when a cycle is
+    already queued/running, the task is unknown, or any defer error — never raises.
+    """
+    from procrastinate.exceptions import AlreadyEnqueued, TaskNotFound
+
+    lock = f"ingest_cycle_{source}_lock"
+    try:
+        existing = await procrastinate_app.job_manager.list_jobs_async(queueing_lock=lock)
+        if any(j.status in ("todo", "doing") for j in existing):
+            return False
+        try:
+            # allow_unknown=False: only the cadenced api/scrape sources have a
+            # registered `ingest_cycle_*` task, and the caller only iterates those —
+            # TaskNotFound is just a defensive backstop, never the steady state.
+            await procrastinate_app.configure_task(
+                name=f"ingest_cycle_{source}", allow_unknown=False
+            ).defer_async(timestamp=int(time.time()), trigger=trigger)
+            return True
+        except AlreadyEnqueued, TaskNotFound:
+            return False
+    except Exception:
+        logger.debug("defer_source_cycle.skipped", source=source)
+        return False
+
+
+async def reconcile_overdue_sources(session: AsyncSession, *, defer: SourceDeferFn) -> int:
+    """Re-defer enabled cadenced sources whose most-recent cron tick was never attempted.
+
+    The boot-resilient safety net for daily-cron sources. Procrastinate's periodic
+    deferrer only backfills a RECENT tick on worker boot, so a once-a-day source whose
+    tick fired hours before a (frequently-restarting) worker last booted is never
+    deferred — `github_topics` + every aggregator silently stop running while the
+    hourly sources (`mcp_registry`/`npm`) stay healthy. This drainer (every 15 min — a
+    cadence Procrastinate always re-defers) computes each source's previous cron tick
+    and re-defers any whose last ATTEMPT predates it. "Last attempt" is
+    `max(ingestion_runs.started_at)` — written at cycle START for EVERY attempt
+    (success or fail, `record_run_started`), so a source that keeps failing is re-fired
+    once per scheduled tick, never every 15 min. The per-source `queueing_lock` dedups
+    against the real cron + an in-flight cycle. Mirrors `auto_scan_reconcile` for the
+    ingest side. `defer` is injected so tests assert selection without enqueuing.
+    """
+    from app.models import IngestionRun
+
+    rows = (
+        await session.execute(
+            select(IngestionRun.source, func.max(IngestionRun.started_at)).group_by(
+                IngestionRun.source
+            )
+        )
+    ).all()
+    last_attempt: dict[str, datetime | None] = {src: ts for src, ts in rows}
+
+    now = datetime.now(UTC)
+    enqueued = 0
+    for source, cfg in load_source_configs().items():
+        if cfg.kind not in ("api", "scrape") or not cfg.cadence_cron or not cfg.enabled:
+            continue  # webhook / disabled — no cron to recover
+        if await is_source_paused(session, source):
+            continue  # operator-halted (paused/blocked/disabled) — leave it alone
+        prev_tick = _previous_cron_tick(cfg.cadence_cron, now)
+        if prev_tick is None:
+            continue
+        attempted = last_attempt.get(source)
+        if attempted is not None and attempted >= prev_tick:
+            continue  # the current scheduled tick has already been attempted
+        if await defer(source):
+            enqueued += 1
+    if enqueued:
+        logger.info("ingestion_overdue_reconcile.done", enqueued=enqueued)
+    return enqueued
+
+
+@procrastinate_app.periodic(cron="*/15 * * * *")
+@procrastinate_app.task(
+    name="ingestion_overdue_reconciler",
+    queue="periodic",
+    queueing_lock="ingestion_overdue_reconciler_lock",
+    priority=PERIODIC_MAINTENANCE_PRIORITY,
+)
+async def ingestion_overdue_reconciler(timestamp: int) -> dict[str, Any]:
+    """Re-defer cadenced sources whose latest cron tick the worker missed (every 15 min).
+
+    Closes the gap where Procrastinate's periodic deferrer never backfills a daily tick
+    on a frequently-restarting worker, so `github_topics` + the aggregators never run.
+    A failing tick emits a clean error log (not a raw traceback) — the next tick
+    recovers — exactly like `auto_scan_reconcile`.
+    """
+    from app.db.session import AsyncSessionLocal
+
+    try:
+        async with AsyncSessionLocal() as session:
+            enqueued = await reconcile_overdue_sources(session, defer=defer_source_cycle)
+    except Exception as exc:
+        logger.error(
+            "ingestion_overdue_reconciler.failed",
+            error_class=type(exc).__name__,
+            error=str(exc)[:300],
+        )
+        return {"enqueued": 0, "error": type(exc).__name__}
+    return {"enqueued": enqueued}
 
 
 # Build the periodic tasks by looping the YAML configs (config-first). Both `api`

@@ -36,6 +36,7 @@ class IngestionRun(Base):
     )
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     # scheduled (periodic) | force (admin force-cycle) | manual (run_one_cycle)
+    # | reconcile (ingestion_overdue_reconciler re-firing a missed cron tick)
     trigger: Mapped[str] = mapped_column(String(20), nullable=False)
     # running | succeeded | failed
     status: Mapped[str] = mapped_column(String(20), nullable=False)
