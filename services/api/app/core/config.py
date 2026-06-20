@@ -171,6 +171,37 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── SEO / discovery ──────────────────────────────────────────────────────
+    saferskills_site_origin: str = Field(
+        default="https://saferskills.ai",
+        description=(
+            "Canonical public origin of the SaferSkills site, used to build "
+            "absolute `<loc>` URLs in the generated sitemap and the URL set sent "
+            "to IndexNow. Distinct from `public_base_url` (the webapp dev/preview "
+            "origin used for capability share_urls): this is always the real "
+            "saferskills.ai apex so crawler-facing URLs are clean regardless of "
+            "the internal proxy origin. See `.claude/rules/environment-config.md`."
+        ),
+    )
+    saferskills_indexnow_key: str | None = Field(
+        default=None,
+        description=(
+            "IndexNow API key. Pings Bing/Yandex/DuckDuckGo/Seznam/Naver/Yep "
+            "(NOT Google) on new public, real-data pages. Unset (dev/test/CI) → "
+            "the submitter is a no-op. The key file is served statically at "
+            "`webapp/public/<KEY>.txt` (provisioned out-of-band)."
+        ),
+    )
+    saferskills_indexnow_key_location: str | None = Field(
+        default=None,
+        description=(
+            "Absolute URL of the IndexNow key verification file "
+            "(`https://saferskills.ai/<KEY>.txt`). Sent as `keyLocation` in the "
+            "IndexNow POST body. Unset → omitted (the engines then look for the "
+            "key at the host root)."
+        ),
+    )
+
     # ── Observability (all optional) ──────────────────────────────────────
     sentry_dsn: str | None = Field(default=None, description="Sentry DSN; None disables.")
     otel_exporter_otlp_endpoint: str | None = Field(

@@ -306,6 +306,8 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
+          SAFERSKILLS_INDEXNOW_KEY: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY }}
+          SAFERSKILLS_INDEXNOW_KEY_LOCATION: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY_LOCATION }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/worker
@@ -332,6 +334,12 @@ jobs:
           fi
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-worker-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
+          fi
+          if [ -n "$SAFERSKILLS_INDEXNOW_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SAFERSKILLS_INDEXNOW_KEY="$SAFERSKILLS_INDEXNOW_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_INDEXNOW_KEY_LOCATION" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging SAFERSKILLS_INDEXNOW_KEY_LOCATION="$SAFERSKILLS_INDEXNOW_KEY_LOCATION"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-worker-staging --json | jq -r '.[].id' | while read mid; do
@@ -535,6 +543,8 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
+          SAFERSKILLS_INDEXNOW_KEY: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY }}
+          SAFERSKILLS_INDEXNOW_KEY_LOCATION: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY_LOCATION }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/worker
@@ -561,6 +571,12 @@ jobs:
           fi
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-worker SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
+          fi
+          if [ -n "$SAFERSKILLS_INDEXNOW_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-worker SAFERSKILLS_INDEXNOW_KEY="$SAFERSKILLS_INDEXNOW_KEY"
+          fi
+          if [ -n "$SAFERSKILLS_INDEXNOW_KEY_LOCATION" ]; then
+            flyctl secrets set --stage --app saferskills-worker SAFERSKILLS_INDEXNOW_KEY_LOCATION="$SAFERSKILLS_INDEXNOW_KEY_LOCATION"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-worker --json | jq -r '.[].id' | while read mid; do

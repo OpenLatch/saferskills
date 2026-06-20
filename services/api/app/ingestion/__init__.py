@@ -60,6 +60,8 @@ procrastinate_app = App(
         # Durable auto-scan pipeline (scan_capability_repo + auto_scan_reconcile
         # + scan_stalled_retrier) — replaces the popularity-gated deep/lite triggers.
         "app.ingestion.tasks_scan",
+        # IndexNow search-engine ping (fired post-commit from scan completion).
+        "app.ingestion.tasks_indexnow",
         "app.ingestion.tasks_archive",
         "app.ingestion.tasks_authors",
         "app.ingestion.tasks_retention",
@@ -117,6 +119,7 @@ ALL_QUEUES: list[str] = [
     "ingest_pypi",
     "ingest_aggregator",
     "scan",
+    "indexnow",
     "periodic",
     "default",
 ]

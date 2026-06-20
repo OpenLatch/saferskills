@@ -11,7 +11,7 @@ import ItemTabs from '@/components/item/ItemTabs.tsx'
 import InstallCard from '@/components/item/InstallCard.tsx'
 import VendorResponseBlock from '@ui/components/molecules/VendorResponseBlock.tsx'
 import { fetchItemBySlug } from '@/lib/api/items'
-import { scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
+import { isIndexableScan, scoredTier, TIER_TO_STRIPE } from '@/lib/tier'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-item.css'
@@ -68,12 +68,20 @@ const description =
 const registries = item.registries.length ? item.registries.join(' · ') : '—'
 const scoreLabel = score != null ? `${score}/100` : 'unscored'
 const installsTotal = install_activity.all_time
+
+// SEO-T9: only pages carrying COMPLETED scan data are indexable. A never-scanned
+// or placeholder item (`tier === 'unscoped'`, score 0) is `noindex` so the thin
+// tail can't drag the domain in the 2026 core updates. `isIndexableScan` is the
+// SAME predicate as the sitemap `_items` filter (`tier != 'unscoped'`) so the
+// indexed set and the sitemap set can never drift.
+const indexable = isIndexableScan(latest_scan)
 ---
 
 <Base
   title={`${item.display_name} ${scoreLabel} — SaferSkills`}
   description={`SaferSkills audit of ${item.display_name} by ${item.github_org}: ${scoreLabel}. Independent, methodology-open, free.`}
   ogImage={new URL(`/og/item/${slug}.png`, Astro.site).href}
+  noindex={!indexable}
 >
   <NavBar client:idle activePath={Astro.url.pathname} />
 

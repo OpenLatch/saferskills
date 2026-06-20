@@ -37,6 +37,7 @@ from app.routers import (
     installs,
     items,
     scans,
+    sitemap,
     stats,
     vendor,
     webhooks,
@@ -225,6 +226,8 @@ app.include_router(scans.router, prefix="/api/v1")
 app.include_router(agent_scans.router, prefix="/api/v1")
 app.include_router(agent_scans.pack_keys_router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
+# Sitemap — DB-backed crawl-discovery index + shards (webapp relays at the apex).
+app.include_router(sitemap.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(vendor.router, prefix="/api/v1")
 # Install CLI support — opt-in install telemetry. (Finding prose is inlined

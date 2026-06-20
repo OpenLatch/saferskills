@@ -6820,6 +6820,67 @@
         ]
       }
     },
+    "/api/v1/sitemap/index.xml": {
+      "get": {
+        "description": "The `<sitemapindex>`. Always lists the webapp-owned `static` shard first,\nthen one shard per \u226450k rows of items / scans / agents.",
+        "operationId": "sitemap_index_api_v1_sitemap_index_xml_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sitemap Index",
+        "tags": [
+          "seo"
+        ]
+      }
+    },
+    "/api/v1/sitemap/shard/{name}.xml": {
+      "get": {
+        "description": "A single shard `<urlset>`. `name` is `<section>-<page>` (e.g. `items-1`).\nAn out-of-range / empty page renders a valid empty urlset; an unknown section\nor a malformed page index \u2192 404.",
+        "operationId": "sitemap_shard_api_v1_sitemap_shard__name__xml_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sitemap Shard",
+        "tags": [
+          "seo"
+        ]
+      }
+    },
     "/api/v1/stats": {
       "get": {
         "operationId": "get_stats_api_v1_stats_get",

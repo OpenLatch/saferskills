@@ -38,6 +38,55 @@ logger = logging.getLogger(__name__)
 
 STAGES_SCORING = ("security", "supply_chain", "maintenance", "transparency", "community")
 
+
+async def _ping_indexnow_for_run(session: AsyncSession, run: ScanRun) -> None:
+    """Post-commit IndexNow ping for a freshly committed run.
+
+    `persist_completed_scan_run` fans out one capability→item per cap internally
+    and returns only `run` (no slugs), so re-derive the linked catalog-item slugs
+    via `persistence.run_catalog_item_slugs` AFTER the commit. Only PUBLIC,
+    completed, non-firehose runs yield URLs (`indexnow_urls_for_run` gates that) —
+    a bulk `ingestion` / `rescan_rules` run is a no-op. Best-effort: never raises
+    into the scan-completion caller.
+    """
+    try:
+        from app.seo.indexnow import indexnow_urls_for_run
+
+        slugs = await persistence.run_catalog_item_slugs(session, run.id)
+        urls = indexnow_urls_for_run(run, slugs)
+        if not urls:
+            return
+        from app.ingestion.tasks_indexnow import defer_indexnow_ping
+
+        await defer_indexnow_ping(urls)
+    except Exception:
+        logger.debug("indexnow ping skipped for run %s", run.id, exc_info=True)
+
+
+async def _ping_indexnow_for_scan(session: AsyncSession, scan: Scan) -> None:
+    """Post-commit IndexNow ping for a single-capability scan completion (the
+    vendor-appeal / legacy `scan_run` path).
+
+    The vendor-appeal rescan (`vendor.py` → `scan_run`, source `rescan_appeal`)
+    refreshes a public item page with new findings, which D-07-04 wants pinged.
+    Only a public, non-archived, completed (`tier != 'unscoped'`), non-firehose
+    scan yields a URL. Best-effort: never raises into the caller.
+    """
+    try:
+        from app.models.catalog_item import CatalogItem
+        from app.seo.indexnow import indexnow_urls_for_scan
+
+        item = await session.get(CatalogItem, scan.catalog_item_id)
+        urls = indexnow_urls_for_scan(scan, item)
+        if not urls:
+            return
+        from app.ingestion.tasks_indexnow import defer_indexnow_ping
+
+        await defer_indexnow_ping(urls)
+    except Exception:
+        logger.debug("indexnow ping skipped for scan %s", scan.id, exc_info=True)
+
+
 # A run still pending/running past this is an orphan of an interactive
 # (asyncio.create_task) submission dropped by a restart — recover marks it failed.
 _STALE_RUN_GRACE_MINUTES = 15
@@ -163,6 +212,9 @@ async def scan_run(
             else:
                 await persistence.persist_completed_scan(session, cached_scan, result)
                 await session.commit()
+                # Post-commit: ping IndexNow for a public, non-firehose item scan
+                # (covers the vendor-appeal rescan path).
+                await _ping_indexnow_for_scan(session, cached_scan)
 
         await _emit(scan_id, "sign", 100, "completed", scan_id=scan_id)
         await _emit(scan_id, "done", 100, "completed", scan_id=scan_id)
@@ -256,6 +308,8 @@ async def scan_run_repo(
             else:
                 await persistence.persist_completed_scan_run(session, run, repo)
                 await session.commit()
+                # Post-commit: ping IndexNow for a public, non-firehose run.
+                await _ping_indexnow_for_run(session, run)
 
         await _emit(run_id, "sign", 100, "completed", scan_run_id=run_id)
         await _emit(run_id, "done", 100, "completed", scan_run_id=run_id)
@@ -365,6 +419,8 @@ async def scan_run_upload(
                     session, run, repo, full_files_index=files_index
                 )
                 await session.commit()
+                # Post-commit: ping IndexNow for a public, non-firehose run.
+                await _ping_indexnow_for_run(session, run)
 
         await _emit(run_id, "sign", 100, "completed", scan_run_id=run_id)
         await _emit(run_id, "done", 100, "completed", scan_run_id=run_id)
