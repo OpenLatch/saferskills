@@ -10,14 +10,15 @@ export const prerender = false
  * Per-scan 1200×630 social-share card for a public scan RUN. `scan_id` is a run id
  * (the `/scans/<id>` report id the public feed + share surfaces expose), so it is
  * resolved via `fetchScanRunById`, never the per-capability `/scans/<id>` endpoint.
- * Unlisted runs are never card-able (404).
+ * Only a COMPLETED public run is card-able — an unlisted run (anti-leakage) or a
+ * pending/running/failed run (no real score to render) is never carded (404).
  */
 export const GET: APIRoute = async ({ params }) => {
   const { scan_id } = params
   if (!scan_id) return new Response('Bad request', { status: 400 })
 
   const run = await fetchScanRunById(scan_id).catch(() => null)
-  if (!run || run.visibility === 'unlisted') {
+  if (!run || run.visibility === 'unlisted' || run.status !== 'completed') {
     return new Response('Scan not found', { status: 404 })
   }
 

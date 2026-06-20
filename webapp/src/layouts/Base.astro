@@ -28,6 +28,8 @@ const {
 } = Astro.props
 import '@/styles/global.css'
 import NavStars from '@/components/NavStars.tsx'
+import JsonLd from '@/components/seo/JsonLd.astro'
+import { organizationJsonLd } from '@/lib/jsonld'
 const ogImageUrl = ogImage ?? new URL('/og-image.png', Astro.site).href
 // Never put the token-bearing page URL in shareable meta on a noindex page.
 const ogUrl = noindex ? new URL('/', Astro.site).href : Astro.url.href
@@ -65,6 +67,11 @@ const ogUrl = noindex ? new URL('/', Astro.site).href : Astro.url.href
     <meta name="twitter:image" content={ogImageUrl} />
 
     <title>{title}</title>
+
+    {/* Site-wide Organization JSON-LD (SEO-T4). XSS-safe renderer; the publisher
+        identity is page-independent. Per-page schemas (SoftwareApplication /
+        BreadcrumbList) are emitted by the individual route templates. */}
+    <JsonLd schema={organizationJsonLd()} />
 
     {/*
       FOUC-prevention: applies `<html class="dark">` BEFORE first paint.

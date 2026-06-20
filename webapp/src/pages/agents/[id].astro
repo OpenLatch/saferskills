@@ -14,6 +14,7 @@ import AgentScanPollBoard from '@/components/agent/AgentScanPollBoard.tsx'
 
 import { fetchAgentScanRunById } from '@/lib/api/agent-scans'
 import { isPreGrade, isReportable } from '@/lib/api/agent-scan-types'
+import { agentOgImage } from '@/lib/seo/og-image'
 import { formatScannedAt } from '@/lib/agent/format'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
@@ -67,6 +68,7 @@ const runtimeName = runtimeLabel(run.runtime)
       ? `Auditing ${run.agent_name} — SaferSkills`
       : `${run.agent_name} — agent scan${scoreLabel} — SaferSkills`
   }
+  ogImage={agentOgImage(run.id, run.score, Astro.site)}
   description={
     preGrade
       ? `Live behavioral agent scan of ${run.agent_name} — an open adversarial pack is running.`

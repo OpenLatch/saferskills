@@ -14,6 +14,7 @@ import ScanRunReport from '@/components/scan/ScanRunReport.astro'
 
 import { fetchScanRunById } from '@/lib/api/scans'
 import { reportIdentity } from '@/lib/report-identity'
+import { scanOgImage } from '@/lib/seo/og-image'
 import { fetchPlatformStats } from '@/lib/api/stats'
 import { fetchOrNull, pickCount } from '@/lib/fallback'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
@@ -51,6 +52,7 @@ const { uploadName, baseTitle } = reportIdentity(run)
 
 <Base
   title={isInProgress ? `Auditing ${baseTitle} — SaferSkills` : `${baseTitle} ${run.repo_aggregate_score}/100 — SaferSkills`}
+  ogImage={scanOgImage(run.id, run.status, Astro.site)}
   description={
     isInProgress
       ? `Live audit of ${run.github_url ?? baseTitle} — independent detection rules running.`
