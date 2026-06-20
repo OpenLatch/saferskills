@@ -1,0 +1,88 @@
+/* Per-page CSS for /500 (branded SSR error page).
+ *
+ * Minimal, self-contained, fully static — the 404 page uses a bespoke `.nf-*`
+ * vocabulary tied to its HeroActionCards layout, which this page deliberately
+ * does NOT reuse (a 500 must fetch nothing). Own classes, centered single
+ * column, NavBar + Footer chrome from Base.
+ *
+ * Token-only (design-system.md § CSS token discipline) — no raw hex. The faint
+ * decorative grid is the `--bg-plus-grid-soft` token (defined + themed in
+ * tokens.css), so this file carries no encoded-hex data-URL of its own.
+ */
+
+.error-page {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-plus-grid-soft);
+  background-size: 48px 48px;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - 72px);
+}
+.error-page > .container {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 40px;
+  padding-bottom: 72px;
+  gap: 18px;
+}
+
+.error-code {
+  font-family: var(--font-loud);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: clamp(64px, 12vw, 128px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--brand-accent);
+  margin: 0;
+}
+
+.error-page h1 {
+  font-family: var(--font-sans);
+  font-size: clamp(32px, 4.6vw, 56px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  margin: 0;
+  max-width: 18ch;
+  text-wrap: balance;
+  color: var(--fg-1);
+}
+
+.error-lede {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 520px;
+  text-wrap: pretty;
+}
+
+.error-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+@media (max-width: 640px) {
+  .error-page > .container {
+    min-height: 0;
+    padding-top: 32px;
+    padding-bottom: 56px;
+  }
+  .error-actions {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+  }
+}

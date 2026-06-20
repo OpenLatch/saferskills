@@ -20,9 +20,11 @@ describe('static sitemap shard', () => {
     expect(xml).toContain('<loc>https://saferskills.ai/</loc>')
     expect(xml).toContain('<loc>https://saferskills.ai/capabilities</loc>')
     expect(xml).toContain('<loc>https://saferskills.ai/agents</loc>')
-    // `/research/...` is intentionally absent — that page ships in plan 03; a
-    // sitemap loc to a 404 would be a crawl-quality regression.
-    expect(xml).not.toContain('saferskills.ai/research')
+    // The evergreen State-of report (plan 03) — a real prerendered page carrying
+    // original census data, so it belongs in the static shard.
+    expect(xml).toContain(
+      '<loc>https://saferskills.ai/research/state-of-ai-agent-skill-security</loc>'
+    )
   })
 
   it('includes every docs slug via idToSlug', async () => {

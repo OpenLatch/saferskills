@@ -1,0 +1,185 @@
+/* Per-page CSS for /research/state-of-ai-agent-skill-security.
+ *
+ * The evergreen "State of AI Agent Skill Security" report. Mirrors the /about
+ * page template: PageHead + PageRidge at top, alternating .page-section bands,
+ * RidgeStars dividers, CtaBand + Footer at bottom. Page-specific surfaces:
+ *   .research-band    — generic content section wrapper (prose + headings)
+ *   .research-answer  — the answer-first citable lead (the .sk-answer vocab,
+ *                       redefined here since page-item.css is not imported)
+ *   .research-table   — the per-category / per-severity findings table
+ *   .research-steps   — the "reproduce it yourself" labelled step list
+ *
+ * Token-only (design-system.md § CSS token discipline) — no raw hex.
+ */
+
+/* Generic padding + background are owned by .page-section (components.css). */
+.research-band .container {
+  max-width: 880px;
+}
+.research-band p {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  margin: 0 0 16px;
+  max-width: 760px;
+  text-wrap: pretty;
+}
+.research-band p:last-child {
+  margin-bottom: 0;
+}
+.research-band a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.research-band strong {
+  color: var(--fg-1);
+  font-weight: 700;
+}
+
+/* ─────────── Answer-first lead (SEO-T7) ───────────
+ * The .sk-answer / .answer-q / .answer-lead vocabulary mirrors page-item.css,
+ * redefined here because /research does not import page-item.css. Scoped under
+ * .research-answer so the two never collide. */
+.research-answer.sk-answer {
+  background: transparent;
+  padding: 0;
+}
+.research-answer .answer-q {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.015em;
+  color: var(--fg-1);
+}
+.research-answer .answer-lead {
+  margin: 12px 0 0;
+  max-width: 72ch;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--fg-1);
+}
+.research-answer .answer-asof {
+  margin: 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+
+/* ─────────── Findings table ─────────── */
+.research-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0 14px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+.research-table th,
+.research-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-line);
+  vertical-align: top;
+}
+.research-table thead th {
+  border-top: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-1);
+  background: var(--color-paper-deep);
+}
+.research-table td {
+  color: var(--fg-2);
+  line-height: 1.45;
+}
+.research-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.research-table code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--brand-accent);
+}
+.research-note {
+  font-size: 14px;
+  color: var(--fg-3);
+}
+.research-note code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+/* ─────────── Reproduce-it-yourself step list ─────────── */
+.research-steps {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+}
+.research-steps li {
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-line);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+.research-steps li:first-child {
+  border-top: 0;
+}
+.research-steps .step-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-1);
+  margin-bottom: 4px;
+}
+.research-steps a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ─────────── Dark mode ─────────── */
+html.dark .research-table,
+html.dark .research-steps {
+  background: var(--bg-surface-mute);
+  border-color: var(--color-line);
+}
+html.dark .research-table thead th {
+  background: var(--color-paper-deep);
+}
+
+/* ─────────── Mobile responsive ─────────── */
+@media (max-width: 768px) {
+  .research-answer .answer-q {
+    font-size: 21px;
+  }
+  .research-answer .answer-lead {
+    font-size: 16px;
+  }
+  .research-table {
+    font-size: 13px;
+  }
+  .research-table th,
+  .research-table td {
+    padding: 10px 12px;
+  }
+}

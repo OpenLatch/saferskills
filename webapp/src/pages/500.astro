@@ -1,0 +1,38 @@
+---
+export const prerender = true // fully static — a 500 happens when the API is down, so NEVER fetch.
+
+import Base from '@/layouts/Base.astro'
+import NavBar from '@ui/components/molecules/NavBar.tsx'
+import Button from '@ui/components/atoms/Button.tsx'
+import Footer from '@ui/components/atoms/Footer.astro'
+
+import '@/styles/page-500.css'
+
+// NO API fetch here — deliberately, unlike the 404 page. A 500 is rendered by
+// the Astro Node adapter precisely when an SSR render threw — often because the
+// backend is unreachable — so this page must depend on no live data. `noStats`
+// suppresses Base's site-wide NavStars island (the lone browser fetch on an
+// otherwise static page); the NavBar renders without a live star count (its
+// build-time fallback is fine). The 502 proxy JSON covers backend-down on the
+// /api/* path separately.
+---
+<Base title="Something went wrong — SaferSkills" noindex={true} noStats={true}>
+  <NavBar client:idle activePath={Astro.url.pathname} />
+
+  <main class="error-page">
+    <div class="container">
+      <p class="error-code">500</p>
+      <h1>Something went wrong on our end.</h1>
+      <p class="error-lede">
+        The scan engine or site hit an unexpected error. This isn't your fault —
+        it's logged and we're on it. Try again in a moment.
+      </p>
+      <div class="error-actions">
+        <Button as="a" href="/">Back to home</Button>
+        <Button as="a" href="https://status.saferskills.ai" variant="paper">Check status</Button>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Base>
