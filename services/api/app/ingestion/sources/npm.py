@@ -1,8 +1,21 @@
-"""npm replication _changes stream adapter.
+"""npm registry search-API adapter.
 
-Streams `replicate.npmjs.com/_changes?since=<seq>&include_docs=true
-&feed=continuous&heartbeat=30000`, keeping only packages whose name starts with
-any prefix in `discovery.name_prefixes`. Persists the last `seq` as the cursor.
+Enumerate-then-fetch (mirrors the pypi adapter): for each configured search query,
+page the npm registry search API (`registry.npmjs.org/-/v1/search`) and keep package
+names that actually start with one of `discovery.name_prefixes` (the search is fuzzy —
+`text=mcp-server-` returns 300k+ loosely-related hits, relevance-ranked, so the real
+prefix matches cluster near the top and a bounded page walk captures them). Then GET
+each candidate's packument (`registry.npmjs.org/<name>`) and yield it; the packument
+has the SAME `dist-tags`/`versions`/`repository`/`license` shape the retired
+`_changes?include_docs=true` `doc` had, so `normalize()` is reused unchanged.
+
+This replaces the dead CouchDB replication feed (`replicate.npmjs.com/_changes`), which
+npm deprecated — it returned `last_seq=0` / 0 items / a hard HTTP 400 every cycle.
+
+Cursor: stateless per-cycle re-scan (these niche prefixes yield hundreds of candidates,
+not millions), relying on Hishel conditional GET + content-hash no-op upsert to stay
+cheap rather than a per-query offset cursor. The `completed`-gated terminal `write_cursor`
+still resets the failure streak / stamps `last_successful_cycle_at` on a clean cycle.
 
 Cadence: hourly at :00 UTC.
 """
@@ -10,7 +23,6 @@ Cadence: hourly at :00 UTC.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from collections.abc import AsyncIterator
 from typing import Any, cast
@@ -30,6 +42,13 @@ logger = structlog.get_logger(__name__)
 _GITHUB_REPO_RE = re.compile(r"(?:git\+)?https://github\.com/([^/]+)/([^/\s\.]+?)(?:\.git)?$")
 _GITHUB_SSH_RE = re.compile(r"git\+ssh://git@github\.com/([^/]+)/([^/\s\.]+?)(?:\.git)?$")
 
+# npm's `-/v1/search` caps `size` at 250 and deep pagination at `from` ≈ 10k. The
+# results are relevance-ranked, so the packages whose name actually starts with a
+# target prefix cluster in the first pages — a small page cap captures them while
+# bounding the per-cycle enumeration cost (the global cap is `max_items_per_cycle`).
+_SEARCH_PAGE_SIZE = 250
+_MAX_SEARCH_PAGES_PER_QUERY = 8
+
 
 def _parse_github_coords(repo_url: str) -> tuple[str | None, str | None]:
     for pattern in (_GITHUB_REPO_RE, _GITHUB_SSH_RE):
@@ -39,122 +58,179 @@ def _parse_github_coords(repo_url: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _packument_url(registry_base: str, name: str) -> str:
+    """Packument URL. Scoped names (`@scope/pkg`) encode the `/` as `%2F` per the npm
+    registry convention; unscoped names have no `/` so this is a no-op."""
+    return f"{registry_base.rstrip('/')}/{name.replace('/', '%2F')}"
+
+
 @register_adapter("npm")
 class NpmAdapter(RegistryAdapter):
-    """Stream the npm replication _changes feed for MCP/skill packages."""
+    """Enumerate MCP/skill packages via the npm registry search API, then fetch each
+    packument."""
 
     def __init__(self, config: SourceConfig) -> None:
         super().__init__(config)
 
+    async def _enumerate_candidates(
+        self, client: Any, *, search_url: str, queries: list[str], name_prefixes: list[str]
+    ) -> tuple[list[str], bool]:
+        """Page the search API for every query, returning `(candidates, any_search_ok)`.
+
+        `candidates` is the de-duplicated package names that actually start with a target
+        prefix (search is fuzzy). `any_search_ok` is True iff at least one search request
+        returned 200/304 — the gate that distinguishes a genuine empty result (a real
+        response with no matches → success) from a total registry failure (every query
+        429'd / errored → a failed cycle, never a silent false-green). Best-effort per
+        query: a search-page non-200 / error breaks THAT query's pagination and moves
+        on — never aborts the whole enumeration."""
+        seen: set[str] = set()
+        candidates: list[str] = []
+        any_ok = False
+        for query in queries:
+            for page in range(_MAX_SEARCH_PAGES_PER_QUERY):
+                try:
+                    r = await client.get(
+                        search_url,
+                        params={
+                            "text": query,
+                            "size": str(_SEARCH_PAGE_SIZE),
+                            "from": str(page * _SEARCH_PAGE_SIZE),
+                        },
+                    )
+                except Exception:
+                    logger.warning("npm.search_error", query=query, page=page)
+                    break
+                if r.status_code not in (200, 304):
+                    logger.warning("npm.search_non_200", query=query, status=r.status_code)
+                    break
+                any_ok = True
+                try:
+                    data: dict[str, Any] = r.json()
+                except Exception:
+                    break
+                objects = cast("list[Any]", data.get("objects") or [])
+                for obj in objects:
+                    if not isinstance(obj, dict):
+                        continue
+                    obj_d = cast("dict[str, Any]", obj)
+                    pkg: dict[str, Any] = cast("dict[str, Any]", obj_d.get("package") or {})
+                    name = str(pkg.get("name") or "")
+                    if name and name not in seen and any(name.startswith(p) for p in name_prefixes):
+                        seen.add(name)
+                        candidates.append(name)
+                if len(objects) < _SEARCH_PAGE_SIZE:
+                    break  # last page for this query
+        return candidates, any_ok
+
     async def list_items(self, client: Any) -> AsyncIterator[RawItem]:
-        """Stream the continuous changes feed, yielding matching package docs."""
+        """Enumerate candidates via search, then yield one RawItem per packument."""
         from app.db.session import AsyncSessionLocal
         from app.ingestion.framework.cursor import read_cursor, write_cursor
 
-        changes_url: str = self.config.discovery.get(
-            "changes_url", "https://replicate.npmjs.com/_changes"
+        search_url: str = self.config.discovery.get(
+            "search_url", "https://registry.npmjs.org/-/v1/search"
+        )
+        registry_base: str = self.config.discovery.get(
+            "registry_base", "https://registry.npmjs.org"
         )
         name_prefixes: list[str] = self.config.discovery.get("name_prefixes", [])
-        max_items: int = int(self.config.discovery.get("max_items_per_cycle", 5000))
+        # `search_queries` defaults to the prefixes themselves (good relevance text).
+        queries: list[str] = self.config.discovery.get("search_queries", []) or name_prefixes
+        max_items: int = int(self.config.discovery.get("max_items_per_cycle", 500))
 
         async with AsyncSessionLocal() as session:
-            cursor = await read_cursor(session, self.config.name)
+            await read_cursor(session, self.config.name)
 
-        last_seq = cursor.get("seq", 0)
         items_yielded = 0
-
-        # `completed` gates the terminal cursor write in the `finally` below:
-        # True ONLY when the changes feed drained without interruption. A non-200,
-        # a mid-stream exception, OR a worker-cancel/abandonment of this async
-        # generator all leave it False → the cycle is recorded as failed.
+        # `completed` gates the terminal cursor write in the `finally` below: True ONLY
+        # when the enumerate-then-fetch walk finishes naturally. A mid-walk exception or
+        # worker-cancel/abandonment leaves it False → the cycle is recorded failed
+        # (success=False), advancing the streak rather than silently greening a no-op.
         completed = False
         try:
-            async with client.stream(
-                "GET",
-                changes_url,
-                params={
-                    "since": str(last_seq),
-                    "include_docs": "true",
-                    "feed": "continuous",
-                    "heartbeat": "30000",
-                },
-            ) as r:
-                if r.status_code != 200:
-                    # A 429/5xx on the changes stream means we got NO data — leave
-                    # `completed=False` so the `finally` records the cycle as failed
-                    # (success=False) rather than silently greening a no-op cycle.
-                    # The next tick retries from the same `seq`.
-                    logger.warning("npm.stream_non_200", status=r.status_code, last_seq=last_seq)
-                    return
-                async for line in r.aiter_lines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        _entry: Any = json.loads(line)
-                        entry: dict[str, Any] = (
-                            cast("dict[str, Any]", _entry) if isinstance(_entry, dict) else {}
-                        )
-                    except json.JSONDecodeError:
-                        continue
-                    seq: Any = entry.get("seq")
-                    _doc: Any = entry.get("doc")
-                    doc: dict[str, Any] = (
-                        cast("dict[str, Any]", _doc) if isinstance(_doc, dict) else {}
-                    )
-                    pkg_name: str = str(doc.get("name") or "")
-                    if not pkg_name:
-                        # Heartbeat / no doc — advance seq but don't yield.
-                        if seq is not None:
-                            last_seq = seq
-                        continue
+            candidates, any_search_ok = await self._enumerate_candidates(
+                client,
+                search_url=search_url,
+                queries=queries,
+                name_prefixes=name_prefixes,
+            )
+            if not any_search_ok:
+                # Every search request failed (registry down / rate-limited) — record the
+                # cycle as failed (completed stays False) rather than silently greening a
+                # no-op. A real 200 with zero matches still counts as `any_search_ok` and
+                # completes successfully below.
+                logger.warning("npm.search_all_failed", queries=len(queries))
+                return
+            for pkg_name in candidates:
+                if items_yielded >= max_items:
+                    break
+                r = await client.get(_packument_url(registry_base, pkg_name))
 
-                    # Filter by name prefix.
-                    if not any(pkg_name.startswith(p) for p in name_prefixes):
-                        if seq is not None:
-                            last_seq = seq
-                        continue
-
-                    body = json.dumps(doc, separators=(",", ":"), sort_keys=True).encode()
+                if r.status_code == 304:
                     yield RawItem(
                         source_id=f"npm/{pkg_name}",
-                        raw_body_bytes=body,
-                        raw_body_hash=hashlib.sha256(body).hexdigest(),
-                        http_status=200,
+                        raw_body_bytes=b"",
+                        raw_body_hash=hashlib.sha256(b"").hexdigest(),
+                        http_status=304,
+                        etag=r.headers.get("etag"),
+                        from_cache=True,
                         fetch_tier=1,
-                        payload_hint=doc,
                     )
-                    if seq is not None:
-                        last_seq = seq
                     items_yielded += 1
-                    if items_yielded >= max_items:
-                        break
-                completed = True  # the changes feed drained without interruption
-        except Exception:
-            # Stream closed or network error mid-stream — `completed` stays False,
-            # so the `finally` records this as a failed cycle (advances the streak).
-            logger.warning("npm.stream_interrupted", last_seq=last_seq)
+                    continue
+
+                if r.status_code != 200:
+                    yield RawItem(
+                        source_id=f"npm/{pkg_name}",
+                        raw_body_bytes=r.content,
+                        raw_body_hash=hashlib.sha256(r.content).hexdigest(),
+                        http_status=r.status_code,
+                        error_reason=("http_5xx" if r.status_code >= 500 else "other"),
+                        fetch_tier=1,
+                    )
+                    items_yielded += 1
+                    continue
+
+                body = r.content
+                try:
+                    doc: dict[str, Any] = r.json()
+                except Exception:
+                    items_yielded += 1
+                    continue
+
+                yield RawItem(
+                    source_id=f"npm/{pkg_name}",
+                    raw_body_bytes=body,
+                    raw_body_hash=hashlib.sha256(body).hexdigest(),
+                    http_status=200,
+                    etag=r.headers.get("etag"),
+                    from_cache=False,
+                    fetch_tier=1,
+                    payload_hint=doc,
+                )
+                items_yielded += 1
+            completed = True  # the enumerate-then-fetch walk finished without interruption
         finally:
-            # Terminal cursor write on EVERY exit path — clean drain, mid-stream
-            # error, AND worker-cancel/abandonment of this async generator (the
-            # `finally` runs on a CancelledError/GeneratorExit too, before it
-            # propagates). The previous terminal write sat OUTSIDE the try, so an
-            # abandoned cycle skipped it entirely: a streak advanced by an earlier
-            # non-200/interrupt then never reset, which the dashboard read as
-            # `npm:consecutive_failures` despite 6 succeeded runs (count=8 /
-            # last_success=NULL). `success=completed` resets the streak + stamps
-            # `last_successful_cycle_at` only on a fully-drained feed.
+            # Terminal cursor write on EVERY exit path — clean drain, mid-walk error, AND
+            # worker-cancel/abandonment of this async generator (the `finally` runs on a
+            # CancelledError/GeneratorExit too). `success=completed` resets the streak +
+            # stamps `last_successful_cycle_at` only on a fully-walked cycle.
             async with AsyncSessionLocal() as session:
                 await write_cursor(
                     session,
                     self.config.name,
-                    {"seq": last_seq},
+                    {"last_cycle_items": items_yielded},
                     success=completed,
                 )
                 await session.commit()
 
     def normalize(self, raw: RawItem) -> NormalizedItem | None:
-        """Map an npm package doc to a NormalizedItem."""
+        """Map an npm package packument to a NormalizedItem.
+
+        Unchanged from the `_changes` era — the search-API packument carries the same
+        `dist-tags`/`versions`/`repository`/`license` fields the replication `doc` did.
+        """
         if raw.http_status != 200:
             return None
         doc: dict[str, Any] = raw.payload_hint

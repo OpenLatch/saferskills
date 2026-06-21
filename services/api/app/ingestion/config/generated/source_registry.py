@@ -102,8 +102,7 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     "npm": frozenset(
         {
             "api.npmjs.org",
-            "registry.npmjs.com",
-            "replicate.npmjs.com",
+            "registry.npmjs.org",
         }
     ),
     "pulsemcp": frozenset(
@@ -165,9 +164,8 @@ ALL_HOSTS: frozenset[str] = frozenset(
         "pypi.org",
         "raw.githubusercontent.com",
         "registry.modelcontextprotocol.io",
-        "registry.npmjs.com",
+        "registry.npmjs.org",
         "registry.smithery.ai",
-        "replicate.npmjs.com",
         "skillhub.club",
         "skills.sh",
         "skillsmp.com",

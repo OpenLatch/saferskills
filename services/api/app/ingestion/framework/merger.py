@@ -63,6 +63,16 @@ def _now() -> dt.datetime:
     return dt.datetime.now(tz=dt.UTC)
 
 
+def _pending_slug() -> str:
+    """A fresh random staging slug for the no-coordinate fuzzy-merge queue.
+
+    Full 128-bit entropy (`uuid4().hex`) — NOT the legacy 32-bit `[:8]`, whose birthday
+    collisions on the re-fire-inflated pending pool raised IntegrityErrors that aborted
+    whole ingestion batches. Extracted so the (otherwise astronomically rare) collision
+    path is deterministically testable."""
+    return f"pending--{uuid.uuid4().hex}"
+
+
 _LICENSE_SPDX_MAX = 100  # catalog_items.license_spdx is VARCHAR(100)
 
 
@@ -412,38 +422,78 @@ class MergeEngine:
         return "added_with_merge_candidate"
 
     async def _insert_staging_row(self, n: NormalizedItem, source: str) -> uuid.UUID:
+        """Stage a no-GitHub-coordinate row for the fuzzy-merge queue (concurrency-safe).
+
+        Mirrors `_insert_new`'s hardening for the staging path: the INSERT runs inside a
+        SAVEPOINT (`begin_nested`) so a slug collision (or a deadlock) can't poison the
+        whole cycle's batch transaction, and uses INSERT … ON CONFLICT (slug) DO NOTHING
+        so a collision is a clean no-op (no `duplicate key` ERROR flooding the DB log
+        during a crawl) rather than the uncaught IntegrityError the plain
+        `session.flush()` raised — which aborted the entire batch. The previous path had
+        NEITHER guard plus a 32-bit slug (`uuid4().hex[:8]`), so on the re-fire-inflated
+        pending pool a birthday collision took down a whole cycle's batch.
+
+        The staging slug is PURELY RANDOM (`pending--<uuid hex>`, full 128-bit) — NOT a
+        content-derived capability identity — so the resolution on a (now vanishingly
+        rare) collision is regenerate-and-retry, NOT the re-SELECT/UPDATE path
+        `_insert_new` takes (there the slug IS the capability identity, so a conflict
+        means "a peer committed this capability"). The full-entropy slug makes a
+        collision astronomically unlikely; the bounded retry is a belt-and-suspenders
+        backstop.
+        """
         ckind, kind_signals, _qt, quality_signals, agents = classify_all(n)
         kind = n.kind or ckind  # honor the adapter hint (see _insert_new)
         now = _now()
-        item = CatalogItem(
-            kind=kind,
-            slug=f"pending--{uuid.uuid4().hex[:8]}",
-            display_name=n.display_name[:200],
-            github_url=n.github_url,
-            github_org=n.github_org,
-            github_repo=n.github_repo,
-            default_branch=n.default_branch or "main",
-            popularity_tier="indexed",
-            popularity_score=0,
-            popularity_rank_tier="long_tail",
-            agent_compatibility=agents,
-            quality_tier="low",  # un-disambiguated → hidden from default catalog
-            quality_signals=quality_signals,
-            kind_signals=kind_signals,
-            availability="available",
-            archived=False,
-            source_kind="github",
-            visibility="public",
-            consecutive404_count=0,
-            sources=[_source_entry(source, n.source_url)],
-            item_metadata={"pending_merge": True, "discovered_via": source},
-            created_at=now,
-            updated_at=now,
-        )
-        self.session.add(item)
-        await self.session.flush()
-        await self._upsert_item_source(item.id, source, n.source_url)
-        return item.id
+        base_values: dict[str, Any] = {
+            "kind": kind,
+            "display_name": n.display_name[:200],
+            "github_url": n.github_url,
+            "github_org": n.github_org,
+            "github_repo": n.github_repo,
+            "default_branch": n.default_branch or "main",
+            "popularity_tier": "indexed",
+            "popularity_score": 0,
+            "popularity_rank_tier": "long_tail",
+            "agent_compatibility": agents,
+            "quality_tier": "low",  # un-disambiguated → hidden from default catalog
+            "quality_signals": quality_signals,
+            "kind_signals": kind_signals,
+            "availability": "available",
+            "archived": False,
+            "source_kind": "github",
+            "visibility": "public",
+            "consecutive404_count": 0,
+            "sources": [_source_entry(source, n.source_url)],
+            "item_metadata": {"pending_merge": True, "discovered_via": source},
+            "created_at": now,
+            "updated_at": now,
+        }
+        for attempt in range(_MAX_UPSERT_ATTEMPTS):
+            try:
+                # SAVEPOINT so a deadlock OR a (DO-NOTHING-suppressed) slug collision
+                # rolls back THIS insert only, not the whole cycle's batch.
+                async with self.session.begin_nested():
+                    stmt = (
+                        pg_insert(CatalogItem)
+                        .values(slug=_pending_slug(), **base_values)
+                        .on_conflict_do_nothing(index_elements=["slug"])
+                        .returning(CatalogItem.id)
+                    )
+                    new_id = (await self.session.execute(stmt)).scalar_one_or_none()
+            except DBAPIError as exc:
+                if _is_deadlock(exc) and attempt < _MAX_UPSERT_ATTEMPTS - 1:
+                    logger.warning("merger.staging_insert_deadlock_retry", attempt=attempt)
+                    continue  # savepoint rolled back; regenerate the slug + retry
+                raise
+            if new_id is None:
+                # Slug collision (full-128-bit → astronomically rare): the DO NOTHING
+                # fired → regenerate a fresh random slug and retry.
+                logger.warning("merger.staging_slug_collision_retry", attempt=attempt)
+                continue
+            await self._upsert_item_source(new_id, source, n.source_url)
+            return new_id
+        # Only reached if every attempt collided/deadlocked — let the cycle retry take it.
+        raise RuntimeError("staging-row insert exhausted retries")
 
     async def _upsert_item_source(
         self, catalog_item_id: uuid.UUID, source: str, source_url: str | None

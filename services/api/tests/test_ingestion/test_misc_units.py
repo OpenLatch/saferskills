@@ -194,7 +194,7 @@ class TestSourceConfig:
     def test_defaults_applied(self) -> None:
         from app.ingestion.config.loader import SourceConfig
 
-        cfg = SourceConfig(name="npm", kind="api", hosts=["replicate.npmjs.com"])
+        cfg = SourceConfig(name="npm", kind="api", hosts=["registry.npmjs.org"])
         assert cfg.queue == "default"
         assert cfg.rate_limit_per_second == 0.1
 

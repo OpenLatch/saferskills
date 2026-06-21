@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -372,7 +371,8 @@ async def test_mcp_registry_completed_sweep_advances_watermark() -> None:
 
 
 # ---------------------------------------------------------------------------
-# npm continuous-feed list_items — terminal cursor write on EVERY exit path
+# npm search-API list_items — enumerate (search) then fetch (packument), with the
+# terminal cursor write on EVERY exit path
 # ---------------------------------------------------------------------------
 
 
@@ -380,45 +380,78 @@ def _npm_config() -> SourceConfig:
     return SourceConfig(
         name="npm",
         kind="api",
-        hosts=["replicate.npmjs.com"],
+        hosts=["registry.npmjs.org", "api.npmjs.org"],
         discovery={
-            "changes_url": "https://replicate.npmjs.com/_changes",
-            "name_prefixes": ["mcp-"],
+            "search_url": "https://registry.npmjs.org/-/v1/search",
+            "registry_base": "https://registry.npmjs.org",
+            "search_queries": ["mcp-server-"],
+            "name_prefixes": ["mcp-server-"],
+            "max_items_per_cycle": 100,
         },
     )
 
 
-class _FakeStream:
-    """Async-context-manager stand-in for `client.stream(...)`.
+def _npm_packument(name: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "description": "An MCP package",
+        "dist-tags": {"latest": "1.0.0"},
+        "versions": {
+            "1.0.0": {
+                "name": name,
+                "description": "An MCP package",
+                "repository": {"type": "git", "url": f"git+https://github.com/acme/{name}.git"},
+                "license": "MIT",
+            }
+        },
+    }
 
-    `aiter_lines()` yields the supplied JSON lines; if `interrupt_at` is set it
-    raises CancelledError at that index, faithfully reproducing a worker
-    cancel/abandonment of the changes-feed generator mid-stream.
+
+class _FakeNpmClient:
+    """Routes `.get(url)` between the search API and packument fetches.
+
+    A `/-/v1/search` request returns one page of `objects` built from `search_names`
+    (fewer than the page size, so the adapter's pagination stops after one page). A
+    packument request returns the doc for the matching name (200 by default, or the
+    status in `statuses[name]`); `interrupt_on` raises CancelledError when that
+    package's packument is fetched (a worker cancel mid-walk).
     """
 
     def __init__(
-        self, lines: list[str], *, status: int = 200, interrupt_at: int | None = None
+        self,
+        *,
+        search_names: list[str],
+        statuses: dict[str, int] | None = None,
+        interrupt_on: str | None = None,
     ) -> None:
-        self._lines = lines
-        self.status_code = status
-        self.headers: dict[str, str] = {}
-        self._interrupt_at = interrupt_at
+        self._search_names = search_names
+        self._statuses = statuses or {}
+        self._interrupt_on = interrupt_on
+        self.calls: list[str] = []
 
-    async def __aenter__(self) -> _FakeStream:
-        return self
-
-    async def __aexit__(self, *_: object) -> bool:
-        return False
-
-    async def aiter_lines(self) -> AsyncIterator[str]:
-        for i, line in enumerate(self._lines):
-            if self._interrupt_at is not None and i == self._interrupt_at:
-                raise asyncio.CancelledError
-            yield line
-
-
-def _npm_line(seq: int, name: str) -> str:
-    return json.dumps({"seq": seq, "doc": {"name": name, "dist-tags": {}, "versions": {}}})
+    async def get(self, url: str, **_: Any) -> Any:
+        self.calls.append(url)
+        if "/-/v1/search" in url:
+            return _make_response(
+                {
+                    "objects": [{"package": {"name": n}} for n in self._search_names],
+                    "total": len(self._search_names),
+                }
+            )
+        # Packument fetch — match the (possibly %2F-encoded) name at the URL tail.
+        for name in self._search_names:
+            if url.endswith(name.replace("/", "%2F")):
+                if self._interrupt_on == name:
+                    raise asyncio.CancelledError
+                status = self._statuses.get(name, 200)
+                if status == 304:
+                    resp = MagicMock()
+                    resp.status_code = 304
+                    resp.headers = {"etag": '"x"'}
+                    resp.content = b""
+                    return resp
+                return _make_response(_npm_packument(name), status=status)
+        return _make_response({}, status=404)
 
 
 def _npm_patches(write_cursor: AsyncMock) -> Any:
@@ -428,78 +461,78 @@ def _npm_patches(write_cursor: AsyncMock) -> Any:
     mock_session.commit = AsyncMock()
     return (
         patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
-        patch("app.ingestion.framework.cursor.read_cursor", AsyncMock(return_value={"seq": 0})),
+        patch("app.ingestion.framework.cursor.read_cursor", AsyncMock(return_value={})),
         patch("app.ingestion.framework.cursor.write_cursor", write_cursor),
     )
 
 
 @pytest.mark.asyncio
-async def test_npm_cursor_resets_on_success() -> None:
-    """A fully-drained changes feed writes the terminal cursor with success=True
-    (resets the streak + stamps last_successful_cycle_at). Reproduces the missing
-    reset behind the count=8 / last_success=NULL bug."""
+async def test_npm_search_yields_prefix_matches_and_resets_cursor() -> None:
+    """The search API enumerates candidates; only names that actually start with a
+    configured prefix are fetched (search is fuzzy), and a fully-walked cycle writes
+    the terminal cursor with success=True (resets the streak)."""
     from app.ingestion.sources.npm import NpmAdapter
 
     adapter = NpmAdapter(_npm_config())
-    lines = [_npm_line(5, "mcp-foo"), _npm_line(6, "mcp-bar")]
-    client = MagicMock()
-    client.stream = MagicMock(return_value=_FakeStream(lines))
+    # Two fuzzy hits — one true prefix match, one unrelated (must be dropped).
+    client = _FakeNpmClient(search_names=["mcp-server-foo", "totally-unrelated-lib"])
 
     write_cursor = AsyncMock()
     p1, p2, p3 = _npm_patches(write_cursor)
     with p1, p2, p3:
         items = [item async for item in adapter.list_items(client)]
 
-    assert len(items) == 2  # both mcp- packages yielded
+    # Only the prefix match is fetched + yielded.
+    assert len(items) == 1
+    assert items[0].source_id == "npm/mcp-server-foo"
+    assert items[0].http_status == 200
+    # The non-matching name never triggered a packument GET.
+    assert not any("totally-unrelated-lib" in c for c in client.calls)
     write_cursor.assert_awaited_once()
     await_args: Any = write_cursor.await_args
     assert await_args.kwargs.get("success") is True
-    assert await_args.args[2] == {"seq": 6}  # cursor advanced to the last seq
 
 
 @pytest.mark.asyncio
-async def test_npm_cursor_increments_on_interrupt() -> None:
-    """A worker-cancel mid-stream still writes a TERMINAL cursor (success=False) via
-    the `finally`, rather than skipping it and leaving the streak stale. On `main`
-    the terminal write sat outside the try, so abandonment never reset/advanced it —
-    the count=8 / last_success=NULL state."""
+async def test_npm_packument_non_200_isolated_cycle_still_succeeds() -> None:
+    """A single packument non-200 yields an error RawItem but does NOT fail the cycle —
+    the walk still completes and writes success=True (per-item isolation, like pypi)."""
     from app.ingestion.sources.npm import NpmAdapter
 
     adapter = NpmAdapter(_npm_config())
-    # First line processed (seq=5), then a cancel before the second.
-    lines = [_npm_line(5, "mcp-foo"), _npm_line(6, "mcp-bar")]
-    client = MagicMock()
-    client.stream = MagicMock(return_value=_FakeStream(lines, interrupt_at=1))
+    client = _FakeNpmClient(
+        search_names=["mcp-server-ok", "mcp-server-bad"],
+        statuses={"mcp-server-bad": 503},
+    )
+
+    write_cursor = AsyncMock()
+    p1, p2, p3 = _npm_patches(write_cursor)
+    with p1, p2, p3:
+        items = [item async for item in adapter.list_items(client)]
+
+    assert {it.http_status for it in items} == {200, 503}
+    write_cursor.assert_awaited_once()
+    await_args: Any = write_cursor.await_args
+    assert await_args.kwargs.get("success") is True  # one bad packument ≠ a failed cycle
+
+
+@pytest.mark.asyncio
+async def test_npm_cursor_failure_on_interrupt() -> None:
+    """A worker-cancel mid-walk still writes a TERMINAL cursor (success=False) via the
+    `finally`, advancing the streak rather than silently skipping the write."""
+    from app.ingestion.sources.npm import NpmAdapter
+
+    adapter = NpmAdapter(_npm_config())
+    client = _FakeNpmClient(
+        search_names=["mcp-server-foo", "mcp-server-bar"],
+        interrupt_on="mcp-server-bar",
+    )
 
     write_cursor = AsyncMock()
     p1, p2, p3 = _npm_patches(write_cursor)
     with p1, p2, p3, pytest.raises(asyncio.CancelledError):
         _ = [item async for item in adapter.list_items(client)]
 
-    # The terminal write STILL ran (in the finally) — as a FAILURE so the streak
-    # advances rather than being silently skipped.
-    write_cursor.assert_awaited_once()
-    await_args: Any = write_cursor.await_args
-    assert await_args.kwargs.get("success") is False
-    assert await_args.args[2] == {"seq": 5}  # the last seq seen before the cancel
-
-
-@pytest.mark.asyncio
-async def test_npm_cursor_failure_on_non_200() -> None:
-    """A non-200 on the changes stream records the cycle as failed (success=False)
-    via the finally, never silently greening a no-op."""
-    from app.ingestion.sources.npm import NpmAdapter
-
-    adapter = NpmAdapter(_npm_config())
-    client = MagicMock()
-    client.stream = MagicMock(return_value=_FakeStream([], status=503))
-
-    write_cursor = AsyncMock()
-    p1, p2, p3 = _npm_patches(write_cursor)
-    with p1, p2, p3:
-        items = [item async for item in adapter.list_items(client)]
-
-    assert items == []
     write_cursor.assert_awaited_once()
     await_args: Any = write_cursor.await_args
     assert await_args.kwargs.get("success") is False

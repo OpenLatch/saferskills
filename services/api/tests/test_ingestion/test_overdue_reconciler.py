@@ -51,9 +51,15 @@ def _patch_sources(monkeypatch: pytest.MonkeyPatch, mapping: dict[str, Any]) -> 
     monkeypatch.setattr(tasks, "load_source_configs", lambda: mapping)
 
 
-async def _add_run(session: AsyncSession, source: str, started_at: dt.datetime) -> None:
+async def _add_run(
+    session: AsyncSession,
+    source: str,
+    started_at: dt.datetime,
+    *,
+    trigger: str = "scheduled",
+) -> None:
     session.add(
-        IngestionRun(source=source, trigger="scheduled", status="succeeded", started_at=started_at)
+        IngestionRun(source=source, trigger=trigger, status="succeeded", started_at=started_at)
     )
     await session.flush()
 
@@ -95,6 +101,33 @@ async def test_attempt_before_tick_is_overdue(
     rec = _Recorder()
     await reconcile_overdue_sources(db_session, defer=rec)
     assert rec.sources == ["daily_stale"]
+
+
+@pytest.mark.asyncio
+async def test_reconcile_run_record_stops_the_loop(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The keystone loop-stop: a reconcile-triggered run-record counts as an attempt.
+
+    Once migration 0025 lets `record_run_started(source, "reconcile")` persist a row,
+    `reconcile_overdue_sources` reads its `started_at` via `max(ingestion_runs.
+    started_at)` and stops re-firing the source until the next real cron tick. Before
+    the fix the reconcile INSERT was swallowed (CHECK violation) → no record → the
+    source looked perpetually overdue and re-fired every 15 min. This proves a
+    reconcile attempt at/after the current tick suppresses the next deferral."""
+    now = dt.datetime.now(tz=dt.UTC)
+    prev = _prev_tick(now)
+    _patch_sources(monkeypatch, {"daily_reconciled": _cfg()})
+    # The only attempt on record is a RECONCILE fire just after the latest tick.
+    await _add_run(
+        db_session, "daily_reconciled", prev + dt.timedelta(minutes=1), trigger="reconcile"
+    )
+    await db_session.commit()
+
+    rec = _Recorder()
+    n = await reconcile_overdue_sources(db_session, defer=rec)
+    assert rec.sources == []  # the reconcile attempt is honored → no re-fire
+    assert n == 0
 
 
 @pytest.mark.asyncio

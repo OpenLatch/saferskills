@@ -36,7 +36,7 @@ here, not force-cracked.
 | `github_skills` | webhook | GitHub push webhook | active | on push | `anthropics/skills` + allies |
 | `github_topics` | api | GitHub Search API (+ flagged code-search) | active | 01:00 daily | 4 topics × star shards |
 | `mcp_registry` | api | Official MCP Registry `/v0/servers` | active | hourly | cursor by `updated_since` |
-| `npm` | api | npm registry | active | per config | `mcp-server-*` packages |
+| `npm` | api | npm registry search API (`registry.npmjs.org/-/v1/search` → packument) | active | hourly | `mcp-server-*` / `@modelcontextprotocol/*` packages (search enumerate → packument fetch; replaced the deprecated `_changes` replication feed) |
 | `pypi` | api | PyPI | active | per config | MCP/skill packages |
 | `smithery` | scrape | Smithery registry API (`registry.smithery.ai/servers`) | **active** | 03:15 daily | feed-first; OSS subset carries GitHub repo |
 | `glama` | scrape | Glama MCP REST API (`glama.ai/api/mcp/v1/servers`) | **active** | 03:30 daily | feed-first; records carry `repository.url` |

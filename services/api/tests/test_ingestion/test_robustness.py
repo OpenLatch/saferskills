@@ -374,8 +374,11 @@ async def test_write_phase_error_skipped_via_savepoint(db_session: AsyncSession)
 
 @pytest.mark.asyncio
 async def test_npm_non_200_writes_failure_cursor(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 429/5xx on the npm changes stream records success=False and yields nothing,
-    instead of falling through to the success=True cursor write."""
+    """A 429 on the npm search API (every query failing) records success=False and yields
+    nothing, instead of silently falling through to the success=True cursor write — the
+    no-silent-false-green guard for a rate-limited/down registry."""
+    from unittest.mock import AsyncMock
+
     from app.ingestion.config.loader import get_source_config
     from app.ingestion.framework import cursor as cursor_mod
     from app.ingestion.sources.npm import NpmAdapter
@@ -383,7 +386,7 @@ async def test_npm_non_200_writes_failure_cursor(monkeypatch: pytest.MonkeyPatch
     captured: dict[str, Any] = {}
 
     async def _fake_read(_session: Any, _name: str) -> dict[str, Any]:
-        return {"seq": 0}
+        return {}
 
     async def _fake_write(_session: Any, _name: str, _data: Any, success: bool) -> None:
         captured["success"] = success
@@ -405,17 +408,11 @@ async def test_npm_non_200_writes_failure_cursor(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(session_mod, "AsyncSessionLocal", lambda: _FakeSession())
 
-    class _Stream:
-        async def __aenter__(self) -> Any:
-            r = MagicMock()
-            r.status_code = 429
-            return r
-
-        async def __aexit__(self, *a: Any) -> None:
-            return None
-
+    # Every search request 429s → no successful enumeration → failed cycle.
+    resp_429 = MagicMock()
+    resp_429.status_code = 429
     mock_client = MagicMock()
-    mock_client.stream = MagicMock(return_value=_Stream())
+    mock_client.get = AsyncMock(return_value=resp_429)
 
     adapter = NpmAdapter(get_source_config("npm"))
     items = [item async for item in adapter.list_items(mock_client)]

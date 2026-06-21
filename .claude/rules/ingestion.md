@@ -72,6 +72,8 @@ The `SourceConfig` carries `registry_id` (defaults to `name`); it equals `name` 
        ...
    ```
 
+   **The same drop/recreate-with-hardcoded-value-list idiom applies to ANY value-list CHECK, not just source enums.** `ingestion_runs.trigger` is the cautionary case: PR #129 added a fourth trigger value (`reconcile`, written by the overdue-cycle reconciler) but shipped no migration to widen the 0013 `chk_ingestion_runs_trigger` CHECK — so every reconcile run-record INSERT silently violated the CHECK and was swallowed, making the reconciler re-fire daily sources every 15 min. `0025_widen_ingestion_trigger` fixed it by drop/recreating the CHECK with the hardcoded 4-value list. **A new value for any closed-enum column whose CHECK hardcodes the set (source, registry_id, trigger, rate-limit bucket, …) needs a CHECK-widening migration in the same PR.**
+
 ## Outbox invariant
 
 **Every adapter fetch writes exactly one `ingestion_events` row in the SAME transaction as the catalog upsert.** This is the non-negotiable invariant: no write to `catalog_items` without a matching `ingestion_events` row, and vice versa.
