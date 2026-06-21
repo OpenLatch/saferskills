@@ -211,6 +211,53 @@ async def test_fuzzy_path_no_github_coord_inserts_staging_row(
 
 @_ORM_BUG
 @pytest.mark.asyncio
+async def test_staging_slug_collision_regenerates_and_keeps_batch_alive(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the no-GitHub-coordinate staging path did a plain session.flush()
+    with NO SAVEPOINT and NO ON CONFLICT, plus a 32-bit slug (`uuid4().hex[:8]`). On the
+    re-fire-inflated pending pool a birthday collision raised an uncaught IntegrityError
+    that aborted the WHOLE cycle's batch transaction (the smithery `cycle_failed`
+    UniqueViolation). The hardened path inserts inside a SAVEPOINT with
+    ON CONFLICT (slug) DO NOTHING and a full-128-bit slug, regenerating on the (now
+    astronomically rare) collision — the batch survives.
+
+    Forced deterministically: pin the staging-slug generator (`_pending_slug`, called
+    ONLY by this path) so the second staging insert first regenerates the SAME slug the
+    first row already holds (the DO NOTHING fires → None → retry), then a fresh slug that
+    succeeds. Patching the dedicated helper (not the global `uuid` module) keeps the
+    sequence immune to incidental uuid4 calls elsewhere in the suite.
+    """
+    import uuid as uuid_mod
+
+    from app.ingestion.framework import merger as merger_mod
+
+    engine = MergeEngine(db_session)
+    n1 = make_normalized(github_org=None, github_repo=None, display_name="alpha-orphan")
+    n2 = make_normalized(github_org=None, github_repo=None, display_name="beta-orphan")
+
+    collide = f"pending--{uuid_mod.uuid4().hex}"  # the slug the first row occupies
+    fresh = f"pending--{uuid_mod.uuid4().hex}"  # the slug the second row resolves to
+    seq = iter([collide, collide, fresh])  # n1→collide ; n2→collide(retry)→fresh
+    monkeypatch.setattr(merger_mod, "_pending_slug", lambda: next(seq))
+
+    id1 = await engine._insert_staging_row(n1, "npm")  # pyright: ignore[reportPrivateUsage]
+    await db_session.flush()
+    # n2 collides once (DO NOTHING → None → retry), then succeeds with a fresh slug.
+    id2 = await engine._insert_staging_row(n2, "npm")  # pyright: ignore[reportPrivateUsage]
+    assert id1 != id2
+
+    rows = (await db_session.execute(select(CatalogItem))).scalars().all()
+    staging = sorted(r.slug for r in rows if r.slug.startswith("pending--"))
+    assert staging == sorted([collide, fresh])
+    # The session survived the collision (no aborted-transaction poisoning) — a follow-up
+    # query still works, proving the batch was never taken down.
+    again = (await db_session.execute(select(CatalogItem))).scalars().all()
+    assert len(again) == len(rows)
+
+
+@_ORM_BUG
+@pytest.mark.asyncio
 async def test_fuzzy_path_creates_merge_candidate_for_similar_name(
     db_session: AsyncSession,
 ) -> None:

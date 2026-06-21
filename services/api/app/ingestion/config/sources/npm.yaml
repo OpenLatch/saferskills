@@ -1,9 +1,8 @@
-# npm replication _changes stream, filtered to MCP/skill package-name patterns. Hourly.
+# npm registry search API, filtered to MCP/skill package-name prefixes. Hourly.
 name: npm
 kind: api
 hosts:
-  - replicate.npmjs.com
-  - registry.npmjs.com
+  - registry.npmjs.org
   - api.npmjs.org
 cadence_cron: "0 * * * *"
 rate_limit_per_second: 5.0
@@ -11,13 +10,15 @@ queue: ingest_npm
 enabled: true
 registry_id: npm
 discovery:
-  changes_url: https://replicate.npmjs.com/_changes
+  search_url: https://registry.npmjs.org/-/v1/search
+  registry_base: https://registry.npmjs.org
+  search_queries: ["mcp-server-", "claude-skill-", "@modelcontextprotocol/"]
   name_prefixes: ["mcp-server-", "claude-skill-", "@modelcontextprotocol/"]
-  max_items_per_cycle: 5000
-description: Streams the npm _changes feed, keeping only MCP-server / claude-skill packages.
+  max_items_per_cycle: 500
+description: Enumerates the npm registry search API, keeping only MCP-server / claude-skill packages.
 policy:
   summary: >-
-    We stream the public npm replication feed and index only packages whose name
+    We query the public npm registry search API and index only packages whose name
     matches a documented MCP/skill prefix. Each item links back to npmjs.com.
   contact: bot@saferskills.ai
-  robots_txt: n/a (documented replication API)
+  robots_txt: n/a (documented public registry API)

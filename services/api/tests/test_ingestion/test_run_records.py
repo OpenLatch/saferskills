@@ -73,6 +73,32 @@ async def test_record_finished_failure_stores_error(
 
 
 @pytest.mark.asyncio
+async def test_record_started_reconcile_trigger_persists(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for the keystone staging bug: the overdue reconciler re-defers a
+    missed cron tick with trigger='reconcile', but migration 0013's
+    chk_ingestion_runs_trigger only allowed ('scheduled','manual','force'). Every
+    reconcile run-record INSERT violated the CHECK, got swallowed (best-effort), and
+    wrote NO row — so reconcile_overdue_sources never saw the attempt and re-fired the
+    source every 15 min. Migration 0025 widens the CHECK; this asserts the row now
+    persists with the reconcile trigger (fails on main: run_id is None)."""
+    from app.db import session as session_module
+    from app.ingestion import tasks
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", lambda: _Ctx(db_session))
+
+    run_id = await tasks.record_run_started("github_topics", "reconcile")
+    assert run_id is not None
+
+    row = (
+        await db_session.execute(select(IngestionRun).where(IngestionRun.id == run_id))
+    ).scalar_one()
+    assert row.status == "running"
+    assert row.trigger == "reconcile"
+
+
+@pytest.mark.asyncio
 async def test_record_finished_noop_on_none() -> None:
     from app.ingestion import tasks
 
