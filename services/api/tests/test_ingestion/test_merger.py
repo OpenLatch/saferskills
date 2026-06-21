@@ -243,9 +243,8 @@ async def test_staging_slug_collision_regenerates_and_keeps_batch_alive(
 
     id1 = await engine._insert_staging_row(n1, "npm")  # pyright: ignore[reportPrivateUsage]
     await db_session.flush()
-    id2 = await engine._insert_staging_row(
-        n2, "npm"
-    )  # collides once, then succeeds  # pyright: ignore[reportPrivateUsage]
+    # n2 collides once (DO NOTHING → None → retry), then succeeds with a fresh slug.
+    id2 = await engine._insert_staging_row(n2, "npm")  # pyright: ignore[reportPrivateUsage]
     assert id1 != id2
 
     rows = (await db_session.execute(select(CatalogItem))).scalars().all()
