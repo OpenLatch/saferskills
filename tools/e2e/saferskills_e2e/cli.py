@@ -34,14 +34,27 @@ def _add_global_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--api-url",
         default=None,
-        help="SaferSkills API root URL (env: SAFERSKILLS_API_URL, "
-        "default: http://localhost:8000)",
+        help="SaferSkills API root URL (env: SAFERSKILLS_API_URL, default: http://localhost:8000)",
     )
     parser.add_argument(
         "--base-url",
         default=None,
         help="Public marketing site root URL (env: SAFERSKILLS_BASE_URL, "
         "default: http://localhost:5173)",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=None,
+        help="Transient-failure retry attempts for data-plane HTTP calls "
+        "(default: 3). Retries only 502/503/504 + connect/read timeouts.",
+    )
+    parser.add_argument(
+        "--retry-backoff",
+        type=float,
+        default=None,
+        dest="retry_backoff",
+        help="Base exponential backoff (seconds) between retries (default: 1.0).",
     )
 
 
@@ -100,7 +113,7 @@ def main() -> int:
     except KeyboardInterrupt:
         # 130 = SIGINT — standard shell convention for "user cancelled".
         return 130
-    except Exception as e:  # noqa: BLE001 — final dispatcher catch
+    except Exception as e:
         print_fail(f"Unhandled error in {cmd.name}: {e!r}")
         return int(ExitCode.FAIL_UNKNOWN)
 

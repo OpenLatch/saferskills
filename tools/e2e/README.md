@@ -54,7 +54,25 @@ uv run saferskills-e2e all
 uv run saferskills-e2e doctor \
     --api-url  https://api-staging.saferskills.ai \
     --base-url https://staging.saferskills.ai
+
+# Tune transient-retry resilience (defaults: 3 attempts, 1.0s base backoff)
+uv run saferskills-e2e all --retries 5 --retry-backoff 2.0
 ```
+
+## Resilience (transient vs sustained)
+
+The data-plane HTTP calls (the catalog/scan discovery in `shared/discovery.py` and
+the badge/OG fetches) go through `shared/http_client.request_with_retries`, which
+**retries only transient failures** — a `502/503/504` or a connect/read timeout —
+with exponential backoff (`--retries`, default 3; `--retry-backoff`, default 1.0s).
+The per-request read timeout is **20s** (`request_timeout_seconds`).
+
+This absorbs a momentary staging blip (e.g. the shared Postgres saturating for a few
+seconds under ingestion load) so a transient hiccup never red-gates a prod deploy. It
+deliberately does **not** mask a sustained outage: a `4xx`, any other status, or a
+still-degraded API after the last attempt is returned/raised as-is, so real breakage
+still fails the command. The `e2e-staging` deploy job adds one coarse re-run on top as
+defense-in-depth.
 
 ## Environment
 

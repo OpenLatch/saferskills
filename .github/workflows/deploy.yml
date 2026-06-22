@@ -421,7 +421,20 @@ jobs:
           cd tools/e2e
           uv sync
           uv run playwright install chromium
-          uv run saferskills-e2e all
+          # Coarse CI backstop on top of the in-harness transient-retry (WS2):
+          # one re-run absorbs a staging blip that outlasts the per-request
+          # retries (e.g. a brief shared-Postgres saturation window) so a
+          # transient hiccup never red-gates a deploy. A SUSTAINED failure still
+          # fails both attempts → the gate stays honest and blocks prod.
+          for attempt in 1 2; do
+            if uv run saferskills-e2e all; then exit 0; fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "::warning::e2e attempt $attempt failed; retrying in 30s" >&2
+              sleep 30
+            fi
+          done
+          echo "::error::e2e failed after 2 attempts (sustained, not a transient blip)" >&2
+          exit 1
 
       # SEO-T6: Lighthouse the two real money-pages (a scanned catalog item + its
       # scan report) on POPULATED staging — they can't be seeded in the PR

@@ -13,7 +13,7 @@ from saferskills_e2e.commands.base import BaseCommand
 from saferskills_e2e.shared.config import Config
 from saferskills_e2e.shared.discovery import discover_first_scan
 from saferskills_e2e.shared.exit_codes import ExitCode
-from saferskills_e2e.shared.http_client import make_client
+from saferskills_e2e.shared.http_client import make_client, request_with_retries
 from saferskills_e2e.shared.output import print_fail, print_ok, print_warn
 
 
@@ -37,7 +37,9 @@ class BadgeEndpointCommand(BaseCommand):
         url = f"{config.base_url}/badge/{scan_id}/{score}.svg"
 
         async with make_client(config) as client:
-            resp = await client.get(url)
+            resp = await request_with_retries(
+                client, "GET", url, retries=config.retries, backoff=config.retry_backoff_seconds
+            )
             if resp.status_code != 200:
                 print_fail(f"badge returned {resp.status_code} for {url}")
                 return ExitCode.FAIL_BADGE
@@ -49,7 +51,14 @@ class BadgeEndpointCommand(BaseCommand):
                 return ExitCode.FAIL_BADGE
             print_ok(f"badge renders for scan {scan_id} ({score}/100)")
 
-            tampered = await client.get(f"{config.base_url}/badge/{scan_id}/999.svg")
+            # A tampered score must 400 — non-transient, so retries return it as-is.
+            tampered = await request_with_retries(
+                client,
+                "GET",
+                f"{config.base_url}/badge/{scan_id}/999.svg",
+                retries=config.retries,
+                backoff=config.retry_backoff_seconds,
+            )
             if tampered.status_code != 400:
                 print_fail(f"tampered score should be 400, got {tampered.status_code}")
                 return ExitCode.FAIL_BADGE

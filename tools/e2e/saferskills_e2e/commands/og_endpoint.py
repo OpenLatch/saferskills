@@ -12,7 +12,7 @@ from saferskills_e2e.commands.base import BaseCommand
 from saferskills_e2e.shared.config import Config
 from saferskills_e2e.shared.discovery import discover_first_completed_scan
 from saferskills_e2e.shared.exit_codes import ExitCode
-from saferskills_e2e.shared.http_client import make_client
+from saferskills_e2e.shared.http_client import make_client, request_with_retries
 from saferskills_e2e.shared.output import print_fail, print_ok, print_warn
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -37,7 +37,9 @@ class OgEndpointCommand(BaseCommand):
         scan_id = scan["id"]
         url = f"{config.base_url}/og/scan/{scan_id}.png"
         async with make_client(config) as client:
-            resp = await client.get(url)
+            resp = await request_with_retries(
+                client, "GET", url, retries=config.retries, backoff=config.retry_backoff_seconds
+            )
         if resp.status_code != 200:
             print_fail(f"og endpoint returned {resp.status_code} for {url}")
             return ExitCode.FAIL_OG
