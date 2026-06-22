@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from app.ingestion.framework import http_client
 from app.ingestion.framework.exceptions import OutboundDenyError
 from app.ingestion.framework.http_client import (
+    _SHARED_STORAGE,  # pyright: ignore[reportPrivateUsage]
     HttpClientFactory,
     _hishel_ttl_hook,  # pyright: ignore[reportPrivateUsage]
     _shared_storage,  # pyright: ignore[reportPrivateUsage]
@@ -87,10 +87,10 @@ class TestSharedStorage:
     own write serialisation. The factory must now reuse ONE storage per db_path."""
 
     def setup_method(self) -> None:
-        http_client._SHARED_STORAGE.clear()
+        _SHARED_STORAGE.clear()
 
     def teardown_method(self) -> None:
-        http_client._SHARED_STORAGE.clear()
+        _SHARED_STORAGE.clear()
 
     def test_shared_storage_is_singleton_per_path(self) -> None:
         settings = _settings()
@@ -104,13 +104,15 @@ class TestSharedStorage:
         )
 
     def test_build_reuses_one_storage_across_clients(self) -> None:
-        """Two clients built from the factory share the SAME cache storage object —
-        on `main` each build() created a new one (the bug). No request is issued,
-        so the storage never opens a connection and needs no teardown."""
+        """Two factory builds for the same cache path resolve to ONE shared storage
+        (one SQLite connection) — on `main` each build() created its own. Asserted via
+        the registry rather than httpx internals; no request is issued, so the storage
+        never opens a connection and needs no teardown."""
         settings = _settings()
-        c1 = HttpClientFactory.build(_adapter(), settings)
-        c2 = HttpClientFactory.build(_adapter(), settings)
-        assert c1._transport.storage is c2._transport.storage  # pyright: ignore[reportAttributeAccessIssue]
+        assert len(_SHARED_STORAGE) == 0
+        HttpClientFactory.build(_adapter(), settings)
+        HttpClientFactory.build(_adapter(), settings)
+        assert len(_SHARED_STORAGE) == 1
 
 
 class TestHishelTtlHook:
