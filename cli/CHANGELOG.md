@@ -68,6 +68,21 @@
   expands per-capability axis bars + inline findings. The same rich report now
   renders for `capability <path>` and `capability <url>` too (D-05-27).
 
+## [0.2.0](https://github.com/OpenLatch/saferskills/compare/v0.1.1...v0.2.0) (2026-06-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** split scan into capability + agent commands ([#90](https://github.com/OpenLatch/saferskills/issues/90))
+
+### Added
+
+* **agent-scan:** directory polish, kind-tally + generated codenames ([#99](https://github.com/OpenLatch/saferskills/issues/99)) ([3e02dc6](https://github.com/OpenLatch/saferskills/commit/3e02dc6c4b62156debf8f528796e7ca21877ef86))
+* **agent-scan:** I-5.5 Phase 3 — bootstrap API, CLI scan agent & fixture ([#87](https://github.com/OpenLatch/saferskills/issues/87)) ([f70de8c](https://github.com/OpenLatch/saferskills/commit/f70de8c91599b5d2f1ba2558793e6066d37e2775))
+* **cli:** render kind:skill into every agent's native format + widen skill compat ([#124](https://github.com/OpenLatch/saferskills/issues/124)) ([90d445b](https://github.com/OpenLatch/saferskills/commit/90d445bf0767bc1b519c8e12f43d2fed23e24d56))
+* **cli:** split scan into capability + agent commands ([#90](https://github.com/OpenLatch/saferskills/issues/90)) ([2185fe1](https://github.com/OpenLatch/saferskills/commit/2185fe16efaad8b8c980bb3fe799e08ad07c61b9))
+* community Slack button + docs/readme branding sweep ([#116](https://github.com/OpenLatch/saferskills/issues/116)) ([10a07ef](https://github.com/OpenLatch/saferskills/commit/10a07efde75b129a37b877f9079639538bc8becb))
+
 ## [0.1.1](https://github.com/OpenLatch/saferskills/compare/v0.1.0...v0.1.1) (2026-06-08)
 
 
