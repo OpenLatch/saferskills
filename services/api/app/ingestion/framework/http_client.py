@@ -33,6 +33,35 @@ _MAX_BODY_BYTES = 26_214_400  # 25 MiB
 _SEMAPHORES: dict[str, asyncio.Semaphore] = {}
 _LAST_REQUEST_TS: dict[str, float] = {}
 
+# One shared Hishel storage per cache-file path — survives across cycles.
+#
+# Building a fresh AsyncSqliteStorage per build() opened a brand-new SQLite
+# connection every adapter cycle. Concurrent ingestion/scan fetches then each
+# held their own connection (and their own per-instance write-lock) to the one
+# cache file, so Hishel's internal write serialisation never applied and the
+# periodic eviction (`_batch_cleanup`) collided → `sqlite3.OperationalError:
+# database is locked` spamming the worker (~thousands/hour, eviction never ran).
+# Sharing ONE instance means one connection + one write-lock, so Hishel's own
+# serialisation actually holds. Per-adapter TTL moves to the per-request
+# `hishel_ttl` extension (see `_hishel_ttl_hook`) so the share doesn't flatten
+# the github-24h vs aggregator-1h retention.
+_SHARED_STORAGE: dict[str, AsyncSqliteStorage] = {}
+
+
+def _shared_storage(settings: Settings) -> AsyncSqliteStorage:
+    path = settings.hishel_db_path
+    storage = _SHARED_STORAGE.get(path)
+    if storage is None:
+        # default_ttl is only the fallback for entries lacking a per-request
+        # `hishel_ttl` (none, via this factory) — the github TTL is the safe
+        # dominant default. Construction is lazy: no connection opens until the
+        # first cache hit/miss, so this is safe to call from sync code.
+        storage = AsyncSqliteStorage(
+            database_path=path, default_ttl=float(settings.hishel_github_ttl_seconds)
+        )
+        _SHARED_STORAGE[path] = storage
+    return storage
+
 
 class _SSRFTransport(httpx.AsyncHTTPTransport):
     """Enforce the per-adapter host allowlist + a private-IP denylist before each request.
@@ -60,16 +89,19 @@ def _ttl_for(adapter: BaseAdapter, settings: Settings) -> float:
 class HttpClientFactory:
     @classmethod
     def build(cls, adapter: BaseAdapter, settings: Settings) -> httpx.AsyncClient:
-        storage = AsyncSqliteStorage(
-            database_path=settings.hishel_db_path, default_ttl=_ttl_for(adapter, settings)
-        )
         policy = SpecificationPolicy(cache_options=CacheOptions(shared=True, allow_stale=True))
         transport = AsyncCacheTransport(
             next_transport=_SSRFTransport(adapter.source_hosts),
-            storage=storage,
+            storage=_shared_storage(settings),
             policy=policy,
         )
-        request_hooks: list[Any] = [_rate_limit_hook(adapter)]
+        # Per-adapter cache TTL travels as a per-request Hishel extension (persisted
+        # per entry) instead of the storage's default_ttl, so every adapter shares the
+        # one storage instance without flattening github-24h vs aggregator-1h retention.
+        request_hooks: list[Any] = [
+            _hishel_ttl_hook(_ttl_for(adapter, settings)),
+            _rate_limit_hook(adapter),
+        ]
         # Exact host match over the allowlist set (NOT a substring/`in` URL check —
         # CodeQL py/incomplete-url-substring-sanitization). source_hosts is a set of
         # bare hostnames, so this is exact membership; `any(==)` makes that unambiguous.
@@ -86,6 +118,18 @@ class HttpClientFactory:
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
             event_hooks={"request": request_hooks, "response": [_body_size_cap_hook]},
         )
+
+
+def _hishel_ttl_hook(ttl: float) -> Any:
+    """Carry the per-adapter cache TTL on each request as a Hishel `hishel_ttl`
+    extension. Hishel persists it per cache entry (it is exempt from the
+    `hishel_*`-metadata strip), so a single shared storage instance still honours
+    each adapter's retention. An httpx extension never serialises to the wire."""
+
+    async def hook(request: httpx.Request) -> None:
+        request.extensions["hishel_ttl"] = ttl
+
+    return hook
 
 
 def _rate_limit_hook(adapter: BaseAdapter) -> Any:
