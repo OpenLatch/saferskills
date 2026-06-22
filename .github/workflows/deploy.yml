@@ -205,6 +205,7 @@ jobs:
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
+          VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
@@ -272,6 +273,14 @@ jobs:
           if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
           fi
+          # VENDOR_SESSION_SECRET signs the vendor right-of-reply session JWT
+          # (app/routers/vendor.py). The startup guard hard-fails boot when it is the
+          # public dev default (or <32 bytes) since ENV=staging, so set the GH secret
+          # before the first deploy. Repo-level — same value both envs (rotation only
+          # invalidates in-flight 15-min sessions).
+          if [ -n "$VENDOR_SESSION_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-api-staging VENDOR_SESSION_SECRET="$VENDOR_SESSION_SECRET"
+          fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api-staging --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-api-staging "$mid" || true
@@ -294,7 +303,7 @@ jobs:
         # only). FLY_API_TOKEN_API must be org-scoped (or be granted deploy on
         # saferskills-worker-staging + pull on registry.fly.io/saferskills-api);
         # else mint FLY_API_TOKEN_WORKER. The worker loads the same Settings, so
-        # ENV=staging hard-fails boot without the four guard secrets — stage the
+        # ENV=staging hard-fails boot without the five guard secrets — stage the
         # same set as the API MINUS the HTTP-route-only ADMIN_KEY / PROXY secret.
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
@@ -303,6 +312,7 @@ jobs:
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
+          VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
@@ -322,6 +332,12 @@ jobs:
           fi
           if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
             flyctl secrets set --stage --app saferskills-worker-staging SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
+          fi
+          # VENDOR_SESSION_SECRET — the worker loads the same Settings, so its startup
+          # guard hard-fails boot on the public dev default since ENV=staging. Stage it
+          # here too (repo-level, same value as the API).
+          if [ -n "$VENDOR_SESSION_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-worker-staging VENDOR_SESSION_SECRET="$VENDOR_SESSION_SECRET"
           fi
           if [ -n "$SENTRY_DSN" ]; then
             flyctl secrets set --stage --app saferskills-worker-staging SENTRY_DSN="$SENTRY_DSN"
@@ -472,6 +488,7 @@ jobs:
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
+          VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
@@ -538,6 +555,13 @@ jobs:
           if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
           fi
+          # VENDOR_SESSION_SECRET signs the vendor right-of-reply session JWT
+          # (app/routers/vendor.py). With ENV=production the startup guard REQUIRES a
+          # real key (rejects the public dev default / <32 bytes), so set the GH secret
+          # before the first prod deploy. Repo-level — same value both envs.
+          if [ -n "$VENDOR_SESSION_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-api VENDOR_SESSION_SECRET="$VENDOR_SESSION_SECRET"
+          fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-$sha --remote-only
           flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do
             flyctl machine start --app saferskills-api "$mid" || true
@@ -566,6 +590,7 @@ jobs:
           SAFERSKILLS_CLI_POW_SECRET: ${{ secrets.SAFERSKILLS_CLI_POW_SECRET }}
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
+          VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
@@ -585,6 +610,12 @@ jobs:
           fi
           if [ -n "$SAFERSKILLS_PACK_SIGNING_KEY" ]; then
             flyctl secrets set --stage --app saferskills-worker SAFERSKILLS_PACK_SIGNING_KEY="$SAFERSKILLS_PACK_SIGNING_KEY"
+          fi
+          # VENDOR_SESSION_SECRET — the worker loads the same Settings, so its startup
+          # guard hard-fails boot on the public dev default since ENV=production. Stage
+          # it here too (repo-level, same value as the API).
+          if [ -n "$VENDOR_SESSION_SECRET" ]; then
+            flyctl secrets set --stage --app saferskills-worker VENDOR_SESSION_SECRET="$VENDOR_SESSION_SECRET"
           fi
           if [ -n "$SENTRY_DSN" ]; then
             flyctl secrets set --stage --app saferskills-worker SENTRY_DSN="$SENTRY_DSN"

@@ -198,6 +198,7 @@ def test_turnstile_secret_present_passes_in_prod(env: EnvTier) -> None:
         saferskills_cli_pow_secret="prod-pow-secret",
         saferskills_agent_master_key="prod-agent-master-key",
         saferskills_pack_signing_key="prod-pack-signing-key",
+        vendor_session_secret="prod-vendor-session-secret-0123456789",
     )
     assert settings.turnstile_secret_key == "1x000...AA"
     assert settings.saferskills_cli_pow_secret == "prod-pow-secret"
@@ -245,6 +246,44 @@ def test_agent_scan_secrets_optional_in_dev() -> None:
     settings = Settings(env="development")
     assert settings.saferskills_agent_master_key is None
     assert settings.saferskills_pack_signing_key is None
+
+
+def test_vendor_session_secret_default_tolerated_in_dev() -> None:
+    """Dev/test keep the placeholder vendor-session key — the guard is prod-only."""
+    settings = Settings(env="development")
+    assert settings.vendor_session_secret.startswith("dev-insecure")
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_vendor_session_secret_default_rejected_in_prod(env: EnvTier) -> None:
+    """Boot MUST hard-fail when the public dev vendor-session key reaches prod/staging.
+
+    The default ships in the open-source repo, so leaving it set would mint forgeable
+    verified-vendor right-of-reply sessions.
+    """
+    with pytest.raises(ValueError, match="VENDOR_SESSION_SECRET"):
+        Settings(
+            env=env,
+            turnstile_secret_key="1x000...AA",
+            saferskills_cli_pow_secret="prod-pow-secret",
+            saferskills_agent_master_key="k",
+            saferskills_pack_signing_key="k",
+            # vendor_session_secret left at the insecure default
+        )
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_vendor_session_secret_too_short_rejected_in_prod(env: EnvTier) -> None:
+    """A non-default but weak (<32 byte) vendor-session key is also rejected in prod."""
+    with pytest.raises(ValueError, match="VENDOR_SESSION_SECRET"):
+        Settings(
+            env=env,
+            turnstile_secret_key="1x000...AA",
+            saferskills_cli_pow_secret="prod-pow-secret",
+            saferskills_agent_master_key="k",
+            saferskills_pack_signing_key="k",
+            vendor_session_secret="too-short",
+        )
 
 
 # ── GitHub App private key (base64-in-secret) normalization ──────────────────

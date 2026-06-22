@@ -1,0 +1,104 @@
+name: Rollback production
+
+# Fast manual rollback of the production fleet to a known-good image tag.
+#
+# This re-points a prod app at an EXISTING image (built + pushed by `deploy.yml` on a
+# prior `main` SHA) — it does NOT stage secrets (they already live on the app from the
+# last good deploy) and does NOT rebuild. It complements the automatic canary abort in
+# `fly.production.toml` (`strategy = "canary"`): the canary stops a bad roll from going
+# wide, this reverts a roll that already landed.
+#
+# Trigger: Actions → "Rollback production" → Run workflow → enter the short git SHA of
+# the known-good image (the `<sha>` in the `registry.fly.io/saferskills-<svc>:main-<sha>`
+# tag) and pick which services to roll back (default: all — avoids cross-service drift).
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: 'Short git SHA of the known-good image (the <sha> in main-<sha>)'
+        type: string
+        required: true
+      services:
+        description: 'Which services to roll back'
+        type: choice
+        required: true
+        default: all
+        options: [all, api, worker, webapp]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let a rollback race a forward deploy (deploy.yml uses deploy-<ref>).
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY_FLY: registry.fly.io
+
+jobs:
+  rollback-api:
+    name: Rollback production API
+    if: ${{ inputs.services == 'all' || inputs.services == 'api' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Roll back image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+        run: |
+          cd services/api
+          flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-${{ inputs.image_sha }} --remote-only
+          # Force-start any stopped machines (Flycast / scale-to-zero bypasses the edge auto-start).
+          flyctl machine list --app saferskills-api --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-api "$mid" || true
+          done
+
+  rollback-worker:
+    name: Rollback production worker
+    if: ${{ inputs.services == 'all' || inputs.services == 'worker' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Roll back image
+        # The worker reuses the API image bytes (services/worker/ is config only).
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+        run: |
+          cd services/worker
+          flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-api:main-${{ inputs.image_sha }} --remote-only
+          flyctl machine list --app saferskills-worker --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-worker "$mid" || true
+          done
+
+  rollback-webapp:
+    name: Rollback production webapp
+    if: ${{ inputs.services == 'all' || inputs.services == 'webapp' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - uses: step-security/harden-runner@v2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Roll back image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
+        run: |
+          cd webapp
+          flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-${{ inputs.image_sha }} --remote-only
+          flyctl machine list --app saferskills-webapp --json | jq -r '.[].id' | while read mid; do
+            flyctl machine start --app saferskills-webapp "$mid" || true
+          done

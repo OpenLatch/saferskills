@@ -13,6 +13,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# The placeholder vendor-session signing key. It ships in the open-source repo, so a
+# deploy that kept it would mint forgeable verified-vendor sessions — the prod boot
+# guard below rejects it (and any <32-byte key) in staging/production.
+_DEV_INSECURE_VENDOR_SESSION_SECRET = "dev-insecure-vendor-session-secret-change-me"
+
 
 def _coerce_sslmode_to_ssl(value: str) -> str:
     """Rename a libpq `sslmode` query param to asyncpg's `ssl`.
@@ -458,7 +463,7 @@ class Settings(BaseSettings):
     # is the sole verifier (the secret never leaves the backend). Rotate
     # quarterly — rotation invalidates in-flight 15-minute sessions, no more.
     vendor_session_secret: str = Field(
-        default="dev-insecure-vendor-session-secret-change-me",
+        default=_DEV_INSECURE_VENDOR_SESSION_SECRET,
         description="HS256 key for vendor session JWTs. MUST be overridden in prod.",
     )
 
@@ -810,6 +815,17 @@ class Settings(BaseSettings):
                 "SAFERSKILLS_PACK_SIGNING_KEY is required in staging/production — it "
                 "signs every served agent pack; unset would serve unsigned packs the "
                 "baked CLI pubkey cannot verify (must be a stable Fly secret)."
+            )
+        if self.env in ("staging", "production") and (
+            self.vendor_session_secret == _DEV_INSECURE_VENDOR_SESSION_SECRET
+            or len(self.vendor_session_secret) < 32
+        ):
+            raise ValueError(
+                "VENDOR_SESSION_SECRET is required in staging/production — it signs the "
+                "vendor right-of-reply session JWT (app/routers/vendor.py). The dev "
+                "default is public in the open-source repo, so a deploy that kept it "
+                "would mint forgeable verified-vendor sessions (set a stable 32+ byte "
+                "Fly secret, identical across canary machines)."
             )
         return self
 
