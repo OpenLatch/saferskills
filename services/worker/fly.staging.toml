@@ -32,14 +32,24 @@ OTEL_SERVICE_NAME = "saferskills-worker"
 POSTHOG_HOST = "https://eu.i.posthog.com"
 # This IS the worker process — run the in-process Procrastinate worker.
 INGESTION_WORKER_ENABLED = "true"
-# Tuned for the 512 MB shared-cpu-1x box: with the per-job memory now bounded,
-# 2 concurrent scans + 2 ingest cycles fit comfortably (see ingestion.md
-# § memory budget). DB pool kept small to spare the 256 MB Postgres RAM —
-# 2 + 2 = 4 worker slots < 3 + 4 = 7 SQLAlchemy slots (budget assert holds).
-SCAN_MAX_CONCURRENCY = "2"
-INGESTION_WORKER_CONCURRENCY = "2"
+# Tuned for the 512 MB shared-cpu-1x box AND to spare the 256 MB shared-cpu-1x
+# Postgres from saturating under bulk-scan load (the e2e-staging gate flakes when
+# /items + /stats hang behind a saturated PG). Single-concurrency on BOTH queues
+# keeps the steady-state SQLAlchemy-connection draw minimal; a small reconcile
+# batch + a long freshness window throttle the firehose; the drainer's
+# SCAN_RECONCILE_MAX_BACKLOG back-pressure (below) caps the queue depth.
+# 1 + 1 = 2 worker slots < 3 + 4 = 7 SQLAlchemy slots (budget assert holds).
+SCAN_MAX_CONCURRENCY = "1"
+INGESTION_WORKER_CONCURRENCY = "1"
 DB_POOL_SIZE = "3"
 DB_MAX_OVERFLOW = "4"
+# Throttle the bulk-scan reconciliation drainer on the tiny shared PG: enqueue at
+# most 25 repos/tick, re-check freshness only every 90 days, and SKIP a tick once
+# the `scan`-queue backlog hits 200 `todo` jobs (back-pressure — never pile onto a
+# worker already behind). All three reduce sustained DB pressure → fewer gate flakes.
+SCAN_RECONCILE_BATCH = "25"
+SCAN_FRESHNESS_DAYS = "90"
+SCAN_RECONCILE_MAX_BACKLOG = "200"
 
 [[restart]]
 # Crash → restart. The supervisor handles soft self-stops; this covers a hard

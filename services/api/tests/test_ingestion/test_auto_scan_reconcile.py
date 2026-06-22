@@ -131,6 +131,78 @@ async def test_dedups_per_repo_url(db_session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
+async def test_scan_backlog_count_zero_without_procrastinate_schema(
+    db_session: AsyncSession,
+) -> None:
+    """The `to_regclass` guard returns 0 when `procrastinate_jobs` is absent.
+
+    The procrastinate schema is applied at worker startup (not by a migration), so
+    it never exists under the pytest transport — `scan_backlog_count` must degrade
+    to 0, never raise, so the drainer's back-pressure read is safe everywhere."""
+    from app.ingestion.tasks_scan import scan_backlog_count
+
+    assert await scan_backlog_count(db_session) == 0
+
+
+@pytest.mark.asyncio
+async def test_backpressure_skips_tick_when_backlog_at_or_over_max(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """At/above SCAN_RECONCILE_MAX_BACKLOG the drainer skips the whole tick.
+
+    A stale, popular, unscanned repo that WOULD normally be selected is left
+    untouched — no selection, no enqueue — because the simulated backlog is at the
+    ceiling. This is the missing back-pressure that let the shared PG saturate."""
+    from app.ingestion import tasks_scan
+
+    unscanned = make_item(popularity_score=90, last_scanned_at=None)
+    db_session.add(unscanned)
+    await db_session.commit()
+
+    base = get_settings()
+    monkeypatch.setattr(
+        tasks_scan,
+        "get_settings",
+        lambda: base.model_copy(update={"scan_reconcile_max_backlog": 5}),
+    )
+
+    async def _at_ceiling(_session: AsyncSession) -> int:
+        return 5  # == max → skip
+
+    rec = _Recorder()
+    n = await run_reconcile(db_session, defer=rec, backlog=_at_ceiling)
+    assert n == 0
+    assert rec.urls == []  # nothing selected or enqueued under back-pressure
+
+
+@pytest.mark.asyncio
+async def test_enqueues_normally_when_backlog_below_max(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Below the ceiling the drainer selects + enqueues as usual (control case)."""
+    from app.ingestion import tasks_scan
+
+    unscanned = make_item(popularity_score=90, last_scanned_at=None)
+    db_session.add(unscanned)
+    await db_session.commit()
+
+    base = get_settings()
+    monkeypatch.setattr(
+        tasks_scan,
+        "get_settings",
+        lambda: base.model_copy(update={"scan_reconcile_max_backlog": 500}),
+    )
+
+    async def _below_ceiling(_session: AsyncSession) -> int:
+        return 0
+
+    rec = _Recorder()
+    n = await run_reconcile(db_session, defer=rec, backlog=_below_ceiling)
+    assert unscanned.github_url in rec.urls
+    assert n == len(rec.urls)
+
+
+@pytest.mark.asyncio
 async def test_popularity_first_within_batch(
     db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
