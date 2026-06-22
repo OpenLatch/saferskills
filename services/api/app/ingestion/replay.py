@@ -121,7 +121,6 @@ def main() -> int:
         since = since.replace(tzinfo=dt.UTC)
     counts = asyncio.run(replay(since, apply=args.apply))
     logger.info("ingestion.replay_done", apply=args.apply, **counts)
-    print(counts)
     return 0
 
 
