@@ -52,6 +52,28 @@ def record_pool_timeout_breadcrumb(subsystem: str) -> None:
         pass
 
 
+def record_statement_timeout_breadcrumb(subsystem: str) -> None:
+    """Sentry breadcrumb on a Postgres statement-timeout cancellation (SQLSTATE 57014).
+
+    The DB-pressure event: a query exceeded `db_statement_timeout_s` and Postgres
+    aborted it (rather than letting it pin a pooled connection while every other
+    request 503s at the pool-checkout timeout). Tagging `subsystem=api` lets the
+    post-mortem distinguish a slow-query abort from a pool-checkout exhaustion.
+    No-op when Sentry is unconfigured (`add_breadcrumb` is safe pre-init).
+    """
+    try:
+        import sentry_sdk  # type: ignore[import-not-found]
+
+        sentry_sdk.add_breadcrumb(
+            category="db_pressure",
+            message="Postgres statement timeout — query aborted (back-pressure)",
+            level="warning",
+            data={"subsystem": subsystem},
+        )
+    except Exception:  # observability must never break the app
+        pass
+
+
 async def init_observability(settings: Settings) -> None:
     # Logging first — so every subsequent init line is structured JSON on stdout.
     configure_logging(settings.log_level)

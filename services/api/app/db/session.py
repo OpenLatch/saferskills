@@ -19,9 +19,43 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 
 _settings = get_settings()
+
+
+def engine_connect_args(settings: Settings) -> dict[str, object]:
+    """asyncpg `connect_args` that bound a slow query so a saturated DB fast-fails.
+
+    `statement_timeout` (ms) makes Postgres ABORT any statement exceeding it
+    (SQLSTATE 57014 → `app/main.py`'s handler maps it to a bounded 503), freeing
+    the pooled connection instead of letting one slow query hang every request
+    behind the pool-checkout timeout. `idle_in_transaction_session_timeout` (ms)
+    reclaims a connection left idle inside an open transaction. Both are
+    PER-STATEMENT / per-idle, so the chunked bulk-scan writes (each fast) are
+    safe; alembic runs on a SEPARATE engine (`migrations/env.py`) and is
+    unaffected. The two long-lived advisory-lock holders (the migration lock in
+    `core/startup.py`, the procrastinate-schema lock in `ingestion/worker.py`)
+    disable both via `SET LOCAL`, and the CONCURRENTLY materialized-view refresh
+    (`ingestion/tasks_authors.py`) runs on a dedicated unbounded engine — none of
+    them must be aborted mid-operation.
+
+    `command_timeout` (s) is the asyncpg client-side backstop for a wholly
+    unresponsive server; off by default (`db_command_timeout_s == 0`). Either
+    knob set to 0 is omitted entirely.
+    """
+    server_settings: dict[str, str] = {}
+    if settings.db_statement_timeout_s > 0:
+        ms = str(settings.db_statement_timeout_s * 1000)
+        server_settings["statement_timeout"] = ms
+        server_settings["idle_in_transaction_session_timeout"] = ms
+    args: dict[str, object] = {}
+    if server_settings:
+        args["server_settings"] = server_settings
+    if settings.db_command_timeout_s > 0:
+        args["command_timeout"] = settings.db_command_timeout_s
+    return args
+
 
 async_engine = create_async_engine(
     _settings.database_url,
@@ -33,6 +67,10 @@ async_engine = create_async_engine(
     # blocking forever when ingestion + API jointly exhaust the shared pool.
     # A bounded, observable 503 beats a silent hang.
     pool_timeout=_settings.db_pool_timeout_s,
+    # Bound a slow query at the DB layer too: statement_timeout aborts it (→ 503)
+    # so a single slow query can't pin a pooled connection indefinitely while
+    # every other request 503s at the pool-checkout timeout. See above.
+    connect_args=engine_connect_args(_settings),
 )
 
 AsyncSessionLocal = async_sessionmaker(

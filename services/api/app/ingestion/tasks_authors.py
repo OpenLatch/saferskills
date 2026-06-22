@@ -25,12 +25,23 @@ logger = structlog.get_logger(__name__)
     priority=PERIODIC_MAINTENANCE_PRIORITY,
 )
 async def author_summary_refresh(timestamp: int) -> dict[str, int]:
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from app.core.config import get_settings
     from app.db.session import async_engine
 
-    # REFRESH ... CONCURRENTLY must run outside a transaction block.
-    async with async_engine.connect() as conn:
-        autocommit = await conn.execution_options(isolation_level="AUTOCOMMIT")
-        await autocommit.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY author_summary"))
+    # REFRESH ... CONCURRENTLY must run outside a transaction block AND can exceed
+    # the shared engine's global statement_timeout (db/session.py connect_args) on
+    # a large catalog. Run it on a dedicated, short-lived AUTOCOMMIT engine with NO
+    # statement_timeout so the maintenance op is never aborted mid-refresh — and so
+    # the shared pool is never left with a `SET statement_timeout = 0` connection.
+    # Disposed immediately after (once-nightly, so the extra connect is cheap).
+    refresh_engine = create_async_engine(get_settings().database_url, isolation_level="AUTOCOMMIT")
+    try:
+        async with refresh_engine.connect() as conn:
+            await conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY author_summary"))
+    finally:
+        await refresh_engine.dispose()
 
     async with async_engine.connect() as conn:
         count = (await conn.execute(text("SELECT count(*) FROM author_summary"))).scalar() or 0

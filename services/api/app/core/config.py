@@ -132,6 +132,38 @@ class Settings(BaseSettings):
             "frees a slot."
         ),
     )
+    db_statement_timeout_s: int = Field(
+        default=30,
+        ge=0,
+        description=(
+            "Postgres per-statement timeout (seconds) on the shared SQLAlchemy "
+            "engine. A query exceeding it is ABORTED by Postgres (SQLSTATE 57014 "
+            "→ a bounded 503), freeing the pooled connection instead of letting "
+            "one slow query hang every request behind the pool-checkout timeout. "
+            "Also drives idle_in_transaction_session_timeout (same value). 0 "
+            "disables. PER-STATEMENT, so the chunked bulk-scan writes (each fast) "
+            "are safe; alembic runs on a SEPARATE engine (migrations/env.py) and "
+            "is unaffected. The migration + procrastinate-schema advisory-lock "
+            "holders and the CONCURRENTLY materialized-view refresh are explicitly "
+            "exempted. Tighten per tier in fly.*.toml [env] (the API can run "
+            "tighter than the bulk worker)."
+        ),
+    )
+    db_command_timeout_s: float = Field(
+        default=0.0,
+        ge=0,
+        description=(
+            "asyncpg CLIENT-side command timeout (seconds) on the shared "
+            "SQLAlchemy engine — an optional backstop for a wholly unresponsive "
+            "server (no server error arrives to abort the statement, so "
+            "statement_timeout cannot fire). 0 (default) disables it; the "
+            "server-side statement_timeout above is the primary, well-understood "
+            "lever (it surfaces as a clean 503). When enabled, set it ABOVE "
+            "DB_STATEMENT_TIMEOUT_S so the clean server-side abort wins the "
+            "normal slow-query race; a fired client timeout surfaces as a generic "
+            "TimeoutError (bounded, not a hang — handled as a 500)."
+        ),
+    )
     asyncpg_pool_max_size: int = Field(
         default=5,
         ge=1,

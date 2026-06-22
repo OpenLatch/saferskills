@@ -34,6 +34,16 @@ async def apply_procrastinate_schema_locked() -> None:
     lock keeps concurrent Machines race-free (first applies, the rest see the table + skip).
     """
     async with AsyncSessionLocal() as lock_session:
+        # This session holds the schema advisory lock while `apply_schema_async()`
+        # runs on the procrastinate connector's own connection, sitting
+        # idle-in-transaction meanwhile. Exempt it from the shared engine's
+        # statement_timeout + idle_in_transaction_session_timeout (db/session.py
+        # connect_args): the timeout would abort the blocking `pg_advisory_lock`
+        # wait under contention, and idle_in_transaction would terminate this
+        # session — releasing the lock. `SET LOCAL` scopes it to this transaction
+        # only (committed at the end), so the pooled connection isn't contaminated.
+        await lock_session.execute(text("SET LOCAL statement_timeout = 0"))
+        await lock_session.execute(text("SET LOCAL idle_in_transaction_session_timeout = 0"))
         await lock_session.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _INGESTION_LOCK_KEY})
         try:
             already_applied = (
