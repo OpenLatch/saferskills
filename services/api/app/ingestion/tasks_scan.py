@@ -61,6 +61,7 @@ logger = structlog.get_logger(__name__)
 _STALLED_SECONDS = 1800  # 30 min — comfortably above a slow single-repo scan.
 
 DeferFn = Callable[[str], Awaitable[bool]]
+BacklogFn = Callable[[AsyncSession], Awaitable[int]]
 
 # In-body concurrency cap for durable scan jobs (the cleanest Procrastinate
 # mechanism for a single in-process worker — bounds `scan`-queue work without a
@@ -566,10 +567,49 @@ _RECONCILE_SELECT = text("""
 """)
 
 
-async def run_reconcile(session: AsyncSession, *, defer: DeferFn) -> int:
+async def scan_backlog_count(session: AsyncSession) -> int:
+    """Count `todo` `scan`-queue jobs in `procrastinate_jobs` — the bulk-scan backlog.
+
+    Guarded by `to_regclass` so a fresh DB / the test transport (the procrastinate
+    schema is applied at worker startup, NOT by a migration, so the table is absent
+    under pytest) returns 0 instead of raising. A cheap COUNT over the small `todo`
+    set — the back-pressure signal `run_reconcile` reads before enqueuing more."""
+    exists = (await session.execute(text("SELECT to_regclass('procrastinate_jobs')"))).scalar()
+    if exists is None:
+        return 0
+    return (
+        await session.execute(
+            text(
+                "SELECT count(*) FROM procrastinate_jobs "
+                "WHERE queue_name = 'scan' AND status = 'todo'"
+            )
+        )
+    ).scalar_one()
+
+
+async def run_reconcile(
+    session: AsyncSession,
+    *,
+    defer: DeferFn,
+    backlog: BacklogFn = scan_backlog_count,
+) -> int:
     """Select stale repos (coverage / version-bump / freshness), popularity-first,
-    and defer a scan job per repo. Returns the count enqueued (deduped)."""
+    and defer a scan job per repo. Returns the count enqueued (deduped).
+
+    **Back-pressure first.** When the `scan`-queue backlog is already at/above
+    `SCAN_RECONCILE_MAX_BACKLOG`, SKIP the whole tick (no SELECT, no enqueue) — the
+    worker is behind, so adding more would only deepen the queue and the
+    shared-Postgres pressure. The 10-min cadence re-checks next tick. `backlog` is
+    injected so tests can simulate the queue depth without the procrastinate schema."""
     settings = get_settings()
+    pending = await backlog(session)
+    if pending >= settings.scan_reconcile_max_backlog:
+        logger.info(
+            "auto_scan_reconcile.backpressure_skip",
+            backlog=pending,
+            max_backlog=settings.scan_reconcile_max_backlog,
+        )
+        return 0
     rubric, engine_v = _versions(settings)
     rows = (
         await session.execute(

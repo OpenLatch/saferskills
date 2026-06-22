@@ -330,6 +330,18 @@ class Settings(BaseSettings):
             "no scan)."
         ),
     )
+    scan_reconcile_max_backlog: int = Field(
+        default=500,
+        ge=1,
+        description=(
+            "Back-pressure ceiling on the `scan`-queue backlog (count of `todo` "
+            "scan_capability_repo jobs in procrastinate_jobs). When the reconciliation "
+            "drainer (`auto_scan_reconcile`) sees a backlog at or above this, it SKIPS "
+            "the tick — never piling more onto a worker already behind, the missing "
+            "back-pressure that lets the shared-Postgres staging box saturate. The "
+            "10-min cadence re-checks next tick."
+        ),
+    )
 
     # ── Large-repo hybrid fetch (Git Trees + raw) ──────────────────────────
     # A monorepo / awesome-* collection blows the 25 MiB single-stream tarball
