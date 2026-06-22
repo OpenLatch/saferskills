@@ -1,12 +1,18 @@
-"""Tests for app.ingestion.framework.http_client._SSRFTransport."""
+"""Tests for app.ingestion.framework.http_client._SSRFTransport + shared cache storage."""
 
 from __future__ import annotations
+
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
 
 from app.ingestion.framework.exceptions import OutboundDenyError
 from app.ingestion.framework.http_client import (
+    _SHARED_STORAGE,  # pyright: ignore[reportPrivateUsage]
+    HttpClientFactory,
+    _hishel_ttl_hook,  # pyright: ignore[reportPrivateUsage]
+    _shared_storage,  # pyright: ignore[reportPrivateUsage]
     _SSRFTransport,  # pyright: ignore[reportPrivateUsage]
 )
 
@@ -56,3 +62,74 @@ class TestSSRFTransport:
         # 127.0.0.1 is in the allowlist but also in PRIVATE_NETS → should raise SSRF DENY
         with pytest.raises(OutboundDenyError, match="SSRF DENY"):
             await transport.handle_async_request(request)
+
+
+def _settings(db_path: str = "/tmp/test-hishel.db") -> MagicMock:
+    s = MagicMock()
+    s.hishel_db_path = db_path
+    s.hishel_github_ttl_seconds = 86400
+    s.hishel_aggregator_ttl_seconds = 3600
+    return s
+
+
+def _adapter(*, kind: str = "scrape", hosts: set[str] | None = None) -> MagicMock:
+    a = MagicMock()
+    a.source_kind = kind
+    a.source_name = "test-source"
+    a.rate_limit_per_second = 1.0
+    a.source_hosts = {"example.com"} if hosts is None else hosts
+    return a
+
+
+class TestSharedStorage:
+    """Regression for the worker's `database is locked` spam: building a fresh
+    AsyncSqliteStorage (a new SQLite connection) per build() defeated Hishel's
+    own write serialisation. The factory must now reuse ONE storage per db_path."""
+
+    def setup_method(self) -> None:
+        _SHARED_STORAGE.clear()
+
+    def teardown_method(self) -> None:
+        _SHARED_STORAGE.clear()
+
+    def test_shared_storage_is_singleton_per_path(self) -> None:
+        settings = _settings()
+        first = _shared_storage(settings)
+        second = _shared_storage(settings)
+        assert first is second  # one connection + one write-lock, not one-per-call
+
+    def test_shared_storage_distinct_per_path(self) -> None:
+        assert _shared_storage(_settings("/tmp/a.db")) is not _shared_storage(
+            _settings("/tmp/b.db")
+        )
+
+    def test_build_reuses_one_storage_across_clients(self) -> None:
+        """Two factory builds for the same cache path resolve to ONE shared storage
+        (one SQLite connection) — on `main` each build() created its own. Asserted via
+        the registry rather than httpx internals; no request is issued, so the storage
+        never opens a connection and needs no teardown."""
+        settings = _settings()
+        assert len(_SHARED_STORAGE) == 0
+        HttpClientFactory.build(_adapter(), settings)
+        HttpClientFactory.build(_adapter(), settings)
+        assert len(_SHARED_STORAGE) == 1
+
+
+class TestHishelTtlHook:
+    """The per-request TTL extension is what lets the shared storage keep each
+    adapter's retention (github 24h vs aggregator 1h) per cache entry."""
+
+    @pytest.mark.asyncio
+    async def test_hook_sets_request_extension(self) -> None:
+        hook = _hishel_ttl_hook(3600.0)
+        request = httpx.Request("GET", "https://example.com/feed")
+        await hook(request)
+        assert request.extensions["hishel_ttl"] == 3600.0
+
+    @pytest.mark.asyncio
+    async def test_extension_not_sent_as_a_header(self) -> None:
+        """An httpx extension is internal — it must never leak onto the wire."""
+        hook = _hishel_ttl_hook(86400.0)
+        request = httpx.Request("GET", "https://api.github.com/repos/x/y")
+        await hook(request)
+        assert "x-hishel-ttl" not in {k.lower() for k in request.headers}
