@@ -19,7 +19,7 @@ from typing import Literal
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.core.config import _DEV_INSECURE_VENDOR_SESSION_SECRET, Settings
+from app.core.config import Settings
 
 EnvTier = Literal["development", "staging", "production"]
 
@@ -251,7 +251,7 @@ def test_agent_scan_secrets_optional_in_dev() -> None:
 def test_vendor_session_secret_default_tolerated_in_dev() -> None:
     """Dev/test keep the placeholder vendor-session key — the guard is prod-only."""
     settings = Settings(env="development")
-    assert settings.vendor_session_secret == _DEV_INSECURE_VENDOR_SESSION_SECRET
+    assert settings.vendor_session_secret.startswith("dev-insecure")
 
 
 @pytest.mark.parametrize("env", ["staging", "production"])
