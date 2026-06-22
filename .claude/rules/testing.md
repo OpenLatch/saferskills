@@ -51,6 +51,10 @@ uv run saferskills-e2e all --base-url https://staging.saferskills.ai
 
 Commands sequence is strict — `doctor` must pass before any other command runs (the orchestrator enforces).
 
+### Transient-retry resilience (transient vs sustained)
+
+The data-plane HTTP calls (catalog/scan discovery + the badge/OG fetches) go through `shared/http_client.request_with_retries`, which retries **only transient failures** — a `502/503/504` or a connect/read timeout — with exponential backoff (`--retries`, default 3; `--retry-backoff`, default 1.0s; per-request read timeout `request_timeout_seconds`, default 20s). This absorbs a momentary staging blip (e.g. the shared Postgres saturating for a few seconds under ingestion load) so a transient hiccup never red-gates a prod deploy. It deliberately does **not** mask a sustained outage: a `4xx`, any other status, or a still-degraded API after the last attempt is returned/raised as-is, so a sustained degradation still returns the failure exit code and blocks the deploy (the chosen contract — the full e2e gate stays in place). The `e2e-staging` deploy job adds one coarse re-run on top as defense-in-depth. The wrapper is unit-tested in `tools/e2e/tests/test_http_retries.py` (retries-then-succeeds vs sustained-still-fails). See `tools/e2e/README.md` § Resilience.
+
 ## Test-first culture (regression gate)
 
 Every bug fix MUST land with a regression test that fails on `main` and passes on the fix branch. The PR description names the test that proves the bug is closed. A bug-fix PR with no regression test is rejected.

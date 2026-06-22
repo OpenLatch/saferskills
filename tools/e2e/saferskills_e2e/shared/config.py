@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -56,7 +56,14 @@ class Config(BaseModel):
         default="http://localhost:5173",
         description="Root URL of the public marketing site.",
     )
-    request_timeout_seconds: float = Field(default=10.0, gt=0.0)
+    # Raised from 10s: a saturated-staging API can take longer than 10s to return
+    # (before WS1's statement_timeout 503s it), so a too-tight read timeout turned a
+    # transient blip into a hard HTTP-000 failure. Paired with the retry wrapper.
+    request_timeout_seconds: float = Field(default=20.0, gt=0.0)
+    # Transient-retry budget (see shared/http_client.request_with_retries). `retries`
+    # is the attempt count; `retry_backoff_seconds` is the base exponential backoff.
+    retries: int = Field(default=3, ge=1)
+    retry_backoff_seconds: float = Field(default=1.0, gt=0.0)
     screenshot_dir: Path = Field(default=_DEFAULT_SCREENSHOT_DIR)
 
     @classmethod
@@ -83,7 +90,17 @@ class Config(BaseModel):
         HttpUrl(api_url)
         HttpUrl(base_url)
 
-        return cls(api_url=api_url, base_url=base_url)
+        # Retry knobs overlay the field defaults; None (flag absent) keeps the
+        # default. pydantic coerces/validates (retries >= 1, backoff > 0).
+        cli_retries: int | None = getattr(args, "retries", None)
+        cli_backoff: float | None = getattr(args, "retry_backoff", None)
+        overrides: dict[str, Any] = {"api_url": api_url, "base_url": base_url}
+        if cli_retries is not None:
+            overrides["retries"] = cli_retries
+        if cli_backoff is not None:
+            overrides["retry_backoff_seconds"] = cli_backoff
+
+        return cls(**overrides)
 
     def ensure_screenshot_dir(self) -> Path:
         """Create the screenshot dir on demand and return its path."""
