@@ -22,11 +22,20 @@ PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.m
 
 ## Engine statement-timeout (`db/session.py`)
 
-The shared async engine (`app/db/session.py`) sets per-statement DB-layer timeouts via asyncpg `connect_args` (`engine_connect_args(settings)`) so a saturated Postgres **fast-fails** instead of hanging:
+The shared async engine (`app/db/session.py`) sets DB-layer timeouts via asyncpg `connect_args` (`engine_connect_args(settings)`) + pool kwargs (`_engine_kwargs(settings)`) so a saturated **or wedged** Postgres connection **fast-fails** instead of hanging. **Three distinct failure modes, three distinct bounds** — a hard lesson from the staging incident where every DB request hung indefinitely with *no* 503 (a half-open connection that none of the first two bounds could catch):
 
-- **`statement_timeout`** (`DB_STATEMENT_TIMEOUT_S`, default 30 s → ms) — Postgres ABORTS any statement exceeding it. The abort surfaces as a SQLAlchemy **`DBAPIError`** carrying **SQLSTATE `57014`** (`query_canceled`); `app/main.py::_statement_timeout_handler` maps `57014`/`25P03` to a bounded **503** (sibling to the pool-checkout `_pool_timeout_handler`) and re-raises any other `DBAPIError` so a genuine DB error still 500s + Sentry-captures. This is the per-*query* bound the pool-checkout timeout (`DB_POOL_TIMEOUT_S`, a per-*checkout* bound) never provided — one slow query can no longer pin a pooled connection while every other request 503s behind it.
-- **`idle_in_transaction_session_timeout`** (same value) — reclaims a connection left idle inside an open transaction.
-- **`command_timeout`** (`DB_COMMAND_TIMEOUT_S`, default 0 = off) — optional asyncpg client-side backstop; surfaces as an unwrapped builtin `TimeoutError` (→ 500), so it stays off by default.
+| Failure mode | Bound | Surfaces as | Handler → |
+|---|---|---|---|
+| Pool exhausted (no free slot) | `pool_timeout` (`DB_POOL_TIMEOUT_S`, 10 s) | `sqlalchemy.exc.TimeoutError` | `_pool_timeout_handler` → 503 |
+| Slow **query** (server IS processing) | `statement_timeout` (`DB_STATEMENT_TIMEOUT_S`, 30 s, server-side) | `DBAPIError` SQLSTATE `57014`/`25P03` | `_statement_timeout_handler` → 503 |
+| **Half-open connection** (dead socket, no TCP reset) | `command_timeout` (`DB_COMMAND_TIMEOUT_S`, 35 s, **client-side**) | **unwrapped builtin `TimeoutError`** (`.orig` None) | `_command_timeout_handler` → 503 |
+
+- **`statement_timeout`** is **server-side**: Postgres aborts the statement (SQLSTATE `57014`). It can only fire when the server *receives* the query — useless for a dead socket the query never reaches. `_statement_timeout_handler` maps `57014`/`25P03` to 503 and re-raises any other `DBAPIError` so a genuine DB error still 500s + Sentry-captures.
+- **`idle_in_transaction_session_timeout`** (same value as `statement_timeout`) — reclaims a connection left idle inside an open transaction.
+- **`command_timeout`** is **client-side** and is the ONLY bound for a half-open connection: a query (or `pool_pre_ping`'s `SELECT 1`) writing into a dead socket waits forever, since the server never replies and `statement_timeout`/`pool_timeout` don't apply. asyncpg bounds it and raises a builtin `TimeoutError` (verified: UNWRAPPED, NOT a `DBAPIError`); `_command_timeout_handler` maps it to 503. **Set ABOVE `statement_timeout`** (35 > 30) so a legit slow query gets the clean server-side 503 first. **Default flipped off→on** after the incident.
+- **`pool_recycle`** (`DB_POOL_RECYCLE_S`, 1800 s) is the **proactive** half (asyncpg has no TCP-keepalive knob): a connection silently dropped by a proxy / 6PN / PG-side close can't outlive the window. With `pool_pre_ping` (liveness check on checkout, now fail-fast thanks to `command_timeout`) the pool self-heals — the bad connection is discarded and a fresh one established.
+
+> **Why `/health` didn't catch the incident:** `health.py` does zero DB I/O (reads in-memory `startup_state`), and Fly's machine check probes `/api/v1/health`, so Fly kept serving a machine whose DB was completely unreachable. A DB-dead api machine looks healthy; only the DB-backed routes hang. The fix bounds those routes; recovery from an *already*-wedged pool still needs a machine restart.
 
 **Exemptions (must NOT be aborted mid-operation):**
 - **Alembic migrations** run on a **separate** engine (`migrations/env.py::async_engine_from_config`) — never see these `connect_args`.

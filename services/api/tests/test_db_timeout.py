@@ -25,14 +25,46 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from starlette.requests import Request
 
-from app.core.config import get_settings
-from app.db.session import engine_connect_args
-from app.main import _statement_timeout_handler  # pyright: ignore[reportPrivateUsage]
+from app.core.config import Settings, get_settings
+from app.db.session import (
+    _engine_kwargs,  # pyright: ignore[reportPrivateUsage]
+    engine_connect_args,
+)
+from app.main import (
+    _command_timeout_handler,  # pyright: ignore[reportPrivateUsage]
+    _statement_timeout_handler,  # pyright: ignore[reportPrivateUsage]
+)
 
 
 def _dummy_request() -> Request:
     """A minimal HTTP Request — the handler ignores it (it only reads the exc)."""
     return Request({"type": "http", "method": "GET", "headers": []})
+
+
+def test_command_timeout_default_on_and_above_statement_timeout() -> None:
+    """Regression for the staging half-open-connection hang: command_timeout ships
+    ON (35) and ABOVE statement_timeout (30) so a legit slow query gets the clean
+    server-side 503 first and command_timeout only fires for a dead connection."""
+    fields = Settings.model_fields
+    assert fields["db_command_timeout_s"].default == 35.0
+    assert fields["db_pool_recycle_s"].default == 1800
+    assert fields["db_command_timeout_s"].default > fields["db_statement_timeout_s"].default
+
+
+def test_engine_kwargs_applies_pool_recycle() -> None:
+    """pool_recycle (proactive half-open defence) is wired when > 0, omitted at 0."""
+    on = _engine_kwargs(get_settings().model_copy(update={"db_pool_recycle_s": 600}))
+    assert on["pool_recycle"] == 600
+    assert on["pool_pre_ping"] is True
+    off = _engine_kwargs(get_settings().model_copy(update={"db_pool_recycle_s": 0}))
+    assert "pool_recycle" not in off
+
+
+@pytest.mark.asyncio
+async def test_command_timeout_handler_maps_timeouterror_to_503() -> None:
+    """A fired asyncpg command_timeout (builtin TimeoutError) → a bounded 503."""
+    resp = await _command_timeout_handler(_dummy_request(), TimeoutError("command timed out"))
+    assert resp.status_code == 503
 
 
 def test_engine_connect_args_carries_statement_timeout() -> None:

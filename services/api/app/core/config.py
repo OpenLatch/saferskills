@@ -150,18 +150,35 @@ class Settings(BaseSettings):
         ),
     )
     db_command_timeout_s: float = Field(
-        default=0.0,
+        default=35.0,
         ge=0,
         description=(
             "asyncpg CLIENT-side command timeout (seconds) on the shared "
-            "SQLAlchemy engine — an optional backstop for a wholly unresponsive "
-            "server (no server error arrives to abort the statement, so "
-            "statement_timeout cannot fire). 0 (default) disables it; the "
-            "server-side statement_timeout above is the primary, well-understood "
-            "lever (it surfaces as a clean 503). When enabled, set it ABOVE "
-            "DB_STATEMENT_TIMEOUT_S so the clean server-side abort wins the "
-            "normal slow-query race; a fired client timeout surfaces as a generic "
-            "TimeoutError (bounded, not a hang — handled as a 500)."
+            "SQLAlchemy engine. This is the ONLY bound that catches a HALF-OPEN "
+            "connection (the socket is dead but never got a TCP reset, so a query "
+            "writes into it and waits forever): statement_timeout is server-side "
+            "(the server never receives the query → never cancels) and pool_timeout "
+            "bounds only the slot wait, so without this a dead pooled connection "
+            "hangs every request indefinitely (the staging incident). Set ABOVE "
+            "DB_STATEMENT_TIMEOUT_S (default 35 > 30) so a legit slow query gets "
+            "the clean server-side 503 first and this only ever fires for a truly "
+            "dead connection. A fired timeout surfaces as a builtin TimeoutError → "
+            "`app/main.py` maps it to a bounded 503 and SQLAlchemy discards the "
+            "connection (pool_pre_ping + pool_recycle then re-establish). 0 disables."
+        ),
+    )
+    db_pool_recycle_s: int = Field(
+        default=1800,
+        ge=0,
+        description=(
+            "Max age (seconds) of a pooled SQLAlchemy connection before it is "
+            "discarded + re-established on next checkout (SQLAlchemy `pool_recycle`). "
+            "The PROACTIVE half of half-open-connection defence (asyncpg exposes no "
+            "TCP-keepalive knob): a connection silently dropped by a proxy / 6PN / "
+            "PG-side close can't outlive this window, so it is refreshed before it "
+            "can hang a request. Pairs with pool_pre_ping (liveness check on "
+            "checkout, now fail-fast thanks to db_command_timeout_s) and "
+            "db_command_timeout_s (the reactive bound). 0 disables recycling."
         ),
     )
     asyncpg_pool_max_size: int = Field(
