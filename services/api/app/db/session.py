@@ -57,21 +57,36 @@ def engine_connect_args(settings: Settings) -> dict[str, object]:
     return args
 
 
-async_engine = create_async_engine(
-    _settings.database_url,
-    echo=False,
-    pool_pre_ping=True,
-    pool_size=_settings.db_pool_size,
-    max_overflow=_settings.db_max_overflow,
-    # Back-pressure: raise TimeoutError after this many seconds instead of
-    # blocking forever when ingestion + API jointly exhaust the shared pool.
-    # A bounded, observable 503 beats a silent hang.
-    pool_timeout=_settings.db_pool_timeout_s,
-    # Bound a slow query at the DB layer too: statement_timeout aborts it (→ 503)
-    # so a single slow query can't pin a pooled connection indefinitely while
-    # every other request 503s at the pool-checkout timeout. See above.
-    connect_args=engine_connect_args(_settings),
-)
+def _engine_kwargs(settings: Settings) -> dict[str, object]:
+    """Pool + connect kwargs for the shared async engine.
+
+    `pool_recycle` (when > 0) caps the age of any pooled connection so one
+    silently dropped by a proxy / 6PN / PG-side close can't outlive the window —
+    the PROACTIVE half of half-open-connection defence (asyncpg has no TCP
+    keepalive knob). It pairs with `pool_pre_ping` (liveness check on checkout)
+    and the connect-arg `command_timeout` (the REACTIVE bound that makes both the
+    pre-ping AND a real query fail-fast on a dead socket instead of hanging
+    forever — the staging incident where every DB request hung with no 503).
+    """
+    kwargs: dict[str, object] = {
+        "echo": False,
+        "pool_pre_ping": True,
+        "pool_size": settings.db_pool_size,
+        "max_overflow": settings.db_max_overflow,
+        # Back-pressure: raise TimeoutError after this many seconds instead of
+        # blocking forever when ingestion + API jointly exhaust the shared pool.
+        "pool_timeout": settings.db_pool_timeout_s,
+        # statement_timeout (server-side, → 503) bounds a slow QUERY;
+        # command_timeout (client-side) bounds a DEAD CONNECTION. See
+        # engine_connect_args.
+        "connect_args": engine_connect_args(settings),
+    }
+    if settings.db_pool_recycle_s > 0:
+        kwargs["pool_recycle"] = settings.db_pool_recycle_s
+    return kwargs
+
+
+async_engine = create_async_engine(_settings.database_url, **_engine_kwargs(_settings))
 
 AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,

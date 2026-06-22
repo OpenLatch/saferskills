@@ -245,6 +245,31 @@ async def _statement_timeout_handler(  # pyright: ignore[reportUnusedFunction]
     raise exc
 
 
+@app.exception_handler(TimeoutError)
+async def _command_timeout_handler(  # pyright: ignore[reportUnusedFunction]
+    _request: Request, _exc: TimeoutError
+) -> JSONResponse:
+    """Map an asyncpg client-side `command_timeout` to a bounded 503.
+
+    The third DB-pressure bound, and the one that catches a HALF-OPEN connection:
+    when a pooled connection's socket is dead but never got a TCP reset, a query
+    (or `pool_pre_ping`'s liveness check) writes into it and waits forever —
+    `statement_timeout` is server-side (the server never receives the query) and
+    `pool_timeout` bounds only the slot wait, so neither fires. asyncpg's
+    `command_timeout` (`db_command_timeout_s`) bounds it client-side and raises a
+    builtin `TimeoutError` (verified: it surfaces UNWRAPPED, `.orig` is None — so
+    it is NOT a `DBAPIError` and bypasses the handler above). SQLAlchemy then
+    discards the bad connection; `pool_pre_ping` + `pool_recycle` re-establish a
+    fresh one. This is what turns the staging incident (every DB request hangs
+    indefinitely, no 503) into a bounded, self-healing failure.
+
+    `sqlalchemy.exc.TimeoutError` (pool-checkout) does NOT subclass builtin
+    `TimeoutError`, so this never shadows `_pool_timeout_handler`.
+    """
+    record_statement_timeout_breadcrumb("api")
+    return service_unavailable_response("Database connection timed out — retry shortly.")
+
+
 # Degraded-mode guard — registered BEFORE CORS so CORS stays the outermost
 # layer and OPTIONS preflight still succeeds even when the API is degraded.
 app.add_middleware(StartupGuardMiddleware)
