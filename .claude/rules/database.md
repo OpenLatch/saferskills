@@ -20,6 +20,21 @@ PostgreSQL 17, single store (no Redis — in-process LRU only, per `tech-stack.m
 - Naming follows `.claude/rules/naming-conventions.md` § Database (plural snake_case tables, `idx_`/`uq_`/`chk_` constraints, `<singular>_id` FKs).
 - **Models are codegen-driven (since migration `0009`).** The ten **schema-backed** models — the six original (`CatalogItem`, `Scan`, `Finding`, `ScanRun`, `VendorVerification`, `VendorResponse`) plus `IngestionEvent` + `MergeCandidate` plus `AgentRun` + `AgentFinding` — are **generated** from `schemas/` into `app/models/generated/` (full column projection, native PG enum columns — see `schema-driven-development.md` § SQLAlchemy generation + `contributor-docs/codegen.md`). The **seventeen internal stores** with no JSON-Schema source and no wire DTO stay **hand-written** under `app/models/*.py`: `ItemSource`, `RateLimit`, `UploadFile`, `ArtifactBlob`, `ScanEvent`, `Author`, `CrawlerCursor`, `PopularityFormula`, `AccessLog`, `AdminAuditLog`, `IngestionRun`, `RepoFetchState`, `InstallEvent`, `CliPowSpent`, `AgentEvidence`, `AgentRunTokenSpent`, `AgentScanTelemetry`. **Criterion**: a table with a JSON Schema that is serialized over the API is generated (Pydantic+Zod+TS+SQLAlchemy together — there is no DB-only codegen mode); a table never serialized over the API stays hand-written. All are registered + relationship-wired in `app/models/__init__.py` (+ `_relationships.py`) so `Base.metadata` sees every table.
 
+## Engine statement-timeout (`db/session.py`)
+
+The shared async engine (`app/db/session.py`) sets per-statement DB-layer timeouts via asyncpg `connect_args` (`engine_connect_args(settings)`) so a saturated Postgres **fast-fails** instead of hanging:
+
+- **`statement_timeout`** (`DB_STATEMENT_TIMEOUT_S`, default 30 s → ms) — Postgres ABORTS any statement exceeding it. The abort surfaces as a SQLAlchemy **`DBAPIError`** carrying **SQLSTATE `57014`** (`query_canceled`); `app/main.py::_statement_timeout_handler` maps `57014`/`25P03` to a bounded **503** (sibling to the pool-checkout `_pool_timeout_handler`) and re-raises any other `DBAPIError` so a genuine DB error still 500s + Sentry-captures. This is the per-*query* bound the pool-checkout timeout (`DB_POOL_TIMEOUT_S`, a per-*checkout* bound) never provided — one slow query can no longer pin a pooled connection while every other request 503s behind it.
+- **`idle_in_transaction_session_timeout`** (same value) — reclaims a connection left idle inside an open transaction.
+- **`command_timeout`** (`DB_COMMAND_TIMEOUT_S`, default 0 = off) — optional asyncpg client-side backstop; surfaces as an unwrapped builtin `TimeoutError` (→ 500), so it stays off by default.
+
+**Exemptions (must NOT be aborted mid-operation):**
+- **Alembic migrations** run on a **separate** engine (`migrations/env.py::async_engine_from_config`) — never see these `connect_args`.
+- The **migration advisory-lock holder** (`core/startup.py::_run_migrations_locked`) and the **procrastinate-schema advisory-lock holder** (`ingestion/worker.py::apply_procrastinate_schema_locked`) `SET LOCAL statement_timeout = 0` + `idle_in_transaction_session_timeout = 0` on their lock session: they hold a session-level `pg_advisory_lock` idle-in-transaction for the whole migration / schema-apply, and `idle_in_transaction_session_timeout` would TERMINATE the session → release the lock → let another Machine race the DDL. `SET LOCAL` scopes the exemption to that one transaction (no pooled-connection contamination).
+- The **CONCURRENTLY materialized-view refresh** (`ingestion/tasks_authors.py::author_summary_refresh`) runs on a dedicated short-lived AUTOCOMMIT engine with NO `statement_timeout` (a large-catalog refresh can exceed the cap), disposed immediately — so neither the refresh is aborted nor the shared pool contaminated.
+
+Per-tier override: the API can run a tighter `DB_STATEMENT_TIMEOUT_S` than the bulk worker via `fly.*.toml [env]`. See `environment-config.md` + `security.md` (the bounded-503 back-pressure posture).
+
 ## Native enum types (migration `0009`)
 
 `0009_native_enum_types` converts the six schema-backed tables' enum columns from `VARCHAR(20) + CHECK` to **native PG enum types** (`kind`, `popularity_tier`, `tier`, `scan_source`, `scan_run_status`, `severity`, `sub_score`, `status_at_scan`, `vendor_verification_state`, `visibility`, `source_kind`) so the generated `sa.Enum(..., native_enum=True, create_type=False)` columns match the DB. The closed value sets are the single source of truth shared by `0009`, the original CHECK constraints, and `app/models/generated/_base.py`. A new/changed enum value = update all three + a migration. `item_sources.registry_id` + `rate_limits.bucket` are intentionally NOT converted (internal hand-written tables, no generated native-enum column).
@@ -261,6 +276,7 @@ Report is its own entity, never a `catalog_items` row) and hard-filter
 | Change | Updates here |
 |---|---|
 | New migration / head revision | "Migrations" — bump the current-head note |
+| Engine timeout / connect_args change | "Engine statement-timeout" + `app/db/session.py::engine_connect_args` + `app/main.py` handler + the exemptions (`startup.py` / `worker.py` `SET LOCAL`, `tasks_authors.py` dedicated engine) + `environment-config.md` |
 | New stored-content table or column | "Stored artifact snapshots" table + `security.md` retention tier |
 | Snapshot capture cap / heuristic change | "Stored artifact snapshots" § Contract + `app/scan/persistence.py` |
 | Blob-sweep job lands | "Retention + deletion" — replace "swept later" with the job + cadence |

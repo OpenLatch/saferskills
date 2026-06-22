@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 # Side-effect import: registers every ORM model against Base.metadata.
@@ -25,6 +26,7 @@ from app.core.observability import (
     init_observability,
     instrument_app,
     record_pool_timeout_breadcrumb,
+    record_statement_timeout_breadcrumb,
     shutdown_observability,
 )
 from app.core.startup import run_startup
@@ -199,6 +201,48 @@ async def _pool_timeout_handler(  # pyright: ignore[reportUnusedFunction]
     """
     record_pool_timeout_breadcrumb("api")
     return service_unavailable_response("Database connection pool exhausted — retry shortly.")
+
+
+# Postgres cancellation SQLSTATEs that mean "the DB is under pressure" — map to a
+# bounded 503, not a 500. 57014 = query_canceled (statement_timeout fired); 25P03
+# = idle_in_transaction_session_timeout. Both free the connection cleanly.
+_DB_PRESSURE_SQLSTATES = frozenset({"57014", "25P03"})
+
+
+def _db_pressure_sqlstate(exc: DBAPIError) -> str | None:
+    """Return the Postgres SQLSTATE of a DB-pressure cancellation, else None.
+
+    `statement_timeout` surfaces as a SQLAlchemy `DBAPIError` (the base, not
+    `OperationalError`) whose `.orig` is the asyncpg-dialect wrapper (NOT the raw
+    asyncpg `QueryCanceledError`); the wrapper's `sqlstate` attribute is the
+    reliable signal (verified against the live asyncpg dialect). Falls back to
+    `pgcode` for resilience across dialect versions.
+    """
+    orig = getattr(exc, "orig", None)
+    sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
+    return sqlstate if sqlstate in _DB_PRESSURE_SQLSTATES else None
+
+
+@app.exception_handler(DBAPIError)
+async def _statement_timeout_handler(  # pyright: ignore[reportUnusedFunction]
+    _request: Request, exc: DBAPIError
+) -> JSONResponse:
+    """Map a Postgres statement-timeout cancellation to a bounded 503.
+
+    Sibling to `_pool_timeout_handler`: where that bounds a *checkout* wait, this
+    bounds a *query* — `statement_timeout` (set in `db/session.py` connect_args)
+    aborts a slow query so it can't pin a pooled connection indefinitely while
+    every other request 503s at the pool-checkout timeout. A non-pressure
+    `DBAPIError` (a genuine DB/driver error, e.g. an uncaught constraint
+    violation) is re-raised so it still becomes a 500 + Sentry capture, exactly
+    as before this handler existed.
+    """
+    if _db_pressure_sqlstate(exc) is not None:
+        record_statement_timeout_breadcrumb("api")
+        return service_unavailable_response(
+            "Database is under load — the query exceeded the statement timeout; retry shortly."
+        )
+    raise exc
 
 
 # Degraded-mode guard — registered BEFORE CORS so CORS stays the outermost

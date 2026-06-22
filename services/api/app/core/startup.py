@@ -70,6 +70,17 @@ async def _run_migrations_locked() -> None:
     log = logger.bind(step="migrations", lock_key=_MIGRATION_LOCK_KEY)
 
     async with AsyncSessionLocal() as lock_session:
+        # This session HOLDS the migration advisory lock for the whole migration
+        # (which runs on env.py's separate engine), sitting idle-in-transaction
+        # meanwhile. The shared engine's statement_timeout +
+        # idle_in_transaction_session_timeout (db/session.py connect_args) must NOT
+        # apply here: the timeout would abort the blocking `pg_advisory_lock` wait
+        # under multi-Machine contention, and idle_in_transaction would TERMINATE
+        # this session mid-migration — releasing the session-level lock and letting
+        # another Machine race the DDL. `SET LOCAL` scopes the exemption to this
+        # one transaction (no pooled-connection contamination).
+        await lock_session.execute(text("SET LOCAL statement_timeout = 0"))
+        await lock_session.execute(text("SET LOCAL idle_in_transaction_session_timeout = 0"))
         await lock_session.execute(
             text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY}
         )
