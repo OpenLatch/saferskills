@@ -1,5 +1,5 @@
 import { Command } from 'cmdk'
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import SearchDropdownItem, { type SearchHit } from './SearchDropdownItem'
 
@@ -41,6 +41,19 @@ interface Props {
 }
 
 const DEBOUNCE_MS = 300
+
+/**
+ * Sentinel "nothing is active" value for cmdk's controlled `value`.
+ *
+ * cmdk auto-highlights the first item whenever its internal value is falsy
+ * (`n.current.value || selectFirstItem()` in its item-registration path). We
+ * want the Linear/Algolia model — nothing highlighted until the user presses ↓
+ * — so we seed the controlled value with a non-empty token that matches no
+ * item (every real value is `${kind}:${slug}`, which always contains a colon,
+ * so a colon-free sentinel can never collide). The arrow/Enter handler already
+ * treats a non-matching value as "no active row" (its `indexOf` is `-1`).
+ */
+const NO_ACTIVE = '__none__'
 
 type LoadState =
   | { phase: 'idle' }
@@ -85,11 +98,30 @@ export default function SearchDropdown({
 }: Props) {
   const listboxId = useId()
   const [state, setState] = useState<LoadState>({ phase: 'idle' })
-  const [activeValue, setActiveValue] = useState<string>('')
+  const [activeValue, setActiveValue] = useState<string>(NO_ACTIVE)
+  // Escape dismisses the panel even though the query still has text. Sticky
+  // until the user re-engages the field (focus), so the dropdown closes on Esc
+  // (the requested behaviour) without clearing what they typed.
+  const [dismissed, setDismissed] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   const q = query.trim()
-  const open = q.length > 0
+  const open = q.length > 0 && !dismissed
+
+  // The result set in the order it renders. cmdk owns the `data-selected`
+  // highlight + `aria-activedescendant` via the controlled `value` prop, but
+  // the real <input> is an external sibling of <Command>, so cmdk's own
+  // keydown navigation never reaches it. We supply that navigation ourselves
+  // and need the visible hits flattened to a roving list (parallel arrays:
+  // `flatValues[i]` is the cmdk value key for `flatHits[i]`).
+  const readyGroups = state.phase === 'ready' ? state.groups : null
+  const { flatHits, flatValues } = useMemo(() => {
+    const hits = (readyGroups ?? []).flatMap((g) => g.hits)
+    return {
+      flatHits: hits,
+      flatValues: hits.map((h) => `${h.kind}:${h.slug}`),
+    }
+  }, [readyGroups])
 
   // Clamp max-height against either the explicit bottom boundary (e.g. a
   // marquee band) or the visual viewport — whichever is closer. The
@@ -145,33 +177,96 @@ export default function SearchDropdown({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open, inputRef])
 
-  // Escape blurs the input + restores typewriter loop
+  // Escape closes the dropdown (clears any highlight) + blurs the input so the
+  // typewriter loop resumes. `dismissed` keeps it closed until the user
+  // re-engages the field — see the focus effect below.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.preventDefault()
+      setActiveValue(NO_ACTIVE)
+      setDismissed(true)
       inputRef.current?.blur()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, inputRef])
 
-  // Enter without an active row → fallback navigation
+  // Re-engaging the field (focus) lifts an Escape dismissal, so the dropdown
+  // reopens with the text still present.
   useEffect(() => {
     const input = inputRef.current
-    if (!input || !fallbackHref) return
+    if (!input) return
+    const onFocus = () => setDismissed(false)
+    input.addEventListener('focus', onFocus)
+    return () => input.removeEventListener('focus', onFocus)
+  }, [inputRef])
+
+  // Keyboard navigation on the host input — the navigation cmdk can't receive
+  // because the input is an external sibling, not its <Command.Input>:
+  //   ↑/↓  move the active row (wrap at both ends, mirroring cmdk's `loop`)
+  //   Enter open the highlighted hit, else fall back to full-catalog search
+  // No preselection (Linear/Algolia model): nothing is active until ↓. Esc is
+  // owned by the dedicated effect above; Home/End/Tab are left to text editing.
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter') return
-      const trimmed = query.trim()
-      if (!trimmed) return
-      if (activeValue) return
-      e.preventDefault()
-      window.location.assign(fallbackHref(trimmed))
+      // -1 when nothing is highlighted (the NO_ACTIVE sentinel, or a value
+      // left over from an earlier query that's no longer in the list).
+      const i = flatValues.indexOf(activeValue)
+      if (e.key === 'ArrowDown') {
+        if (flatValues.length === 0) return
+        e.preventDefault()
+        const next = i < 0 || i === flatValues.length - 1 ? 0 : i + 1
+        setActiveValue(flatValues[next])
+      } else if (e.key === 'ArrowUp') {
+        if (flatValues.length === 0) return
+        e.preventDefault()
+        const prev = i <= 0 ? flatValues.length - 1 : i - 1
+        setActiveValue(flatValues[prev])
+      } else if (e.key === 'Enter') {
+        if (i >= 0) {
+          e.preventDefault()
+          onSelect(flatHits[i])
+          return
+        }
+        // Nothing highlighted → keep the full-catalog-search fallback.
+        const trimmed = query.trim()
+        if (trimmed && fallbackHref) {
+          e.preventDefault()
+          window.location.assign(fallbackHref(trimmed))
+        }
+      }
     }
     input.addEventListener('keydown', onKey)
     return () => input.removeEventListener('keydown', onKey)
-  }, [query, activeValue, inputRef, fallbackHref])
+  }, [flatValues, flatHits, activeValue, query, fallbackHref, onSelect, inputRef])
+
+  // Clear a stale highlight whenever the result set changes (new query, retry)
+  // — a value active under an earlier query must not survive into fresh hits.
+  // Reset to the sentinel (not ''), so cmdk still won't auto-highlight row 0.
+  useEffect(() => {
+    setActiveValue(NO_ACTIVE)
+  }, [readyGroups])
+
+  // Keep the active row visible — the list scrolls internally above 440px.
+  useEffect(() => {
+    if (!activeValue) return
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const raf = requestAnimationFrame(() => {
+      const el = wrapper.querySelector<HTMLElement>("[data-selected='true']")
+      el?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
+    })
+    // Cancel a pending frame when activeValue changes again (rapid/held arrows)
+    // so we never stack scrolls toward a row that's already been superseded.
+    return () => cancelAnimationFrame(raf)
+  }, [activeValue])
 
   // Debounced fetch
   useEffect(() => {
@@ -210,12 +305,14 @@ export default function SearchDropdown({
   useEffect(() => {
     const input = inputRef.current
     if (!input) return
-    if (!open || !activeValue) {
+    // Only point at a row that actually exists — never at the NO_ACTIVE
+    // sentinel (which renders no option element).
+    if (!open || !flatValues.includes(activeValue)) {
       input.removeAttribute('aria-activedescendant')
       return
     }
     input.setAttribute('aria-activedescendant', toOptionId(listboxId, activeValue))
-  }, [activeValue, open, listboxId, inputRef])
+  }, [activeValue, flatValues, open, listboxId, inputRef])
 
   if (!open) return null
 
@@ -227,7 +324,12 @@ export default function SearchDropdown({
       <Command
         shouldFilter={false}
         value={activeValue}
-        onValueChange={setActiveValue}
+        // Mouse hover routes through here (cmdk sets the hovered row's value).
+        // Coerce cmdk's own falsy resets (it emits '' while tearing the old
+        // result set down on a requery) back to the sentinel — a falsy value
+        // would re-arm cmdk's "auto-highlight the first item" on the next
+        // registration, breaking the no-preselect contract.
+        onValueChange={(v) => setActiveValue(v || NO_ACTIVE)}
         loop
         label="Catalog search"
       >
