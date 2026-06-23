@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -135,6 +136,38 @@ async def test_public_caches_unlisted_does_not(db_client: AsyncClient) -> None:
     ).json()
     assert u1["id"] != u2["id"]  # never cached
     assert u1["share_url"] and u2["share_url"] and u1["share_url"] != u2["share_url"]
+
+
+@pytest.mark.asyncio
+async def test_public_failed_run_is_rerun_not_reserved(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Regression: a `failed` public upload must NOT be re-served from the
+    idempotency cache. Re-submitting the same bytes re-runs it IN PLACE (reuses the
+    id so its report URL keeps working, resets to pending) instead of returning the
+    stale failure forever — the bug where the asyncpg-pool incident left runs
+    cached `failed`, so re-uploading the same file kept showing "scan didn't
+    complete" even after the pool was fixed."""
+    first = (
+        await db_client.post("/api/v1/scans/upload", files=_files(), data={"visibility": "public"})
+    ).json()
+    run_id = first["id"]
+
+    # Simulate the scan having failed (e.g. the NOTIFY pool was dead at scan time).
+    run = await db_session.get(ScanRun, UUID(run_id))
+    assert run is not None
+    run.status = "failed"
+    await db_session.flush()
+
+    # Re-submit the SAME bytes — must re-run in place, not re-serve the failure.
+    again = (
+        await db_client.post("/api/v1/scans/upload", files=_files(), data={"visibility": "public"})
+    ).json()
+    assert again["id"] == run_id  # reused id → the existing report URL keeps working
+    assert again["status"] == "pending"  # re-running, not a stale cache hit
+
+    await db_session.refresh(run)
+    assert run.status == "pending"  # reset for the re-run, no longer failed
 
 
 async def _seed_unlisted_run(session: AsyncSession, *, expired: bool = False) -> ScanRun:

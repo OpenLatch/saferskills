@@ -415,6 +415,7 @@ async def submit_scan(
     # Public key stays byte-identical to the earlier public-only form (no nonce),
     # so cached public runs still hit. Unlisted salts with a per-submission nonce
     # AND skips the cache lookup entirely — never couple two private submitters.
+    reuse_run: ScanRun | None = None
     if is_unlisted:
         idempotency_key = persistence.compute_idempotency_key(
             body.github_url,
@@ -430,7 +431,8 @@ async def submit_scan(
             existing = await persistence.select_existing_run_by_idempotency(
                 session, idempotency_key
             )
-            if existing is not None:
+            if existing is not None and existing.status != "failed":
+                # Genuine cache hit — a completed report, or a scan still in flight.
                 status_ = "completed" if existing.status == "completed" else "running"
                 return ScanSubmitResponse(
                     id=str(existing.id),
@@ -439,6 +441,11 @@ async def submit_scan(
                     rubric_version=existing.rubric_version,
                     submitted_at=existing.scanned_at,
                 )
+            # A `failed` idempotency hit is NOT a cache hit — re-running the same
+            # URL must re-attempt the scan, not re-serve the stale failure forever.
+            # Re-run it IN PLACE below, reusing the id so its report URL keeps working.
+            if existing is not None:
+                reuse_run = existing
 
     share_token: str | None = None
     expires_at: datetime | None = None
@@ -446,18 +453,21 @@ async def submit_scan(
         share_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(UTC) + timedelta(days=settings.unlisted_retention_days)
 
-    run = await persistence.persist_pending_scan_run(
-        session,
-        idempotency_key=idempotency_key,
-        github_url=body.github_url,
-        rubric_version=rubric_version,
-        engine_version=engine_version,
-        source="submission",
-        visibility=body.visibility,
-        source_kind="github",
-        share_token=share_token,
-        expires_at=expires_at,
-    )
+    if reuse_run is not None:
+        run = await persistence.reset_failed_run_for_rerun(session, reuse_run)
+    else:
+        run = await persistence.persist_pending_scan_run(
+            session,
+            idempotency_key=idempotency_key,
+            github_url=body.github_url,
+            rubric_version=rubric_version,
+            engine_version=engine_version,
+            source="submission",
+            visibility=body.visibility,
+            source_kind="github",
+            share_token=share_token,
+            expires_at=expires_at,
+        )
     await session.commit()
     emit_scan_submitted(
         source="submission",
@@ -634,12 +644,14 @@ async def submit_upload(
     engine_version = settings.engine_version or settings.git_sha or "unknown"
     is_unlisted = visibility == "unlisted"
 
+    reuse_run: ScanRun | None = None
     if is_unlisted:
         idempotency_key = unlisted_idempotency_key(content_hash, rubric_version)
     else:
         idempotency_key = public_upload_idempotency_key(content_hash, rubric_version)
         existing = await persistence.select_existing_run_by_idempotency(session, idempotency_key)
-        if existing is not None:
+        if existing is not None and existing.status != "failed":
+            # Genuine cache hit — a completed report, or a scan still in flight.
             return ScanUploadResponse(
                 id=str(existing.id),
                 status="completed" if existing.status == "completed" else "running",
@@ -648,6 +660,11 @@ async def submit_upload(
                 slug=None,
                 share_url=None,
             )
+        # A `failed` idempotency hit is NOT a cache hit — re-running the same bytes
+        # must re-attempt the scan, not re-serve the stale failure forever (e.g. an
+        # infra failure since fixed). Re-run it IN PLACE below, reusing the id so
+        # the existing report URL keeps working.
+        reuse_run = existing
 
     share_token: str | None = None
     expires_at: datetime | None = None
@@ -655,20 +672,23 @@ async def submit_upload(
         share_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(UTC) + timedelta(days=settings.unlisted_retention_days)
 
-    run = await persistence.persist_pending_scan_run(
-        session,
-        idempotency_key=idempotency_key,
-        github_url=None,
-        rubric_version=rubric_version,
-        engine_version=engine_version,
-        source="submission",
-        visibility=visibility,
-        source_kind="upload",
-        share_token=share_token,
-        expires_at=expires_at,
-        original_filename=extracted.original_filename,
-        content_hash_sha256=content_hash,
-    )
+    if reuse_run is not None:
+        run = await persistence.reset_failed_run_for_rerun(session, reuse_run)
+    else:
+        run = await persistence.persist_pending_scan_run(
+            session,
+            idempotency_key=idempotency_key,
+            github_url=None,
+            rubric_version=rubric_version,
+            engine_version=engine_version,
+            source="submission",
+            visibility=visibility,
+            source_kind="upload",
+            share_token=share_token,
+            expires_at=expires_at,
+            original_filename=extracted.original_filename,
+            content_hash_sha256=content_hash,
+        )
     await session.commit()
 
     total_bytes = sum(len(b) for _, b in parts)

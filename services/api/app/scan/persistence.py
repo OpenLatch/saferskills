@@ -972,6 +972,46 @@ async def delete_run_cascade(
     await session.flush()
 
 
+async def reset_failed_run_for_rerun(session: AsyncSession, run: ScanRun) -> ScanRun:
+    """Reset a `failed` run back to `pending` IN PLACE so the same idempotency_key
+    can be re-scanned without a UNIQUE collision — reusing the run id (its report
+    URL keeps working) instead of minting a new one.
+
+    A `failed` run must NEVER be served from the idempotency cache (a re-submit of
+    the same content has to re-attempt the scan, not re-serve the failure — e.g. a
+    transient infra failure that's since been fixed). The submit routers detect a
+    `failed` idempotency hit and call this, then re-dispatch the scan task on the
+    same run id.
+
+    Clears the run's children (mirroring `delete_run_cascade`'s order, but KEEPS
+    the run row) so the re-run starts clean — in particular the stale `scan_events`
+    are deleted so the SSE replay (`routers/scans.py::scan_events`) re-streams the
+    fresh run from event_seq 1 instead of stopping at the old `done/failed` event.
+    A failed run normally has no scans/findings (capability_count 0), but a
+    mid-scan failure could, so the full child clear is the safe belt.
+    """
+    scan_ids = list(
+        (await session.execute(select(Scan.id).where(Scan.scan_run_id == run.id))).scalars().all()
+    )
+    if scan_ids:
+        await session.execute(delete(Finding).where(Finding.scan_id.in_(scan_ids)))
+    await session.execute(delete(ScanEvent).where(ScanEvent.scan_run_id == run.id))
+    await session.execute(delete(Scan).where(Scan.scan_run_id == run.id))
+    await session.execute(delete(CatalogItem).where(CatalogItem.owner_run_id == run.id))
+    await session.execute(delete(UploadFile).where(UploadFile.scan_run_id == run.id))
+
+    run.status = "pending"
+    run.repo_aggregate_score = 0
+    run.repo_tier = "unscoped"
+    run.kind_tally = {}
+    run.capability_count = 0
+    run.file_count = 0
+    run.latency_ms = 0
+    run.scanned_at = datetime.now(UTC)
+    await session.flush()
+    return run
+
+
 def serialize_findings(findings: Iterable[Finding]) -> list[dict[str, object]]:
     """Slim public-API representation of finding rows for the report endpoint."""
     out: list[dict[str, object]] = []
