@@ -680,6 +680,21 @@ class Settings(BaseSettings):
             "incrementally — so at most the current 25-item batch is re-run."
         ),
     )
+    worker_watchdog_timeout_s: float = Field(
+        default=900.0,  # 15 min
+        ge=0,
+        description=(
+            "Standalone-worker liveness watchdog (app/worker_main.py). An OS "
+            "thread (independent of the asyncio loop) hard-exits the process — "
+            "letting Fly's `restart=always` reboot the Machine — when the event "
+            "loop stops refreshing its heartbeat for this many seconds. A deployed "
+            "worker has no HTTP health check and `[restart] policy` only fires on "
+            "process exit, so a WEDGED loop (observed: 46 min of total silence, "
+            "recovered only by a manual restart) is otherwise unrecoverable. "
+            "Generous default (15 min) so a legitimately long in-loop operation "
+            "never trips it — only a true hang does. `0` disables the watchdog."
+        ),
+    )
     ingestion_stalled_seconds: int = Field(
         default=14_400,  # 4h
         ge=60,

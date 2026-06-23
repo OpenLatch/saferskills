@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Iterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -164,3 +165,56 @@ async def test_teardown_is_bounded_and_ordered(monkeypatch: pytest.MonkeyPatch) 
         "bounded:posthog flush",
         "bounded:db pool close",
     ]
+
+
+# --- liveness watchdog (event-loop-wedge auto-recovery) ---
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_refreshes_beat_and_stops_on_event() -> None:
+    """The heartbeat refreshes `beat[0]` while the loop runs, exits on `stop`."""
+    import app.worker_main as wm
+
+    beat = [0.0]
+    stop = asyncio.Event()
+    task = asyncio.create_task(
+        wm._heartbeat_loop(beat, 0.01, stop)  # pyright: ignore[reportPrivateUsage]
+    )
+    await asyncio.sleep(0.04)  # let it tick a few times
+    assert beat[0] > 0.0  # refreshed to a monotonic timestamp
+    stop.set()
+    await asyncio.wait_for(task, timeout=1.0)  # exits promptly once stop is set
+
+
+def test_watchdog_force_exits_when_loop_stalls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stale heartbeat → the watchdog hard-exits (os._exit 42) so Fly restarts."""
+    import app.worker_main as wm
+
+    exits: list[int] = []
+
+    def _fake_exit(code: int) -> None:
+        exits.append(code)
+
+    monkeypatch.setattr(wm.os, "_exit", _fake_exit)
+    stop = MagicMock()
+    stop.wait = MagicMock(side_effect=[False, True])  # one check, then stand down
+    beat = [time.monotonic() - 10_000.0]  # very stale → loop is wedged
+    wm._watchdog_loop(beat, stop, 1.0)  # pyright: ignore[reportPrivateUsage]
+    assert exits == [42]
+
+
+def test_watchdog_skips_when_heartbeat_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fresh heartbeat → no force-exit (the loop is healthy)."""
+    import app.worker_main as wm
+
+    exits: list[int] = []
+
+    def _fake_exit(code: int) -> None:
+        exits.append(code)
+
+    monkeypatch.setattr(wm.os, "_exit", _fake_exit)
+    stop = MagicMock()
+    stop.wait = MagicMock(side_effect=[False, True])
+    beat = [time.monotonic()]  # fresh
+    wm._watchdog_loop(beat, stop, 900.0)  # pyright: ignore[reportPrivateUsage]
+    assert exits == []
