@@ -30,6 +30,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability-staging.internal:4
 OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
 OTEL_SERVICE_NAME = "saferskills-worker"
 POSTHOG_HOST = "https://eu.i.posthog.com"
+# Public base URL used to build share_url/report_url fields written by the worker
+# (scan jobs) and pack/submit/poll URLs in agent-scan bootstrap prompts. Non-secret.
+PUBLIC_BASE_URL = "https://staging.saferskills.ai"
 # This IS the worker process — run the in-process Procrastinate worker.
 INGESTION_WORKER_ENABLED = "true"
 # Tuned for the 512 MB shared-cpu-1x box AND to spare the 256 MB shared-cpu-1x
