@@ -176,9 +176,11 @@ def _is_live_unlisted(run: AgentRun | None) -> bool:
 async def _gate_agent_submission(
     request: Request, session: AsyncSession, *, settings: Settings
 ) -> None:
-    """Human/bot gate for `POST /agent-scans`. Loopback-exempt at the
-    call site. PoW path (CLI) elif Turnstile (browser) - both count against the
-    dedicated `agent_scan_submit` bucket. Verify precedes the rate-limit + the mint."""
+    """Human/bot gate for the agent-scan **mint** endpoints (`POST /agent-scans`
+    + `/agent-scans/bootstrap`). Loopback-exempt at the call site. PoW path (CLI)
+    elif Turnstile (browser) - both count against the dedicated `agent_scan_submit`
+    bucket. Verify precedes the rate-limit + the mint. NOT applied to `/submit`,
+    which is authorized solely by the single-use run token (like `/abort`)."""
     ip = rate_limit_ip(request, settings)
     pow_header = request.headers.get("x-saferskills-cli-pow")
     turnstile_token = request.headers.get("cf-turnstile-response")
@@ -385,15 +387,18 @@ async def submit_run(
 ) -> AgentScanReportDetail:
     """Submit `agent_scan_result.v1`, grade it synchronously, return the report.
 
-    Ordered: gate -> idempotent-replay (already graded -> stored report, BEFORE the
-    token spend so a network-retry never 403s on a spent token) -> single-use token
-    spend -> state check -> decode/validate -> store raw -> grade off the event loop
-    -> persist -> best-effort telemetry -> public projection (+ share_url if unlisted).
+    NOT human/bot-gated: the intended caller is the AI agent itself (only an
+    `X-Agent-Run-Token`, no Turnstile/PoW). Authorization is the single-use run
+    token alone (like `/abort` / `/pack` / `/status`); the run it completes was
+    already gated + rate-limited at mint, so the gate here would be redundant and
+    unsolvable for the agent.
+
+    Ordered: idempotent-replay (already graded -> stored report, BEFORE the token
+    spend so a network-retry never 403s on a spent token) -> single-use token spend
+    -> state check -> decode/validate -> store raw -> grade off the event loop ->
+    persist -> best-effort telemetry -> public projection (+ share_url if unlisted).
     """
     settings = get_settings()
-    if not is_loopback(peer_host(request)):
-        await _gate_agent_submission(request, session, settings=settings)
-
     run = await session.get(AgentRun, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="not found")

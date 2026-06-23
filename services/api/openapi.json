@@ -5544,7 +5544,7 @@
     },
     "/api/v1/agent-scans/{run_id}/submit": {
       "post": {
-        "description": "Submit `agent_scan_result.v1`, grade it synchronously, return the report.\n\nOrdered: gate -> idempotent-replay (already graded -> stored report, BEFORE the\ntoken spend so a network-retry never 403s on a spent token) -> single-use token\nspend -> state check -> decode/validate -> store raw -> grade off the event loop\n-> persist -> best-effort telemetry -> public projection (+ share_url if unlisted).",
+        "description": "Submit `agent_scan_result.v1`, grade it synchronously, return the report.\n\nNOT human/bot-gated: the intended caller is the AI agent itself (only an\n`X-Agent-Run-Token`, no Turnstile/PoW). Authorization is the single-use run\ntoken alone (like `/abort` / `/pack` / `/status`); the run it completes was\nalready gated + rate-limited at mint, so the gate here would be redundant and\nunsolvable for the agent.\n\nOrdered: idempotent-replay (already graded -> stored report, BEFORE the token\nspend so a network-retry never 403s on a spent token) -> single-use token spend\n-> state check -> decode/validate -> store raw -> grade off the event loop ->\npersist -> best-effort telemetry -> public projection (+ share_url if unlisted).",
         "operationId": "submit_run_api_v1_agent_scans__run_id__submit_post",
         "parameters": [
           {
