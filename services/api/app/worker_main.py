@@ -21,8 +21,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import signal
 import sys
+import threading
+import time
 
 import structlog
 
@@ -53,6 +56,53 @@ def _install_shutdown_signal(loop: asyncio.AbstractEventLoop) -> asyncio.Event:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, stop.set)
     return stop
+
+
+def _watchdog_loop(beat: list[float], stop: threading.Event, timeout_s: float) -> None:
+    """Daemon-thread body: force-exit the process if the event loop stops beating.
+
+    A deployed worker has **no HTTP health check** (it is not a web service), so
+    Fly cannot detect a wedged event loop — and `[restart] policy` only fires on
+    process *exit*, never on a hang. We observed exactly this: the loop went
+    silent for 46 min (no jobs, no logs, no periodic ticks) and only a manual
+    restart recovered it. This thread runs INDEPENDENT of asyncio, so a wedged
+    loop can't stop it: if `beat[0]` (refreshed by `_heartbeat_loop` while the
+    loop is alive) goes stale past `timeout_s`, we hard-exit (`os._exit`, code 42)
+    so `restart=always` reboots the Machine. The threshold is generous so a
+    legitimately long in-loop operation never trips it — only a true wedge does.
+    """
+    check = max(5.0, min(30.0, timeout_s / 4))
+    while not stop.wait(check):
+        stale = time.monotonic() - beat[0]
+        if stale > timeout_s:
+            with contextlib.suppress(Exception):
+                logger.error(
+                    "worker_main.watchdog_force_exit",
+                    stale_seconds=round(stale, 1),
+                    timeout_s=timeout_s,
+                )
+            # The structured logger runs in this thread (sync, loop-independent),
+            # but write to stderr too in case its sink is misconfigured — then
+            # hard-exit so Fly's restart=always reboots the wedged worker.
+            with contextlib.suppress(Exception):
+                sys.stderr.write(
+                    f"[worker-watchdog] event loop stalled {stale:.0f}s > "
+                    f"{timeout_s:.0f}s — forcing process exit\n"
+                )
+                sys.stderr.flush()
+            os._exit(42)
+
+
+async def _heartbeat_loop(beat: list[float], interval: float, stop: asyncio.Event) -> None:
+    """Refresh the watchdog heartbeat (`beat[0]`) while the event loop runs.
+
+    Cheap (a monotonic write + a sleep). If the loop wedges, this task stops
+    running, `beat[0]` goes stale, and `_watchdog_loop` (a real OS thread) fires.
+    """
+    while not stop.is_set():
+        beat[0] = time.monotonic()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=interval)
 
 
 async def main() -> int:
@@ -116,6 +166,28 @@ async def main() -> int:
     )
     logger.info("worker_main.started", concurrency=settings.ingestion_worker_concurrency)
 
+    # Liveness watchdog — an OS thread that hard-exits a WEDGED event loop so
+    # Fly's `restart=always` recovers it (a worker has no HTTP health check, and
+    # `[restart] policy` only fires on process exit, never a hang). The async
+    # heartbeat refreshes `wd_beat` while the loop is alive; if it goes stale the
+    # thread force-exits. Disabled when worker_watchdog_timeout_s == 0. See
+    # `_watchdog_loop` / `_heartbeat_loop`.
+    wd_timeout = settings.worker_watchdog_timeout_s
+    wd_beat = [time.monotonic()]
+    wd_stop = threading.Event()
+    heartbeat_task: asyncio.Task[None] | None = None
+    if wd_timeout > 0:
+        threading.Thread(
+            target=_watchdog_loop,
+            args=(wd_beat, wd_stop, wd_timeout),
+            name="worker-watchdog",
+            daemon=True,
+        ).start()
+        heartbeat_task = asyncio.create_task(
+            _heartbeat_loop(wd_beat, max(1.0, min(30.0, wd_timeout / 8)), stop),
+            name="worker_heartbeat",
+        )
+
     # Run until a signal — OR until the supervisor itself returns (it only does so
     # on a fatal error; the restart-on-self-stop loop keeps it alive otherwise).
     stop_task = asyncio.create_task(stop.wait(), name="worker_stop_signal")
@@ -128,6 +200,14 @@ async def main() -> int:
                 await stop_task
 
     logger.info("worker_main.shutting_down")
+    # Stand the watchdog down BEFORE teardown so it can never fire while the
+    # (bounded) shutdown runs; cancel the heartbeat directly (not via the bounded
+    # helpers, so the teardown sequence is unchanged).
+    wd_stop.set()
+    if heartbeat_task is not None:
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
     # Bounded teardown — same helpers + order as app.main's lifespan finally.
     await cancel_and_settle(
         worker_task,
