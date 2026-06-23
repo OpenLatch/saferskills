@@ -19,6 +19,7 @@ from saferskills_e2e.commands.doctor import DoctorCommand
 from saferskills_e2e.commands.homepage import HomepageCommand
 from saferskills_e2e.commands.item_detail import ItemDetailCommand
 from saferskills_e2e.commands.og_endpoint import OgEndpointCommand
+from saferskills_e2e.commands.scan_completes import ScanCompletesCommand
 from saferskills_e2e.commands.smoke import SmokeCommand
 from saferskills_e2e.commands.unlisted_flow import UnlistedFlowCommand
 from saferskills_e2e.commands.upload_flow import UploadFlowCommand
@@ -34,6 +35,7 @@ ALL_COMMANDS: dict[str, type[BaseCommand]] = {
     OgEndpointCommand.name: OgEndpointCommand,
     UploadFlowCommand.name: UploadFlowCommand,
     UnlistedFlowCommand.name: UnlistedFlowCommand,
+    ScanCompletesCommand.name: ScanCompletesCommand,
     CatalogBadgeFilterCommand.name: CatalogBadgeFilterCommand,
     AllCommand.name: AllCommand,
 }
@@ -48,6 +50,7 @@ COMMAND_SEQUENCE: list[str] = [
     OgEndpointCommand.name,
     UploadFlowCommand.name,
     UnlistedFlowCommand.name,
+    ScanCompletesCommand.name,
     CatalogBadgeFilterCommand.name,
 ]
 

@@ -39,6 +39,7 @@ The first `playwright install chromium` downloads a versioned headless Chromium 
 | `og-endpoint` | HTTP: `/og/scan/<scan_id>.png` → 200 + PNG magic for a COMPLETED scan (the endpoint 404s a pending/running/failed run). No completed scan → skip. | None |
 | `upload-flow` | `/scan` Upload tab default + DropZone + public toggle + consent; upload report provenance if present. Empty → skip. (staging) | Chromium |
 | `unlisted-flow` | Loopback-create an unlisted upload → `/scans/r/<token>` private banner + manage bar + `noindex` header/meta; delete → token 404s. Cap → skip. (staging) | Chromium |
+| `scan-completes` | **Regression guard for the scan pipeline**: submit a tiny unlisted upload (loopback-exempt / staging always-pass Turnstile test secret / prod real-secret → skip) and poll the run to a terminal state, asserting `status=completed` with `capability_count≥1` — catches the asyncpg-pool failure where every scan died `failed`. Eagerly deletes the run. Cap / human-gate → skip. (staging) | None |
 | `catalog-badge-filter` | Unlisted slug 404s on `/items/<slug>`; `/catalog` Source filter renders; UPLOAD badge under `?artifact_source=upload` if present. (staging) | Chromium |
 | `all` | Runs every command above in sequence, stops on first failure (the upload/unlisted commands skip gracefully on empty staging). | None |
 

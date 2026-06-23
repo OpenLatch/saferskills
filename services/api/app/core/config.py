@@ -846,11 +846,16 @@ class Settings(BaseSettings):
            the legacy `postgres` alias and needs an explicit `+asyncpg` driver,
            or `create_async_engine` raises `NoSuchModuleError`. Every consumer
            expects the `postgresql+asyncpg://` form (`db/session.py`,
-           `migrations/env.py`; `db_pool.py` strips the hint back off for raw
-           asyncpg).
+           `migrations/env.py`). The two RAW-client consumers
+           (`db_pool.py::_sqlalchemy_dsn_to_asyncpg` for the asyncpg LISTEN/NOTIFY
+           pool, `ingestion._libpq_conninfo` for the Procrastinate psycopg
+           connector) strip the hint back off AND reverse the SSL rename below.
         2. **SSL** — a `?sslmode=…` query param is libpq-only; the asyncpg
            dialect forwards it as a bad `connect()` kwarg. `_coerce_sslmode_to_ssl`
-           renames it to `ssl`.
+           renames it to `ssl`. The inverse `coerce_ssl_to_sslmode` renames it
+           back for the two raw clients above — RAW asyncpg/libpq do NOT
+           understand `ssl=` (asyncpg misreads `ssl=disable` as "enable TLS";
+           libpq rejects `ssl` outright), so skipping it is silently fatal there.
 
         An explicit `+driver` is left intact.
         """

@@ -134,19 +134,30 @@ async def _emit(
         session.add(event)
         await session.commit()
 
-    pool = get_pool()
-    channel = f"scan_progress_{channel_id.hex}"
-    payload_json = json.dumps(
-        {
-            "event_seq": event_seq,
-            "stage": stage,
-            "completion_pct": completion_pct,
-            "status": status,
-            "payload": payload or {},
-        }
-    )
-    async with pool.acquire() as conn:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        await conn.execute("SELECT pg_notify($1, $2)", channel, payload_json)  # pyright: ignore[reportUnknownMemberType]
+    # The durable progress record is the committed `scan_events` row above; the
+    # NOTIFY below is only the LIVE-delta optimization (SSE clients replay the
+    # rows on connect — `routers/scans.py::scan_events`, which itself tolerates a
+    # missing pool via `except RuntimeError: return`). So a missing/broken asyncpg
+    # NOTIFY pool must DEGRADE to "no live deltas", never abort the scan: a fatal
+    # `get_pool()` here is what turned an uninitialized pool into "every scan
+    # fails / results not available" instead of a silent live-stream downgrade.
+    try:
+        pool = get_pool()
+        channel = f"scan_progress_{channel_id.hex}"
+        payload_json = json.dumps(
+            {
+                "event_seq": event_seq,
+                "stage": stage,
+                "completion_pct": completion_pct,
+                "status": status,
+                "payload": payload or {},
+            }
+        )
+        async with pool.acquire() as conn:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            await conn.execute("SELECT pg_notify($1, $2)", channel, payload_json)  # pyright: ignore[reportUnknownMemberType]
+    except Exception:
+        # Best-effort live notify — the row is already durably committed.
+        logger.warning("scan progress NOTIFY skipped (pool unavailable)", exc_info=True)
 
 
 async def scan_run(

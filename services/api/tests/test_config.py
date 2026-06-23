@@ -171,6 +171,32 @@ def test_libpq_conninfo_renames_ssl_for_psycopg() -> None:
     assert "ssl=disable" not in out  # the libpq-fatal token is gone
 
 
+def test_db_pool_dsn_renames_ssl_to_sslmode_for_raw_asyncpg() -> None:
+    """Regression: the asyncpg LISTEN/NOTIFY pool DSN must use libpq `sslmode`.
+
+    `settings.database_url` carries the asyncpg-dialect `?ssl=disable` form, but
+    RAW `asyncpg.create_pool` misreads `ssl=disable` as a truthy string → ENABLES
+    TLS (default SSLContext), the opposite of intent — so on a `sslmode=disable`
+    Fly-internal DSN it attempts a TLS handshake against a non-TLS server and
+    `create_pool` raises. `init_pool()` then leaves the pool None and every
+    SSE-emitting scan dies in `_emit`'s `get_pool()` (the prod "scan results not
+    available" regression). `_sqlalchemy_dsn_to_asyncpg` must strip the driver
+    suffix AND rename `ssl` → `sslmode` so asyncpg parses it correctly.
+    """
+    from app.core.db_pool import (
+        _sqlalchemy_dsn_to_asyncpg,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    out = _sqlalchemy_dsn_to_asyncpg("postgresql+asyncpg://u:p@host:5432/db?ssl=disable")
+    assert out == "postgresql://u:p@host:5432/db?sslmode=disable"
+    assert "ssl=disable" not in out  # asyncpg would misread this as "enable TLS"
+    # A plain (no-SSL) DSN still loses only the driver hint, untouched otherwise.
+    assert (
+        _sqlalchemy_dsn_to_asyncpg("postgresql+asyncpg://u:p@host:5432/db")
+        == "postgresql://u:p@host:5432/db"
+    )
+
+
 # ── Turnstile secret startup guard ──────────────────────────────────────────
 
 
