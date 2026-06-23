@@ -44,19 +44,35 @@ const stats = await fetchOrNull(fetchPlatformStats)
 const ruleCount = pickCount(stats?.rule_count, methodologyRuleCount, 1)
 
 const isInProgress = run.status === 'pending' || run.status === 'running'
+// A `failed` run produced NO scored result — never render it as a completed report
+// (that showed "scan complete · 0 capabilities", the misleading title-but-no-body
+// state). It gets an honest "didn't complete / retry" surface instead.
+const isFailed = run.status === 'failed'
 
 // Title-only identity (the full source-aware report body lives in ScanRunReport).
 // Uploads have no github_url — `reportIdentity` null-guards.
 const { uploadName, baseTitle } = reportIdentity(run)
+
+// Re-run target: prefill the repo URL for a github scan; a new scan for an upload
+// (uploaded bytes can't be re-fetched). Mirrors ScanRunReport's rescan href.
+const rescanHref = run.github_url ? `/scan?prefill=${encodeURIComponent(run.github_url)}` : '/scan'
 ---
 
 <Base
-  title={isInProgress ? `Auditing ${baseTitle} — SaferSkills` : `${baseTitle} ${run.repo_aggregate_score}/100 — SaferSkills`}
+  title={
+    isInProgress
+      ? `Auditing ${baseTitle} — SaferSkills`
+      : isFailed
+        ? `${baseTitle} — scan didn't complete — SaferSkills`
+        : `${baseTitle} ${run.repo_aggregate_score}/100 — SaferSkills`
+  }
   ogImage={scanOgImage(run.id, run.status, Astro.site)}
   description={
     isInProgress
       ? `Live audit of ${run.github_url ?? baseTitle} — independent detection rules running.`
-      : `SaferSkills audit of ${baseTitle}: ${run.capability_count} capabilities, repo ${run.repo_aggregate_score}/100. Independent, methodology-open, free.`
+      : isFailed
+        ? `This SaferSkills scan of ${baseTitle} didn't complete, so no result was published. Running it again usually clears it.`
+        : `SaferSkills audit of ${baseTitle}: ${run.capability_count} capabilities, repo ${run.repo_aggregate_score}/100. Independent, methodology-open, free.`
   }
 >
   <NavBar client:idle ghCount={stats?.github_stars ?? FALLBACK_GITHUB_STARS} activePath={Astro.url.pathname} />
@@ -70,6 +86,22 @@ const { uploadName, baseTitle } = reportIdentity(run)
       />
       <PageRidge variant="contour" label={`— /SCANS/${id.toUpperCase()} —`} />
       <ScanProgressBoard client:load scanId={id} target={run.github_url ?? uploadName} startedAt={run.scanned_at} />
+    </>
+  ) : isFailed ? (
+    <>
+      <PageHead
+        eyebrow={`SCAN · /SCANS/<ID>`}
+        title={`${baseTitle} — scan didn't complete`}
+        lede={`This scan stopped before it produced a report, so there's nothing to show yet — nothing was scored and no result was published. This is almost always transient; running it again usually clears it.`}
+      />
+      <PageRidge variant="contour" label={`— /SCANS/${id.toUpperCase()} —`} />
+      <CtaBand
+        client:visible
+        title="Run the scan again."
+        lead="~30 seconds. Free. No account. Every finding cites a rule and a line of evidence."
+        primaryAction={{ label: run.github_url ? 'Re-scan this repo' : 'Run a new scan', href: rescanHref }}
+        secondaryAction={{ label: 'Browse capabilities', href: '/capabilities' }}
+      />
     </>
   ) : (
     <>

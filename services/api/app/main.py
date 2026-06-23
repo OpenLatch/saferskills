@@ -63,10 +63,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     # StartupGuardMiddleware then serves 503 on every route but /health).
     await run_startup()
     # Pool init failures are non-fatal at boot — health endpoint still serves;
-    # any route that needs the pool will raise on its own. Same for the
-    # stale-scan recovery sweep: missing DB at boot shouldn't keep /health red.
-    with contextlib.suppress(Exception):
+    # any route that needs the pool degrades on its own. But never SILENT: a
+    # suppressed init_pool() failure (e.g. a DSN whose SSL form raw asyncpg
+    # rejects) is exactly what hid the "every scan fails" regression — log it so
+    # it surfaces in logs + Sentry. Same for the stale-scan recovery sweep:
+    # missing DB at boot shouldn't keep /health red.
+    try:
         await init_pool()
+    except Exception:
+        logger.error("asyncpg LISTEN/NOTIFY pool init failed at boot", exc_info=True)
     with contextlib.suppress(Exception):
         from app.queue.scan_runner import recover_stale_scans
 
