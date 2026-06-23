@@ -463,22 +463,28 @@ jobs:
           npx -y @lhci/cli@latest autorun --config=.lighthouserc.staging.run.json
 
   # ─────────────────────────────────────────────────────────────────────
-  # Production deployment is BLOCKED until SaferSkills reaches MVP state.
-  # Gate: repo variable `ENABLE_PRODUCTION_DEPLOYS` must equal the literal
-  # string `"true"` (set under Settings → Secrets and variables → Actions
-  # → Variables). The variable is currently UNSET, so the `if:` expression
-  # evaluates to false and the prod jobs never run — even on manual
-  # workflow_dispatch.
+  # Production deploys are ENABLED (the soft launch shipped saferskills.ai).
+  # Two independent gates guard each prod roll:
+  #   1. Repo variable `ENABLE_PRODUCTION_DEPLOYS` must equal the literal
+  #      string `"true"` (Settings → Secrets and variables → Actions →
+  #      Variables) — the `if:` kill-switch. It is currently SET to `true`;
+  #      flip it back to disable all prod rolls without touching this file.
+  #   2. The `production` GitHub Environment carries a required-reviewer
+  #      protection rule, so every prod roll PAUSES at a manual-approval gate
+  #      ("Review deployments") until a maintainer approves it — the variable
+  #      being `true` only lets the job START, not finish.
   #
-  # In parallel, the prod Fly apps `saferskills-api` and `saferskills-webapp`
-  # are kept in `suspended` state with zero machines (`flyctl apps
-  # suspend`). Flipping the variable alone is not enough — a maintainer
-  # must also `flyctl apps resume` before the first prod deploy can land.
-  # Re-enable once there's an actual catalog endpoint deployed and the
-  # MVP gate is signed off.
+  # The prod Fly apps (`saferskills-api`/`-worker`/`-webapp`) are live (no
+  # longer suspended), so an approved roll lands directly.
+  #
+  # NOTE: these jobs `needs: [e2e-staging]`, which only runs when its upstream
+  # staging deploys did. On a `push` whose path filter skips a service, the
+  # corresponding prod job is SKIPPED rather than offered for approval — use
+  # `workflow_dispatch` with `services=both` (the always-all-services path) to
+  # force a full prod roll regardless of the changed paths.
   # ─────────────────────────────────────────────────────────────────────
   deploy-production-api:
-    name: Deploy production API (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    name: Deploy production API (gated)
     needs: [e2e-staging]
     if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
@@ -581,7 +587,7 @@ jobs:
           done
 
   deploy-production-worker:
-    name: Deploy production worker (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    name: Deploy production worker (gated)
     needs: [e2e-staging]
     if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
@@ -654,7 +660,7 @@ jobs:
           done
 
   deploy-production-webapp:
-    name: Deploy production webapp (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    name: Deploy production webapp (gated)
     needs: [e2e-staging]
     if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
