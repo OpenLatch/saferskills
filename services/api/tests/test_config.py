@@ -26,7 +26,7 @@ EnvTier = Literal["development", "staging", "production"]
 
 
 @pytest.fixture(autouse=True)
-def _isolate_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
+def _isolate_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
     """Make every `Settings(...)` in this module hermetic against a developer's
     on-disk `services/api/.env`.
 
