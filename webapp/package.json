@@ -14,9 +14,9 @@
     "capture:screenshots": "node ./scripts/capture-docs-screenshots.mjs"
   },
   "dependencies": {
-    "@astrojs/mdx": "^6.0.3",
-    "@astrojs/node": "^10.1.4",
-    "@astrojs/react": "^5.0.7",
+    "@astrojs/mdx": "^7.0.0",
+    "@astrojs/node": "^11.0.0",
+    "@astrojs/react": "^6.0.0",
     "@fontsource-variable/anybody": "^5.2.0",
     "@fontsource/dm-sans": "^5.2.0",
     "@fontsource/nanum-pen-script": "^5.2.0",
@@ -28,7 +28,7 @@
     "@tailwindcss/vite": "^4.3.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
-    "astro": "^6.4.8",
+    "astro": "^7.0.0",
     "dompurify": "^3.4.11",
     "marked": "^18.0.5",
     "posthog-js": "^1.390.2",
