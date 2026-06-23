@@ -14,6 +14,7 @@ validator handles two such quirks:
 """
 
 import base64
+from pathlib import Path
 from typing import Literal
 
 import pytest
@@ -22,6 +23,21 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.config import Settings
 
 EnvTier = Literal["development", "staging", "production"]
+
+
+@pytest.fixture(autouse=True)
+def _isolate_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """Make every `Settings(...)` in this module hermetic against a developer's
+    on-disk `services/api/.env`.
+
+    These are unit tests of `Settings` validation/normalization driven by explicit
+    kwargs. `Settings.model_config` sets `env_file=".env"`, so a real value in a
+    local `.env` (e.g. `GITHUB_APP_PRIVATE_KEY`, `VENDOR_SESSION_SECRET`) leaks into
+    any field a test didn't set and false-reds it — the b64/unset GitHub-App-key and
+    the prod-guard tests in particular. CI has no `.env`, so this only bites locally;
+    disabling the dotenv source closes that gap. `setitem` auto-reverts per test.
+    """
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
 
 
 @pytest.mark.parametrize(
@@ -351,3 +367,24 @@ def test_github_app_key_invalid_value_degrades_to_none() -> None:
 def test_github_app_key_unset_stays_none() -> None:
     settings = Settings()
     assert settings.github_app_private_key is None
+
+
+def test_on_disk_dotenv_does_not_leak_into_settings_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for the local-`.env` false-red: a real value in an on-disk `.env`
+    must NOT leak into these Settings-validation tests.
+
+    Writes a poisoned `.env` (a base64 PEM the normalizer would decode) into the CWD
+    and asserts `Settings()` still resolves the key to None — proving the module's
+    autouse `_isolate_dotenv` fixture neutralizes dotenv. Deterministic: it provides
+    its own `.env` rather than depending on whether the developer's `services/api/.env`
+    happens to carry `GITHUB_APP_PRIVATE_KEY`. On `main` (no isolation) the poisoned
+    value decodes into `github_app_private_key` and this fails.
+    """
+    poison_b64 = base64.b64encode(
+        b"-----BEGIN RSA PRIVATE KEY-----\nMIIpoisoned\n-----END RSA PRIVATE KEY-----\n"
+    ).decode()
+    (tmp_path / ".env").write_text(f"GITHUB_APP_PRIVATE_KEY={poison_b64}\n")
+    monkeypatch.chdir(tmp_path)
+    assert Settings().github_app_private_key is None
