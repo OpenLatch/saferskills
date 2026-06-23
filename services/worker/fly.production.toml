@@ -1,9 +1,9 @@
 # SaferSkills ingestion/scan worker — production.
 #
 # Config-only deploy unit (see fly.staging.toml + README.md). Same image as the
-# API, deployed by deploy.yml with `python -m app.worker_main`. Production deploys
-# are gated off until MVP (ENABLE_PRODUCTION_DEPLOYS) and the app is kept suspended
-# with zero machines, mirroring saferskills-api / saferskills-webapp.
+# API, deployed by deploy.yml with `python -m app.worker_main`. Production is LIVE
+# (cutover 2026-06-22); the app runs one machine, mirroring saferskills-api /
+# saferskills-webapp.
 
 app = "saferskills-worker"
 primary_region = "iad"
@@ -24,10 +24,14 @@ OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
 OTEL_SERVICE_NAME = "saferskills-worker"
 POSTHOG_HOST = "https://eu.i.posthog.com"
 INGESTION_WORKER_ENABLED = "true"
-# Production has more headroom than staging; start conservative and size up with
-# real load (the worker is a single process, easy to scale memory/concurrency).
-SCAN_MAX_CONCURRENCY = "4"
-INGESTION_WORKER_CONCURRENCY = "4"
+# Proportional 2x staging: staging runs 1/1 on 512mb (256mb per worker slot) and
+# is stable. Prod is 2x staging — 2/2 on 1024mb keeps the SAME 256mb/slot ratio,
+# so it won't OOM. The earlier 4/4 (4x staging concurrency on only 2x RAM) drove
+# the worker to 128mb/slot → OOM-kill (exit 137) + asyncpg connection-contention
+# ("cannot switch to state; another operation in progress") under the extra load.
+# The worker is a single process — size memory + these knobs up together with load.
+SCAN_MAX_CONCURRENCY = "2"
+INGESTION_WORKER_CONCURRENCY = "2"
 DB_POOL_SIZE = "5"
 DB_MAX_OVERFLOW = "5"
 
