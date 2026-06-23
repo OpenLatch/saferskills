@@ -478,7 +478,7 @@ jobs:
   # MVP gate is signed off.
   # ─────────────────────────────────────────────────────────────────────
   deploy-production-api:
-    name: Deploy production API (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    name: Deploy production API (gated)
     needs: [e2e-staging]
     if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
@@ -581,7 +581,7 @@ jobs:
           done
 
   deploy-production-worker:
-    name: Deploy production worker (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    name: Deploy production worker (gated)
     needs: [e2e-staging]
     if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
@@ -654,7 +654,7 @@ jobs:
           done
 
   deploy-production-webapp:
-    name: Deploy production webapp (gated — requires vars.ENABLE_PRODUCTION_DEPLOYS=true)
+    name: Deploy production webapp (gated)
     needs: [e2e-staging]
     if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
