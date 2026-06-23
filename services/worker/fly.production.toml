@@ -23,6 +23,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability.internal:4318"
 OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
 OTEL_SERVICE_NAME = "saferskills-worker"
 POSTHOG_HOST = "https://eu.i.posthog.com"
+# Public base URL used to build share_url/report_url fields written by the worker
+# (scan jobs) and pack/submit/poll URLs in agent-scan bootstrap prompts. Non-secret.
+PUBLIC_BASE_URL = "https://saferskills.ai"
 INGESTION_WORKER_ENABLED = "true"
 # Proportional 2x staging: staging runs 1/1 on 512mb (256mb per worker slot) and
 # is stable. Prod is 2x staging — 2/2 on 1024mb keeps the SAME 256mb/slot ratio,

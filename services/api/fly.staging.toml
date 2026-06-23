@@ -24,6 +24,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability-staging.internal:4
 OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
 OTEL_SERVICE_NAME = "saferskills-api"
 POSTHOG_HOST = "https://eu.i.posthog.com"
+# Public base URL used to build pack/submit/poll URLs in agent-scan bootstrap
+# prompts, and share_url/report_url fields written by the worker. Non-secret.
+PUBLIC_BASE_URL = "https://staging.saferskills.ai"
 # The deployed worker runs as its own process (services/worker/, the same image
 # with `python -m app.worker_main`), so the API tier does NOT run the in-process
 # Procrastinate worker — it stays a lean web process. The connector is still
