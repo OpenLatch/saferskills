@@ -42,3 +42,7 @@ class CrawlerCursor(Base):
         DateTime(timezone=True), nullable=True
     )
     status_contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Per-source ingestion-alert cooldown (migration 0026). Durable across worker
+    # restarts so a sustained condition pages Slack once per window, not every tick.
+    last_alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    alert_signature: Mapped[str | None] = mapped_column(String(100), nullable=True)
