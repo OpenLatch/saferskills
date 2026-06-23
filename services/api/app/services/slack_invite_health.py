@@ -79,8 +79,9 @@ async def _alert_broken(settings: Settings, detail: str) -> None:
     Both sinks are best-effort and independently guarded — one failing must
     never propagate out of the probe (which would kill the loop)."""
     message = (
-        ":warning: *SaferSkills Slack invite is broken* — the `SLACK_INVITE_URL` "
-        f"redirect target appears dead: {detail}. Rotate it via the API `[env]`."
+        f"[{settings.env}] :warning: *SaferSkills Slack invite is broken* — the "
+        f"`SLACK_INVITE_URL` redirect target appears dead: {detail}. Rotate it via "
+        "the API `[env]`."
     )
     if settings.slack_alerts_webhook_url:
         try:

@@ -762,6 +762,17 @@ class Settings(BaseSettings):
         default=None,
         description="Slack incoming-webhook URL for #saferskills-alerts (ingestion failure alerts).",
     )
+    ingestion_alert_cooldown_s: float = Field(
+        default=14_400.0,  # 4h
+        ge=0,
+        description=(
+            "Per-source ingestion-alert cooldown (seconds). A sustained page "
+            "condition fires the Slack page once per window, then re-pages only "
+            "after the window elapses or when the failure signature changes "
+            "(silent|fr_1h|fr_24h). Durable on crawler_cursors (migration 0026). "
+            "0 disables the cooldown → legacy always-page-every-tick behaviour."
+        ),
+    )
     slack_invite_url: str | None = Field(
         default=None,
         description=(

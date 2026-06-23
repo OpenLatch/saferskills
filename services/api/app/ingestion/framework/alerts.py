@@ -14,6 +14,15 @@ interval). Webhook-driven sources (cadence_cron = null) get no idle-alert.
 A failure is any ingestion_events row whose http_status is not 200/304/0
 (0 = a client-side fetch that never reached the server; not a server failure).
 
+The page message is prefixed with `settings.env` (`[staging]` / `[production]`)
+since both environments post to the same `#saferskills-alerts` channel, and the
+Slack POST is throttled by a durable **per-source cooldown** (`crawler_cursors.
+last_alerted_at` + `.alert_signature`, migration 0026): a sustained condition
+pages once per `ingestion_alert_cooldown_s` window, then re-pages only after the
+window elapses or when the failure *signature* changes. Recovery re-arms the
+cooldown (clears the columns) so the next incident pages immediately. The
+`alerts_page` counter still counts conditions met — only the POST is gated.
+
 `evaluate_alerts` is the testable session-taking entry point.
 """
 
@@ -42,8 +51,9 @@ PAGE_1H = 0.25
 PAGE_24H = 0.10
 
 # One query per source: 1h + 24h failure/total counts (via FILTER over a single
-# 24h scan) + the cursor's last-success timestamp (scalar subquery). An aggregate
-# with no GROUP BY always returns exactly one row, even with zero events.
+# 24h scan) + the cursor's last-success timestamp and the cooldown state (scalar
+# subqueries). An aggregate with no GROUP BY always returns exactly one row, even
+# with zero events.
 _HEALTH = text("""
     SELECT
         count(*) FILTER (
@@ -54,9 +64,26 @@ _HEALTH = text("""
         count(*) FILTER (WHERE http_status NOT IN (200, 304, 0))       AS fail_24h,
         count(*)                                                       AS total_24h,
         (SELECT last_successful_cycle_at FROM crawler_cursors WHERE source = :source)
-            AS last_success
+            AS last_success,
+        (SELECT last_alerted_at FROM crawler_cursors WHERE source = :source)
+            AS last_alerted,
+        (SELECT alert_signature FROM crawler_cursors WHERE source = :source)
+            AS alert_signature
     FROM ingestion_events
     WHERE source = :source AND fetched_at > now() - interval '24 hours'
+""")
+
+# Cooldown bookkeeping on the per-source crawler_cursors row. `now()` (the
+# server-side transaction clock) stamps the page; recovery clears both columns.
+_MARK_ALERTED = text("""
+    UPDATE crawler_cursors
+    SET last_alerted_at = now(), alert_signature = :sig
+    WHERE source = :source
+""")
+_CLEAR_ALERTED = text("""
+    UPDATE crawler_cursors
+    SET last_alerted_at = NULL, alert_signature = NULL
+    WHERE source = :source
 """)
 
 
@@ -99,8 +126,10 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
     """Per-source warn/page evaluation. Testable session-taking entry point."""
     from app.observability.events import emit_ingestion_cycle_failed
 
+    now = dt.datetime.now(tz=dt.UTC)
     alerts_warn = 0
     alerts_page = 0
+    cooldown_dirty = False
     for source, cfg in load_source_configs().items():
         row = (await session.execute(_HEALTH, {"source": source})).one()
         last_success = row.last_success
@@ -111,7 +140,7 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
         cadence_s = cadence_seconds(cfg.cadence_cron)
         silent_too_long = False
         if cadence_s is not None and last_success is not None:
-            age = (dt.datetime.now(tz=dt.UTC) - last_success).total_seconds()
+            age = (now - last_success).total_seconds()
             silent_too_long = age > (cadence_s * 2)
 
         if fr_1h > WARN_1H:
@@ -119,17 +148,53 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
             _breadcrumb(source, fr_1h)
             emit_ingestion_cycle_failed(source=source, reason="other")
 
-        if fr_1h > PAGE_1H or fr_24h > PAGE_24H or silent_too_long:
+        page_now = fr_1h > PAGE_1H or fr_24h > PAGE_24H or silent_too_long
+        if page_now:
             alerts_page += 1
-            if settings.slack_alerts_webhook_url:
-                msg = f":rotating_light: *Ingestion alert* — `{source}` "
-                if silent_too_long and cadence_s is not None:
-                    msg += f"no successful cycle in {int(cadence_s * 2) // 3600}h "
-                msg += f"(fr_1h={fr_1h:.0%}, fr_24h={fr_24h:.0%})"
-                try:
-                    await post_slack(settings.slack_alerts_webhook_url, msg)
-                except Exception:
-                    logger.warning("alert_evaluator.slack_post_failed", source=source)
+
+        # The Slack POST + its cooldown bookkeeping live entirely inside the
+        # webhook-configured branch (so a None webhook is a clean no-op and never
+        # touches crawler_cursors). The dashboard `alerts_page` count above is
+        # unchanged — only the POST is gated.
+        if settings.slack_alerts_webhook_url:
+            if page_now:
+                signature = "|".join(
+                    name
+                    for cond, name in (
+                        (silent_too_long, "silent"),
+                        (fr_1h > PAGE_1H, "fr_1h"),
+                        (fr_24h > PAGE_24H, "fr_24h"),
+                    )
+                    if cond
+                )
+                cooldown_s = settings.ingestion_alert_cooldown_s
+                suppressed = (
+                    cooldown_s > 0
+                    and row.last_alerted is not None
+                    and row.alert_signature == signature
+                    and (now - row.last_alerted).total_seconds() < cooldown_s
+                )
+                if not suppressed:
+                    msg = f"[{settings.env}] :rotating_light: *Ingestion alert* — `{source}` "
+                    if silent_too_long and cadence_s is not None:
+                        msg += f"no successful cycle in {int(cadence_s * 2) // 3600}h "
+                    msg += f"(fr_1h={fr_1h:.0%}, fr_24h={fr_24h:.0%})"
+                    try:
+                        await post_slack(settings.slack_alerts_webhook_url, msg)
+                    except Exception:
+                        # Failed post → don't mark; the next tick retries.
+                        logger.warning("alert_evaluator.slack_post_failed", source=source)
+                    else:
+                        await session.execute(_MARK_ALERTED, {"sig": signature, "source": source})
+                        cooldown_dirty = True
+            elif row.last_alerted is not None:
+                # Recovery: re-arm so the next incident pages immediately. Clearing
+                # is not itself a notification (no "resolved" note by decision).
+                await session.execute(_CLEAR_ALERTED, {"source": source})
+                cooldown_dirty = True
+
+    if cooldown_dirty:
+        await session.commit()
 
     logger.info("alert_evaluator.done", warn=alerts_warn, page=alerts_page)
     return {"alerts_warn": alerts_warn, "alerts_page": alerts_page}

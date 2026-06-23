@@ -64,6 +64,9 @@ async def test_broken_invite_fires_slack_alert(monkeypatch: pytest.MonkeyPatch) 
     assert alive is False
     assert len(calls) == 1
     assert calls[0][0] == _WEBHOOK
+    # Platform label: both envs page the same channel, so the message is
+    # prefixed with settings.env (default "development" here).
+    assert calls[0][1].startswith("[development] ")
 
 
 @pytest.mark.asyncio
