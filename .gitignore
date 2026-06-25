@@ -80,3 +80,10 @@ docker-compose.override.yml
 
 # Astro generated cache
 .astro/
+
+# design-sync (claude.ai/design) — staged scripts, build output, machine state
+.ds-sync/
+ds-bundle/
+.design-sync
+.ds-style
+.ds-entry*
