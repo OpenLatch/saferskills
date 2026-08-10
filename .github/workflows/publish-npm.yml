@@ -238,7 +238,7 @@ jobs:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: "24" }
 
       - name: Verify Node + npm versions
@@ -344,7 +344,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: "24" }
       - name: Wait for npm propagation
         shell: bash
