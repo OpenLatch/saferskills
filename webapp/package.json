@@ -51,7 +51,7 @@
     "pagefind": "^1.5.2",
     "schema-dts": "^2.0.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
+    "vitest": "^4.1.11",
     "vitest-axe": "^0.1.0"
   }
 }
