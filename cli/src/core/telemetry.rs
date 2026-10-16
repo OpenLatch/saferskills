@@ -25,10 +25,8 @@
 //! - A single `command_invoked` event carries a CLOSED-ENUM `(command,
 //!   subcommand)` label derived from the grammar — NEVER a flag value — plus
 //!   the exit code and a coarse duration bucket. No PII, ever.
-//! - Every event is tagged `product = "saferskills"` so the shared
-//!   OpenLatch-portfolio PostHog project (one project for cost) can filter
-//!   SaferSkills data apart. PostHog is internal analytics; public brand
-//!   independence is intact.
+//! - Events use the dedicated SaferSkills PostHog project (272364), with
+//!   product, environment, service and release properties.
 //! - Universal opt-out: `SAFERSKILLS_NO_TELEMETRY` / `DO_NOT_TRACK` / `CI`
 //!   (any non-empty value) silences BOTH channels; `telemetry = false`
 //!   additionally disables usage analytics. An explicit `SAFERSKILLS_TELEMETRY=1`
@@ -169,10 +167,11 @@ fn command_invoked_payload(
         "properties": {
             "distinct_id": "saferskills-cli",
             "$process_person_profile": false,
-            // Discriminator for the shared OpenLatch-portfolio PostHog project
-            // (one project for cost). Lets SaferSkills events be filtered apart
-            // from other products' in the same project.
             "product": "saferskills",
+            "service": "saferskills-cli",
+            "environment": if cfg!(debug_assertions) { "development" } else { "production" },
+            "release": env!("SAFERSKILLS_RELEASE"),
+            "$geoip_disable": true,
             "command": event_label(command, subcommand),
             "exit_code": exit_code,
             "duration_bucket": duration_bucket(duration_ms),
@@ -278,7 +277,7 @@ mod tests {
     fn payload_tags_product_and_carries_no_pii() {
         let p = command_invoked_payload("update", Some("all"), 0, 50);
         assert_eq!(p["event"], "command_invoked");
-        // Discriminator for the shared PostHog project.
+        // Dedicated project still tags the product for operational consistency.
         assert_eq!(p["properties"]["product"], "saferskills");
         // Closed-enum grammar label, never a flag value.
         assert_eq!(p["properties"]["command"], "update:all");

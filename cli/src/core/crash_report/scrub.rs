@@ -1,390 +1,160 @@
-//! `before_send` scrubber — redacts credentials and user paths from panic
-//! messages and backtrace frames before any event leaves the process.
-//!
-//! Self-contained (no `regex` dependency — keeps the release binary lean under
-//! the `cli-build` size gate). The matchers are simple byte scanners that find
-//! a known credential **prefix** then consume the trailing token charset; the
-//! whole match is replaced with a labeled placeholder (`[AWS_KEY:AKIA***]`,
-//! `[GITHUB_TOKEN:ghp_***]`, …). This is the SaferSkills analogue of
-//! openlatch-client's `privacy` module, scoped to exactly what a crash report
-//! can carry.
-//!
-//! Fields scrubbed:
-//! - `event.message`
-//! - `event.exception.values[*].value` (panic message)
-//! - `event.exception.values[*].stacktrace.frames[*].filename`
-//! - `event.exception.values[*].stacktrace.frames[*].function`
-//!
-//! `send_default_pii = false` (set in `mod.rs`) already drops server-name /
-//! username context; this scrubber is the second line for content that a panic
-//! message might interpolate.
+//! Fail-closed projection of SDK exceptions. Never transmit panic/error text:
+//! it can contain arbitrary submitted content, URLs, tokens or local paths.
+//! Native addresses and debug IDs are retained for symbolication.
+use posthog_rs::Event;
+use serde_json::{json, Value};
 
-use sentry::protocol::Event;
-
-/// Scrub an outgoing Sentry event in place.
-///
-/// Always returns `Some(event)` — we never drop events (an opaque redacted
-/// stack trace still dedupes by fingerprint and remains useful for triage).
-pub fn scrub_event(mut event: Event<'static>) -> Option<Event<'static>> {
-    if let Some(ref mut msg) = event.message {
-        *msg = scrub_string(msg);
+pub fn scrub_event(event: Event) -> Option<Event> {
+    if event.event_name() != "$exception" {
+        return None;
     }
-    for exception in event.exception.iter_mut() {
-        if let Some(ref mut v) = exception.value {
-            *v = scrub_string(v);
-        }
-        if let Some(ref mut st) = exception.stacktrace {
-            for frame in st.frames.iter_mut() {
-                if let Some(ref mut f) = frame.filename {
-                    *f = scrub_string(f);
-                }
-                if let Some(ref mut f) = frame.function {
-                    *f = scrub_string(f);
+    let properties = event.properties();
+    let mut exceptions = properties.get("$exception_list")?.as_array()?.clone();
+    for exception in &mut exceptions {
+        let object = exception.as_object_mut()?;
+        object.retain(|key, _| matches!(key.as_str(), "type" | "value" | "stacktrace"));
+        object.insert("type".into(), json!("RustPanic"));
+        object.insert("value".into(), json!("Panic message omitted for privacy"));
+        object.insert(
+            "mechanism".into(),
+            json!({"type": "panic", "handled": false, "synthetic": false}),
+        );
+        if let Some(stack) = object.get_mut("stacktrace") {
+            let stack = stack.as_object_mut()?;
+            stack.retain(|key, _| matches!(key.as_str(), "type" | "frames"));
+            for frame in stack.get_mut("frames")?.as_array_mut()? {
+                let frame = frame.as_object_mut()?;
+                frame.retain(|key, _| {
+                    matches!(
+                        key.as_str(),
+                        "filename"
+                            | "function"
+                            | "lineno"
+                            | "colno"
+                            | "in_app"
+                            | "platform"
+                            | "lang"
+                            | "synthetic"
+                            | "instruction_addr"
+                            | "symbol_addr"
+                            | "image_addr"
+                            | "inline"
+                            | "client_resolved"
+                    )
+                });
+                if let Some(filename) = frame.get_mut("filename") {
+                    *filename = json!(source_path(filename.as_str()?));
                 }
             }
         }
     }
-    Some(event)
-}
-
-/// A credential matcher: a literal prefix + how many bytes of it to keep as a
-/// public hint + the charset of the trailing token + a minimum token length.
-struct Pattern {
-    prefix: &'static str,
-    label: &'static str,
-    /// Bytes of the matched prefix to preserve in the mask (0 = none).
-    keep: usize,
-    /// Minimum count of trailing token chars required for a real match.
-    min_tail: usize,
-    /// Predicate over a trailing token byte.
-    tail: fn(u8) -> bool,
-}
-
-fn alnum(b: u8) -> bool {
-    b.is_ascii_alphanumeric()
-}
-fn alnum_underscore(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_'
-}
-fn token_charset(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_' || b == b'-'
-}
-
-/// Ordered most-specific-first so a longer prefix wins over a shorter one that
-/// shares its head (e.g. `github_pat_` before `ghp_`, `sk_live_` before `sk-`).
-const PATTERNS: &[Pattern] = &[
-    Pattern {
-        prefix: "AKIA",
-        label: "AWS_KEY",
-        keep: 4,
-        min_tail: 16,
-        tail: alnum,
-    },
-    Pattern {
-        prefix: "github_pat_",
-        label: "GITHUB_TOKEN",
-        keep: 11,
-        min_tail: 20,
-        tail: alnum_underscore,
-    },
-    Pattern {
-        prefix: "ghp_",
-        label: "GITHUB_TOKEN",
-        keep: 4,
-        min_tail: 20,
-        tail: alnum,
-    },
-    Pattern {
-        prefix: "gho_",
-        label: "GITHUB_TOKEN",
-        keep: 4,
-        min_tail: 20,
-        tail: alnum,
-    },
-    Pattern {
-        prefix: "sk_live_",
-        label: "STRIPE_KEY",
-        keep: 8,
-        min_tail: 16,
-        tail: alnum,
-    },
-    Pattern {
-        prefix: "sk_test_",
-        label: "STRIPE_KEY",
-        keep: 8,
-        min_tail: 16,
-        tail: alnum,
-    },
-    Pattern {
-        prefix: "sk-ant-",
-        label: "ANTHROPIC_KEY",
-        keep: 7,
-        min_tail: 16,
-        tail: token_charset,
-    },
-    Pattern {
-        prefix: "sk-proj-",
-        label: "OPENAI_KEY",
-        keep: 8,
-        min_tail: 20,
-        tail: token_charset,
-    },
-    Pattern {
-        prefix: "sk-",
-        label: "OPENAI_KEY",
-        keep: 3,
-        min_tail: 32,
-        tail: alnum,
-    },
-    Pattern {
-        prefix: "xoxb-",
-        label: "SLACK_TOKEN",
-        keep: 5,
-        min_tail: 10,
-        tail: token_charset,
-    },
-    Pattern {
-        prefix: "xoxp-",
-        label: "SLACK_TOKEN",
-        keep: 5,
-        min_tail: 10,
-        tail: token_charset,
-    },
-];
-
-/// Scrub one string: mask credentials, then redact a user-home path prefix.
-fn scrub_string(s: &str) -> String {
-    let masked = mask_credentials(s);
-    redact_home(&masked)
-}
-
-/// Scan `s` for any credential pattern and replace each whole match with a
-/// labeled placeholder. Single left-to-right pass; at each index the first
-/// (most-specific) matching prefix wins.
-fn mask_credentials(s: &str) -> String {
-    let bytes = s.as_bytes();
-    let mut out = String::with_capacity(s.len());
-    let mut i = 0;
-    'outer: while i < bytes.len() {
-        for p in PATTERNS {
-            let pl = p.prefix.len();
-            if i + pl <= bytes.len() && &bytes[i..i + pl] == p.prefix.as_bytes() {
-                // Count the trailing token chars after the prefix.
-                let mut j = i + pl;
-                while j < bytes.len() && (p.tail)(bytes[j]) {
-                    j += 1;
-                }
-                if j - (i + pl) >= p.min_tail {
-                    if p.keep > 0 {
-                        out.push('[');
-                        out.push_str(p.label);
-                        out.push(':');
-                        out.push_str(&s[i..i + p.keep]);
-                        out.push_str("***]");
-                    } else {
-                        out.push('[');
-                        out.push_str(p.label);
-                        out.push_str(":***]");
-                    }
-                    i = j;
-                    continue 'outer;
-                }
-            }
+    // Rebuild rather than mutate: this drops SDK/user context added in future versions.
+    let mut clean = Event::new_anon("$exception");
+    clean.insert_prop("$exception_list", exceptions).ok()?;
+    clean.insert_prop("$exception_level", "error").ok()?;
+    clean.insert_prop("$geoip_disable", true).ok()?;
+    // SDK identity is compile-time metadata needed by PostHog integration detection.
+    for key in ["$lib", "$lib_version"] {
+        if let Some(value) = properties.get(key).and_then(Value::as_str) {
+            clean.insert_prop(key, value).ok()?;
         }
-        // No match at i: copy this UTF-8 char verbatim. `bytes[i]` is always a
-        // char boundary here (we only ever jump `i` to a boundary `j`).
-        let ch_len = utf8_len(bytes[i]);
-        out.push_str(&s[i..i + ch_len]);
-        i += ch_len;
     }
-    out
+    if let Some(images) = properties.get("$debug_images") {
+        let mut images = images.as_array()?.clone();
+        for image in &mut images {
+            let image = image.as_object_mut()?;
+            image.retain(|key, _| {
+                matches!(
+                    key.as_str(),
+                    "type"
+                        | "debug_id"
+                        | "code_id"
+                        | "image_addr"
+                        | "image_vmaddr"
+                        | "image_size"
+                        | "arch"
+                )
+            });
+        }
+        clean.insert_prop("$debug_images", images).ok()?;
+    }
+    if let Some(file) = properties.get("$exception_panic_file") {
+        clean
+            .insert_prop("$exception_panic_file", source_path(file.as_str()?))
+            .ok()?;
+    }
+    for key in ["$exception_panic_line", "$exception_panic_column"] {
+        if let Some(value) = properties.get(key).and_then(Value::as_u64) {
+            clean.insert_prop(key, value).ok()?;
+        }
+    }
+    Some(clean)
 }
 
-/// Byte length of the UTF-8 char starting at a leading byte.
-fn utf8_len(b: u8) -> usize {
-    if b < 0x80 {
-        1
-    } else if b >> 5 == 0b110 {
-        2
-    } else if b >> 4 == 0b1110 {
-        3
-    } else if b >> 3 == 0b11110 {
-        4
+/// Only crate-relative Rust source paths survive. Drop absolute machine paths,
+/// dependency paths, filenames outside the crate, and path traversal.
+fn source_path(path: &str) -> String {
+    let path = path.replace('\\', "/");
+    if path.starts_with("src/")
+        && path.ends_with(".rs")
+        && !path.contains("..")
+        && path
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"/_-.".contains(&b))
+    {
+        path
     } else {
-        1 // continuation/invalid — advance one to avoid stalling
+        "[source path omitted]".to_string()
     }
-}
-
-/// Replace an absolute user-home directory prefix with `~`. Covers the common
-/// Unix (`/home/<user>`, `/Users/<user>`) and Windows (`C:\Users\<user>`)
-/// shapes so a backtrace `filename` never leaks the developer/user account name.
-fn redact_home(s: &str) -> String {
-    let mut out = s.to_string();
-    for (prefix, sep) in [("/home/", '/'), ("/Users/", '/')] {
-        out = redact_segment(&out, prefix, sep);
-    }
-    // Windows: \Users\<name>\  and  /Users/<name>/ already handled above for /.
-    out = redact_segment(&out, "\\Users\\", '\\');
-    out
-}
-
-/// Find each `prefix<segment><sep>` and rewrite it to `~<sep>`, dropping the one
-/// account-name segment that follows the prefix.
-fn redact_segment(s: &str, prefix: &str, sep: char) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut rest = s;
-    while let Some(pos) = rest.find(prefix) {
-        out.push_str(&rest[..pos]);
-        let after = &rest[pos + prefix.len()..];
-        match after.find(sep) {
-            Some(end) => {
-                out.push('~');
-                out.push(sep);
-                rest = &after[end + sep.len_utf8()..];
-            }
-            None => {
-                // Trailing `prefix<name>` with no further separator → ~.
-                out.push('~');
-                rest = "";
-            }
-        }
-    }
-    out.push_str(rest);
-    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sentry::protocol::{Exception, Frame, Stacktrace, Values};
-
-    fn panic_event(message: &str) -> Event<'static> {
-        Event {
-            exception: Values::from(vec![Exception {
-                ty: "panic".into(),
-                value: Some(message.to_string()),
-                ..Default::default()
-            }]),
-            ..Default::default()
-        }
-    }
-
     #[test]
-    fn redacts_aws_key_in_panic_message() {
-        // Synthetic pattern-matching fixture, not a real credential.
-        let fake = format!("{}{}", "AKIA", "1234567890ABCDEF"); // gitleaks:allow
-        let ev = panic_event(&format!("boom: {fake} leaked"));
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert!(v.contains("[AWS_KEY:AKIA***]"), "got: {v}");
-        assert!(!v.contains(&fake));
-    }
-
-    #[test]
-    fn redacts_github_ghp_token() {
-        let tok = format!("ghp_{}", "a".repeat(36));
-        let ev = panic_event(&format!("token {tok}"));
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert!(v.contains("[GITHUB_TOKEN:ghp_***]"), "got: {v}");
-        assert!(!v.contains(&tok));
-    }
-
-    #[test]
-    fn redacts_github_pat_before_ghp() {
-        let tok = format!("github_pat_{}", "a".repeat(82));
-        let ev = panic_event(&tok);
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert_eq!(v, "[GITHUB_TOKEN:github_pat_***]");
-    }
-
-    #[test]
-    fn redacts_openai_key() {
-        let key = format!("sk-{}", "a".repeat(48));
-        let ev = panic_event(&key);
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert_eq!(v, "[OPENAI_KEY:sk-***]");
-    }
-
-    #[test]
-    fn redacts_stripe_live_before_generic() {
-        let key = format!("sk_live_{}", "a".repeat(24));
-        let ev = panic_event(&key);
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert_eq!(v, "[STRIPE_KEY:sk_live_***]");
-    }
-
-    #[test]
-    fn redacts_home_path_in_frame_filename() {
-        let mut ev = panic_event("boom");
-        ev.exception[0].stacktrace = Some(Stacktrace {
-            frames: vec![Frame {
-                filename: Some("/home/alice/proj/main.rs".into()),
-                function: Some("my_fn".into()),
-                ..Default::default()
-            }],
-            ..Default::default()
-        });
-        let out = scrub_event(ev).unwrap();
-        let fname = out.exception[0].stacktrace.as_ref().unwrap().frames[0]
-            .filename
-            .as_ref()
+    fn removes_arbitrary_context_messages_and_machine_paths_preserving_symbols() {
+        let mut event = Event::new("$exception", "private-user");
+        event.insert_prop("token", "private-token").unwrap();
+        event.insert_prop("$exception_list", json!([{"type":"panic", "value":"secret https://repo/private", "stacktrace":{"type":"raw", "frames":[{"filename":"C:\\Users\\private\\main.rs", "function":"saferskills::run", "instruction_addr":"0x42", "image_addr":"0x40", "client_resolved":true, "vars":{"token":"private-token"}}]}}])).unwrap();
+        event
+            .insert_prop(
+                "$debug_images",
+                json!([{"debug_id":"abc", "image_addr":"0x40", "image_vmaddr":"0x1000", "code_file":"/home/private/bin"}]),
+            )
             .unwrap();
-        assert_eq!(fname, "~/proj/main.rs");
-        assert!(!fname.contains("alice"));
-    }
-
-    #[test]
-    fn redacts_windows_home_path() {
-        let ev = panic_event("at C:\\Users\\bob\\.saferskills\\config.toml");
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert!(v.contains("C:~\\.saferskills"), "got: {v}");
-        assert!(!v.contains("bob"));
-    }
-
-    #[test]
-    fn preserves_event_with_no_secrets() {
-        let ev = panic_event("ordinary panic, no secrets");
-        let out = scrub_event(ev).unwrap();
+        let output = serde_json::to_string(&scrub_event(event).unwrap()).unwrap();
+        assert!(!output.contains("private"));
+        assert!(!output.contains("secret"));
+        assert!(output.contains("0x42"));
+        assert!(output.contains("abc"));
+        let payload: Value = serde_json::from_str(&output).unwrap();
         assert_eq!(
-            out.exception[0].value.as_ref().unwrap(),
-            "ordinary panic, no secrets"
+            payload["properties"]["$debug_images"][0]["image_vmaddr"],
+            "0x1000"
         );
-    }
-
-    #[test]
-    fn short_sk_prefix_is_not_a_false_positive() {
-        // "sk-short" is too short for the 32-char min tail → left intact.
-        let ev = panic_event("disk-something sk-short");
-        let out = scrub_event(ev).unwrap();
         assert_eq!(
-            out.exception[0].value.as_ref().unwrap(),
-            "disk-something sk-short"
+            payload["properties"]["$exception_list"][0]["stacktrace"]["frames"][0]
+                ["client_resolved"],
+            true
         );
+        assert!(output.contains("saferskills::run"));
     }
-
     #[test]
-    fn masks_multiple_secrets_in_one_string() {
-        let aws = format!("{}{}", "AKIA", "1111111111111111"); // gitleaks:allow
-        let ghp = format!("ghp_{}", "b".repeat(36));
-        let ev = panic_event(&format!("a={aws} b={ghp}"));
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert!(v.contains("[AWS_KEY:AKIA***]"));
-        assert!(v.contains("[GITHUB_TOKEN:ghp_***]"));
-        assert!(!v.contains(&aws) && !v.contains(&ghp));
+    fn malformed_or_non_exception_events_are_dropped() {
+        assert!(scrub_event(Event::new_anon("$exception")).is_none());
+        assert!(scrub_event(Event::new_anon("unreviewed_event")).is_none());
     }
-
     #[test]
-    fn handles_multibyte_utf8_without_panicking() {
-        let ev = panic_event("crème brûlée 🦀 panicked at sk-short");
-        let out = scrub_event(ev).unwrap();
-        let v = out.exception[0].value.as_ref().unwrap();
-        assert!(v.contains("🦀"));
-        assert!(v.contains("crème brûlée"));
+    fn source_paths_are_restricted_to_crate_rust_sources() {
+        assert_eq!(source_path("src/main.rs"), "src/main.rs");
+        assert_eq!(source_path(r"src\main.rs"), "src/main.rs");
+        for path in [
+            "/home/alice/src/main.rs",
+            "src/../private.rs",
+            "https://host/src/file.rs",
+            "src/token?private.rs",
+        ] {
+            assert_eq!(source_path(path), "[source path omitted]");
+        }
     }
 }

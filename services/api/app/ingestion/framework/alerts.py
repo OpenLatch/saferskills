@@ -4,7 +4,7 @@
 For each of the 14 YAML-declared sources it reads the `ingestion_events` outbox +
 `crawler_cursors.last_successful_cycle_at` and applies two independent tiers:
 
-  Warn  — failure_rate > 5% over rolling 1h → Sentry breadcrumb + PostHog
+  Warn  — failure_rate > 5% over rolling 1h → PostHog
           `ingestion_cycle_failed` (low-noise, dashboard signal).
   Page  — failure_rate > 25% / 1h  OR  > 10% sustained / 24h  OR  no successful
           cycle in 2x the source's declared cadence → Slack webhook.
@@ -113,15 +113,6 @@ async def post_slack(webhook_url: str, message: str) -> None:
         await client.post(webhook_url, json={"text": message})
 
 
-def _breadcrumb(source: str, fr_1h: float) -> None:
-    try:
-        import sentry_sdk
-
-        sentry_sdk.add_breadcrumb(category="ingestion", message=f"warn: {source} fr_1h={fr_1h:.2%}")
-    except Exception:
-        logger.debug("alert_evaluator.sentry_breadcrumb_skipped", source=source)
-
-
 async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int]:
     """Per-source warn/page evaluation. Testable session-taking entry point."""
     from app.observability.events import emit_ingestion_cycle_failed
@@ -145,7 +136,6 @@ async def evaluate_alerts(session: AsyncSession, settings: Any) -> dict[str, int
 
         if fr_1h > WARN_1H:
             alerts_warn += 1
-            _breadcrumb(source, fr_1h)
             emit_ingestion_cycle_failed(source=source, reason="other")
 
         page_now = fr_1h > PAGE_1H or fr_24h > PAGE_24H or silent_too_long

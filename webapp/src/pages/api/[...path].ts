@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import { captureServerException } from '@/lib/server-observability'
 
 /**
  * Same-origin API reverse proxy.
@@ -98,7 +99,8 @@ const proxy: APIRoute = async ({ request, params, clientAddress }) => {
   let upstream: Response
   try {
     upstream = await fetch(target, init)
-  } catch {
+  } catch (error) {
+    await captureServerException(error, 'api_proxy')
     return new Response(JSON.stringify({ error: 'upstream_unreachable' }), {
       status: 502,
       headers: { 'content-type': 'application/json' },

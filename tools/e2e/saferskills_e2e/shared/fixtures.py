@@ -41,6 +41,4 @@ def assert_json_value(body: dict[str, Any], key: str, expected: object) -> None:
     """
     actual = body.get(key)
     if actual != expected:
-        raise FixtureError(
-            f"expected {key}={expected!r}, got {actual!r}"
-        )
+        raise FixtureError(f"expected {key}={expected!r}, got {actual!r}")

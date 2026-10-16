@@ -5,7 +5,7 @@ invite, so the `SLACK_INVITE_URL` redirect target is a Slack-native "Never
 expires" link. A never-expire link can still break (workspace renamed, link
 revoked, 2,000-member cap reached), so this loop GETs it on a slow cadence and,
 on breakage, fires the same Slack page channel as the ingestion alerts
-(`SLACK_ALERTS_WEBHOOK_URL`) plus a Sentry message. The redirect indirection
+(`SLACK_ALERTS_WEBHOOK_URL`) plus a PostHog error. The redirect indirection
 then means a maintainer fixes it with a one-value `[env]` change.
 
 Mirrors `app/core/sweeps.py::run_sweep_loop`: an asyncio loop started from the
@@ -26,6 +26,7 @@ from sqlalchemy import text
 from app.core.config import Settings, get_settings
 from app.db.session import AsyncSessionLocal
 from app.ingestion.framework.alerts import post_slack
+from app.observability.errors import capture_exception
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ async def _probe_invite(url: str) -> bool:
 
 
 async def _alert_broken(settings: Settings, detail: str) -> None:
-    """Fire the Slack page channel + a Sentry message for a broken invite.
+    """Fire the Slack page channel + a PostHog error for a broken invite.
 
     Both sinks are best-effort and independently guarded — one failing must
     never propagate out of the probe (which would kill the loop)."""
@@ -88,12 +89,7 @@ async def _alert_broken(settings: Settings, detail: str) -> None:
             await post_slack(settings.slack_alerts_webhook_url, message)
         except Exception:
             logger.warning("slack invite health: slack alert post failed")
-    try:
-        import sentry_sdk
-
-        sentry_sdk.capture_message(f"slack invite broken: {detail}", level="error")
-    except Exception:
-        logger.debug("slack invite health: sentry capture skipped")
+    capture_exception(RuntimeError("Slack invite unavailable"), context="slack_invite")
 
 
 async def probe_and_alert(settings: Settings) -> bool | None:

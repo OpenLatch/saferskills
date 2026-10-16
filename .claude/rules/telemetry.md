@@ -12,27 +12,22 @@ paths:
 
 # Telemetry
 
-> **Paths**: the telemetry-authoring surfaces only — `app/observability/**` + `app/core/{observability,feature_flags}.py` (backend), `webapp/src/lib/{analytics,observability,feature-flags}.ts` + `webapp/src/middleware.ts` (webapp SSR Sentry), `cli/src/core/telemetry.rs`. (Emission is centralized — `app/observability/events.py` is the only sanctioned backend emit path and `webapp/src/lib/analytics.ts` the only event registry — so scoping to those files catches every event change without loading on unrelated app edits.)
+> **Paths**: the telemetry-authoring surfaces only — `app/observability/**` + `app/core/{observability,feature_flags}.py` (backend), `webapp/src/lib/{analytics,observability,feature-flags}.ts` + `webapp/src/middleware.ts` (webapp SSR errors), `cli/src/core/telemetry.rs`. (Emission is centralized — `app/observability/events.py` is the only sanctioned backend emit path and `webapp/src/lib/analytics.ts` the only event registry — so scoping to those files catches every event change without loading on unrelated app edits.)
 
 ## Purpose
 
-Telemetry has three independent legs:
+Telemetry has two independent destinations:
 
-1. **PostHog** — product analytics (client-side, opt-in via cookie banner when auth lands; for now fires only privacy-safe events).
-2. **Sentry** — errors only (no breadcrumbs containing scanned-artifact content).
-3. **OpenTelemetry** — server-side traces + metrics (OTLP exporter to a SaferSkills-owned collector).
-
-**Sentry + OpenTelemetry** are **SaferSkills-specific and separate from any OpenLatch projects** (brand independence): a SaferSkills outage never bleeds into OpenLatch error dashboards or traces.
-
-**PostHog is the exception — separate-project rule relaxed for PostHog only** (founder cost decision **2026-06-04**: the PostHog plan caps the number of projects). SaferSkills shares **one** PostHog project with the rest of the OpenLatch portfolio. Separation is **by property, not by project**: every SaferSkills PostHog event carries a `product = "saferskills"` discriminator, so SaferSkills data stays filterable apart in the shared project. PostHog is **internal** analytics, never user-facing — so public brand independence (anti-recommendation, footer-only attribution) is unaffected.
+1. **PostHog** — privacy-safe product analytics and error tracking in the dedicated EU **SaferSkills (all env)** project **272364**. Browser, SSR, API, worker and CLI share this project; environment and service properties distinguish events.
+2. **OpenTelemetry / Grafana** — existing server-side traces, logs and metrics. Error tracking changes do not replace these exporters.
 
 ## PostHog (client-side)
 
 Initialized in the webapp via `PUBLIC_POSTHOG_KEY` (cf. `environment-config.md`). The page is anonymous for now; PostHog identification arrives with auth.
 
-**Shared-project discriminator (mandatory).** Because PostHog is one project shared across the OpenLatch portfolio (see Purpose above), **every** SaferSkills PostHog event — webapp, backend, and the install CLI (`cli/src/core/telemetry.rs`) — MUST carry the property `product: "saferskills"`. It is the filter that keeps SaferSkills insights/dashboards isolated inside the shared project. All three legs emit it: the install CLI in its `command_invoked` payload; the **webapp** as a `posthog.register({ product, environment })` super-property (`webapp/src/lib/observability.ts`); the **backend** in `app/observability/events.py::_emit`, which mirrors every `emit_*` event to PostHog (`capture(distinct_id, event, {**props, "product": "saferskills"})`) when `POSTHOG_PROJECT_KEY` is set — degrading to structlog-only when it is not.
+**Common metadata.** Every event carries `product: "saferskills"`. Error events also identify their `service`, `environment`, and `release`. No personal identification or cross-product identity stitching is permitted.
 
-**Ingestion host is `https://eu.i.posthog.com`** (the EU ingestion subdomain) across all three legs — `POSTHOG_HOST` (backend), `PUBLIC_POSTHOG_HOST` (webapp), the baked `SAFERSKILLS_POSTHOG_HOST` (CLI). The single canonical key-secret name is `POSTHOG_PROJECT_KEY` (backend secret, webapp build-arg, CLI bake-secret).
+**Routing.** The browser uses the same-origin `/ingest` proxy to fixed EU upstreams. Server/CLI ingestion uses `https://eu.i.posthog.com`; the dashboard and upload CLI use `https://eu.posthog.com`. `POSTHOG_PROJECT_KEY` is the public ingestion key, distinct from the private upload variable `POSTHOG_CLI_API_KEY` (mapped from staging GitHub secret `POSTHOG_SERVER_KEY`) used only for CI uploads.
 
 ### Closed-enum event names
 
@@ -63,7 +58,7 @@ Closed-enum + bucketed-numeric values only. **No PII, no source-content hashes i
 
 ## Event allowlist — scan engine
 
-The scan engine emits a closed enum of 16 events. The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside that module are a regression.
+The scan engine emits a closed enum of 16 events. The list is exhaustive — adding a new event is a `.claude/rules/telemetry.md` PR + an `app/observability/events.py` typed-helper PR. The helpers under `services/api/app/observability/events.py` are the only sanctioned emission path; raw `posthog.capture()` calls outside that module are a regression.
 
 | # | Event | Properties (all bucketed / closed-enum) |
 |---|---|---|
@@ -132,27 +127,21 @@ ASN/fingerprint signal is the separate write-only `agent_scan_telemetry` store
 > `app/services/agent_compat.py` (`AgentName` / `ALL_AGENTS`) — `events.py` MUST
 > NOT re-declare the list (`naming-conventions.md` § Agent identifiers).
 
-## Sentry
+## Error tracking
 
-Separate Sentry projects from OpenLatch (brand independence), all under the org `openlatch` on the **DE region** (`https://de.sentry.io`). **Four surfaces, three projects:**
+PostHog reports unexpected browser/SSR/API errors, failed background jobs and CLI crashes. Capture helpers must preserve application behavior when telemetry is disabled or unavailable.
 
-| Project | Surface(s) | DSN env / bake |
-|---|---|---|
-| `saferskills-api` | FastAPI backend (`app/core/observability.py`) | `SENTRY_DSN` (Fly secret from `SENTRY_DSN_API`) |
-| `saferskills-webapp` | Browser bundle (`webapp/src/lib/observability.ts`) **and** the SSR/proxy Node runtime (`webapp/src/middleware.ts`) | `PUBLIC_SENTRY_DSN` (build-arg) + the runtime `SENTRY_DSN` (Fly secret), both from `SENTRY_DSN_WEBAPP` |
-| `saferskills-cli` | Rust install CLI (`cli/src/core/crash_report/`, `crash-report` feature) | baked `SAFERSKILLS_SENTRY_DSN` (from `SENTRY_DSN_CLI`) |
-
-- **Errors only.** No transactions, no performance traces, no session replay (`tracesSampleRate: 0`).
-- **Breadcrumb + event scrubbing**: each init drops breadcrumbs referencing `rubric/` / `schemas/` / any user-submitted URL, and redacts the unlisted capability `share_token` (`/scans/r/<token>`) from event/breadcrumb URLs (backend `scrub_sentry_event`, webapp `redactCapabilityToken`, CLI `before_send` scrub). This prevents scanned-artifact content + the possession-is-auth token leaking into Sentry.
-- **PII scrubbing**: `sendDefaultPii: false`; `event.user` / cookies dropped.
-- **Environment tag**: `development` / `staging` / `production` — backend `settings.env`, webapp browser-derived (`resolveEnvironment()`) + SSR `process.env.ENV`, CLI baked. In the message body, never the channel router (single channel).
-- **Release**: `saferskills-<surface>@<sha|version>`; source-maps (webapp) + debug symbols (CLI, `split-debuginfo=packed`) are uploaded in the build keyed to that release, using `SENTRY_AUTH_TOKEN`.
-- Sample rate: 100% of errors (low volume); revisit when traffic grows.
-- **Degradation is silent**: a missing DSN disables that surface's Sentry — never a boot/build failure.
+- Preserve anonymous, memory-only browser analytics, no person profiles and disabled session replay. Do not copy authenticated-product identity or session behavior.
+- Recursively sanitize error events before transport. Never send scanned content, submitted URLs, capability tokens, credentials, request bodies, frame locals or source context from user artifacts. Prefer exception classes, application stack frames and bounded operational metadata. Drop events when sanitation fails.
+- Capture caught HTTP/job failures explicitly; unhandled exception hooks alone miss them. Deduplicate explicit capture and any logging bridge. Keep exporter failures out of that bridge.
+- Attribute errors to their environment, service and release; preserve SDK chunk/binary identifiers needed for symbol resolution.
+- Web deployment builds generate hidden maps, inject metadata before runtime image copying, upload to project 272364, then remove all `.map` files. `SOURCEMAP_UPLOAD=1` requires a private BuildKit upload secret and fails on upload errors; local/PR builds remain credential-free.
+- CLI crash reporting retains its independent crash opt-outs and universal telemetry opt-outs. Upload native symbols for supported release targets; document unsupported symbolication rather than promising parity.
+- Test missing configuration, offline behavior, bounded shutdown, duplicate suppression and adversarial redaction. Verify actual exception arrival and symbolication in the dedicated project after deployment.
 
 ## Outbound proxies — no PII
 
-The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes one cached hourly `api.github.com` call and stores **only the integer star count** — never request metadata, IPs, or user input. It is not a PostHog/Sentry event and adds nothing to any analytics leg. (GitHub rate-limit *incidents* during scans are covered by the closed-enum `github_rate_limit_hit` / `github_rate_limit_recovered` events above.)
+The `/api/v1/stats` `github_stars` proxy (`app/services/github_stars.py`) makes one cached hourly `api.github.com` call and stores **only the integer star count** — never request metadata, IPs, or user input. It is not a PostHog event and adds nothing to any analytics leg. (GitHub rate-limit *incidents* during scans are covered by the closed-enum `github_rate_limit_hit` / `github_rate_limit_recovered` events above.)
 
 ## OpenTelemetry
 
@@ -169,10 +158,10 @@ Server-side flags are a thin wrapper over the PostHog client (`app/core/feature_
 
 ## Hard rules
 
-1. **No PII anywhere.** PostHog property values, Sentry breadcrumbs, OTel span attributes — all three legs treat user input as untrusted and scrub it.
+1. **No PII anywhere.** PostHog analytics/errors and OTel span attributes — both destinations treat user input as untrusted and scrub it.
 2. **Closed-enum event names + property values.** Adding an event = a `webapp/src/lib/analytics.ts` entry change reviewed in the PR.
 3. **Bucketed numerics, never raw counts** in PostHog property values.
-4. **Separate vendor projects** for Sentry + OTel — never share a DSN / endpoint with another product. **PostHog is the exception** (one shared OpenLatch-portfolio project for cost, 2026-06-04): SaferSkills events are separated by the `product: "saferskills"` property, not by project.
+4. **Dedicated PostHog project 272364.** All environments use this project, separated by environment/service properties. Existing OTel/Grafana routing remains unchanged.
 5. **Brand-independence**: when documentation or dashboards reference "the SaferSkills team", they reference SaferSkills maintainers only — never label cross-product dashboards.
 
 ## When to update this rule
@@ -184,9 +173,9 @@ Server-side flags are a thin wrapper over the PostHog client (`app/core/feature_
 | New event prefix added | "Closed-enum event names" table + `webapp/src/lib/analytics.ts` |
 | New scan-engine event | "Event allowlist — scan engine" table (bump the event count) + `services/api/app/observability/events.py` typed helper |
 | New PostHog property value allowed | "Property allowlist" — re-verify the bucketed-numeric / closed-enum invariant |
-| PostHog project-sharing / `product` discriminator change | "Purpose" + Hard rules #4 + the shared-project discriminator note + `cli/src/core/telemetry.rs` |
-| Sentry sample rate / scope change | "Sentry" |
-| New Sentry surface / project / DSN secret | "Sentry" project table + `environment-config.md` + `ci-cd.md` § Deployment |
+| PostHog project / `product` discriminator change | "Purpose" + Hard rules #4 + the common metadata contract + `cli/src/core/telemetry.rs` |
+| Error capture scope or privacy change | "Error tracking" + regression tests |
+| New error-reporting surface or credential | "Error tracking" + `environment-config.md` + `ci-cd.md` |
 | New OTel exporter / endpoint / instrumentor | "OpenTelemetry" + `app/core/observability.py` + `environment-config.md` |
 | Metrics export wired (separate openlatch-platform PR) | "OpenTelemetry" — replace "Metrics are deferred" with the exporter + the Vector scrape block |
 | New / changed feature flag | "Feature flags" (closed flag set) + `app/core/feature_flags.py` + `webapp/src/lib/feature-flags.ts` |

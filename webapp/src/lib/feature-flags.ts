@@ -12,24 +12,7 @@
  *   - `saferskills-example-flag`
  */
 
-import type posthog from 'posthog-js'
-
-type PostHogGlobal = typeof posthog
-
-/**
- * Read the already-initialized posthog singleton off `window` without importing
- * (and thus without ever bundling/forcing init from this module). `posthog.init`
- * (observability.ts) exposes the live singleton as `window.posthog`. We treat a
- * client with no `__loaded` flag as not-yet-initialized → `fallback`.
- */
-function getClient(): PostHogGlobal | undefined {
-  if (typeof window === 'undefined') return undefined
-  const client = (window as Window & { posthog?: PostHogGlobal }).posthog
-  if (!client || (client as unknown as { __loaded?: boolean }).__loaded !== true) {
-    return undefined
-  }
-  return client
-}
+import { getInitializedPostHog } from '@/lib/observability'
 
 /**
  * Returns whether a feature flag is enabled, falling back to `fallback` when
@@ -37,7 +20,7 @@ function getClient(): PostHogGlobal | undefined {
  * undefined.
  */
 export function isFeatureEnabled(flag: string, fallback = false): boolean {
-  const client = getClient()
+  const client = typeof window === 'undefined' ? undefined : getInitializedPostHog()
   if (!client) return fallback
   try {
     return client.isFeatureEnabled(flag) ?? fallback

@@ -42,6 +42,7 @@ from app.ingestion.framework.exceptions import AdapterBlockedError, IngestionErr
 from app.ingestion.framework.failure import classify_failure
 from app.ingestion.framework.registry_adapter import RegistryAdapter
 from app.ingestion.framework.retry import IngestionRetry
+from app.observability.errors import capture_exception
 from app.observability.events import (
     emit_ingestion_cycle_completed,
     emit_ingestion_cycle_failed,
@@ -104,6 +105,7 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
             )
             return {"skipped": "blocked"}
         except (httpx.HTTPError, OSError, IngestionError) as exc:
+            capture_exception(exc, context="ingestion")
             # EXPECTED provider/transport/operational failure (rate limit, 5xx,
             # timeout, DNS/connection error, robots disallow, oversize body, …).
             # This is an operational event, NOT a code bug — so emit ONE clean WARN
@@ -130,6 +132,7 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
             )
             return {"skipped": "failed", "reason": reason}
         except Exception as exc:
+            capture_exception(exc, context="ingestion")
             # UNEXPECTED (a real bug, e.g. a KeyError in normalize) — keep the full
             # traceback so it's debuggable, and re-raise so it surfaces loudly and
             # the IngestionRetry schedule applies.

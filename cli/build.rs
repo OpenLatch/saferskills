@@ -34,18 +34,7 @@ fn main() {
     let pubkey = std::env::var("SAFERSKILLS_PACK_PUBKEY").unwrap_or_default();
     println!("cargo:rustc-env=SAFERSKILLS_PACK_PUBKEY={pubkey}");
 
-    // Sentry DSN baking (crash reporting). Mirrors the PostHog key pattern —
-    // unset at build time → empty string → the crash_report module
-    // short-circuits to a no-op guard (the same "no baked key ⇒ silent no-op"
-    // discipline as telemetry). See src/core/crash_report/.
-    //
-    // Production: CI sets `SAFERSKILLS_SENTRY_DSN` from a secret on the release
-    // build. Developers / forks: leave it unset — crash reporting is then inert.
-    println!("cargo:rerun-if-env-changed=SAFERSKILLS_SENTRY_DSN");
-    let dsn = std::env::var("SAFERSKILLS_SENTRY_DSN").unwrap_or_default();
-    println!("cargo:rustc-env=SAFERSKILLS_SENTRY_DSN={dsn}");
-
-    // Release identifier for the Sentry `release` field
+    // Release identifier for the PostHog `release` field
     // (`saferskills-cli@<release>`). Priority:
     //   GITHUB_SHA → SAFERSKILLS_RELEASE → `git rev-parse HEAD` → CARGO_PKG_VERSION.
     // The CARGO_PKG_VERSION fallback covers `cargo install` from crates.io where
@@ -56,7 +45,7 @@ fn main() {
     println!("cargo:rustc-env=SAFERSKILLS_RELEASE={release}");
 }
 
-/// Resolve the release identifier Sentry uses as the `release` field. See the
+/// Resolve the release identifier PostHog uses as the `release` field. See the
 /// priority list at the call site.
 fn resolve_release() -> String {
     if let Ok(sha) = std::env::var("GITHUB_SHA") {

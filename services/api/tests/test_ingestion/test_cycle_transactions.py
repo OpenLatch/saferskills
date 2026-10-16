@@ -84,6 +84,8 @@ async def test_clawhub_fetch_releases_preflight_transaction(
     monkeypatch.setattr(tasks, "record_run_started", record_started)
     monkeypatch.setattr(ClawhubAdapter, "list_items", fetch)
     monkeypatch.setattr(HttpClientFactory, "build", Mock(return_value=AsyncMock()))
+    report_error = Mock()
+    monkeypatch.setattr(tasks, "capture_exception", report_error)
 
     try:
         if failure == "unexpected":
@@ -97,6 +99,11 @@ async def test_clawhub_fetch_releases_preflight_transaction(
                 assert result["items_seen"] == result["http_304_count"] == 1
 
         assert len(run_ids) == 1
+        if failure:
+            report_error.assert_called_once()
+            assert report_error.call_args.kwargs == {"context": "ingestion"}
+        else:
+            report_error.assert_not_called()
         assert all(not session.in_transaction() for session in sessions)
         async with factory() as verification:
             run = await verification.get(IngestionRun, run_ids[0])

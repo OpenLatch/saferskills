@@ -25,12 +25,11 @@ from app.core.middleware import StartupGuardMiddleware, service_unavailable_resp
 from app.core.observability import (
     init_observability,
     instrument_app,
-    record_pool_timeout_breadcrumb,
-    record_statement_timeout_breadcrumb,
     shutdown_observability,
 )
 from app.core.startup import run_startup
 from app.core.startup_state import startup_state
+from app.observability.errors import ErrorCaptureMiddleware, capture_exception
 from app.routers import (
     admin,
     agent_scans,
@@ -66,11 +65,12 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     # any route that needs the pool degrades on its own. But never SILENT: a
     # suppressed init_pool() failure (e.g. a DSN whose SSL form raw asyncpg
     # rejects) is exactly what hid the "every scan fails" regression — log it so
-    # it surfaces in logs + Sentry. Same for the stale-scan recovery sweep:
+    # it surfaces in logs + PostHog error tracking. Same for the stale-scan recovery sweep:
     # missing DB at boot shouldn't keep /health red.
     try:
         await init_pool()
-    except Exception:
+    except Exception as exc:
+        capture_exception(exc, context="startup")
         logger.error("asyncpg LISTEN/NOTIFY pool init failed at boot", exc_info=True)
     with contextlib.suppress(Exception):
         from app.queue.scan_runner import recover_stale_scans
@@ -133,6 +133,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             await procrastinate_app.open_async()
             await apply_procrastinate_schema_locked()
         except Exception as exc:
+            capture_exception(exc, context="startup")
             logger.error("procrastinate connector failed to open", exc_info=True)
             startup_state.mark_ingestion_degraded(str(exc))
         else:
@@ -204,7 +205,7 @@ async def _pool_timeout_handler(  # pyright: ignore[reportUnusedFunction]
     `db_pool_timeout_s` instead of every request hanging until the ingestion
     worker frees a slot. A bounded, observable failure beats a silent hang.
     """
-    record_pool_timeout_breadcrumb("api")
+    capture_exception(_exc, context="database_pool")
     return service_unavailable_response("Database connection pool exhausted — retry shortly.")
 
 
@@ -239,11 +240,11 @@ async def _statement_timeout_handler(  # pyright: ignore[reportUnusedFunction]
     aborts a slow query so it can't pin a pooled connection indefinitely while
     every other request 503s at the pool-checkout timeout. A non-pressure
     `DBAPIError` (a genuine DB/driver error, e.g. an uncaught constraint
-    violation) is re-raised so it still becomes a 500 + Sentry capture, exactly
+    violation) is re-raised so it still becomes a 500 + PostHog error tracking capture, exactly
     as before this handler existed.
     """
     if _db_pressure_sqlstate(exc) is not None:
-        record_statement_timeout_breadcrumb("api")
+        capture_exception(exc, context="database_statement")
         return service_unavailable_response(
             "Database is under load — the query exceeded the statement timeout; retry shortly."
         )
@@ -271,7 +272,7 @@ async def _command_timeout_handler(  # pyright: ignore[reportUnusedFunction]
     `sqlalchemy.exc.TimeoutError` (pool-checkout) does NOT subclass builtin
     `TimeoutError`, so this never shadows `_pool_timeout_handler`.
     """
-    record_statement_timeout_breadcrumb("api")
+    capture_exception(_exc, context="database_statement")
     return service_unavailable_response("Database connection timed out — retry shortly.")
 
 
@@ -282,6 +283,7 @@ app.add_middleware(StartupGuardMiddleware)
 # Access-log writer — inner to CORS so it only sees requests that passed
 # the CORS gate; write-only B2B-funnel signal with redacted IPs (privacy.md).
 app.add_middleware(AccessLogMiddleware)
+app.add_middleware(ErrorCaptureMiddleware)
 
 # CORS posture: origins from `settings.cors_allowed_origins` (env-driven).
 # Tightens to auth + per-route when auth lands.

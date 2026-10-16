@@ -14,8 +14,8 @@ strategy = "rolling"
 # Node server sends it. See webapp/src/pages/api/[...path].ts +
 # .claude/rules/environment-config.md.
 API_ORIGIN = "https://saferskills-api-staging.fly.dev"
-# Environment tag for the server-side (SSR/proxy) Sentry init in src/middleware.ts
-# (runtime, server-only). The browser Sentry derives its env from the hostname.
+# Environment tag for the server-side (SSR/proxy) PostHog init in src/middleware.ts
+# (runtime, server-only). The browser PostHog derives its env from the hostname.
 ENV = "staging"
 
 [http_service]

@@ -108,7 +108,7 @@ async def _heartbeat_loop(beat: list[float], interval: float, stop: asyncio.Even
 async def main() -> int:
     """Run the worker until a shutdown signal, then tear down. Returns an exit code."""
     settings = get_settings()
-    await init_observability(settings)
+    await init_observability(settings, service="worker")
 
     # Migrations under the shared advisory lock (0x5AFE5C11) — race-safe vs the API
     # process running the same upgrade. run_startup self-handles failure (flips

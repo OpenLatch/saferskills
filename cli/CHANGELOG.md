@@ -93,7 +93,7 @@
 * **cli:** install every capability kind across all agents (+install_spec) ([#82](https://github.com/OpenLatch/saferskills/issues/82)) ([de84569](https://github.com/OpenLatch/saferskills/commit/de8456974609f268fe353a132945363bf92a74b4))
 * **cli:** interactive `search` TUI finder + installer ([#78](https://github.com/OpenLatch/saferskills/issues/78)) ([b24297a](https://github.com/OpenLatch/saferskills/commit/b24297a00443aba9fe6ad442b878ca83841ea8df))
 * **cli:** scan matrix, SEO surfaces & ingestion concurrency hardening (I-05 Phase C) ([#71](https://github.com/OpenLatch/saferskills/issues/71)) ([381b927](https://github.com/OpenLatch/saferskills/commit/381b9272eb1283fc1f10dbcdcf5e339e40bff711))
-* observability stack (Sentry/PostHog/OTel) + severity ceiling & catalog activity ([#75](https://github.com/OpenLatch/saferskills/issues/75)) ([2ce7d3c](https://github.com/OpenLatch/saferskills/commit/2ce7d3c26449b06ed46ece2b4a3dd401cf1d555f))
+* observability stack (error tracking/PostHog/OTel) + severity ceiling & catalog activity ([#75](https://github.com/OpenLatch/saferskills/issues/75)) ([2ce7d3c](https://github.com/OpenLatch/saferskills/commit/2ce7d3c26449b06ed46ece2b4a3dd401cf1d555f))
 * **scan:** hybrid repo fetch — Git Trees + raw for large repos ([#73](https://github.com/OpenLatch/saferskills/issues/73)) ([1f382ab](https://github.com/OpenLatch/saferskills/commit/1f382abb4706ce9c871eeb7fb5be7071bfc47d86))
 
 ## [0.1.0](https://github.com/OpenLatch/saferskills/compare/v0.0.2-placeholder...v0.1.0) (2026-06-04)

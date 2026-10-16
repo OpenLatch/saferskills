@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # ── Environment ────────────────────────────────────────────────────────
     env: Literal["development", "staging", "production"] = Field(
         default="development",
-        description="Environment tier — drives Sentry env tag and log format.",
+        description="Environment tier — drives PostHog environment tag and log format.",
     )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO",
@@ -257,7 +257,6 @@ class Settings(BaseSettings):
     )
 
     # ── Observability (all optional) ──────────────────────────────────────
-    sentry_dsn: str | None = Field(default=None, description="Sentry DSN; None disables.")
     otel_exporter_otlp_endpoint: str | None = Field(
         default=None, description="OTLP collector endpoint; None disables OTel export."
     )
@@ -272,7 +271,7 @@ class Settings(BaseSettings):
     )
     posthog_host: str = Field(
         default="https://eu.i.posthog.com",
-        description="PostHog ingestion host (EU region). Shared OpenLatch-portfolio project.",
+        description="PostHog ingestion host (EU region). Dedicated SaferSkills project.",
     )
     posthog_server_key: str | None = Field(
         default=None,
@@ -788,7 +787,7 @@ class Settings(BaseSettings):
         description=(
             "Interval (s) of the in-process Slack-invite health probe loop "
             "(advisory lock 0x5AFE5C14). On a broken invite it alerts via "
-            "SLACK_ALERTS_WEBHOOK_URL + Sentry."
+            "SLACK_ALERTS_WEBHOOK_URL + PostHog error tracking."
         ),
     )
 

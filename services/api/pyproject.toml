@@ -8,15 +8,15 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "OpenLatch, Inc.", email = "hello@openlatch.ai" }]
 
 dependencies = [
-  "fastapi[standard]>=0.136",
+  "fastapi>=0.136",
+  "python-multipart>=0.0.20",  # upload/form parsing without the deployment CLI extra
   "uvicorn[standard]>=0.36",
   "pydantic>=2.13",
   "pydantic-settings>=2.14.2",
   "sqlalchemy[asyncio]>=2.0",
   "alembic>=1.18",
   "asyncpg>=0.30",
-  "sentry-sdk[fastapi]>=2.20",
-  "posthog>=3.7",                # server-side product analytics + feature-flag eval
+  "posthog>=7.18",                # server-side product analytics + feature-flag eval
   "opentelemetry-api>=1.30",
   "opentelemetry-sdk>=1.30",
   "opentelemetry-instrumentation-fastapi>=0.51b0",

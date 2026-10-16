@@ -32,13 +32,11 @@ fn main() {
     attach_parent_console_if_any();
 
     // Crash reporting first — captures panics in everything below, including the
-    // tokio runtime construction and clap parsing. The guard is bound to main's
-    // stack so its Drop (2s flush) runs on normal exit. A hard no-op when the
-    // `crash-report` feature is off, no DSN is baked, or consent resolves to
+    // tokio runtime construction and clap parsing. The guard drains during
+    // unwinding; explicit exits flush below. A hard no-op when the
+    // `crash-report` feature is off, no project key is baked, or consent resolves to
     // disabled (opt-out env / `[crashreport] enabled = false`).
     let _crash_guard = crash_report::init();
-    // Chain our panic hook onto sentry's (which init installed under unwind).
-    crash_report::install_panic_hook();
 
     // SIGINT → exit 130. Flush pending crash reports first —
     // `process::exit` skips Drop impls, so the guard's flush-on-drop never runs.
@@ -63,6 +61,8 @@ fn main() {
             1
         }
     };
+    // process::exit skips Drop, so drain pending diagnostics explicitly.
+    crash_report::flush(std::time::Duration::from_secs(2));
     std::process::exit(exit_code);
 }
 
@@ -102,7 +102,7 @@ async fn run() -> i32 {
     };
 
     let (cmd_label, sub_label) = cli::command_label(command);
-    // Tag the Sentry scope with the closed-enum command grammar (never a flag
+    // Tag crash diagnostics with the closed-enum command grammar (never a flag
     // value) so a panic carries the command that triggered it. No-op when crash
     // reporting is disabled.
     crash_report::enrich_cli_scope(cmd_label, sub_label);

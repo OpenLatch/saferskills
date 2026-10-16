@@ -6,7 +6,7 @@ export const prerender = true
  *
  * TODO before public launch: fill the controller registration details below
  * (exact OpenLatch legal name, legal form, registered office, SIREN/RCS). The
- * cookieless claim is only TRUE while PostHog runs cookieless + Sentry has no
+ * cookieless claim is only TRUE while PostHog uses memory-only analytics and no
  * Session Replay.
  */
 import Base from '@/layouts/Base.astro'
@@ -20,7 +20,7 @@ import Footer from '@ui/components/atoms/Footer.astro'
 
 import '@/styles/page-legal.css'
 
-const meta = { effective: '29 May 2026', updated: '11 June 2026', version: '1.0' }
+const meta = { effective: '29 May 2026', updated: '16 October 2026', version: '1.1' }
 const privacyEmail = 'privacy@openlatch.ai'
 // Fill with the registered entity details once finalised.
 const controllerLine =
@@ -293,12 +293,12 @@ const toc = [
         </ul>
         <p><strong>Legal basis:</strong> legitimate interest in measuring and improving the service (Art. 6(1)(f) GDPR). You can object at any time (Section 8).</p>
 
-        <h3>3.5 Error and diagnostic monitoring (Sentry)</h3>
+        <h3>3.5 Error and diagnostic monitoring (PostHog)</h3>
         <p>
-          We use <strong>Sentry</strong> to capture application errors so we can fix faults
-          and detect abuse. Sentry is configured to <strong>not send default personal
-          data</strong>, to <strong>scrub</strong> any data that could contain scanned
-          content, and <strong>Session Replay is not used</strong>.
+          We use <strong>PostHog</strong> to capture application errors so we can fix faults
+          and detect abuse. Diagnostic events go to our <strong>EU PostHog project</strong>. Exception messages, request details,
+          and submitted content are removed before sending; only error types and application
+          stack locations are retained. <strong>Session Replay is not used</strong>.
         </p>
         <p><strong>Legal basis:</strong> legitimate interest in the security and operational integrity of the service (Art. 6(1)(f) GDPR).</p>
 
@@ -497,15 +497,9 @@ const toc = [
               </tr>
               <tr>
                 <td>PostHog</td>
-                <td>Cookieless product analytics</td>
-                <td>Anonymous, bucketed event data only</td>
+                <td>Cookieless product analytics and error monitoring</td>
+                <td>Anonymous, bucketed events and redacted diagnostics</td>
                 <td>EU region (eu.posthog.com) — kept in the EU</td>
-              </tr>
-              <tr>
-                <td>Sentry</td>
-                <td>Error monitoring</td>
-                <td>Diagnostic data with personal data scrubbed</td>
-                <td>US — EU-US DPF and/or SCCs</td>
               </tr>
               <tr>
                 <td>GitHub</td>
@@ -530,7 +524,7 @@ const toc = [
         <p>
           We prioritise keeping data in the EU (our hosting and analytics are EU-region
           where available). Where a processor processes data outside the EEA — principally
-          in the United States (Sentry, and Resend once the newsletter launches) — we rely
+          in the United States (Resend once the newsletter launches) — we rely
           on the <strong>EU-US Data Privacy Framework</strong> where the provider is
           certified, and/or on the European Commission's <strong>Standard Contractual
           Clauses</strong> as a fallback, with supplementary measures. You can request a
@@ -553,7 +547,7 @@ const toc = [
               <tr><td>Anonymised catalog-access signals (network-prefix /24 or /48, action type, timestamp)</td><td>~30 days, then deleted</td></tr>
               <tr><td>Agent-scan company-level signal + anonymised fingerprint</td><td>Retained as an anonymous aggregate (no PII) for as long as the run exists; erased with the run when it is deleted or expires; subject to counsel review</td></tr>
               <tr><td>Cookieless analytics events</td><td>~90 days, then retained only in aggregate</td></tr>
-              <tr><td>Error / diagnostic data (Sentry)</td><td>~90 days</td></tr>
+              <tr><td>Error / diagnostic data (PostHog)</td><td>~90 days</td></tr>
               <tr><td>Server logs</td><td>~30 days</td></tr>
               <tr><td>Newsletter email (once active)</td><td>Until you unsubscribe, then deleted within 30 days</td></tr>
             </tbody>

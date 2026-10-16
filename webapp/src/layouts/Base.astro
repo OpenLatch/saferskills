@@ -128,12 +128,13 @@ const ogUrl = noindex ? new URL('/', Astro.site).href : Astro.url.href
     {!noStats && <NavStars client:only="react" />}
 
     {/*
-      Observability bootstrap — env-checked init for Sentry + PostHog.
-      No-ops when `PUBLIC_SENTRY_DSN` / `PUBLIC_POSTHOG_KEY` are unset.
+      Observability bootstrap — env-checked init for PostHog.
+      No-ops when `PUBLIC_POSTHOG_KEY` are unset.
       Idle-loaded so it never blocks the first paint.
     */}
     <script>
-      import { initObservability } from '@/lib/observability'
+      import { initObservability, installErrorHandlers } from '@/lib/observability'
+      installErrorHandlers()
       function start() {
         initObservability().catch(() => {
           /* observability is best-effort; never break the page */

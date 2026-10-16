@@ -50,9 +50,7 @@ class DoctorCommand(BaseCommand):
 
         return ExitCode.OK if all_ok else ExitCode.FAIL_REACHABILITY
 
-    async def _probe(
-        self, client: httpx.AsyncClient, url: str
-    ) -> tuple[bool, str, float]:
+    async def _probe(self, client: httpx.AsyncClient, url: str) -> tuple[bool, str, float]:
         """Issue a GET and return `(ok, status_string, elapsed_ms)`.
 
         `ok` is True when we got *any* HTTP response with a status

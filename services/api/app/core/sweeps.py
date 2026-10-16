@@ -24,6 +24,7 @@ from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.generated.agent_run import AgentRun
 from app.models.scan_run import ScanRun
+from app.observability.errors import capture_exception
 from app.scan.persistence import delete_run_cascade
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,7 @@ async def _run_one_sweep(name: str, fn: Callable[[AsyncSession], Awaitable[int]]
     except asyncio.CancelledError:
         raise
     except Exception as exc:
+        capture_exception(exc, context="sweep")
         logger.warning("expiry sweep %s failed; continuing (%s)", name, type(exc).__name__)
         return 0
 

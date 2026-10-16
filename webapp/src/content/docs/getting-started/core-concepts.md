@@ -54,3 +54,7 @@ The trust model has three parts that reinforce each other:
 ## Where do you go from here?
 
 For each capability kind in depth, read the [skills](/docs/concepts/skills/), [MCP servers](/docs/concepts/mcp-servers/), [hooks](/docs/concepts/hooks/), and [plugins](/docs/concepts/plugins/) pages. For the scoring model, continue to [how scoring works](/docs/concepts/how-scoring-works/); for the behavioral side, see the [Agent Scan overview](/docs/concepts/agent-scan/). Every term on this page is defined in the [glossary](/docs/concepts/glossary/).
+
+## Operational privacy
+
+SaferSkills uses its own EU PostHog project for anonymous usage events and redacted application errors. The website does not create user profiles, persist analytics identifiers, or record sessions. Error reporting removes exception messages and request content before delivery; application stack locations help us diagnose faults without collecting your submitted code, filenames, or private report links. See the [privacy policy](/privacy) for details.

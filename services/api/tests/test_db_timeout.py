@@ -140,7 +140,7 @@ async def test_handler_maps_real_statement_timeout_to_503(db_engine: object) -> 
 
 @pytest.mark.asyncio
 async def test_handler_reraises_non_pressure_dbapierror(db_engine: object) -> None:
-    """A genuine (non-pressure) DBAPIError is re-raised → still a 500 + Sentry."""
+    """A genuine (non-pressure) DBAPIError is re-raised → still a 500 + PostHog error tracking."""
     url = cast(AsyncEngine, db_engine).url.render_as_string(hide_password=False)
     eng = create_async_engine(url)
     real_exc: DBAPIError | None = None

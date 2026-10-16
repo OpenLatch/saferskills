@@ -47,7 +47,7 @@ export async function listTrendingScans(
   // TODO: wire to real install counts. Install tracking ships with the
   // install CLI; until then `source=trending&order=installs_desc` has no
   // valid backend mapping and would 422. Return empty so the caller cleanly
-  // falls back to the launch placeholder — no 422 / Sentry noise.
+  // falls back to the launch placeholder — no 422 / PostHog noise.
   return []
 }
 
