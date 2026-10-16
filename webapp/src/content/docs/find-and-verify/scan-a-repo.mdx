@@ -1,7 +1,7 @@
 ---
 title: "Scan a Repo"
 description: "Submit a GitHub URL or upload files at /scan and get a deterministic report in about 30 seconds."
-updated: 2026-06-16
+updated: 2026-10-16
 ---
 import Screenshot from '@/components/docs/Screenshot.astro'
 
@@ -16,7 +16,7 @@ To scan any AI capability, submit its public GitHub URL — or upload its files 
 
 There are two front-ends into one engine:
 
-- **A GitHub URL.** Paste a public repository URL (`https://github.com/<owner>/<repo>`, or a sub-tree). The form posts to `POST /api/v1/scans`. The engine fetches the repo at its current HEAD, walks the file tree, discovers each capability, and scores them.
+- **A GitHub URL.** Paste a public repository URL (`https://github.com/<owner>/<repo>`, or a sub-tree). The form also accepts `github.com/<owner>/<repo>`, `www.github.com/<owner>/<repo>`, and the short `<owner>/<repo>` form, and converts them to a full GitHub URL before posting to `POST /api/v1/scans`. The engine fetches the repo at its current HEAD, walks the file tree, discovers each capability, and scores them.
 - **An upload.** Submit one file, one `.zip`, or several loose files (combined up to 10 MiB) to `POST /api/v1/scans/upload`. The upload is extracted into the same in-memory file index a GitHub fetch produces, so it is scanned exactly like a repo — no different scoring path.
 
 Both paths produce a run that fans out to one report per discovered capability under a single repo report.

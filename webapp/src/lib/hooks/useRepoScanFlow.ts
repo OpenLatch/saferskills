@@ -53,9 +53,15 @@ export function useRepoScanFlow(): RepoScanFlow {
       setUrlError('Paste a public github.com URL: `github.com/<org>/<repo>`')
       return
     }
+    // The API requires a scheme and the bare github.com host. Normalize only
+    // the validated prefix so repository paths and their casing stay intact.
+    const normalizedUrl = githubUrl.replace(
+      /^(https?:\/\/)?(?:www\.)?github\.com\//,
+      (_match, scheme: string | undefined) => `${scheme ?? 'https://'}github.com/`
+    )
     setSubmitting(true)
     try {
-      const res = await submitScan({ github_url: githubUrl, visibility }, captchaToken)
+      const res = await submitScan({ github_url: normalizedUrl, visibility }, captchaToken)
       // On success we keep `submitting` true through the navigation handoff so
       // the affordance stays disabled until the page changes.
       onResult(res)

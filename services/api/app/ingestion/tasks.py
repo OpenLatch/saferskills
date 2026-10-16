@@ -72,10 +72,13 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
         logger.warning("ingestion.cycle_skipped", source=source_name, reason="not_registry_adapter")
         return {"skipped": "not_registry_adapter"}
     adapter: RegistryAdapter = base_adapter
-    async with AsyncSessionLocal() as session:
-        if await is_source_paused(session, source_name):
+    # The pause SELECT starts a transaction. Release it before provider I/O,
+    # which can outlast idle_in_transaction_session_timeout on the first fetch.
+    async with AsyncSessionLocal() as preflight_session:
+        if await is_source_paused(preflight_session, source_name):
             logger.info("ingestion.cycle_skipped", source=source_name, reason="paused")
             return {"skipped": "paused"}
+    async with AsyncSessionLocal() as session:
         # Run-record write #1 (own session, committed) — placed AFTER the
         # blocklist/pause/registry gates so a no-op tick creates no noise row.
         run_id = await record_run_started(source_name, trigger)
