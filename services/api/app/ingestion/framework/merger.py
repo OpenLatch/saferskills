@@ -8,7 +8,8 @@ slugs). Several capabilities share one github_url (UNIQUE(github_url) dropped in
 0007). Ingestion-written rows set source_kind='github', visibility='public'.
 
 Contracts:
-  - dedup: per-capability slug auto-merge ONLY; no GitHub URL → fuzzy queue.
+  - dedup: capability slug, or an explicitly supplied source-local registry ID.
+    No GitHub coordinate → staging + fuzzy queue; repeated registry IDs refresh.
   - conflict: GitHub always wins (other sources fill blanks, never override).
   - agent_compatibility: classifier writes the EXISTING column (0003).
   - quality_tier: soft gate. Set on insert; RE-tiered on update only when
@@ -22,6 +23,7 @@ Returns: 'added' | 'updated' | 'added_with_merge_candidate'.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import uuid
 from typing import Any
@@ -71,6 +73,12 @@ def _pending_slug() -> str:
     whole ingestion batches. Extracted so the (otherwise astronomically rare) collision
     path is deterministically testable."""
     return f"pending--{uuid.uuid4().hex}"
+
+
+def _registry_slug(source: str, registry_item_id: str) -> str:
+    """Stable staging identity, scoped to the adapter that guarantees uniqueness."""
+    digest = hashlib.sha256(f"{source}\0{registry_item_id}".encode()).hexdigest()
+    return f"pending--{digest}"
 
 
 _LICENSE_SPDX_MAX = 100  # catalog_items.license_spdx is VARCHAR(100)
@@ -125,6 +133,14 @@ class MergeEngine:
         kind = n.kind or classify_all(n)[0]
         slug = _capability_slug(n, kind)
         if slug is None:
+            if n.registry_item_id:
+                return await self._upsert_by_slug(
+                    n,
+                    slug=_registry_slug(source, n.registry_item_id),
+                    raw_hash=raw_hash,
+                    source=source,
+                    staging=True,
+                )
             return await self._maybe_queue_fuzzy(n, source)
         return await self._upsert_by_slug(n, slug=slug, raw_hash=raw_hash, source=source)
 
@@ -134,7 +150,13 @@ class MergeEngine:
         ).scalar_one_or_none()
 
     async def _upsert_by_slug(
-        self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
+        self,
+        n: NormalizedItem,
+        *,
+        slug: str,
+        raw_hash: str,
+        source: str,
+        staging: bool = False,
     ) -> str:
         """Concurrency-safe per-capability upsert.
 
@@ -162,7 +184,9 @@ class MergeEngine:
                 # batches inserting overlapping slugs) rolls back THIS insert only,
                 # not the whole cycle's batch — then we retry.
                 async with self.session.begin_nested():
-                    new_id = await self._insert_new(n, slug=slug, raw_hash=raw_hash, source=source)
+                    new_id = await self._insert_new(
+                        n, slug=slug, raw_hash=raw_hash, source=source, staging=staging
+                    )
             except DBAPIError as exc:
                 if _is_deadlock(exc) and attempt < _MAX_UPSERT_ATTEMPTS - 1:
                     logger.warning("merger.upsert_deadlock_retry", slug=slug, attempt=attempt)
@@ -176,6 +200,8 @@ class MergeEngine:
                     continue  # peer rolled back — retry the insert
                 await self._apply_update(existing, n, raw_hash=raw_hash, source=source)
                 return "updated"
+            if staging:
+                return await self._maybe_queue_fuzzy(n, source, staged_id=new_id)
             await self._defer_on_add_recompute(new_id)
             # Index → scan: a brand-new public-github capability is enqueued for an
             # immediate durable scan (the reconciliation drainer is the steady-state
@@ -224,7 +250,13 @@ class MergeEngine:
             )
 
     async def _insert_new(
-        self, n: NormalizedItem, *, slug: str, raw_hash: str, source: str
+        self,
+        n: NormalizedItem,
+        *,
+        slug: str,
+        raw_hash: str,
+        source: str,
+        staging: bool = False,
     ) -> uuid.UUID | None:
         """Insert a brand-new capability row, or return None if a peer beat us to it.
 
@@ -282,6 +314,9 @@ class MergeEngine:
             "created_at": now,
             "updated_at": now,
         }
+        if staging:
+            values["quality_tier"] = "low"
+            values["item_metadata"].update(pending_merge=True, discovered_via=source)
         stmt = (
             pg_insert(CatalogItem)
             .values(**values)
@@ -300,14 +335,25 @@ class MergeEngine:
     ) -> None:
         is_github = source in {"github_skills", "github_topics"}
         meta = dict(existing.item_metadata or {})
+        owns_staging = bool(
+            n.registry_item_id
+            and existing.slug == _registry_slug(source, n.registry_item_id)
+            and not existing.github_url
+            and meta.get("pending_merge")
+            and meta.get("discovered_via") == source
+        )
+        if owns_staging:
+            existing.display_name = n.display_name[:200]
         conflicts: list[dict[str, Any]] = list(meta.get("conflicts") or [])
 
         for field in ("description", "license_spdx"):
             incoming = getattr(n, field, None)
             current = meta.get(field)
             if incoming is not None and incoming != current:
-                if current is None:
-                    meta[field] = incoming  # fill a blank — any source may
+                if current is None or owns_staging:
+                    # Any source may fill blanks; a registry may refresh its own
+                    # unresolved listing, but never overwrite a canonical row.
+                    meta[field] = incoming
                 elif is_github:
                     conflicts.append(
                         {
@@ -353,7 +399,7 @@ class MergeEngine:
         # source learned to enrich (e.g. the mcp_registry backfill — its cursor-based
         # feed only re-yields a server on a reset). Gated to items that actually
         # carry repo signals so a bare update never downgrades a tiered row.
-        if _has_enrichment_signals(n):
+        if not owns_staging and _has_enrichment_signals(n):
             _ckind, kind_signals, quality_tier, quality_signals, _agents = classify_all(n)
             existing.quality_tier = quality_tier
             existing.quality_signals = quality_signals
@@ -379,7 +425,9 @@ class MergeEngine:
         await self._upsert_item_source(existing.id, source, n.source_url)
         await self._upsert_author(n)
 
-    async def _maybe_queue_fuzzy(self, n: NormalizedItem, source: str) -> str:
+    async def _maybe_queue_fuzzy(
+        self, n: NormalizedItem, source: str, *, staged_id: uuid.UUID | None = None
+    ) -> str:
         """No GitHub coordinate → stage the row + queue fuzzy candidates."""
         # The % operator can use idx_catalog_items_name_trgm; similarity() alone
         # scans the entire catalog for every incoming item. Set its threshold in
@@ -396,8 +444,13 @@ class MergeEngine:
                     "SELECT id, display_name FROM catalog_items "
                     "WHERE display_name % :name "
                     "AND similarity(display_name, :name) > :pre AND archived = false "
+                    "AND id != CAST(:excluded_id AS uuid) "
                     "ORDER BY similarity(display_name, :name) DESC, id LIMIT 20"
-                ).bindparams(name=n.display_name, pre=_FUZZY_TRGM_PREFILTER)
+                ).bindparams(
+                    name=n.display_name,
+                    pre=_FUZZY_TRGM_PREFILTER,
+                    excluded_id=str(staged_id or uuid.UUID(int=0)),
+                )
             )
         ).fetchall()
 
@@ -408,7 +461,8 @@ class MergeEngine:
             if score >= _RAPIDFUZZ_THRESHOLD or jw >= _JARO_WINKLER_THRESHOLD:
                 high.append((row.id, score, jw))
 
-        staged_id = await self._insert_staging_row(n, source)
+        if staged_id is None:
+            staged_id = await self._insert_staging_row(n, source)
         if not high:
             return "added"
 

@@ -1,6 +1,6 @@
 """Tests for the SitemapHtmlAdapter base + the 7 PR2 HTML scrapers. No live requests.
 
-The 7 aggregator adapters (mcp_so, pulsemcp, clawhub, skillsmp, skills_sh,
+The 6 aggregator adapters (mcp_so, pulsemcp, skillsmp, skills_sh,
 claudeskills_info, skillhub_club) are config-only subclasses of SitemapHtmlAdapter,
 so the base's logic IS their logic — exercised here with inline HTML fixtures + a
 mocked `_fetch_html`. A parametrized test then asserts every one of the 7 registers
@@ -248,13 +248,12 @@ async def test_list_items_yields_per_item_with_html() -> None:
 
 
 # ---------------------------------------------------------------------------
-# All 7 PR2 adapters: registered + valid config
+# HTML adapters: registered + valid config
 # ---------------------------------------------------------------------------
 
 _PR2_SOURCES = [
     "mcp_so",
     "pulsemcp",
-    "clawhub",
     "skillsmp",
     "skills_sh",
     "claudeskills_info",
