@@ -53,7 +53,9 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 /** Only deployed application bundles qualify as source identifiers, never submitted files. */
 function sourceFile(value: unknown): string | undefined {
-  if (typeof value !== 'string' || value.includes('..') || /[?#%]/.test(value)) return
+  // Astro encodes dynamic route names with dots (for example `_.._abc.mjs`).
+  // Reject traversal segments, not dots inside a legitimate bundle basename.
+  if (typeof value !== 'string' || /(?:^|\/)\.\.(?:\/|$)/.test(value) || /[?#%]/.test(value)) return
   if (
     /^https?:\/\/(?:saferskills\.ai|www\.saferskills\.ai|staging\.saferskills\.ai|saferskills-webapp(?:-staging)?\.fly\.dev)\/_astro\/[\w.-]+\.m?js$/.test(
       value

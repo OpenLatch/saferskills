@@ -6,14 +6,30 @@ import asyncio
 import json
 import logging
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import MagicMock
 
 import httpx
 import pytest
 from fastapi import FastAPI
+from pydantic import BaseModel, Field, ValidationError
 
 from app.observability import errors, events
+
+
+class _CymbalPythonFrame(BaseModel):
+    """Required raw-frame wire contract, independent of our privacy projection.
+
+    PostHog's rust/cymbal/src/core/types/frames/mod.rs tags RawFrame by
+    `platform`; langs/python.rs requires filename/function and accepts an
+    optional u32 lineno. Remaining Python fields are optional/defaulted.
+    https://github.com/PostHog/posthog/tree/master/rust/cymbal/src/core/types
+    """
+
+    platform: Literal["python"]
+    filename: str
+    function: str
+    lineno: int | None = Field(default=None, ge=0, le=2**32 - 1)
 
 
 @pytest.fixture
@@ -95,7 +111,14 @@ def test_retains_application_stack_locations_without_source(client: MagicMock) -
     assert frames
     assert frames[-1]["filename"] == "app/core/config.py"
     assert frames[-1]["function"] == "coerce_ssl_to_sslmode"
-    assert set(frames[-1]) == {"filename", "function", "lineno", "in_app"}
+    assert set(frames[-1]) == {"platform", "filename", "function", "lineno", "in_app"}
+    for frame in frames:
+        _CymbalPythonFrame.model_validate(frame)
+    # A valid ingestion response does not imply successful error processing.
+    # This reproduces Cymbal's rejection of the previously emitted payload.
+    missing_platform = {key: value for key, value in frames[-1].items() if key != "platform"}
+    with pytest.raises(ValidationError, match="platform"):
+        _CymbalPythonFrame.model_validate(missing_platform)
 
 
 def test_sdk_boundary_recursively_redacts_and_rebuilds_error_schema() -> None:

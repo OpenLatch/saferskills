@@ -86,6 +86,36 @@ describe('telemetry privacy boundary', () => {
     expect(JSON.stringify(clean)).not.toContain('TokenFromUser')
     expect(JSON.stringify(clean)).not.toContain('evil.test')
   })
+  it.each([
+    '/app/dist/server/chunks/_.._BXmnJVpK.mjs',
+    'file:///app/dist/server/chunks/_.._BXmnJVpK.mjs',
+  ])('preserves real Astro dynamic-route stack frames at %s', (filename) => {
+    const clean = sanitizeTelemetryProperties({
+      $exception_list: [
+        { type: 'TypeError', stacktrace: { frames: [{ filename, lineno: 33, colno: 22 }] } },
+      ],
+    })
+    expect(clean?.$exception_list).toEqual([
+      {
+        type: 'TypeError',
+        value: '[redacted]',
+        stacktrace: {
+          type: 'raw',
+          frames: [{ filename, platform: 'node:javascript', lineno: 33, colno: 22 }],
+        },
+      },
+    ])
+  })
+  it.each([
+    '/app/dist/server/chunks/../private.mjs',
+    'file:///app/dist/server/../../uploads/private.mjs',
+    '/app/dist/server/chunks/%2e%2e/private.mjs',
+  ])('still strips traversal from stack frames at %s', (filename) => {
+    const clean = sanitizeTelemetryProperties({
+      $exception_list: [{ type: 'TypeError', stacktrace: { frames: [{ filename, lineno: 1 }] } }],
+    })
+    expect(clean?.$exception_list).toEqual([{ type: 'TypeError', value: '[redacted]' }])
+  })
   it('drops payloads when a getter throws rather than exporting unredacted data', () => {
     expect(
       sanitizeTelemetryProperties({

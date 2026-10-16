@@ -143,6 +143,9 @@ def before_send(event: dict[str, Any]) -> dict[str, Any] | None:
                         continue
                     frames.append(
                         {
+                            # Cymbal's RawFrame is a platform-tagged union. This
+                            # required discriminator contains no request data.
+                            "platform": "python",
                             "filename": filename,
                             "function": _identifier(frame.get("function")),
                             "lineno": frame["lineno"],
