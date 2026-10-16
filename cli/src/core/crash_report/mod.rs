@@ -197,9 +197,21 @@ mod imp {
                             .is_some_and(|file| file.starts_with("src/"))
                         && props["$process_person_profile"] == false
                         && props["$exception_list"][0]["type"] == "RustPanic"
+                        && props["$exception_list"][0]["stacktrace"]["type"] == "raw"
                         && props["$exception_list"][0]["stacktrace"]["frames"]
                             .as_array()
-                            .is_some_and(|frames| !frames.is_empty())
+                            .is_some_and(|frames| {
+                                // Cymbal's RawFrame enum dispatches on frame.platform,
+                                // not exception.platform. Every SDK frame must retain it.
+                                !frames.is_empty()
+                                    && frames.iter().all(|frame| {
+                                        frame["platform"] == "native"
+                                            && frame["lang"] == "rust"
+                                            && frame["in_app"].is_boolean()
+                                            && frame["synthetic"].is_boolean()
+                                            && frame["client_resolved"].is_boolean()
+                                    })
+                            })
                 })
                 .expect(1)
                 .with_status(200)
