@@ -260,10 +260,9 @@ async def recover_stale_ingestion_runs() -> int:
     """Reap orphaned `running` ingestion_runs rows (boot + periodic). Returns count.
 
     Mirrors `app/queue/scan_runner.py::recover_stale_scans` for the ingest side.
-    Grace = `ingestion_stalled_seconds` (default 4h) — the SAME worst-case-cycle-safe
-    constant the `ingestion_stalled_retrier` uses, so a legitimately long in-flight
-    crawl (mcp_registry full-feed) is never reaped out from under itself. Owns its
-    own session + commit."""
+    Grace = `ingestion_stalled_seconds` (default 4h). This age-based run-record
+    cleanup is separate from queue-job recovery, which checks worker heartbeats.
+    Owns its own session + commit."""
     from app.core.config import get_settings
     from app.db.session import AsyncSessionLocal
 
@@ -295,13 +294,11 @@ async def _mark_source_blocked(source: str, *, reason: str) -> None:
 def _register_periodic(source_name: str, cron: str, queue: str) -> None:
     """Register a periodic Procrastinate task for one cadenced source.
 
-    `priority`/`queueing_lock` mirror the Phase-C maintenance tasks (see
-    `app.ingestion.INGEST_CYCLE_PRIORITY`): the priority lifts a scheduled cycle
-    above the bulk auto-scan / popularity fan-out so it isn't starved by the
-    backlog, and the per-source queueing_lock dedups against an in-flight cycle so
-    a fast cadence (mcp_registry/npm hourly) can't stack a second crawl behind the
-    first — Procrastinate's periodic deferrer hits the lock and logs a caught,
-    benign unique-violation instead of piling up todo jobs.
+    Priority lifts scheduled cycles above bulk scan/popularity work. The
+    queueing lock permits at most one waiting cycle; the execution lock permits
+    at most one running cycle per source. Both are needed: Procrastinate releases
+    the queueing lock when a job starts, so an hourly tick can enqueue again
+    while a long catch-up is still updating the source's shared cursor.
     """
 
     @procrastinate_app.periodic(cron=cron)
@@ -309,6 +306,7 @@ def _register_periodic(source_name: str, cron: str, queue: str) -> None:
         name=f"ingest_cycle_{source_name}",
         queue=queue,
         priority=INGEST_CYCLE_PRIORITY,
+        lock=f"ingest_cycle_{source_name}_lock",
         queueing_lock=f"ingest_cycle_{source_name}_lock",
         retry=cast(
             RetryStrategy, IngestionRetry()

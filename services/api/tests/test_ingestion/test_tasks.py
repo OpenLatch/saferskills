@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import CrawlerCursor
@@ -166,14 +167,13 @@ async def test_run_source_cycle_provider_failure_warns_no_raise(
 
 def test_ingest_cycle_tasks_outrank_fanout_and_dedup_per_source() -> None:
     """Every cadenced ingest_cycle_* task must register with a priority above the
-    bulk auto-scan/popularity fan-out (priority 0) AND a per-source queueing_lock.
+    bulk auto-scan/popularity fan-out (priority 0) AND both per-source locks.
 
     Regression for the worker-starvation bug: without the priority bump the single
     in-process worker fetches `priority DESC, id ASC`, so each scheduled cycle is
     buried inside the thousands-deep scan/recompute fan-out id-band and effectively
-    never runs (sources stuck `never_run`); without the per-source queueing_lock an
-    hourly cadence stacks a second crawl behind an in-flight one (the npm-pileup /
-    mcp_registry-zombie-stacking bug).
+    never runs (sources stuck `never_run`). Queueing locks bound waiting jobs;
+    execution locks prevent two cycles from racing the same source cursor.
     """
     import app.ingestion.tasks  # noqa: F401  # pyright: ignore[reportUnusedImport]  # side-effect: registers periodic tasks
     from app.ingestion import INGEST_CYCLE_PRIORITY, procrastinate_app
@@ -189,6 +189,80 @@ def test_ingest_cycle_tasks_outrank_fanout_and_dedup_per_source() -> None:
     for name, task in cycles.items():
         source = name.removeprefix("ingest_cycle_")
         assert task.priority == INGEST_CYCLE_PRIORITY, f"{name} priority not bumped"
+        assert task.lock == f"ingest_cycle_{source}_lock", f"{name} missing execution lock"
         assert task.queueing_lock == f"ingest_cycle_{source}_lock", (
             f"{name} missing per-source lock"
         )
+
+
+@pytest.mark.asyncio
+async def test_cycle_execution_lock_serializes_same_source_but_not_other_sources(
+    db_session: AsyncSession,
+) -> None:
+    """Exercise PostgreSQL's actual scheduler with the registered task defaults.
+
+    Queueing locks are released at fetch time: another hourly tick may enqueue,
+    but it must not fetch until the preceding cycle terminates. Other sources
+    must still run, and retry must retain the source's execution lock.
+    """
+    from procrastinate.schema import SchemaManager
+
+    import app.ingestion.tasks  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from app.ingestion import procrastinate_app
+
+    schema = f"cycle_lock_{uuid4().hex}"
+    await db_session.execute(text(f'CREATE SCHEMA "{schema}"'))
+    await db_session.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
+    connection = await db_session.connection()
+    raw = await connection.get_raw_connection()
+    await cast(Any, raw.driver_connection).execute(SchemaManager.get_schema())
+    worker = (
+        await db_session.execute(
+            text("INSERT INTO procrastinate_workers DEFAULT VALUES RETURNING id")
+        )
+    ).scalar_one()
+    registered: dict[str, Any] = procrastinate_app.tasks  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+
+    async def defer(source: str) -> int:
+        job = procrastinate_app.configure_task(
+            name=f"ingest_cycle_{source}", allow_unknown=False, queue="cycle_lock_test"
+        ).job
+        result = await db_session.execute(
+            text("""INSERT INTO procrastinate_jobs (queue_name, task_name, lock, queueing_lock)
+                VALUES ('cycle_lock_test', :name, :lock, :queueing_lock) RETURNING id"""),
+            {"name": job.task_name, "lock": job.lock, "queueing_lock": job.queueing_lock},
+        )
+        return int(result.scalar_one())
+
+    async def fetch() -> int | None:
+        result = await db_session.execute(
+            text(
+                "SELECT (procrastinate_fetch_job_v2(ARRAY['cycle_lock_test']::varchar[], :worker)).id"
+            ),
+            {"worker": worker},
+        )
+        value = result.scalar_one()
+        return int(value) if value is not None else None
+
+    first = await defer("mcp_registry")
+    assert await fetch() == first
+    second = await defer("mcp_registry")
+    other = await defer("clawhub")
+    assert await fetch() == other
+    assert await fetch() is None
+
+    await db_session.execute(
+        text("SELECT procrastinate_retry_job_v2(:id, now(), NULL, NULL, NULL)"), {"id": other}
+    )
+    assert await fetch() == other
+    assert await fetch() is None
+    assert (
+        await db_session.execute(
+            text("SELECT lock FROM procrastinate_jobs WHERE id=:id"), {"id": other}
+        )
+    ).scalar_one() == registered["ingest_cycle_clawhub"].lock
+
+    await db_session.execute(
+        text("SELECT procrastinate_finish_job_v1(:id, 'succeeded', false)"), {"id": first}
+    )
+    assert await fetch() == second
