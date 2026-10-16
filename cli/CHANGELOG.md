@@ -68,6 +68,14 @@
   expands per-capability axis bars + inline findings. The same rich report now
   renders for `capability <path>` and `capability <url>` too (D-05-27).
 
+## [0.2.1](https://github.com/OpenLatch/saferskills/compare/v0.2.0...v0.2.1) (2026-10-16)
+
+
+### Fixed
+
+* preserve required PostHog stack frame metadata ([#184](https://github.com/OpenLatch/saferskills/issues/184)) ([52c31cb](https://github.com/OpenLatch/saferskills/commit/52c31cb179bbeeeb6ea639833ee7ed3c8a9b69e4))
+* replace obsolete error tracking with PostHog ([#182](https://github.com/OpenLatch/saferskills/issues/182)) ([3e11a36](https://github.com/OpenLatch/saferskills/commit/3e11a36070ad209e7b8b0e042d6c5ce9ed53ca25))
+
 ## [0.2.0](https://github.com/OpenLatch/saferskills/compare/v0.1.1...v0.2.0) (2026-06-22)
 
 
