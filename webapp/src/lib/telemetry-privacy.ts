@@ -57,7 +57,7 @@ function sourceFile(value: unknown): string | undefined {
   // Reject traversal segments, not dots inside a legitimate bundle basename.
   if (typeof value !== 'string' || /(?:^|\/)\.\.(?:\/|$)/.test(value) || /[?#%]/.test(value)) return
   if (
-    /^https?:\/\/(?:saferskills\.ai|www\.saferskills\.ai|staging\.saferskills\.ai|saferskills-webapp(?:-staging)?\.fly\.dev)\/_astro\/[\w.-]+\.m?js$/.test(
+    /^https?:\/\/(?:saferskills\.ai|www\.saferskills\.ai|staging\.saferskills\.ai|saferskills-webapp(?:-staging)?\.fly\.dev)\/_astro\/(?:[a-f\d]{40}\/)?[\w.-]+\.m?js$/.test(
       value
     )
   )

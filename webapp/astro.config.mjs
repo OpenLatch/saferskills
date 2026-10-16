@@ -6,6 +6,13 @@ import { defineConfig, passthroughImageService } from 'astro/config'
 import remarkDirective from 'remark-directive'
 import { remarkAsides } from './src/lib/docs/remark-asides.mjs'
 
+const release = /^[a-f\d]{40}$/.test(process.env.PUBLIC_GIT_SHA ?? '')
+  ? process.env.PUBLIC_GIT_SHA
+  : undefined
+if (process.env.SOURCEMAP_UPLOAD === '1' && !release) {
+  throw new Error('Source-map uploads require PUBLIC_GIT_SHA to be a full Git commit SHA')
+}
+
 // Astro 6 — `output: 'server'` with per-page `export const prerender = true` opt-in
 // for SSG. Astro v5+ removed `hybrid`; this is the supported equivalent.
 // See plan/01a-design-system-foundation.md §1.6 (D-FE-22).
@@ -33,7 +40,10 @@ export default defineConfig({
   // pages → served at `/docs/<section>/<page>/` (trailing-slash parity with the
   // retired Starlight build). `format: 'directory'` is also fine for the existing
   // marketing pages (about/methodology) which already build to <name>/index.html.
-  build: { format: 'directory' },
+  // Source-map injection changes JS after Vite computes its content hashes.
+  // Version the asset directory so immutable browser/CDN caches cannot reuse
+  // an older, uninstrumented bundle under the same pre-injection filename.
+  build: { format: 'directory', assets: release ? `_astro/${release}` : '_astro' },
   // Sharp-free image service: the docs Screenshot component optimizes PNGs via
   // astro:assets, but the webapp Docker builder is node:alpine (musl) where Sharp
   // fails. The app uses no other <Image>, so passthrough is collateral-free.
