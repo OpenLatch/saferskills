@@ -62,7 +62,9 @@ function sourceFile(value: unknown): string | undefined {
     )
   )
     return value
-  if (/^(?:file:\/\/)?\/app\/(?:webapp\/)?dist\/server\/[\w./-]+\.m?js$/.test(value)) return value
+  // The Node SDK makes bundle filenames relative to /app before before_send runs.
+  if (/^(?:(?:file:\/\/)?\/app\/(?:webapp\/)?)?dist\/server\/[\w./-]+\.m?js$/.test(value))
+    return value
   return undefined
 }
 

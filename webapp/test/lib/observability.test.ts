@@ -107,6 +107,8 @@ describe('telemetry privacy boundary', () => {
     ])
   })
   it.each([
+    'dist/server/chunks/../private.mjs',
+    'dist/server/chunks/%2e%2e/private.mjs',
     '/app/dist/server/chunks/../private.mjs',
     'file:///app/dist/server/../../uploads/private.mjs',
     '/app/dist/server/chunks/%2e%2e/private.mjs',
