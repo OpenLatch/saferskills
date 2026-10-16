@@ -26,8 +26,7 @@ function resolveApiBase(): string {
 const envSchema = z.object({
   PUBLIC_API_URL: z.string().url().default('http://localhost:8000'),
   PUBLIC_POSTHOG_KEY: z.string().optional(),
-  PUBLIC_POSTHOG_HOST: z.string().url().default('https://eu.i.posthog.com'),
-  PUBLIC_SENTRY_DSN: z.string().optional(),
+  PUBLIC_POSTHOG_HOST: z.literal('/ingest').default('/ingest'),
   PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   PUBLIC_GIT_SHA: z.string().optional(),
 })
@@ -40,7 +39,6 @@ export const env = envSchema.parse({
   PUBLIC_API_URL: resolveApiBase(),
   PUBLIC_POSTHOG_KEY: import.meta.env.PUBLIC_POSTHOG_KEY,
   PUBLIC_POSTHOG_HOST: import.meta.env.PUBLIC_POSTHOG_HOST,
-  PUBLIC_SENTRY_DSN: import.meta.env.PUBLIC_SENTRY_DSN,
   PUBLIC_TURNSTILE_SITE_KEY: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY,
   PUBLIC_GIT_SHA: import.meta.env.PUBLIC_GIT_SHA,
 })

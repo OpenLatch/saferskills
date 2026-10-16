@@ -41,7 +41,7 @@ app/
 ├── main.py            # FastAPI app + lifespan (migrations on boot, worker, sweeps)
 ├── worker_main.py     # standalone Procrastinate worker entrypoint
 ├── core/              # config, startup/migrations, middleware
-├── observability/     # Sentry + PostHog + OTel (no-op when env unset)
+├── observability/     # PostHog errors + analytics + OTel (no-op when env unset)
 ├── routers/           # /api/v1/* — health, items, scans, agent-scans, admin, …
 ├── scan/              # the deterministic scan engine (discovery, fetch, scoring)
 ├── agent_scan/        # behavioral Agent Scan (pack signing, canaries, grading)

@@ -31,6 +31,7 @@ from app.core.db_pool import get_pool
 from app.db.session import AsyncSessionLocal
 from app.models.scan import Scan, ScanEvent
 from app.models.scan_run import ScanRun
+from app.observability.errors import capture_exception
 from app.scan import engine, persistence
 
 logger = logging.getLogger(__name__)
@@ -231,6 +232,7 @@ async def scan_run(
         await _emit(scan_id, "done", 100, "completed", scan_id=scan_id)
 
     except Exception as exc:
+        capture_exception(exc, context="scan")
         logger.exception("scan %s failed", scan_id)
         try:
             await _emit(
@@ -326,6 +328,7 @@ async def scan_run_repo(
         await _emit(run_id, "done", 100, "completed", scan_run_id=run_id)
 
     except Exception as exc:
+        capture_exception(exc, context="scan")
         logger.exception("scan_run %s failed", run_id)
         # Best-effort: flip the run to failed so the report surface shows it.
         try:
@@ -437,6 +440,7 @@ async def scan_run_upload(
         await _emit(run_id, "done", 100, "completed", scan_run_id=run_id)
 
     except Exception as exc:
+        capture_exception(exc, context="scan")
         logger.exception("scan_run_upload %s failed", run_id)
         try:
             async with AsyncSessionLocal() as session:

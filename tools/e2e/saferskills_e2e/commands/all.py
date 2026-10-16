@@ -57,8 +57,7 @@ class AllCommand(BaseCommand):
         # Always render the summary table — even on early exit it shows
         # which step regressed and how far the run got.
         rows = [
-            (name, "PASS" if code is ExitCode.OK else f"FAIL ({int(code)})",
-             f"{elapsed_ms:.1f}")
+            (name, "PASS" if code is ExitCode.OK else f"FAIL ({int(code)})", f"{elapsed_ms:.1f}")
             for name, code, elapsed_ms in results
         ]
         print_info("")

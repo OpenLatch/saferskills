@@ -51,6 +51,7 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    build: { sourcemap: process.env.SOURCEMAP_UPLOAD === '1' ? 'hidden' : false },
   },
   server: {
     port: 5173,

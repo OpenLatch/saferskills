@@ -34,7 +34,6 @@ services:
       - ./services/api/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:dev@postgres:5432/saferskills_dev
-      SENTRY_DSN: ""
       OTEL_EXPORTER_OTLP_ENDPOINT: ""
       GIT_SHA: dev
       VERSION: 0.0.0-foundation

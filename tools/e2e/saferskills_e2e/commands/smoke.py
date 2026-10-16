@@ -50,9 +50,7 @@ class SmokeCommand(BaseCommand):
 
         return ExitCode.OK
 
-    async def _check_health(
-        self, client: httpx.AsyncClient, config: Config
-    ) -> ExitCode:
+    async def _check_health(self, client: httpx.AsyncClient, config: Config) -> ExitCode:
         url = f"{config.api_url}/api/v1/health"
         try:
             resp = await client.get(url)
@@ -74,9 +72,7 @@ class SmokeCommand(BaseCommand):
         print_ok("GET /api/v1/health returns 200 + status=ok")
         return ExitCode.OK
 
-    async def _check_openapi(
-        self, client: httpx.AsyncClient, config: Config
-    ) -> ExitCode:
+    async def _check_openapi(self, client: httpx.AsyncClient, config: Config) -> ExitCode:
         url = f"{config.api_url}/openapi.json"
         try:
             resp = await client.get(url)
@@ -103,7 +99,5 @@ class SmokeCommand(BaseCommand):
             print_fail(f"GET {url} OpenAPI shape regression: {e!s}")
             return ExitCode.FAIL_OPENAPI
 
-        print_ok(
-            f"GET /openapi.json parses and carries info.title={EXPECTED_OPENAPI_TITLE!r}"
-        )
+        print_ok(f"GET /openapi.json parses and carries info.title={EXPECTED_OPENAPI_TITLE!r}")
         return ExitCode.OK

@@ -8,7 +8,7 @@ SaferSkills public website. Astro 6 (output: server) + React 19 islands + Tailwi
 2. **Style entry is `webapp/src/styles/global.css`.** That file `@import`s `@ui/styles/globals.css` (Tailwind + tokens + page-vocabulary CSS + fonts + typography utilities) → `./reset.css` (webapp-specific base resets). The page-vocabulary CSS (`.btn`, `.chip`, `.page-head`, `.ridge-*`, etc.) lives in `ui/styles/components.css` so Ladle stories render with the same chrome the webapp ships.
 3. **No CDN fonts.** All fonts via `@fontsource/*` or `@fontsource-variable/*`. The `validate` CI lane fails on any `fonts.googleapis.com` in committed source.
 4. **Layouts set `<html lang="en">`** (no className). The FOUC-prevention inline script in `Base.astro` flips `<html class="dark">` based on `localStorage['ss-theme']` + `prefers-color-scheme` BEFORE first paint. `ThemeToggle` (a React 19 island) writes the same key.
-5. **Observability lives in `webapp/src/lib/observability.ts`.** Sentry + PostHog SDKs init only when `PUBLIC_SENTRY_DSN` / `PUBLIC_POSTHOG_KEY` are set. Init runs on `requestIdleCallback` from `Base.astro` so it never blocks first paint.
+5. **Observability lives in `webapp/src/lib/observability.ts`.** PostHog initializes only when `PUBLIC_POSTHOG_KEY` is set; SSR reads runtime `POSTHOG_PROJECT_KEY`. Init runs on `requestIdleCallback` from `Base.astro` so it never blocks first paint.
 6. **`@/*` resolves to `webapp/src/*`.** `@ui/*` resolves to `ui/*`. Use these aliases — never relative `../../../` paths into `ui/`.
 
 ## Pages

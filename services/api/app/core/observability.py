@@ -1,4 +1,4 @@
-"""Observability bootstrap — structured logging + Sentry + OpenTelemetry + PostHog.
+"""Observability bootstrap — structured logging + OpenTelemetry + PostHog.
 
 Posture: every initialiser is a no-op when its key/endpoint is unset, so
 `docker compose up` works against a fresh checkout without secrets. Observability
@@ -7,13 +7,10 @@ must NEVER break the app — every init is wrapped and degrades on failure.
 Legs:
   - **Logging** (`app.core.logging`): structlog JSON → stdout, with
     `inject_trace_context` for Loki↔Tempo correlation. Configured FIRST.
-  - **Sentry**: errors only, with the breadcrumb + event scrubbers from
-    `app.observability.events` (drops scanned-artifact content; redacts the
-    unlisted capability token).
   - **OpenTelemetry**: traces exported via OTLP/HTTP to the shared Grafana Vector
     (`OTEL_EXPORTER_OTLP_ENDPOINT`). Metrics are deferred — the pool gauges stay
     registered (harmless) but no metric reader/exporter is wired yet.
-  - **PostHog**: server-side product analytics (the `emit_*` allowlist), tagged
+  - **PostHog**: errors and server-side product analytics (the `emit_*` allowlist), tagged
     `product = "saferskills"`. Client lives in `app.observability.events`.
 """
 
@@ -25,82 +22,17 @@ from app.core.config import Settings
 from app.core.log_redaction import install_log_redaction
 from app.core.logging import configure_logging
 from app.observability import events
-from app.observability.events import scrub_sentry_breadcrumb, scrub_sentry_event
+from app.observability.errors import install_job_error_capture
 
 logger = structlog.get_logger(__name__)
 
 
-def record_pool_timeout_breadcrumb(subsystem: str) -> None:
-    """Sentry breadcrumb on a SQLAlchemy pool-checkout `TimeoutError`.
-
-    The back-pressure event: when ingestion + API jointly exhaust the shared
-    pool, the next checkout
-    raises after `db_pool_timeout_s` instead of hanging. Tagging the breadcrumb
-    `subsystem=ingestion|api` lets the post-mortem show who lost the race.
-    No-op when Sentry is unconfigured (`add_breadcrumb` is safe pre-init).
-    """
-    try:
-        import sentry_sdk  # type: ignore[import-not-found]
-
-        sentry_sdk.add_breadcrumb(
-            category="db_pool",
-            message="SQLAlchemy pool checkout timed out (back-pressure)",
-            level="warning",
-            data={"subsystem": subsystem},
-        )
-    except Exception:  # observability must never break the app
-        pass
-
-
-def record_statement_timeout_breadcrumb(subsystem: str) -> None:
-    """Sentry breadcrumb on a Postgres statement-timeout cancellation (SQLSTATE 57014).
-
-    The DB-pressure event: a query exceeded `db_statement_timeout_s` and Postgres
-    aborted it (rather than letting it pin a pooled connection while every other
-    request 503s at the pool-checkout timeout). Tagging `subsystem=api` lets the
-    post-mortem distinguish a slow-query abort from a pool-checkout exhaustion.
-    No-op when Sentry is unconfigured (`add_breadcrumb` is safe pre-init).
-    """
-    try:
-        import sentry_sdk  # type: ignore[import-not-found]
-
-        sentry_sdk.add_breadcrumb(
-            category="db_pressure",
-            message="Postgres statement timeout — query aborted (back-pressure)",
-            level="warning",
-            data={"subsystem": subsystem},
-        )
-    except Exception:  # observability must never break the app
-        pass
-
-
-async def init_observability(settings: Settings) -> None:
+async def init_observability(settings: Settings, *, service: str = "api") -> None:
     # Logging first — so every subsequent init line is structured JSON on stdout.
     configure_logging(settings.log_level)
     # Always-on: redact the unlisted capability token from access/app logs
-    # — independent of Sentry/OTel being configured.
+    # — independent of PostHog/OTel being configured.
     install_log_redaction()
-
-    if settings.sentry_dsn:
-        try:
-            import sentry_sdk  # type: ignore[import-not-found]
-            from sentry_sdk.integrations.fastapi import (  # type: ignore[import-not-found]
-                FastApiIntegration,
-            )
-
-            sentry_sdk.init(
-                dsn=settings.sentry_dsn,
-                integrations=[FastApiIntegration()],
-                release=f"saferskills-api@{settings.version}+{settings.git_sha[:7]}",
-                environment=settings.env,
-                send_default_pii=False,
-                traces_sample_rate=0.0,  # bumped per-environment from Fly secrets later
-                before_breadcrumb=scrub_sentry_breadcrumb,
-                before_send=scrub_sentry_event,  # pyright: ignore[reportArgumentType]
-            )
-            logger.info("sentry.initialised", env=settings.env)
-        except Exception as exc:  # observability must never break the app
-            logger.warning("sentry.init_failed", error=str(exc))
 
     if settings.otel_exporter_otlp_endpoint:
         try:
@@ -114,7 +46,11 @@ async def init_observability(settings: Settings) -> None:
         project_key=settings.posthog_project_key,
         host=settings.posthog_host,
         server_key=settings.posthog_server_key,
+        environment=settings.env,
+        service=service,
+        release=settings.git_sha,
     )
+    install_job_error_capture()
 
 
 def instrument_app(app: object) -> None:

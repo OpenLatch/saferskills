@@ -74,7 +74,7 @@ After any code change touching shipped layers, run `/verify-build` — it auto-d
 | **Data** | PostgreSQL 17, in-process LRU caches (no Redis), PG full-text search + pg_trgm |
 | **Infra** | Docker, Docker Compose (self-hosted), GitHub Actions, dual-registry push (ghcr.io archive + registry.fly.io for deploys), Fly.io (production) |
 | **Auth** (planned) | better-auth + magic link + @better-auth/sso (SAML) |
-| **Observability** | Sentry (errors only) + PostHog (closed-enum event names + bucketed numerics, no PII) + Grafana Cloud (shared stack under `saferskills-*` prefix) + OpenTelemetry |
+| **Observability** | PostHog (errors + closed-enum analytics, dedicated EU project 272364, no PII) + Grafana Cloud (shared stack under `saferskills-*` prefix) + OpenTelemetry |
 | **Email** (planned) | Resend (transactional + audiences) |
 
 Mandates, forbidden tools, and package-manager rules: `.claude/rules/tech-stack.md`.

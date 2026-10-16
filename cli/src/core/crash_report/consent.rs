@@ -4,11 +4,11 @@
 //! but they honour the SAME universal opt-out envs as PostHog telemetry
 //! (`core::telemetry`) so a single env silences everything:
 //!
-//! 1. `SENTRY_DISABLED` / `SAFERSKILLS_NO_CRASH_REPORT` env — hard lock
+//! 1. `SAFERSKILLS_NO_CRASH_REPORT` env — hard lock
 //! 2. Any universal opt-out env (`CI` / `DO_NOT_TRACK` /
 //!    `SAFERSKILLS_NO_TELEMETRY`) — same kill-switches that silence the PostHog
 //!    leg, so "opt out once, opt out of everything" holds
-//! 3. DSN missing (empty at both compile and runtime) → disabled (no-op)
+//! 3. PostHog project key missing at build time → disabled (no-op)
 //! 4. `[crashreport] enabled = false` in `~/.saferskills/config.toml` → disabled
 //! 5. Section missing or `enabled = true` → **enabled** (default-on)
 //!
@@ -28,12 +28,12 @@ pub enum ConsentState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecidedBy {
-    /// `SENTRY_DISABLED` / `SAFERSKILLS_NO_CRASH_REPORT` is set.
+    /// `SAFERSKILLS_NO_CRASH_REPORT` is set.
     DisabledEnv,
     /// A universal opt-out env (`CI` / `DO_NOT_TRACK` / `SAFERSKILLS_NO_TELEMETRY`).
     UniversalOptOut,
-    /// No DSN baked at build time and none provided at runtime.
-    NoBakedDsn,
+    /// No PostHog project key baked at build time.
+    NoBakedKey,
     /// `[crashreport] enabled = false` in `config.toml`.
     ConfigFile,
     /// Default path — section absent or explicitly `enabled = true`.
@@ -66,9 +66,9 @@ impl Resolved {
 /// Resolve consent for the crash-report subsystem.
 ///
 /// `config_path` is the full path to `~/.saferskills/config.toml`.
-/// `dsn_present` is the runtime view of "do we have a usable DSN string".
-pub fn resolve(config_path: &Path, dsn_present: bool) -> Resolved {
-    if is_truthy_env("SENTRY_DISABLED") || is_truthy_env("SAFERSKILLS_NO_CRASH_REPORT") {
+/// `key_present` is the runtime view of "do we have a baked PostHog project key".
+pub fn resolve(config_path: &Path, key_present: bool) -> Resolved {
+    if is_truthy_env("SAFERSKILLS_NO_CRASH_REPORT") {
         return Resolved::disabled(DecidedBy::DisabledEnv);
     }
     // The universal kill-switches that also silence PostHog telemetry. Honoured
@@ -76,8 +76,8 @@ pub fn resolve(config_path: &Path, dsn_present: bool) -> Resolved {
     if env_present("SAFERSKILLS_NO_TELEMETRY") || env_present("DO_NOT_TRACK") || env_present("CI") {
         return Resolved::disabled(DecidedBy::UniversalOptOut);
     }
-    if !dsn_present {
-        return Resolved::disabled(DecidedBy::NoBakedDsn);
+    if !key_present {
+        return Resolved::disabled(DecidedBy::NoBakedKey);
     }
     match read_section(config_path) {
         Ok(Some(section)) if !section.enabled => Resolved::disabled(DecidedBy::ConfigFile),
@@ -119,7 +119,6 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     const ENVS: &[&str] = &[
-        "SENTRY_DISABLED",
         "SAFERSKILLS_NO_CRASH_REPORT",
         "SAFERSKILLS_NO_TELEMETRY",
         "DO_NOT_TRACK",
@@ -138,9 +137,9 @@ mod tests {
     }
 
     #[test]
-    fn disabled_when_sentry_disabled_env_set() {
+    fn disabled_when_crash_report_opt_out_set() {
         with_clean_env(|| {
-            std::env::set_var("SENTRY_DISABLED", "1");
+            std::env::set_var("SAFERSKILLS_NO_CRASH_REPORT", "1");
             let tmp = TempDir::new().unwrap();
             let r = resolve(&tmp.path().join("config.toml"), true);
             assert_eq!(r.state, ConsentState::Disabled);
@@ -160,12 +159,12 @@ mod tests {
     }
 
     #[test]
-    fn disabled_when_no_dsn() {
+    fn disabled_when_no_key() {
         with_clean_env(|| {
             let tmp = TempDir::new().unwrap();
             let r = resolve(&tmp.path().join("config.toml"), false);
             assert_eq!(r.state, ConsentState::Disabled);
-            assert_eq!(r.decided_by, DecidedBy::NoBakedDsn);
+            assert_eq!(r.decided_by, DecidedBy::NoBakedKey);
         });
     }
 
@@ -188,6 +187,16 @@ mod tests {
             let r = resolve(&tmp.path().join("config.toml"), true);
             assert!(r.enabled());
             assert_eq!(r.decided_by, DecidedBy::DefaultEnabled);
+        });
+    }
+
+    #[test]
+    fn usage_analytics_opt_out_does_not_disable_crash_diagnostics() {
+        with_clean_env(|| {
+            let tmp = TempDir::new().unwrap();
+            let path = tmp.path().join("config.toml");
+            std::fs::write(&path, "telemetry = false\n[crashreport]\nenabled = true\n").unwrap();
+            assert!(resolve(&path, true).enabled());
         });
     }
 

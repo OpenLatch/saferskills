@@ -2,7 +2,7 @@
 
 See `.claude/rules/telemetry.md` § Event allowlist — scan engine + ingestion
 events. This module is the ONLY sanctioned emission path for scan-engine and
-ingestion events. Raw `posthog.capture()` / `sentry_sdk.set_tag()` calls outside
+ingestion events. Raw `posthog.capture()` calls outside
 this module are a regression.
 
 All property values are bucketed or closed-enum. No raw IPs, no emails, no
@@ -17,9 +17,11 @@ from `app.core.observability.init_observability`.
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import re
-from typing import Any, Literal, cast
+import threading
+from typing import Any, Literal
 
 import structlog
 
@@ -181,9 +183,8 @@ def ingestion_304_ratio_bucket(ratio: float) -> Ingestion304RatioBucket:
 # ─── PostHog server-side dispatch ─────────────────────────────────────────────
 #
 # Every emit_* helper keeps its structlog line (always) AND, when a PostHog
-# client is configured, mirrors the event to the shared OpenLatch-portfolio
-# PostHog project tagged `product = "saferskills"` (the discriminator that keeps
-# SaferSkills data filterable apart - `.claude/rules/telemetry.md` § Purpose).
+# client is configured, mirrors the event to the dedicated SaferSkills project
+# with product, environment, service, and release metadata.
 #
 # The client is held here (not in `app.core.observability`) so the capture call
 # lives next to `_emit`, and `app.core.observability` -> `app.observability.events`
@@ -196,6 +197,7 @@ _BACKEND_DISTINCT_ID = "saferskills-backend"
 # `posthog` ships no type stubs - hold the client as `Any` so the few member
 # calls (capture/shutdown/feature_enabled) don't trip strict unknown-type checks.
 _posthog_client: Any = None
+_event_metadata: dict[str, object] = {"product": "saferskills"}
 
 
 def init_posthog(
@@ -204,20 +206,33 @@ def init_posthog(
     host: str,
     server_key: str | None = None,
     flush_at: int = 20,
+    environment: str = "development",
+    service: str = "api",
+    release: str = "unknown",
 ) -> None:
     """Initialise the module-level PostHog client (idempotent, degrading).
 
-    No-op when `project_key` is unset (dev/test/CI) - every `emit_*` then stays
+    No-op in development or when `project_key` is unset (test/CI) - every `emit_*` then stays
     structlog-only. `server_key` (a PostHog personal API key) enables LOCAL
     feature-flag evaluation in `app.core.feature_flags`; absent, flags fall back
     to remote `/decide`. Observability must never break the app - any failure
     here is swallowed and leaves the client unset.
     """
-    global _posthog_client
-    if _posthog_client is not None or not project_key:
+    global _posthog_client, _event_metadata
+    if _posthog_client is not None or not project_key or environment == "development":
         return
     try:
         from posthog import Posthog
+
+        from app.observability.errors import before_send
+
+        _event_metadata = {
+            "product": "saferskills",
+            "environment": environment,
+            "service": service,
+            "release": release,
+            "$app_version": release,
+        }
 
         _posthog_client = Posthog(
             project_api_key=project_key,
@@ -225,7 +240,17 @@ def init_posthog(
             personal_api_key=server_key,
             disable_geoip=True,
             flush_at=flush_at,
+            max_queue_size=1000,
+            timeout=3,
+            max_retries=0,
+            enable_exception_autocapture=False,
+            capture_exception_code_variables=False,
+            privacy_mode=True,
+            before_send=before_send,
         )
+        # The SDK registers an unbounded join at interpreter exit. Our lifespan
+        # owns the bounded flush instead, including when delivery is offline.
+        atexit.unregister(_posthog_client.join)
         logger.info("posthog.initialised", host=host, feature_flags=bool(server_key))
     except Exception as exc:  # observability must never break the app
         logger.warning("posthog.init_failed", error=str(exc))
@@ -243,10 +268,18 @@ def shutdown_posthog() -> None:
     _posthog_client = None
     if client is None:
         return
-    try:
-        client.shutdown()
-    except Exception as exc:  # observability must never break the app
-        logger.warning("posthog.shutdown_failed", error=str(exc))
+
+    def close() -> None:
+        try:
+            client.shutdown()
+        except Exception:
+            logger.warning("posthog.shutdown_failed")
+
+    # A daemon avoids the default executor shutdown waiting forever after its
+    # asyncio timeout. Delivery is best effort within this fixed budget.
+    thread = threading.Thread(target=close, daemon=True, name="posthog-shutdown")
+    thread.start()
+    thread.join(timeout=4.0)
 
 
 # ─── Event emitters (1-14 per .claude/rules/telemetry.md) ─────────────────────
@@ -265,7 +298,7 @@ def _emit(event: str, **props: object) -> None:
         client.capture(
             event,
             distinct_id=_BACKEND_DISTINCT_ID,
-            properties={**props, "product": "saferskills", "$process_person_profile": False},
+            properties={**props, **_event_metadata, "$process_person_profile": False},
         )
     except Exception:  # observability must never break the app
         logger.warning("posthog.capture_failed", event=event)
@@ -519,67 +552,5 @@ def redact_capability_token(text: str) -> str:
     """Rewrite `/{scans,agent-scans,agents}/r/<token>[...]` -> `.../r/<redacted>`.
 
     The capability / agent-run share token is possession-is-authorization - it must
-    never land in an access log, an OTel span name, or a Sentry payload."""
+    never land in an access log, an OTel span name, or an error-tracking payload."""
     return _CAP_TOKEN_RE.sub(r"\1<redacted>", text)
-
-
-def scrub_sentry_event(
-    event: dict[str, object], _hint: dict[str, object] | None = None
-) -> dict[str, object] | None:
-    """Sentry `before_send` callback - redact the capability token from the event
-    request URL + any breadcrumb URL."""
-    request = event.get("request")
-    if isinstance(request, dict):
-        typed_req = cast(dict[str, object], request)
-        url = typed_req.get("url")
-        if isinstance(url, str):
-            typed_req["url"] = redact_capability_token(url)
-    breadcrumbs = event.get("breadcrumbs")
-    values: list[object] = []
-    if isinstance(breadcrumbs, dict):
-        raw = cast(dict[str, object], breadcrumbs).get("values")
-        if isinstance(raw, list):
-            values = cast(list[object], raw)
-    elif isinstance(breadcrumbs, list):
-        values = cast(list[object], breadcrumbs)
-    for crumb in values:
-        if isinstance(crumb, dict):
-            typed_crumb = cast(dict[str, object], crumb)
-            for key in ("message", "data"):
-                val = typed_crumb.get(key)
-                if isinstance(val, str):
-                    typed_crumb[key] = redact_capability_token(val)
-    return event
-
-
-# ─── Sentry breadcrumb scrubber ───────────────────────────────────────────────
-
-_SCRUBBED_PATH_PREFIXES = ("rubric/", "schemas/", "tools/fp-audit/fixtures/")
-_SCRUBBED_URL_FRAGMENTS = ("github.com/", "raw.githubusercontent.com/", "codeload.github.com/")
-
-
-def scrub_sentry_breadcrumb(
-    crumb: dict[str, object], _hint: dict[str, object] | None = None
-) -> dict[str, object] | None:
-    """Sentry `before_breadcrumb` callback. Drop any breadcrumb whose data
-    references a path under rubric/, schemas/, tools/fp-audit/fixtures/, or
-    any GitHub URL - these may contain scanned-artifact bytes or vendor names
-    we should not leak to Sentry. Returning None drops the breadcrumb.
-    """
-    data = crumb.get("data")
-    if isinstance(data, dict):
-        typed_data = cast(dict[object, object], data)
-        for value in typed_data.values():
-            if not isinstance(value, str):
-                continue
-            if any(value.startswith(p) or f"/{p}" in value for p in _SCRUBBED_PATH_PREFIXES):
-                return None
-            lowered = value.lower()
-            if any(frag in lowered for frag in _SCRUBBED_URL_FRAGMENTS):
-                return None
-    message = crumb.get("message")
-    if isinstance(message, str):
-        lowered = message.lower()
-        if any(frag in lowered for frag in _SCRUBBED_URL_FRAGMENTS):
-            return None
-    return crumb

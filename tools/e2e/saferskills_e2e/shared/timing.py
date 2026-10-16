@@ -12,13 +12,9 @@ import time
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from types import TracebackType
-from typing import ParamSpec, TypeVar
-
-P = ParamSpec("P")
-R = TypeVar("R")
 
 
-def async_timed(fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[tuple[R, float]]]:
+def async_timed[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[tuple[R, float]]]:
     """Wrap an async function to return `(result, elapsed_ms)`.
 
     Uses `perf_counter_ns` for sub-millisecond precision; we divide by

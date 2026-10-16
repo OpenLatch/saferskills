@@ -43,9 +43,9 @@ jobs:
         if: github.event_name == 'push'
         with:
           filters: |
-            api:    [ 'services/api/**', 'schemas/**', 'rubric/**' ]
-            webapp: [ 'webapp/**', 'ui/**' ]
-            worker: [ 'services/api/**', 'schemas/**', 'services/worker/**', 'rubric/**' ]
+            api:    [ 'services/api/**', 'schemas/**', 'rubric/**', '.github/workflows/deploy.yml' ]
+            webapp: [ 'webapp/**', 'ui/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/deploy.yml' ]
+            worker: [ 'services/api/**', 'schemas/**', 'services/worker/**', 'rubric/**', '.github/workflows/deploy.yml' ]
       - id: resolve
         env:
           EVENT: ${{ github.event_name }}
@@ -127,6 +127,16 @@ jobs:
           echo "rubric_version=$(git rev-parse HEAD:rubric)" >> "$GITHUB_OUTPUT"
           echo "engine_version=$(git rev-parse HEAD:services/api/app/scan)" >> "$GITHUB_OUTPUT"
 
+      - name: Validate PostHog deployment configuration
+        if: matrix.service == 'webapp'
+        env:
+          # Existing staging key is scoped to this project and CI uploads.
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+        run: |
+          test -n "$POSTHOG_CLI_API_KEY" || { echo "::error::The staging POSTHOG_SERVER_KEY secret is required for source-map uploads"; exit 1; }
+          test -n "$POSTHOG_PROJECT_KEY" || { echo "::error::POSTHOG_PROJECT_KEY is required for telemetry"; exit 1; }
+
       - name: Build & push dual-registry
         id: build
         uses: docker/build-push-action@v7
@@ -145,24 +155,23 @@ jobs:
           # PUBLIC_* build-args are inlined into the webapp bundle at build time
           # (Astro envPrefix). They're harmless no-ops for the api image (unknown
           # ARGs are ignored). One image is shared by staging+prod, so every value
-          # here must be env-identical: the webapp Sentry DSN + the shared PostHog
-          # project key both are. See ci-cd.md § Build-time public config.
+          # here must be env-identical: the dedicated SaferSkills PostHog
+          # project covers both environments. See ci-cd.md § Build-time public config.
           build-args: |
-            GIT_SHA=${{ steps.meta.outputs.sha }}
+            GIT_SHA=${{ github.sha }}
             RUBRIC_VERSION=${{ steps.meta.outputs.rubric_version }}
             ENGINE_VERSION=${{ steps.meta.outputs.engine_version }}
             # Build-arg name stays PUBLIC_*-prefixed (Astro/Vite requires it to
             # inline into the bundle); the value comes from the TURNSTILE_-grouped
             # GH Actions secret. Renaming the build-arg would disable the gate.
             PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_PUBLIC_SITE_KEY }}
-            PUBLIC_SENTRY_DSN=${{ secrets.SENTRY_DSN_WEBAPP }}
             PUBLIC_POSTHOG_KEY=${{ secrets.POSTHOG_PROJECT_KEY }}
-            PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
-          # Sentry source-map upload runs inside the webapp image build (keyed to
-          # GIT_SHA). The auth token is a BuildKit secret so it never lands in an
-          # image layer; the upload step no-ops when the secret is empty.
+            PUBLIC_POSTHOG_HOST=/ingest
+            SOURCEMAP_UPLOAD=1
+            POSTHOG_PROJECT_ID=272364
+          # The existing staging key is CI-only; never stage it on runtime apps.
           secrets: |
-            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+            posthog_cli_api_key=${{ secrets.POSTHOG_SERVER_KEY }}
 
       - uses: sigstore/cosign-installer@v3
       - name: Cosign keyless sign
@@ -206,9 +215,7 @@ jobs:
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
           VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
-          POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd services/api
@@ -220,18 +227,11 @@ jobs:
           if [ -n "$TURNSTILE_SECRET_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api-staging TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
           fi
-          # Observability (telemetry.md). SENTRY_DSN → errors-only Sentry; the two
-          # PostHog keys → server-side analytics + local feature-flag eval. All
+          # Observability: PostHog errors, analytics and optional local flags. All
           # optional — unset → that leg degrades to structlog-only, never a boot
           # failure. POSTHOG_HOST is non-secret ([env] in fly.staging.toml).
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set --stage --app saferskills-api-staging SENTRY_DSN="$SENTRY_DSN"
-          fi
           if [ -n "$POSTHOG_PROJECT_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api-staging POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
-          fi
-          if [ -n "$POSTHOG_SERVER_KEY" ]; then
-            flyctl secrets set --stage --app saferskills-api-staging POSTHOG_SERVER_KEY="$POSTHOG_SERVER_KEY"
           fi
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
@@ -244,7 +244,7 @@ jobs:
           fi
           # SLACK_ALERTS_WEBHOOK_URL is the page-tier sink for ingestion alerts
           # (framework/alerts.py). Repo-level GH secret — same value both envs.
-          # Optional: unset → alerts degrade to Sentry/PostHog only, no Slack page.
+          # Optional: unset → alerts degrade to PostHog only, no Slack page.
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-api-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
           fi
@@ -313,9 +313,7 @@ jobs:
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
           VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
-          POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
           SAFERSKILLS_INDEXNOW_KEY: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY }}
           SAFERSKILLS_INDEXNOW_KEY_LOCATION: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY_LOCATION }}
         run: |
@@ -339,14 +337,8 @@ jobs:
           if [ -n "$VENDOR_SESSION_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-worker-staging VENDOR_SESSION_SECRET="$VENDOR_SESSION_SECRET"
           fi
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set --stage --app saferskills-worker-staging SENTRY_DSN="$SENTRY_DSN"
-          fi
           if [ -n "$POSTHOG_PROJECT_KEY" ]; then
             flyctl secrets set --stage --app saferskills-worker-staging POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
-          fi
-          if [ -n "$POSTHOG_SERVER_KEY" ]; then
-            flyctl secrets set --stage --app saferskills-worker-staging POSTHOG_SERVER_KEY="$POSTHOG_SERVER_KEY"
           fi
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-worker-staging SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
@@ -379,7 +371,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEBAPP }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd webapp
@@ -390,11 +382,9 @@ jobs:
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-webapp-staging SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
           fi
-          # Server-side (SSR/proxy) Sentry DSN — read at RUNTIME by src/middleware.ts.
-          # Same DSN baked into the browser bundle as PUBLIC_SENTRY_DSN; here it is a
-          # runtime secret so the Node error path reports too. No-op when unset.
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set --stage --app saferskills-webapp-staging SENTRY_DSN="$SENTRY_DSN"
+          # Runtime ingestion key for SSR/proxy exception capture.
+          if [ -n "$POSTHOG_PROJECT_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-webapp-staging POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
           fi
           flyctl deploy --config fly.staging.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
           flyctl machine list --app saferskills-webapp-staging --json | jq -r '.[].id' | while read mid; do
@@ -404,7 +394,7 @@ jobs:
   e2e-staging:
     name: E2E smoke against staging
     needs: [deploy-staging-api, deploy-staging-webapp, deploy-staging-worker]
-    if: always() && (needs.deploy-staging-api.result == 'success' || needs.deploy-staging-webapp.result == 'success' || needs.deploy-staging-worker.result == 'success')
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && (needs.deploy-staging-api.result == 'success' || needs.deploy-staging-webapp.result == 'success' || needs.deploy-staging-worker.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: step-security/harden-runner@v2
@@ -508,7 +498,6 @@ jobs:
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
           VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
         run: |
@@ -525,9 +514,6 @@ jobs:
           # Observability (telemetry.md) — same legs as staging. All optional;
           # unset → that leg degrades to structlog-only, never a boot failure.
           # POSTHOG_HOST is non-secret ([env] in fly.production.toml).
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set --stage --app saferskills-api SENTRY_DSN="$SENTRY_DSN"
-          fi
           if [ -n "$POSTHOG_PROJECT_KEY" ]; then
             flyctl secrets set --stage --app saferskills-api POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
           fi
@@ -545,7 +531,7 @@ jobs:
           fi
           # SLACK_ALERTS_WEBHOOK_URL is the page-tier sink for ingestion alerts
           # (framework/alerts.py). Repo-level GH secret — same value both envs.
-          # Optional: unset → alerts degrade to Sentry/PostHog only, no Slack page.
+          # Optional: unset → alerts degrade to PostHog only, no Slack page.
           if [ -n "$SLACK_ALERTS_WEBHOOK_URL" ]; then
             flyctl secrets set --stage --app saferskills-api SLACK_ALERTS_WEBHOOK_URL="$SLACK_ALERTS_WEBHOOK_URL"
           fi
@@ -610,7 +596,6 @@ jobs:
           SAFERSKILLS_AGENT_MASTER_KEY: ${{ secrets.SAFERSKILLS_AGENT_MASTER_KEY }}
           SAFERSKILLS_PACK_SIGNING_KEY: ${{ secrets.SAFERSKILLS_PACK_SIGNING_KEY }}
           VENDOR_SESSION_SECRET: ${{ secrets.VENDOR_SESSION_SECRET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
           POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
           POSTHOG_SERVER_KEY: ${{ secrets.POSTHOG_SERVER_KEY }}
           SAFERSKILLS_INDEXNOW_KEY: ${{ secrets.SAFERSKILLS_INDEXNOW_KEY }}
@@ -635,9 +620,6 @@ jobs:
           # it here too (repo-level, same value as the API).
           if [ -n "$VENDOR_SESSION_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-worker VENDOR_SESSION_SECRET="$VENDOR_SESSION_SECRET"
-          fi
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set --stage --app saferskills-worker SENTRY_DSN="$SENTRY_DSN"
           fi
           if [ -n "$POSTHOG_PROJECT_KEY" ]; then
             flyctl secrets set --stage --app saferskills-worker POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
@@ -676,7 +658,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_WEBAPP }}
           SAFERSKILLS_PROXY_SHARED_SECRET: ${{ secrets.SAFERSKILLS_PROXY_SHARED_SECRET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEBAPP }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
         run: |
           sha=$(git rev-parse --short HEAD)
           cd webapp
@@ -686,10 +668,9 @@ jobs:
           if [ -n "$SAFERSKILLS_PROXY_SHARED_SECRET" ]; then
             flyctl secrets set --stage --app saferskills-webapp SAFERSKILLS_PROXY_SHARED_SECRET="$SAFERSKILLS_PROXY_SHARED_SECRET"
           fi
-          # Server-side (SSR/proxy) Sentry DSN — read at RUNTIME by src/middleware.ts.
-          # No-op when unset. See security.md / telemetry.md.
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set --stage --app saferskills-webapp SENTRY_DSN="$SENTRY_DSN"
+          # Runtime ingestion key for SSR/proxy exception capture.
+          if [ -n "$POSTHOG_PROJECT_KEY" ]; then
+            flyctl secrets set --stage --app saferskills-webapp POSTHOG_PROJECT_KEY="$POSTHOG_PROJECT_KEY"
           fi
           flyctl deploy --config fly.production.toml --image ${{ env.REGISTRY_FLY }}/saferskills-webapp:main-$sha --remote-only
           flyctl machine list --app saferskills-webapp --json | jq -r '.[].id' | while read mid; do

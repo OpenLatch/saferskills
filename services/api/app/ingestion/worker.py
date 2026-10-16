@@ -15,6 +15,7 @@ from sqlalchemy import text
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.ingestion import ALL_QUEUES, procrastinate_app
+from app.observability.errors import capture_exception
 
 logger = structlog.get_logger(__name__)
 
@@ -135,7 +136,8 @@ async def ingestion_worker_supervisor() -> None:
             logger.warning("ingestion.worker_self_stopped_restarting", backoff_s=backoff_s)
         except asyncio.CancelledError:
             raise  # lifespan teardown — the one intended exit
-        except Exception:
+        except Exception as exc:
+            capture_exception(exc, context="job")
             logger.exception("ingestion.worker_crashed_restarting", backoff_s=backoff_s)
         await asyncio.sleep(backoff_s)
         backoff_s = min(backoff_s * 2, 60.0)

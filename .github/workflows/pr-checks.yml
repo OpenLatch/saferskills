@@ -503,7 +503,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
         with: { components: clippy, cache-key-suffix: clippy }
-      - run: cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings
+      - run: cargo clippy --manifest-path cli/Cargo.toml --features crash-report,telemetry-network --all-targets -- -D warnings
 
   cli-test:
     name: PR - cargo test + coverage (cli)
@@ -519,7 +519,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: cargo-llvm-cov }
       - name: Test with coverage (>=70% lines)
-        run: cargo llvm-cov --manifest-path cli/Cargo.toml --all-targets --fail-under-lines 70 --summary-only
+        run: cargo llvm-cov --manifest-path cli/Cargo.toml --features crash-report,telemetry-network --all-targets --fail-under-lines 70 --summary-only
 
   cli-build:
     name: PR - cargo build --release + size gate (cli)
@@ -532,7 +532,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
         with: { cache-key-suffix: release }
-      - run: cargo build --release --manifest-path cli/Cargo.toml
+      - run: cargo build --release --manifest-path cli/Cargo.toml --features crash-report,telemetry-network
       - name: Size gate (<15 MB)
         run: |
           SIZE=$(stat -c%s cli/target/release/saferskills)
@@ -554,7 +554,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
       - name: Assert no openssl-sys / native-tls in the dep tree
         run: |
-          if cargo tree --manifest-path cli/Cargo.toml -e normal | grep -E 'openssl-sys|native-tls'; then
+          if cargo tree --manifest-path cli/Cargo.toml --features crash-report,telemetry-network -e normal | grep -E 'openssl-sys|native-tls'; then
             echo "::error::openssl-sys / native-tls found — the CLI must be rustls-only."
             exit 1
           fi

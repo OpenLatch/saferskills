@@ -143,13 +143,18 @@ Remove-Item Env:\SAFERSKILLS_API_URL
 | `SAFERSKILLS_API_URL` | API origin to call. Precedence: this env → `config.toml` `api_url` → `https://saferskills.ai`. |
 | `SAFERSKILLS_MIN_SCORE` | Minimum aggregate score (0–100) that installs without a confirm. Precedence: this env → `config.toml` `min_score` → `90`. |
 | `SAFERSKILLS_DIR` | Override the state dir (default `~/.saferskills/` — holds `config.toml` + `installs.json`). Handy for an isolated dev sandbox. |
-| `SAFERSKILLS_NO_TELEMETRY` | Set to disable **all** telemetry (usage analytics + install reporting). `DO_NOT_TRACK` and `CI` are honored the same way. (Source builds are inert regardless.) |
+| `SAFERSKILLS_NO_TELEMETRY` | Set to disable **all** telemetry (usage analytics + install reporting + crash diagnostics). `DO_NOT_TRACK` and `CI` are honored the same way. (Source builds are inert regardless.) |
+| `SAFERSKILLS_NO_CRASH_REPORT` | Disable panic diagnostics independently of usage analytics; `[crashreport] enabled = false` in config also disables them. |
 | `SAFERSKILLS_TELEMETRY` | Force usage analytics on (`1`/`true`) or off (`0`), skipping the first-run prompt. Does not affect install reporting. |
 | `NO_COLOR` / `CLICOLOR_FORCE` / `TERM=dumb` | Standard color controls; `--color <auto\|always\|never>` overrides them. |
 
 Precedence across all config is **CLI flags → `SAFERSKILLS_*` env → `config.toml` → defaults**.
 
 ## Publishing
+
+Released binaries send anonymous panic diagnostics to the dedicated SaferSkills PostHog project in the EU. Crash reporting defaults on independently of opt-in usage analytics. Reports omit panic messages, arguments, local filesystem paths, and scanned content; they contain native stack frames, release identity, and command grammar labels. Source builds have no baked ingestion key and send nothing.
+
+Release CI uploads native symbols before stripping Linux/macOS binaries. PostHog does not yet support Windows PDB uploads; Windows diagnostics retain available in-process frames and the source panic location, but stripped stacks may remain unresolved. Private symbol-upload credentials are never baked into binaries.
 
 Published via [npm Trusted Publishers (OIDC)](https://docs.npmjs.com/trusted-publishers) and [crates.io Trusted Publishing](https://crates.io) — no long-lived registry tokens in CI. The release path is `.github/workflows/publish-npm.yml`: it builds 5 platform binaries, signs them (cosign keyless) with SBOMs, publishes the scoped `@openlatch/saferskills-<platform>` packages + the unscoped `saferskills` main package, and the `saferskills` crate.
 

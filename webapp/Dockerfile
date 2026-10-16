@@ -24,43 +24,43 @@ WORKDIR /repo/webapp
 # `docker build` working — an unset key just disables that integration.
 ARG PUBLIC_TURNSTILE_SITE_KEY=""
 ENV PUBLIC_TURNSTILE_SITE_KEY=$PUBLIC_TURNSTILE_SITE_KEY
-# Browser observability — Sentry DSN + PostHog key/host are public (ship in the
-# bundle by design). Empty defaults disable the SDK at runtime (env-checked in
-# observability.ts).
-ARG PUBLIC_SENTRY_DSN=""
-ENV PUBLIC_SENTRY_DSN=$PUBLIC_SENTRY_DSN
+# The ingestion key is public; private upload credentials are secret-mounted.
 ARG PUBLIC_POSTHOG_KEY=""
 ENV PUBLIC_POSTHOG_KEY=$PUBLIC_POSTHOG_KEY
-ARG PUBLIC_POSTHOG_HOST="https://eu.i.posthog.com"
+ARG PUBLIC_POSTHOG_HOST="/ingest"
 ENV PUBLIC_POSTHOG_HOST=$PUBLIC_POSTHOG_HOST
-# Git SHA → the Sentry release id (browser init `release` + source-map upload
-# below). The deploy passes the build-arg as GIT_SHA; re-export as PUBLIC_GIT_SHA
-# so Astro inlines it into the client bundle (only PUBLIC_* is inlined).
+# Release identity is shared by browser, SSR, and uploaded source maps.
 ARG GIT_SHA=""
 ENV PUBLIC_GIT_SHA=$GIT_SHA
+# A cache-keyed opt-in: deployed images must generate and upload source maps.
+ARG SOURCEMAP_UPLOAD=0
 # `pnpm run build` runs `astro build` (which prerenders the native /docs/* pages
 # into dist/client/docs) + the llms.txt + Pagefind index steps — one build, no
 # separate docs server (I-06 native docs).
 RUN pnpm run build
 
-# Upload source maps to Sentry, keyed to the GIT_SHA release. SENTRY_AUTH_TOKEN
-# is a BuildKit secret (never an image layer / build-cache metadata). No-op when
-# the secret OR the release SHA is empty (plain local `docker build`, PR builds)
-# — the guard makes the step non-fatal so a tokenless build still succeeds.
-# SaferSkills Sentry is the DE region (https://de.sentry.io); org `openlatch`,
-# project `saferskills-webapp`.
-ENV SENTRY_URL="https://de.sentry.io"
-RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
-    if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$PUBLIC_GIT_SHA" ]; then \
-      pnpm exec sentry-cli sourcemaps inject ./dist && \
-      pnpm exec sentry-cli sourcemaps upload \
-        --org openlatch \
-        --project saferskills-webapp \
-        --release "$PUBLIC_GIT_SHA" \
-        ./dist ; \
-    else \
-      echo "Sentry source-map upload skipped (no auth token or no release SHA)." ; \
-    fi
+# Inject before the runtime COPY so the uploaded and served chunks match.
+# Local/PR builds need no credentials. Deploy builds fail on missing credentials
+# or upload failure, and never publish source maps in the runtime image.
+ARG POSTHOG_PROJECT_ID=272364
+ENV POSTHOG_CLI_HOST=https://eu.posthog.com
+RUN --mount=type=secret,id=posthog_cli_api_key,env=POSTHOG_CLI_API_KEY <<'EOF'
+set -eu
+if [ "$SOURCEMAP_UPLOAD" = 1 ]; then
+  : "${POSTHOG_CLI_API_KEY:?PostHog upload credential required}"
+  : "${PUBLIC_GIT_SHA:?Release SHA required}"
+  [ "$POSTHOG_PROJECT_ID" = 272364 ]
+  export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID"
+  pnpm exec posthog-cli sourcemap inject --directory dist \
+    --release-name saferskills-webapp --release-version "$PUBLIC_GIT_SHA" --release-mode event
+  pnpm exec posthog-cli sourcemap upload --directory dist \
+    --release-name saferskills-webapp --release-version "$PUBLIC_GIT_SHA" --release-mode event --delete-after
+fi
+if [ -n "$(find dist -name '*.map' -print -quit)" ]; then
+  echo "Source maps must not be shipped in the runtime image" >&2
+  exit 1
+fi
+EOF
 
 # ── runtime — Node 24 alpine serving the standalone bundle ───────────────
 FROM node:24-alpine AS runtime
@@ -68,6 +68,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=5173
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
 
 # Install production dependencies into a flat node_modules tree the runtime
 # can resolve from /app. Going through `npm install --omit=dev` instead of

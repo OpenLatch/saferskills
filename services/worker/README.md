@@ -39,7 +39,7 @@ Deployed by `.github/workflows/deploy.yml` (`deploy-staging-worker` / `deploy-pr
 
 ## Secrets (one-time operator setup)
 
-The worker loads the same `Settings`, so `ENV=staging|production` hard-fails boot without the four guard secrets. `deploy.yml` stages these via `flyctl secrets set --stage`: `TURNSTILE_SECRET_KEY`, `SAFERSKILLS_CLI_POW_SECRET`, `SAFERSKILLS_AGENT_MASTER_KEY`, `SAFERSKILLS_PACK_SIGNING_KEY` (+ `SENTRY_DSN`, `POSTHOG_PROJECT_KEY`, `POSTHOG_SERVER_KEY`, `SLACK_ALERTS_WEBHOOK_URL`). The HTTP-route-only `SAFERSKILLS_ADMIN_KEY` / `SAFERSKILLS_PROXY_SHARED_SECRET` are **not** set here.
+The worker loads the same `Settings`, so `ENV=staging|production` hard-fails boot without the four guard secrets. `deploy.yml` stages these via `flyctl secrets set --stage`: `TURNSTILE_SECRET_KEY`, `SAFERSKILLS_CLI_POW_SECRET`, `SAFERSKILLS_AGENT_MASTER_KEY`, `SAFERSKILLS_PACK_SIGNING_KEY` (+ `POSTHOG_PROJECT_KEY`, `POSTHOG_SERVER_KEY`, `SLACK_ALERTS_WEBHOOK_URL`). The HTTP-route-only `SAFERSKILLS_ADMIN_KEY` / `SAFERSKILLS_PROXY_SHARED_SECRET` are **not** set here.
 
 Not staged by CI (set once manually, as on the API app): `DATABASE_URL`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`.
 

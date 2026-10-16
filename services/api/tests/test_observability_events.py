@@ -65,13 +65,3 @@ def test_redact_does_not_touch_the_public_agent_report_url() -> None:
     """A public `/agents/{id}` page URL carries no secret — it must NOT be rewritten."""
     url = "https://saferskills.ai/agents/018e7c8b-aaaa-7000-8000-000000000001"
     assert events.redact_capability_token(url) == url
-
-
-def test_scrub_sentry_event_redacts_agent_token_in_request_and_breadcrumbs() -> None:
-    event: dict[str, object] = {
-        "request": {"url": f"https://saferskills.ai/agents/r/{_TOK}"},
-        "breadcrumbs": {"values": [{"category": "navigation", "data": f"GET /agents/r/{_TOK}"}]},
-    }
-    scrubbed = events.scrub_sentry_event(event)
-    assert scrubbed is not None
-    assert _TOK not in str(scrubbed)

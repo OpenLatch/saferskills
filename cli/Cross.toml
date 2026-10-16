@@ -5,12 +5,15 @@
 # `cross` container image already has everything a rustls-only reqwest build
 # needs. We forward the build-time baked secrets so `build.rs` can bake them
 # inside the Docker container the same way the native legs do: the PostHog key
-# (telemetry), the Sentry DSN (crash reporting), and the release identifier
-# Sentry stamps onto each event.
+# (analytics and crash diagnostics) and the release identifier.
 [build.env]
 passthrough = [
     "SAFERSKILLS_POSTHOG_KEY",
-    "SAFERSKILLS_SENTRY_DSN",
+    "SAFERSKILLS_PACK_PUBKEY",
+    "SAFERSKILLS_POSTHOG_HOST",
+    "CARGO_PROFILE_RELEASE_DEBUG",
+    "CARGO_PROFILE_RELEASE_STRIP",
+    "CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO",
     "SAFERSKILLS_RELEASE",
     "GITHUB_SHA",
 ]

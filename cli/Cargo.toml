@@ -62,18 +62,8 @@ chrono = { version = "0.4", features = ["serde"] }
 ctrlc = "3"
 tempfile = "3"                       # atomic temp-then-rename writes
 
-# Sentry crash reporting — panics only, rustls-only TLS (no OpenSSL/native-tls,
-# so the `cli-rustls` CI lane stays green). Optional + feature-gated so a build
-# without `crash-report` drops the dep entirely from the graph. Mirrors
-# openlatch-client. See src/core/crash_report/ + .claude/rules/telemetry.md.
-sentry = { version = "0.48", default-features = false, features = [
-    "backtrace",
-    "contexts",
-    "panic",
-    "debug-images",
-    "reqwest",
-    "rustls",
-], optional = true }
+# Independent, opt-out panic diagnostics; the blocking SDK uses rustls only.
+posthog-rs = { version = "0.27", default-features = false, features = ["error-tracking"], optional = true }
 
 [features]
 default = []
@@ -81,11 +71,8 @@ default = []
 # `command_invoked` event is computed but never sent; when ON it is POSTed only
 # if a key was baked AND consent + opt-out env allow it.
 telemetry-network = []
-# Rust panic reporting to Sentry (crash_report module). Scrubbed before send.
-# Disabling drops the `sentry` dep entirely from the graph; the module exposes a
-# no-op shim under `#[cfg(not(feature = "crash-report"))]` so main.rs compiles
-# in both configs (mirror openlatch-client).
-crash-report = ["dep:sentry"]
+# Panic diagnostics are independent of usage-analytics consent.
+crash-report = ["dep:posthog-rs"]
 # Test-only override of the baked PostHog host/key. NEVER enabled in releases.
 insecure-test-keys = []
 
@@ -111,12 +98,6 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
-# Panic strategy: UNWIND (the default — note the deliberate absence of
-# `panic = "abort"`). Mirrors openlatch-client so Sentry's panic integration
-# captures a full backtrace on a crash. Empirically verified the release binary
-# stays well under the 15 MB `cli-build` gate (~3.6 MB with crash-report on), so
-# the abort-fallback path the plan allowed for is not needed. Re-measure if a
-# future dep pushes the binary near the gate.
-# Packed DWARF so `sentry-cli debug-files upload` can locate per-target symbol
-# files in release artifacts (separate-symbol upload).
+# Unwind lets the panic hook capture and flush diagnostics before exit.
+# Release CI overrides strip/debug when preparing native symbol uploads.
 split-debuginfo = "packed"
