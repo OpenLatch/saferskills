@@ -61,9 +61,7 @@ SOURCE_HOSTS: dict[str, frozenset[str]] = {
     ),
     "clawhub": frozenset(
         {
-            "api.github.com",
-            "clawhub.dev",
-            "raw.githubusercontent.com",
+            "clawhub.ai",
         }
     ),
     "github_skills": frozenset(
@@ -157,7 +155,7 @@ ALL_HOSTS: frozenset[str] = frozenset(
         "api.github.com",
         "api.npmjs.org",
         "claudeskills.info",
-        "clawhub.dev",
+        "clawhub.ai",
         "glama.ai",
         "mcp.so",
         "pulsemcp.com",

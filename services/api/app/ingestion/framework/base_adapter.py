@@ -67,6 +67,9 @@ class NormalizedItem:
     payload_hint: dict[str, Any] = field(
         default_factory=cast("type[dict[str, Any]]", dict)
     )  # commit_count, is_fork_only, …
+    # Explicit, stable identity within this registry (e.g. owner/slug). URLs and
+    # display names are not necessarily unique; adapters must opt in deliberately.
+    registry_item_id: str | None = None
 
 
 class BaseAdapter(ABC):

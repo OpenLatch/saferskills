@@ -1,6 +1,6 @@
 """SitemapHtmlAdapter — sitemap-driven HTML aggregator scraper.
 
-The 7 aggregator HTML sources (mcp.so, pulsemcp, clawhub, skillsmp, skills.sh,
+The 6 aggregator HTML sources (mcp.so, pulsemcp, skillsmp, skills.sh,
 claudeskills.info, skillhub.club) share one shape: a sitemap (often a sitemap-index)
 enumerates item-detail URLs, each item page is server-rendered with `og:` meta + a
 GitHub repo link. This base encodes that shape once; every per-site difference lives
@@ -11,7 +11,7 @@ browser impersonation — required because most of these hosts are Cloudflare-pr
 and reject plain HTTPX) already enforces the SSRF allowlist + per-source rate limit
 + robots.txt + Cloudflare-challenge detection. A genuinely blocked host raises
 `AdapterBlockedError` → the cycle wrapper flips it to `status='blocked'`. An
-unreachable host (e.g. clawhub's dead DNS) yields zero items and is logged, never
+unreachable host yields zero items and is logged, never
 crashes.
 
 `discovery` config (all optional unless noted):

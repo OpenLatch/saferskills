@@ -46,9 +46,9 @@ here, not force-cracked.
 | `skillhub_club` | scrape | sitemap → `/skills/<slug>` item pages | **active** | 04:30 daily | Vercel; apex→www redirect |
 | `skills_sh` | scrape | sitemap → `/<owner>/skills/<name>` item pages | **active** | 04:45 daily | Vercel; owner segment = GitHub org |
 | `pulsemcp` | scrape | sitemap → `/servers/<slug>` item pages | **active** | 05:00 daily | CF-proxied; client-rendered listing → repo-sparse |
-| `clawhub` | scrape | sitemap → item pages | **active (unreachable)** | 05:15 daily | host DNS currently dead → yields 0, logged, no crash |
+| `clawhub` | api | `clawhub.ai/api/v1/skills` public JSON | **active** | 05:15 daily | 150 listings / 10 pages per chunk; durable cursor; owner-qualified identity |
 
-> All 14 sources are now `enabled: true`. The 7 HTML scrapers share one
+> All 14 sources are now `enabled: true`. The 6 HTML scrapers share one
 > configurable `SitemapHtmlAdapter` (`framework/sitemap_scraper.py`): each fetches a
 > sitemap via curl_cffi (browser impersonation — most are Cloudflare-proxied and reject
 > plain HTTPX), enumerates item-detail URLs, and reads the GitHub repo + name +
@@ -56,12 +56,32 @@ here, not force-cracked.
 > filter, name source, repo denylist) live entirely in each `config/sources/<name>.yaml`
 > `discovery` block — the adapter modules are one-line registrations.
 >
-> **Lean-stack contingencies (documented, acceptable):** `clawhub.dev` is DNS-unreachable
-> today → its cycles are clean no-ops until the host returns. `pulsemcp.com` renders its
+> **Lean-stack contingencies (documented, acceptable):** `pulsemcp.com` renders its
 > listing client-side, so many items resolve no GitHub repo and stay in the fuzzy queue.
 > A source that ever serves a genuine Cloudflare *challenge* (vs a normal CF-proxied 200)
 > flips to `status='blocked'` — the Playwright-deferred contingency (no headless tier).
 > Catalog-growth from these sources is best-effort, not a correctness gate.
+
+ClawHub uses its [documented public catalog API](https://docs.openclaw.ai/clawhub/http-api),
+which explicitly permits third-party directory reuse. The former `clawhub.dev`
+sitemap source was incorrect: the official host is `clawhub.ai`, whose `/sitemap.xml`
+returns 404. Merely changing the host would still yield no listings. We request
+public listings in stable `createdAt` order, follow `nextCursor` even across empty
+pages, and stop at the configured item/page caps. The continuation is persisted
+only after all catalog/outbox batches commit. The next scheduled cycle resumes
+that cursor; a failed chunk replays at most 150 items. Each committed chunk updates
+cycle health, while only natural exhaustion sets `completed=true`. Item/page
+bounds retain `completed=false`, including when a chunk contains only empty pages.
+HTTP failures fail the cycle. The shared API
+client supplies caching, the host allowlist, and the existing one-request-per-second limit.
+
+The source and registry IDs remain `clawhub`; canonical backlinks use
+`https://clawhub.ai/<owner>/skills/<slug>`. Owner-qualified IDs distinguish publishers
+with the same slug. They opt into deterministic pending catalog identities so repeat
+polls update the existing listing. No GitHub coordinates are inferred from ClawHub
+handles. Existing `.dev` URLs cannot safely be translated to an owner-qualified ID;
+they are not reassigned or deleted. No archives or authenticated/private endpoints
+are fetched, and API use does not invoke the HTML scraper's robots.txt rules.
 
 ## Take-down / halt procedure
 
