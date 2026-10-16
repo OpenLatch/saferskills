@@ -381,11 +381,22 @@ class MergeEngine:
 
     async def _maybe_queue_fuzzy(self, n: NormalizedItem, source: str) -> str:
         """No GitHub coordinate → stage the row + queue fuzzy candidates."""
+        # The % operator can use idx_catalog_items_name_trgm; similarity() alone
+        # scans the entire catalog for every incoming item. Set its threshold in
+        # a separate statement so it applies before planning/executing the query.
+        # Transaction-local scope avoids leaking this setting through the pool.
+        await self.session.execute(
+            text("SELECT set_config('pg_trgm.similarity_threshold', :threshold, true)").bindparams(
+                threshold=str(_FUZZY_TRGM_PREFILTER)
+            )
+        )
         rows = (
             await self.session.execute(
                 text(
                     "SELECT id, display_name FROM catalog_items "
-                    "WHERE similarity(display_name, :name) > :pre AND archived = false LIMIT 20"
+                    "WHERE display_name % :name "
+                    "AND similarity(display_name, :name) > :pre AND archived = false "
+                    "ORDER BY similarity(display_name, :name) DESC, id LIMIT 20"
                 ).bindparams(name=n.display_name, pre=_FUZZY_TRGM_PREFILTER)
             )
         ).fetchall()
