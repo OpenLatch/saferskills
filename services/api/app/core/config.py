@@ -698,11 +698,9 @@ class Settings(BaseSettings):
         default=14_400,  # 4h
         ge=60,
         description=(
-            "Re-queue `doing` ingest-queue jobs (ingest_*/periodic) a worker "
-            "abandoned on restart older than this (the `ingestion_stalled_retrier`). "
-            "Generous default (4h) — comfortably above mcp_registry's worst-case "
-            "full-feed cycle, so an in-flight long crawl is never mistaken for a "
-            "stalled orphan. Sibling to the scan-queue's `scan_stalled_retrier`."
+            "Age threshold for reaping stale running ingestion-run records. "
+            "This does not control queue-job recovery, which checks worker "
+            "heartbeats using at least WORKER_WATCHDOG_TIMEOUT_S seconds of grace."
         ),
     )
     github_app_id: str | None = Field(

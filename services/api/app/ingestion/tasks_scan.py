@@ -57,8 +57,8 @@ from app.services.artifact_bytes import resolve_snapshot
 
 logger = structlog.get_logger(__name__)
 
-# Re-queue scan-queue jobs whose worker died and left them `doing` past this.
-_STALLED_SECONDS = 1800  # 30 min — comfortably above a slow single-repo scan.
+# Never use a shorter liveness window than Procrastinate's own default.
+_MIN_STALE_WORKER_HEARTBEAT_SECONDS = 30.0
 
 DeferFn = Callable[[str], Awaitable[bool]]
 BacklogFn = Callable[[AsyncSession], Awaitable[int]]
@@ -674,7 +674,7 @@ _INGEST_QUEUES = (
 _ALL_STALLED_QUEUES = ("scan", *_INGEST_QUEUES)
 
 
-async def _requeue_stalled_jobs(queues: tuple[str, ...], nb_seconds: int) -> dict[str, int]:
+async def _requeue_stalled_jobs(queues: tuple[str, ...]) -> dict[str, int]:
     """Re-queue `doing` jobs a dead worker abandoned, across `queues`.
 
     Resilient PER JOB and PER QUEUE: a single `retry_job` failure — notably the
@@ -684,18 +684,40 @@ async def _requeue_stalled_jobs(queues: tuple[str, ...], nb_seconds: int) -> dic
     one `try/except`, so one collision on `ingest_cycle_mcp_registry_lock` left every
     OTHER stalled job orphaned and crash-looped the retrier. A
     skipped duplicate self-heals on a later tick once the sibling frees the slot.
+
+    Retry only when the current owner has a stale heartbeat (or no owner),
+    independently of job age. Recheck ownership/liveness immediately before
+    retry so startup and periodic recovery do not release a live cycle's lock
+    merely because it started long ago. The supported list/retry APIs are not an
+    atomic fencing protocol: a worker can recover after this final check, and
+    ownerless recovery assumes the former process is gone. Allow at least the
+    event-loop watchdog grace before declaring an attached worker stale.
     """
     jm = procrastinate_app.job_manager
+    heartbeat_grace = max(
+        _MIN_STALE_WORKER_HEARTBEAT_SECONDS, get_settings().worker_watchdog_timeout_s
+    )
     retried = 0
     skipped = 0
     for queue in queues:
         try:
-            stalled = await jm.get_stalled_jobs(nb_seconds=nb_seconds, queue=queue)
+            stalled = await jm.get_stalled_jobs(
+                queue=queue, seconds_since_heartbeat=heartbeat_grace
+            )
         except Exception:
             logger.exception("requeue_stalled.list_failed", queue=queue)
             continue
         for job in stalled:
             try:
+                abandoned = await jm.get_stalled_jobs(
+                    queue=queue, seconds_since_heartbeat=heartbeat_grace
+                )
+                if not any(
+                    current.id == job.id and current.worker_id == job.worker_id
+                    for current in abandoned
+                ):
+                    skipped += 1
+                    continue
                 await jm.retry_job(job)
                 retried += 1
             except Exception as exc:
@@ -715,15 +737,12 @@ async def recover_orphaned_jobs_at_boot() -> dict[str, int]:
     """Boot-time recovery of orphaned `doing` Procrastinate jobs (called from
     `app.worker_main`, after the connector opens, before the supervisor starts).
 
-    At worker boot the *previous* worker process is gone, so EVERY `doing` job is an
-    orphan whose `queueing_lock` blocks fresh cycles. `nb_seconds=0` selects them all
-    and re-queues them immediately. Without this, an orphan left by a deploy/restart
-    blocked its source for up to `ingestion_stalled_seconds` (4h) — which is what
-    stalled staging ingestion after each worker redeploy (the lock on
-    `ingest_cycle_mcp_registry` was held by the cycle the restart abandoned). The
-    periodic `*_stalled_retrier`s remain the steady-state net for mid-run restarts.
+    The owner-heartbeat guard protects a live peer during an overlapping
+    deployment. Ownerless jobs recover immediately; attached owners get the
+    watchdog grace. Periodic retriers use the same rule, so a young orphan missed
+    at boot can recover on the next tick without waiting for a four-hour job age.
     """
-    return await _requeue_stalled_jobs(_ALL_STALLED_QUEUES, 0)
+    return await _requeue_stalled_jobs(_ALL_STALLED_QUEUES)
 
 
 @procrastinate_app.periodic(cron="*/15 * * * *")
@@ -735,7 +754,7 @@ async def recover_orphaned_jobs_at_boot() -> dict[str, int]:
 )
 async def scan_stalled_retrier(timestamp: int) -> dict[str, int]:
     """Re-queue `scan`-queue jobs the worker abandoned on a restart (durability)."""
-    return await _requeue_stalled_jobs(("scan",), _STALLED_SECONDS)
+    return await _requeue_stalled_jobs(("scan",))
 
 
 @procrastinate_app.periodic(cron="*/15 * * * *")
@@ -748,9 +767,7 @@ async def scan_stalled_retrier(timestamp: int) -> dict[str, int]:
 async def ingestion_stalled_retrier(timestamp: int) -> dict[str, int]:
     """Re-queue ingest-queue (+ `periodic`) jobs a worker abandoned on a restart.
 
-    Sibling to `scan_stalled_retrier` (which is `queue="scan"` only). Uses a generous
-    `ingestion_stalled_seconds` (default 4h) so a legitimately-long in-flight crawl
-    (mcp_registry full feed) is never re-queued out from under itself. Immediate
-    post-restart recovery is handled separately by `recover_orphaned_jobs_at_boot`.
+    Sibling to `scan_stalled_retrier` (which is `queue="scan"` only). A live
+    worker's heartbeat protects long-running crawls regardless of job age.
     """
-    return await _requeue_stalled_jobs(_INGEST_QUEUES, get_settings().ingestion_stalled_seconds)
+    return await _requeue_stalled_jobs(_INGEST_QUEUES)
