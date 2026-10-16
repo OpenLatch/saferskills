@@ -467,16 +467,15 @@ jobs:
   # The prod Fly apps (`saferskills-api`/`-worker`/`-webapp`) are live (no
   # longer suspended), so an approved roll lands directly.
   #
-  # NOTE: these jobs `needs: [e2e-staging]`, which only runs when its upstream
-  # staging deploys did. On a `push` whose path filter skips a service, the
-  # corresponding prod job is SKIPPED rather than offered for approval — use
-  # `workflow_dispatch` with `services=both` (the always-all-services path) to
-  # force a full prod roll regardless of the changed paths.
+  # Each production job honors the same service selection as staging. A web-only
+  # rollout must not restart an API or ingestion worker with unchanged code.
+  # `!cancelled()` permits skipped sibling services; staging E2E must succeed.
+  # Dispatch with `services=both` to force a full rollout.
   # ─────────────────────────────────────────────────────────────────────
   deploy-production-api:
     name: Deploy production API (gated)
-    needs: [e2e-staging]
-    if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
+    needs: [detect-changes, e2e-staging]
+    if: ${{ !cancelled() && needs.e2e-staging.result == 'success' && needs.detect-changes.outputs.api == 'true' && vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -574,8 +573,8 @@ jobs:
 
   deploy-production-worker:
     name: Deploy production worker (gated)
-    needs: [e2e-staging]
-    if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
+    needs: [detect-changes, e2e-staging]
+    if: ${{ !cancelled() && needs.e2e-staging.result == 'success' && needs.detect-changes.outputs.worker == 'true' && vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -643,8 +642,8 @@ jobs:
 
   deploy-production-webapp:
     name: Deploy production webapp (gated)
-    needs: [e2e-staging]
-    if: ${{ vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
+    needs: [detect-changes, e2e-staging]
+    if: ${{ !cancelled() && needs.e2e-staging.result == 'success' && needs.detect-changes.outputs.webapp == 'true' && vars.ENABLE_PRODUCTION_DEPLOYS == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: production

@@ -86,6 +86,25 @@ describe('telemetry privacy boundary', () => {
     expect(JSON.stringify(clean)).not.toContain('TokenFromUser')
     expect(JSON.stringify(clean)).not.toContain('evil.test')
   })
+  it('retains a browser frame under the release-versioned asset directory', () => {
+    const filename =
+      'https://saferskills.ai/_astro/1b6ef7727617dc553837c2a4274506cc0dd60804/RotatingHeadline.BVQkRyn3.js'
+    const clean = sanitizeTelemetryProperties({
+      $exception_list: [
+        { type: 'TypeError', stacktrace: { frames: [{ filename, lineno: 1, colno: 553 }] } },
+      ],
+    })
+    expect(clean?.$exception_list).toEqual([
+      {
+        type: 'TypeError',
+        value: '[redacted]',
+        stacktrace: {
+          type: 'raw',
+          frames: [{ filename, platform: 'web:javascript', lineno: 1, colno: 553 }],
+        },
+      },
+    ])
+  })
   it.each([
     '/app/dist/server/chunks/_.._BXmnJVpK.mjs',
     'file:///app/dist/server/chunks/_.._BXmnJVpK.mjs',
@@ -107,6 +126,9 @@ describe('telemetry privacy boundary', () => {
     ])
   })
   it.each([
+    'https://saferskills.ai/_astro/private-input/RotatingHeadline.js',
+    'https://saferskills.ai/_astro/1b6ef7727617dc553837c2a4274506cc0dd60804/../private.js',
+    'https://saferskills.ai/_astro/1b6ef7727617dc553837c2a4274506cc0dd60804/private/file.js',
     'dist/server/chunks/../private.mjs',
     'dist/server/chunks/%2e%2e/private.mjs',
     '/app/dist/server/chunks/../private.mjs',
