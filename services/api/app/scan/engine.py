@@ -41,12 +41,14 @@ import shutil
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
 from app.scan import fetch
 from app.scan.rubric import RULES, RubricRule, SubScore
+from app.scan.scoring_process import ScanEvaluationTimeout as ScanEvaluationTimeout
+from app.scan.scoring_process import score_in_process
 
 if TYPE_CHECKING:
     from app.scan.discovery import Capability
@@ -569,6 +571,26 @@ async def run_scan(
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
     file_index, over_bounds = _walk_and_cleanup(result)
+    scored = cast(
+        ScanResult,
+        await score_in_process(
+            file_index, rubric_version, result.ref_sha, mode="single", kind=kind
+        ),
+    )
+    scored.file_count = result.file_count
+    scored.skipped_files = result.skipped_oversized_files + over_bounds
+    scored.latency_ms = int((time.monotonic() - started) * 1000)
+    return scored
+
+
+def score_single_file_index(
+    file_index: list[tuple[str, bytes]],
+    rubric_version: str,
+    ref_sha: str,
+    *,
+    kind: str | None = None,
+) -> ScanResult:
+    """Pure legacy scorer; production calls it inside the bounded child."""
 
     rules = list(RULES.values())
     if kind is not None:
@@ -578,19 +600,17 @@ async def run_scan(
 
     findings, skipped = _evaluate_rules(rules, file_index, rubric_version)
     sub_scores, breakdown, aggregate, tier = aggregate_score(findings)
-    latency_ms = int((time.monotonic() - started) * 1000)
-
     return ScanResult(
         findings=findings,
         sub_scores=sub_scores,
         score_breakdown=breakdown,
         aggregate_score=aggregate,
         tier=tier,
-        file_count=result.file_count,
+        file_count=len(file_index),
         skipped_rules=skipped,
-        skipped_files=result.skipped_oversized_files + over_bounds,
-        ref_sha=result.ref_sha,
-        latency_ms=latency_ms,
+        skipped_files=[],
+        ref_sha=ref_sha,
+        latency_ms=0,
         files_index=file_index,
     )
 
@@ -718,13 +738,12 @@ async def run_repo_scan(
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
     file_index, over_bounds = _walk_and_cleanup(result)
-    return _assemble_repo_scan_result(
-        file_index,
-        rubric_version,
-        result.ref_sha,
-        skipped_files=result.skipped_oversized_files + over_bounds,
-        started=started,
+    scored = await run_repo_scan_from_index_async(
+        file_index, rubric_version, ref_sha=result.ref_sha
     )
+    scored.skipped_files = result.skipped_oversized_files + over_bounds
+    scored.latency_ms = int((time.monotonic() - started) * 1000)
+    return scored
 
 
 async def run_repo_scan_via_trees(
@@ -748,9 +767,27 @@ async def run_repo_scan_via_trees(
     file_index, skipped = await fetch.fetch_file_index_via_trees(
         github_url, ref_sha=ref_sha, default_branch=default_branch
     )
-    return _assemble_repo_scan_result(
-        file_index, rubric_version, ref_sha, skipped_files=skipped, started=started
+    scored = await run_repo_scan_from_index_async(file_index, rubric_version, ref_sha=ref_sha)
+    scored.skipped_files = skipped
+    scored.latency_ms = int((time.monotonic() - started) * 1000)
+    return scored
+
+
+async def run_repo_scan_from_index_async(
+    file_index: list[tuple[str, bytes]],
+    rubric_version: str,
+    *,
+    ref_sha: str = "0" * 40,
+    source_kind: str | None = None,
+) -> RepoScanResult:
+    """Production CPU boundary for uploaded, stored, or freshly fetched files."""
+    started = time.monotonic()
+    result = cast(
+        RepoScanResult,
+        await score_in_process(file_index, rubric_version, ref_sha, source_kind=source_kind),
     )
+    result.latency_ms = int((time.monotonic() - started) * 1000)
+    return result
 
 
 def run_repo_scan_from_index(

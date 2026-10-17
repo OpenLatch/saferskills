@@ -16,6 +16,8 @@
 
 The FastAPI backend for the SaferSkills public catalog and scan engine. It ships **two entrypoints from one image**: `app.main:app` (the uvicorn web tier — HTTP, SSE, interactive scans) and `python -m app.worker_main` (the Procrastinate worker — ingestion + bulk scan, deployed separately as [`services/worker/`](../worker/README.md)). Locally and in `docker compose up` the worker runs in-process.
 
+Production scoring runs in one child process per repository with a 30-second wall deadline. GitHub, upload, and stored-byte scans share this boundary, so expensive stdlib regex work cannot stall API or ingestion heartbeats. Timeout fails the scan without publishing a partial score and is not retried as a network error; cancellation kills and drains/reaps the child with a five-second cleanup grace. The synchronous scoring functions remain available for deterministic tests. Private pickle IPC carries only parent-created requests and responses from its owned child; artifact bytes are always data, never pickle input.
+
 ## Run locally
 
 ```bash

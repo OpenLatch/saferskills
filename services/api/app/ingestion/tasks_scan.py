@@ -305,7 +305,7 @@ async def _reeval_from_bytes(
         return False
 
     content_ref = ref_sha or "0" * 40
-    repo = engine.run_repo_scan_from_index(file_index, rubric, ref_sha=content_ref)
+    repo = await engine.run_repo_scan_from_index_async(file_index, rubric, ref_sha=content_ref)
 
     idempotency_key = persistence.compute_idempotency_key(
         github_url, ref_sha=content_ref, rubric_version=rubric
