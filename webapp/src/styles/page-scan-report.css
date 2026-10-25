@@ -843,13 +843,13 @@ html.dark .sr-catalog .cl-l h4 {
   box-shadow: var(--focus-ring);
 }
 .mbtn.primary {
-  background: var(--brand-primary);
-  border-color: var(--brand-primary);
+  background: var(--brand-cta);
+  border-color: var(--brand-cta);
   color: var(--brand-cta-fg);
 }
 .mbtn.primary:hover {
-  background: var(--brand-primary-dark);
-  border-color: var(--brand-primary-dark);
+  background: var(--brand-cta-hover);
+  border-color: var(--brand-cta-hover);
 }
 .mbtn.mbtn-danger:hover {
   background: var(--score-red);
@@ -877,8 +877,8 @@ html.dark .mbtn:hover {
   color: var(--color-paper);
 }
 html.dark .mbtn.primary {
-  background: var(--brand-primary);
-  border-color: var(--brand-primary);
+  background: var(--brand-cta);
+  border-color: var(--brand-cta);
   color: var(--brand-cta-fg);
 }
 

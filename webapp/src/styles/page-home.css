@@ -2277,8 +2277,8 @@ html.dark body.va .ridge-pixel .ridge-label {
   border-color: var(--brand-primary);
 }
 .agentscan-band .as-head .btn.primary {
-  background: var(--brand-primary);
-  color: #ffffff;
+  background: var(--brand-cta);
+  color: var(--brand-cta-fg);
 }
 
 /* three cards — near full-bleed, equal side margins + gap, ruler per card */

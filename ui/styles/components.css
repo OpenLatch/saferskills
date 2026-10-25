@@ -608,11 +608,11 @@ html.dark .nav-drawer-cta {
 }
 
 .btn.primary {
-  background: var(--brand-primary);
+  background: var(--brand-cta);
   color: var(--brand-cta-fg);
 }
 .btn.primary:hover {
-  background: var(--brand-primary-dark);
+  background: var(--brand-cta-hover);
   transform: translateY(-1px);
 }
 .btn.primary:active {
@@ -799,12 +799,14 @@ html.dark .btn:hover {
   background: var(--brand-primary);
   color: var(--color-paper);
 }
+/* Re-assert the CTA tokens: `html.dark .btn[:hover]` (0,2,1/0,3,1) outranks
+   the base `.btn.primary[:hover]`, so the primary fill must be restated here. */
 html.dark .btn.primary {
-  background: var(--brand-primary);
-  color: var(--color-paper);
+  background: var(--brand-cta);
+  color: var(--brand-cta-fg);
 }
 html.dark .btn.primary:hover {
-  background: var(--brand-primary-dark);
+  background: var(--brand-cta-hover);
 }
 html.dark .btn.paper {
   background: var(--fg-1);
@@ -1609,8 +1611,8 @@ html.dark .page-section--flat {
   align-items: center;
 }
 .cta-row .btn.primary {
-  background: var(--brand-primary);
-  color: var(--color-paper);
+  background: var(--brand-cta);
+  color: var(--brand-cta-fg);
 }
 .cta-row .btn.primary:hover {
   background: var(--color-paper);
