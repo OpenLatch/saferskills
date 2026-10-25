@@ -95,6 +95,31 @@ def test_multi_capability_repo_discovers_each_kind() -> None:
     assert _paths(hook) == {"hooks/pre-commit.json", "LICENSE", ".github/workflows/ci.yml"}
 
 
+def test_non_ci_github_tree_is_not_unioned_into_every_capability() -> None:
+    """Regression (prod worker crash loop): microsoft/skills keeps ~2k catalog files
+    under `.github/plugins/`. Treating all of `.github/**` as repo-wide unioned the
+    whole tree into each of ~270 capabilities (>15 min CPU per scan). Only the CI
+    workflows are repo-wide; `.github/plugins/*` capabilities own their subtrees."""
+    files = [
+        (".github/plugins/a/skills/one/SKILL.md", _b("---\nname: one\n---\n")),
+        (".github/plugins/a/skills/one/big.md", _b("x" * 100)),
+        (".github/plugins/b/hooks/claude-hooks.json", _b('{"hooks": {}}')),
+        (".github/workflows/ci.yml", _b("on: push")),
+        ("LICENSE", _b("MIT")),
+    ]
+    caps = discover_capabilities(files)
+
+    hook = next(c for c in caps if c.kind == KIND_HOOK)
+    assert _paths(hook) == {
+        ".github/plugins/b/hooks/claude-hooks.json",
+        ".github/workflows/ci.yml",
+        "LICENSE",
+    }
+    one = next(c for c in caps if c.kind == KIND_SKILL and c.name == "one")
+    assert ".github/plugins/a/skills/one/big.md" in _paths(one)
+    assert ".github/plugins/b/hooks/claude-hooks.json" not in _paths(one)
+
+
 def test_deepest_path_claims_file_on_overlap() -> None:
     # An mcp server nested inside a skill dir — the mcp subtree belongs to the
     # mcp capability, not the enclosing skill.

@@ -17,6 +17,7 @@ half; the AsyncSession is per-emit so each event is a separate small commit
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import traceback
@@ -374,7 +375,9 @@ async def scan_run_upload(
     try:
         await _emit(run_id, "fetch", 5, "running", {"target": "upload"}, scan_run_id=run_id)
 
-        repo = engine.run_repo_scan_from_index(files_index, rubric_version, source_kind="upload")
+        repo = await asyncio.to_thread(
+            engine.run_repo_scan_from_index, files_index, rubric_version, source_kind="upload"
+        )
 
         await _emit(
             run_id,

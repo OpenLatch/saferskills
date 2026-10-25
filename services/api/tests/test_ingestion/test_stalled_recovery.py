@@ -22,9 +22,10 @@ from app.ingestion import procrastinate_app, tasks_scan
 
 
 class _Job:
-    def __init__(self, job_id: int, worker_id: int | None = None) -> None:
+    def __init__(self, job_id: int, worker_id: int | None = None, attempts: int = 0) -> None:
         self.id = job_id
         self.worker_id = worker_id
+        self.attempts = attempts
 
 
 class _FakeJobManager:
@@ -34,6 +35,7 @@ class _FakeJobManager:
         self._jobs = jobs_by_queue
         self._fail = fail_job_ids
         self.retried: list[int] = []
+        self.finished: list[tuple[int, str]] = []
         self.listed_queues: list[str] = []
 
     async def get_stalled_jobs(
@@ -48,6 +50,9 @@ class _FakeJobManager:
             raise RuntimeError('duplicate key value violates unique constraint "..._lock_idx"')
         self.retried.append(job.id)
 
+    async def finish_job(self, job: _Job, status: Any, delete_job: bool) -> None:
+        self.finished.append((job.id, status.value))
+
 
 @pytest.mark.asyncio
 async def test_requeue_stalled_is_resilient_to_a_per_job_collision(
@@ -60,7 +65,51 @@ async def test_requeue_stalled_is_resilient_to_a_per_job_collision(
 
     # The collision on job 2 did NOT abort the sweep — 1 and 3 still re-queued.
     assert fake.retried == [1, 3]
-    assert out == {"retried": 2, "skipped": 1}
+    assert out == {"retried": 2, "skipped": 1, "failed": 0}
+
+
+@pytest.mark.asyncio
+async def test_stalled_duplicate_of_waiting_job_is_failed_to_release_its_lock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression (prod npm deadlock): an ownerless `doing` cycle whose retry hits
+    the queueing-lock `UniqueViolation` (a sibling `todo` already waits) used to be
+    skipped forever — still holding the shared execution `lock`, so the sibling
+    could never start either. It must be FAILED so the sibling runs."""
+    from procrastinate.exceptions import UniqueViolation
+
+    class _JM(_FakeJobManager):
+        async def retry_job(self, job: _Job) -> None:
+            raise UniqueViolation(
+                constraint_name="procrastinate_jobs_queueing_lock_idx_v1",
+                queueing_lock="ingest_cycle_npm_lock",
+            )
+
+    fake = _JM({"ingest_npm": [_Job(96184)]}, fail_job_ids=set())
+    monkeypatch.setattr(procrastinate_app, "job_manager", fake)
+
+    out = await tasks_scan._requeue_stalled_jobs(("ingest_npm",))  # pyright: ignore[reportPrivateUsage]
+
+    assert fake.finished == [(96184, "failed")]
+    assert out == {"retried": 0, "skipped": 0, "failed": 1}
+
+
+@pytest.mark.asyncio
+async def test_poison_job_is_dead_lettered_after_max_recovery_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression (prod crash loop): a scan that wedged the loop was re-queued on
+    every boot (482 attempts), killing the worker every 16 min. Past the cap it
+    must be dead-lettered, not retried."""
+    cap = tasks_scan._MAX_RECOVERY_ATTEMPTS  # pyright: ignore[reportPrivateUsage]
+    fake = _FakeJobManager({"scan": [_Job(1, attempts=cap), _Job(2, attempts=cap - 1)]}, set())
+    monkeypatch.setattr(procrastinate_app, "job_manager", fake)
+
+    out = await tasks_scan._requeue_stalled_jobs(("scan",))  # pyright: ignore[reportPrivateUsage]
+
+    assert fake.finished == [(1, "failed")]
+    assert fake.retried == [2]
+    assert out == {"retried": 1, "skipped": 0, "failed": 1}
 
 
 @pytest.mark.asyncio
@@ -122,6 +171,7 @@ async def test_recovery_rechecks_owner_before_retry(
     assert await tasks_scan._requeue_stalled_jobs(("scan",)) == {  # pyright: ignore[reportPrivateUsage]
         "retried": 0,
         "skipped": 1,
+        "failed": 0,
     }
     assert fake.retried == []
 
@@ -211,7 +261,7 @@ async def test_recovery_respects_live_owner_and_configured_heartbeat_grace(
         else await tasks_scan.ingestion_stalled_retrier(timestamp=0)
     )
 
-    assert result == {"retried": 2, "skipped": 0}
+    assert result == {"retried": 2, "skipped": 0, "failed": 0}
     rows: list[Any] = await driver.fetch(
         "SELECT id, status::text AS status, lock FROM procrastinate_jobs"
     )

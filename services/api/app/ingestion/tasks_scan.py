@@ -60,6 +60,11 @@ logger = structlog.get_logger(__name__)
 # Never use a shorter liveness window than Procrastinate's own default.
 _MIN_STALE_WORKER_HEARTBEAT_SECONDS = 30.0
 
+# A job abandoned this many times is a poison job (it kills/wedges the worker every
+# run) — dead-letter it instead of re-queueing forever. Generous vs the task retry
+# budgets (scan 3, ingest 4) so only true crash loops trip it.
+_MAX_RECOVERY_ATTEMPTS = 10
+
 DeferFn = Callable[[str], Awaitable[bool]]
 BacklogFn = Callable[[AsyncSession], Awaitable[int]]
 
@@ -305,7 +310,9 @@ async def _reeval_from_bytes(
         return False
 
     content_ref = ref_sha or "0" * 40
-    repo = engine.run_repo_scan_from_index(file_index, rubric, ref_sha=content_ref)
+    repo = await asyncio.to_thread(
+        engine.run_repo_scan_from_index, file_index, rubric, ref_sha=content_ref
+    )
 
     idempotency_key = persistence.compute_idempotency_key(
         github_url, ref_sha=content_ref, rubric_version=rubric
@@ -692,13 +699,25 @@ async def _requeue_stalled_jobs(queues: tuple[str, ...]) -> dict[str, int]:
     atomic fencing protocol: a worker can recover after this final check, and
     ownerless recovery assumes the former process is gone. Allow at least the
     event-loop watchdog grace before declaring an attached worker stale.
+
+    Two cases are FAILED (dead-lettered) instead of retried, since leaving them
+    `doing` keeps their execution `lock` forever:
+    - the retry hits the `queueing_lock` `UniqueViolation` — a sibling `todo` will
+      run the same work, but it can never start while this stalled job holds the
+      shared `lock` (the npm/aggregator deadlock);
+    - the job was already abandoned `_MAX_RECOVERY_ATTEMPTS` times (a poison job
+      that crash-loops the worker on every boot).
     """
+    from procrastinate.exceptions import UniqueViolation
+    from procrastinate.jobs import Status
+
     jm = procrastinate_app.job_manager
     heartbeat_grace = max(
         _MIN_STALE_WORKER_HEARTBEAT_SECONDS, get_settings().worker_watchdog_timeout_s
     )
     retried = 0
     skipped = 0
+    failed = 0
     for queue in queues:
         try:
             stalled = await jm.get_stalled_jobs(
@@ -718,8 +737,24 @@ async def _requeue_stalled_jobs(queues: tuple[str, ...]) -> dict[str, int]:
                 ):
                     skipped += 1
                     continue
-                await jm.retry_job(job)
-                retried += 1
+                reason = None
+                if (getattr(job, "attempts", 0) or 0) >= _MAX_RECOVERY_ATTEMPTS:
+                    reason = "max_recovery_attempts"
+                else:
+                    try:
+                        await jm.retry_job(job)
+                        retried += 1
+                    except UniqueViolation:
+                        reason = "duplicate_of_waiting_job"
+                if reason is not None:
+                    await jm.finish_job(job, status=Status.FAILED, delete_job=False)
+                    failed += 1
+                    logger.warning(
+                        "requeue_stalled.dead_lettered",
+                        queue=queue,
+                        job_id=getattr(job, "id", None),
+                        reason=reason,
+                    )
             except Exception as exc:
                 skipped += 1
                 logger.warning(
@@ -728,9 +763,9 @@ async def _requeue_stalled_jobs(queues: tuple[str, ...]) -> dict[str, int]:
                     job_id=getattr(job, "id", None),
                     error=str(exc)[:160],
                 )
-    if retried or skipped:
-        logger.info("requeue_stalled.done", retried=retried, skipped=skipped)
-    return {"retried": retried, "skipped": skipped}
+    if retried or skipped or failed:
+        logger.info("requeue_stalled.done", retried=retried, skipped=skipped, failed=failed)
+    return {"retried": retried, "skipped": skipped, "failed": failed}
 
 
 async def recover_orphaned_jobs_at_boot() -> dict[str, int]:
