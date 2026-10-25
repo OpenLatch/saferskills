@@ -54,7 +54,7 @@ dev = [
   "pytest-cov>=6.0",
   "ruff>=0.9",
   "pyright>=1.1.390",
-  "datamodel-code-generator>=0.26",
+  "datamodel-code-generator>=0.64.0",
   "jinja2>=3.1",
 ]
 
