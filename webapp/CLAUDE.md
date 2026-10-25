@@ -1,6 +1,6 @@
 # CLAUDE.md — webapp/
 
-SaferSkills public website. Astro 6 (output: server) + React 19 islands + Tailwind v4 via the `@tailwindcss/vite` plugin.
+SaferSkills public website. Astro 7 (output: server) + React 19 islands + Tailwind v4 via the `@tailwindcss/vite` plugin.
 
 ## Hard rules
 

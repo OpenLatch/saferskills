@@ -203,7 +203,7 @@ Requirements: Node 24 LTS, Python 3.14, pnpm 10, uv 0.7+, Docker.
 |---|---|---|
 | `cli/` | The `saferskills` Rust CLI — install + capability/agent scans | [README](./cli/README.md) |
 | `ui/` | Design system — React 19 + Tailwind v4 tokens & components | [README](./ui/README.md) |
-| `webapp/` | Astro 6 public site — catalog, scan/agent reports, docs | [README](./webapp/README.md) |
+| `webapp/` | Astro 7 public site — catalog, scan/agent reports, docs | [README](./webapp/README.md) |
 | `services/api/` | FastAPI backend — catalog, scan engine, ingestion | [README](./services/api/README.md) |
 | `services/worker/` | Procrastinate ingestion + bulk-scan worker (same image as the API) | [README](./services/worker/README.md) |
 | `schemas/` | JSON Schema source-of-truth for every wire/DB/type contract | [README](./schemas/README.md) |

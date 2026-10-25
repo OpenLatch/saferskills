@@ -68,7 +68,7 @@ After any code change touching shipped layers, run `/verify-build` — it auto-d
 
 | Layer | Technologies |
 |-------|-------------|
-| **Frontend** | TypeScript (strict), Astro 6 + React 19 islands, Tailwind v4, shadcn/ui (Radix + Tailwind v4), Biome, Vitest, pnpm 10. (Astro instead of Vite is a deliberate divergence vs openlatch-platform — public SSG catalog needs SEO + Lighthouse + share-preview, see `.claude/rules/tech-stack.md` § Frontend.) |
+| **Frontend** | TypeScript (strict), Astro 7 + React 19 islands, Tailwind v4, shadcn/ui (Radix + Tailwind v4), Biome, Vitest, pnpm 10. (Astro instead of Vite is a deliberate divergence vs openlatch-platform — public SSG catalog needs SEO + Lighthouse + share-preview, see `.claude/rules/tech-stack.md` § Frontend.) |
 | **Backend** | Python 3.14, FastAPI, Pydantic v2, Ruff + pyright, uv, pytest, SQLAlchemy 2 (async), Alembic |
 | **Detection** | In-process deterministic rules under `rubric/`. **No LLM in the verdict path** — every finding has a static rule_id and a quotable line of evidence. |
 | **Data** | PostgreSQL 17, in-process LRU caches (no Redis), PG full-text search + pg_trgm |
@@ -88,7 +88,7 @@ schemas/           # JSON Schema source-of-truth for all data contracts
 scripts/           # The 6 codegen scripts + validate-schemas.cjs
 services/api/      # FastAPI backend + scan engine. Entrypoints: `app.main:app` (uvicorn web tier) + `python -m app.worker_main` (the Procrastinate worker, deployed separately)
 services/worker/   # Procrastinate worker DEPLOY CONFIG (no code) — the same services/api image run with `app.worker_main`; split out so a worker OOM can't take the API down (fixes the staging OOM-loop). API deploys set INGESTION_WORKER_ENABLED=false; dev/compose stay in-process
-webapp/            # Astro 6 + React 19 public catalog. Agent Report (/agents/[id], /agents/r/[token], the /agents directory), the agent badge /badge/agent/[id]/[score].svg, and the /methodology Agent-pack section (API at /api/v1/agent-scans/*). The **docs** are NATIVE to this app (the separate Starlight build was retired): markdown/MDX under `webapp/src/content/docs/**`, served at `/docs/*` via the prerendered catch-all `webapp/src/pages/docs/[...slug].astro`. Docs authoring contract (IA, asides, Pagefind, llms.txt): `documentation-sync.md` § Same-PR (New docs page) + `frontend-patterns.md`.
+webapp/            # Astro 7 + React 19 public catalog. Agent Report (/agents/[id], /agents/r/[token], the /agents directory), the agent badge /badge/agent/[id]/[score].svg, and the /methodology Agent-pack section (API at /api/v1/agent-scans/*). The **docs** are NATIVE to this app (the separate Starlight build was retired): markdown/MDX under `webapp/src/content/docs/**`, served at `/docs/*` via the prerendered catch-all `webapp/src/pages/docs/[...slug].astro`. Docs authoring contract (IA, asides, Pagefind, llms.txt): `documentation-sync.md` § Same-PR (New docs page) + `frontend-patterns.md`.
 ui/                # Design system & shared components (atoms/molecules/organisms)
 rubric/            # Detection rules
 cli/               # `saferskills` Rust CLI (install + `capability` static scan/audit + `agent` behavioral Agent Scan: mint→signed-pack-verify→bootstrap-prompt→poll→verdict; multi-agent sequential, worst-exit)

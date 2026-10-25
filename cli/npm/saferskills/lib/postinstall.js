@@ -6,10 +6,10 @@
 //
 // IMPORTANT: this script MUST NEVER fail the npm install (fail-open principle).
 
-const os = require('os')
-const fs = require('fs')
-const path = require('path')
-const { execSync } = require('child_process')
+const os = require('node:os')
+const fs = require('node:fs')
+const path = require('node:path')
+const { execSync } = require('node:child_process')
 
 const PLATFORM_PACKAGES = {
   'darwin-arm64': '@openlatch/saferskills-darwin-arm64',
