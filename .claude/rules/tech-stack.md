@@ -17,7 +17,7 @@ The stack below is the contract. Every dep tracks its current latest major or la
 | **ORM** | SQLAlchemy 2 (async) | Async-only — `AsyncSession` everywhere. |
 | **Migrations** | Alembic | Latest. |
 | **Database** | PostgreSQL 17 | Latest GA. Single Postgres — no Redis, no other store. |
-| **Frontend framework** | Astro 6 + React 19 islands | Deliberate divergence from openlatch-platform (which uses Vite + React 19 SPA). Islands via `client:idle`/`client:load`/`client:visible`. |
+| **Frontend framework** | Astro 7 + React 19 islands | Deliberate divergence from openlatch-platform (which uses Vite + React 19 SPA). Islands via `client:idle`/`client:load`/`client:visible`. |
 | **CSS** | Tailwind v4 | No `tailwind.config.js`; tokens live in `ui/styles/tokens.css` per `design-system.md`. |
 | **UI primitives** | shadcn/ui (Radix + Tailwind) | Component code lives under `ui/components/`; never imported from a registry at build time. |
 | **Lint + format** | Biome 2.4 | One tool for TS/JS/JSON — replaces both ESLint and Prettier. |
@@ -57,7 +57,7 @@ The stack below is the contract. Every dep tracks its current latest major or la
 | **pip / poetry / pipenv** | uv only. |
 | **Redis / Memcached** | In-process LRU; no out-of-process cache. |
 | **Bun / Deno** | Node 24 LTS only. |
-| **Vite** | Astro 6 is the deliberate divergence — Vite ships under Astro's hood but is not directly invoked. |
+| **Vite** | Astro 7 is the deliberate divergence — Vite ships under Astro's hood but is not directly invoked. |
 | **Auth sidecar (Express + better-auth)** | No auth yet; when auth ships, an auth strategy is selected then. Don't introduce a sidecar speculatively. |
 | **Storybook** | Ladle. |
 | **Webpack / Rollup direct usage** | Astro handles bundling. |
