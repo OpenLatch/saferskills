@@ -166,9 +166,6 @@
 .reach-list li {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "label email"
-    "desc  email";
   align-items: center;
   column-gap: 24px;
   row-gap: 2px;
@@ -179,7 +176,8 @@
   border-top: 0;
 }
 .reach-label {
-  grid-area: label;
+  grid-column: 1;
+  grid-row: 1;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
@@ -188,14 +186,16 @@
   color: var(--fg-1);
 }
 .reach-desc {
-  grid-area: desc;
+  grid-column: 1;
+  grid-row: 2;
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.4;
   color: var(--fg-3);
 }
 .reach-email {
-  grid-area: email;
+  grid-column: 2;
+  grid-row: 1 / span 2;
   justify-self: end;
   font-family: var(--font-mono);
   font-size: 14px;

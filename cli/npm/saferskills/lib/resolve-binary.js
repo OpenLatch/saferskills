@@ -3,8 +3,8 @@
 // under ../bin/. Pure Node stdlib — runs during `npm install` postinstall and
 // at every launch.
 
-const path = require('path')
-const os = require('os')
+const path = require('node:path')
+const os = require('node:os')
 
 const PLATFORMS = {
   'darwin-arm64': '@openlatch/saferskills-darwin-arm64',

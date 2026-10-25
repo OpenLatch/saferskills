@@ -8,13 +8,13 @@
 </a>
 
 <h3>Public website</h3>
-<p>The Astro 6 + React 19 catalog, scan reports, and docs at saferskills.ai.</p>
+<p>The Astro 7 + React 19 catalog, scan reports, and docs at saferskills.ai.</p>
 
 </div>
 
 ## What it is
 
-The public SaferSkills website — the catalog, scan + agent reports, the native docs, and the marketing surfaces at [saferskills.ai](https://saferskills.ai). Astro 6 (`output: 'server'`, with per-page `prerender`) + React 19 islands + Tailwind v4 via `@tailwindcss/vite`. It consumes the [`ui/`](../ui/README.md) design system and reaches the [API](../services/api/README.md) same-origin through an in-app `/api/*` reverse proxy — no CORS, no API URL baked into the bundle.
+The public SaferSkills website — the catalog, scan + agent reports, the native docs, and the marketing surfaces at [saferskills.ai](https://saferskills.ai). Astro 7 (`output: 'server'`, with per-page `prerender`) + React 19 islands + Tailwind v4 via `@tailwindcss/vite`. It consumes the [`ui/`](../ui/README.md) design system and reaches the [API](../services/api/README.md) same-origin through an in-app `/api/*` reverse proxy — no CORS, no API URL baked into the bundle.
 
 ## Run locally
 

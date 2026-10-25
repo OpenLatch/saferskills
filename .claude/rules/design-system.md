@@ -21,6 +21,8 @@ All visual tokens live in `ui/styles/tokens.css` — colors, radii, spacing, typ
 |---|---|---|
 | `--ol-brand-primary` | `#0D9488` (emerald teal) | SaferSkills brand color; kinship-by-color with OpenLatch master palette per Wordmark Spec lock 2026-05-27 |
 | `--ol-brand-primary-dark` | `#0F766E` | Hover / active state |
+| `--ol-brand-primary-darker` | `#115E59` | Primary-button hover fill (light mode) — via `--brand-cta-hover` |
+| `--brand-cta` / `--brand-cta-hover` / `--brand-cta-fg` | light `#0F766E` / `#115E59` / white · dark `#14B8A6` / `#0D9488` / slate-900 | **Primary-button fill** (`.btn.primary`, `.cta-row .btn.primary`, `.mbtn.primary`, homepage agent-scan CTA). Deliberately one step darker than the brand teal in light mode: white 12–15px label on `#0D9488` is 3.74:1 (fails WCAG AA), on `#0F766E` 5.47:1 (hover 7.58:1). Dark: ink on light teal 7.17:1 (hover 4.77:1). Brand `#0D9488` stays on links, accents, wordmark, focus rings — never fill a white-label button with `--brand-primary` |
 | `--ol-brand-accent` | `#F97316` (warm orange) | Script-pen accents, ridge-pixel tick markers, hand-written decorations |
 | `--ol-brand-accent-dark` | `#C2410C` (burnt orange) | Accessible orange **text** on light surfaces (the bright accent is only ~2.6:1 there). Exposed as the theme-aware `--brand-accent-dark` (light → burnt, dark → bright accent), mirroring `--brand-primary-dark` |
 | `--score-green` / `--score-yellow` / `--score-orange` / `--score-red` | OpenSSF-style 4-band semantic colors | Tier color language: ≥80 / 60-79 / 40-59 / 0-39 |

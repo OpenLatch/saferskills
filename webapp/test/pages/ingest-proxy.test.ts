@@ -36,17 +36,15 @@ describe('fixed EU telemetry proxy', () => {
       'https://eu-assets.i.posthog.com/array/phc_test/config'
     )
   })
-  it.each([
-    'https://evil.test',
-    '../batch',
-    'static/../secret.js',
-    'api/projects/272364',
-  ])('rejects non-ingestion path %s', async (path) => {
-    const fetch = vi.fn()
-    vi.stubGlobal('fetch', fetch)
-    expect((await GET(ctx(path, new Request('http://localhost/ingest/test')))).status).toBe(404)
-    expect(fetch).not.toHaveBeenCalled()
-  })
+  it.each(['https://evil.test', '../batch', 'static/../secret.js', 'api/projects/272364'])(
+    'rejects non-ingestion path %s',
+    async (path) => {
+      const fetch = vi.fn()
+      vi.stubGlobal('fetch', fetch)
+      expect((await GET(ctx(path, new Request('http://localhost/ingest/test')))).status).toBe(404)
+      expect(fetch).not.toHaveBeenCalled()
+    }
+  )
   it('rejects excessive bodies before contacting the upstream', async () => {
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)

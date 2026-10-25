@@ -3,7 +3,7 @@
 // Thin launcher: resolve the prebuilt native binary and hand the terminal to
 // it (stdio inherited, exit code preserved). The Rust binary owns all UX.
 
-const { execFileSync } = require('child_process')
+const { execFileSync } = require('node:child_process')
 const { resolveBinary } = require('./resolve-binary')
 
 const binary = resolveBinary('saferskills')
