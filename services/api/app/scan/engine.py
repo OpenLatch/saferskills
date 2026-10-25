@@ -33,6 +33,7 @@ Scoring follows the rubric `scan-report.schema.json` contract:
 
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import hashlib
 import json
@@ -717,14 +718,20 @@ async def run_repo_scan(
     """
     started = time.monotonic()
     result = await fetch.fetch_repository(github_url)
-    file_index, over_bounds = _walk_and_cleanup(result)
-    return _assemble_repo_scan_result(
-        file_index,
-        rubric_version,
-        result.ref_sha,
-        skipped_files=result.skipped_oversized_files + over_bounds,
-        started=started,
-    )
+
+    def _walk_and_score() -> RepoScanResult:
+        file_index, over_bounds = _walk_and_cleanup(result)
+        return _assemble_repo_scan_result(
+            file_index,
+            rubric_version,
+            result.ref_sha,
+            skipped_files=result.skipped_oversized_files + over_bounds,
+            started=started,
+        )
+
+    # CPU-bound walk + scoring off the event loop, so a large repo can never
+    # starve the loop (the worker's liveness watchdog kills a wedged loop).
+    return await asyncio.to_thread(_walk_and_score)
 
 
 async def run_repo_scan_via_trees(
@@ -748,8 +755,13 @@ async def run_repo_scan_via_trees(
     file_index, skipped = await fetch.fetch_file_index_via_trees(
         github_url, ref_sha=ref_sha, default_branch=default_branch
     )
-    return _assemble_repo_scan_result(
-        file_index, rubric_version, ref_sha, skipped_files=skipped, started=started
+    return await asyncio.to_thread(
+        _assemble_repo_scan_result,
+        file_index,
+        rubric_version,
+        ref_sha,
+        skipped_files=skipped,
+        started=started,
     )
 
 

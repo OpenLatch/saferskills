@@ -13,7 +13,7 @@ exactly one glob implementation in the scan package.
 Load-bearing rules (kept stable so scores are reproducible):
 
 1. **Repo-wide files join every capability.** Root `LICENSE` / `README` /
-   `SECURITY.md` / `CHANGELOG` / `.github/**` CI files are unioned into every
+   `SECURITY.md` / `CHANGELOG` / `.github/workflows/**` CI files are unioned into every
    capability's `file_subset`, so the kind-scoped maintenance / transparency
    rules (which check for these files) still fire per capability.
 2. **Deepest path claims a file on overlap.** A file that sits under two nested
@@ -48,8 +48,13 @@ KIND_PLUGIN = "plugin"
 KIND_RULES = "rules"
 
 # Repo-wide files unioned into every capability subset (rule 1). Root-level
-# governance/transparency files + the CI tree. Globs are matched with the
+# governance/transparency files + the CI workflows. Globs are matched with the
 # engine's `**`-aware matcher; bare names anchor at the repo root.
+#
+# Only `.github/workflows/**` (what MAINTENANCE-CI-BROKEN reads) — NOT all of
+# `.github/**`: repos like microsoft/skills keep their whole catalog under
+# `.github/plugins/`, and unioning ~2k files / 14 MB into each of ~270
+# capabilities made one scan take >15 min of CPU (worker watchdog crash-loop).
 _REPO_WIDE_GLOBS: tuple[str, ...] = (
     "LICENSE",
     "LICENSE.*",
@@ -71,7 +76,7 @@ _REPO_WIDE_GLOBS: tuple[str, ...] = (
     "CONTRIBUTING",
     "CONTRIBUTING.*",
     "CODE_OF_CONDUCT.*",
-    ".github/**",
+    ".github/workflows/**",
 )
 
 
