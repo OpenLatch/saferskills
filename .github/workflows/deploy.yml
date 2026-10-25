@@ -400,7 +400,7 @@ jobs:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: "3.14" }
       - uses: astral-sh/setup-uv@v7
       - name: Run e2e doctor + smoke + homepage
