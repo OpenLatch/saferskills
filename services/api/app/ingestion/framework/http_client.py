@@ -63,6 +63,20 @@ def _shared_storage(settings: Settings) -> AsyncSqliteStorage:
     return storage
 
 
+class _SharedStorageCacheTransport(AsyncCacheTransport):
+    """Cache transport that leaves the process-shared storage open on close.
+
+    Hishel's `AsyncCacheTransport.aclose()` also closes its storage. With one
+    shared storage per cache file, every finishing cycle (`async with client:`)
+    closed the SQLite connection under every OTHER cycle still running →
+    `sqlite3.ProgrammingError: Cannot operate on a closed database` killed the
+    concurrent cycle (the prod npm 17:01 failure, Oct 2026). The storage lives for
+    the process; only the per-client network transport is torn down here."""
+
+    async def aclose(self) -> None:
+        await self.next_transport.aclose()
+
+
 class _SSRFTransport(httpx.AsyncHTTPTransport):
     """Enforce the per-adapter host allowlist + a private-IP denylist before each request.
 
@@ -90,7 +104,7 @@ class HttpClientFactory:
     @classmethod
     def build(cls, adapter: BaseAdapter, settings: Settings) -> httpx.AsyncClient:
         policy = SpecificationPolicy(cache_options=CacheOptions(shared=True, allow_stale=True))
-        transport = AsyncCacheTransport(
+        transport = _SharedStorageCacheTransport(
             next_transport=_SSRFTransport(adapter.source_hosts),
             storage=_shared_storage(settings),
             policy=policy,

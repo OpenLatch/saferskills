@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -113,6 +113,19 @@ class TestSharedStorage:
         HttpClientFactory.build(_adapter(), settings)
         HttpClientFactory.build(_adapter(), settings)
         assert len(_SHARED_STORAGE) == 1
+
+    async def test_client_close_leaves_shared_storage_open(self) -> None:
+        """Regression (prod npm 17:01, Oct 2026): Hishel's transport `aclose()`
+        closed the SHARED storage, so one cycle finishing (`async with client:`)
+        killed every concurrent cycle with `Cannot operate on a closed database`.
+        Closing one client must not close the process-shared storage."""
+        settings = _settings()
+        storage = _shared_storage(settings)
+        close_spy = AsyncMock()
+        storage.close = close_spy  # type: ignore[method-assign]
+        client = HttpClientFactory.build(_adapter(), settings)
+        await client.aclose()
+        close_spy.assert_not_awaited()
 
 
 class TestHishelTtlHook:

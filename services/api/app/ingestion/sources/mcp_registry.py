@@ -8,12 +8,14 @@ Cadence: hourly at :00 UTC.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import hashlib
 import json
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
+import httpx
 import structlog
 
 from app.ingestion.config.loader import SourceConfig
@@ -31,6 +33,31 @@ _GITHUB_URL_PREFIXES = (
     "git+https://github.com/",
     "git://github.com/",
 )
+
+# Backoff between attempts of ONE feed-page fetch (5 attempts total). The registry
+# throws sporadic 5xx / timeouts that succeed on an immediate retry; without this a
+# single blip on any of a multi-hour sweep's pages aborted the sweep, so the
+# watermark never advanced and every cycle re-crawled since June (Oct 2026).
+_PAGE_RETRY_DELAYS_S: tuple[float, ...] = (2.0, 5.0, 15.0, 30.0)
+
+
+async def _get_page(client: Any, url: str, params: dict[str, str]) -> Any:
+    """GET one feed page, retrying transient failures (5xx / transport error).
+
+    Returns the last response (a persisting 5xx is still returned so the caller
+    records it and keeps the checkpoint) or re-raises the last transport error."""
+    for delay in (*_PAGE_RETRY_DELAYS_S, None):
+        try:
+            r = await client.get(url, params=params)
+        except httpx.TransportError:
+            if delay is None:
+                raise
+        else:
+            if r.status_code < 500 or delay is None:
+                return r
+        logger.info("mcp_registry.page_retry", cursor=params.get("cursor"), delay_s=delay)
+        await asyncio.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _parse_github_coords(url: str) -> tuple[str | None, str | None]:
@@ -128,7 +155,7 @@ class McpRegistryAdapter(RegistryAdapter):
                 if opaque_cursor:
                     params["cursor"] = opaque_cursor
 
-                r = await client.get(url, params=params)
+                r = await _get_page(client, url, params)
 
                 if r.status_code == 304:
                     yield RawItem(

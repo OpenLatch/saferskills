@@ -14,6 +14,13 @@ that a later attempt might clear. Note: most expected provider/transport failure
 never reach the retry strategy at all — `run_source_cycle` catches them and
 returns without re-raising; this taxonomy is the backstop for whatever DOES
 re-raise out of a cycle.
+
+Cadence cap: a periodic cycle's retry must land before its next cron tick. A
+retried job waits as `todo` and keeps the per-source `queueing_lock`, so every
+tick inside a 6h backoff is silently dropped — the hourly npm source went 6h
+without a cycle after one transient failure (Oct 2026). `max_delay_seconds`
+(half the cadence, set per source in `tasks._register_periodic`) clamps the
+schedule so the retry IS the next cycle, never a multi-tick blackout.
 """
 
 from __future__ import annotations
@@ -52,6 +59,9 @@ def is_permanent_failure(exception: BaseException) -> bool:
 class IngestionRetry(BaseRetryStrategy):
     max_attempts = len(_SCHEDULE_SECONDS)
 
+    def __init__(self, max_delay_seconds: float | None = None) -> None:
+        self.max_delay_seconds = max_delay_seconds
+
     def get_retry_decision(self, *, exception: BaseException, job: Job) -> RetryDecision | None:
         # Permanent errors never improve on retry — dead-letter immediately so we
         # don't burn 4x full-feed refetch + 4 tracebacks on one shape-drift bug.
@@ -61,4 +71,7 @@ class IngestionRetry(BaseRetryStrategy):
         idx = job.attempts - 1
         if idx >= len(_SCHEDULE_SECONDS):
             return None  # exhausted → dead-letter (procrastinate 3.x: None = no retry)
-        return RetryDecision(retry_in={"seconds": _SCHEDULE_SECONDS[idx]})
+        delay = _SCHEDULE_SECONDS[idx]
+        if self.max_delay_seconds is not None:
+            delay = min(delay, int(self.max_delay_seconds))
+        return RetryDecision(retry_in={"seconds": delay})

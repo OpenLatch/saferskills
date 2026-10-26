@@ -70,6 +70,26 @@ class TestIngestionRetry:
         decision = strategy.get_retry_decision(exception=Exception(), job=self._make_job(4))
         self._approx_seconds_from_now(decision, 21600)
 
+    def test_max_delay_clamps_the_schedule(self) -> None:
+        """Regression (prod npm, Oct 2026): a pending retry holds the per-source
+        queueing lock, so the 6h step dropped six hourly ticks. A cadence cap of
+        1800s (half an hourly cadence) clamps the 30m/6h steps; early steps stay."""
+        from app.ingestion.framework.retry import IngestionRetry
+
+        strategy = IngestionRetry(max_delay_seconds=1800)
+        self._approx_seconds_from_now(
+            strategy.get_retry_decision(exception=Exception(), job=self._make_job(1)), 60
+        )
+        self._approx_seconds_from_now(
+            strategy.get_retry_decision(exception=Exception(), job=self._make_job(4)), 1800
+        )
+
+    def test_cycle_retry_caps_at_half_the_cadence(self) -> None:
+        from app.ingestion.tasks import _cycle_retry  # pyright: ignore[reportPrivateUsage]
+
+        assert _cycle_retry("0 * * * *").max_delay_seconds == 1800
+        assert _cycle_retry("0 1 * * *").max_delay_seconds == 43200
+
     def test_beyond_schedule_raises_or_returns_no_retry(self) -> None:
         """Attempt 5+ should signal no retry.
 
