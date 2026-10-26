@@ -51,6 +51,32 @@ async def test_record_started_then_finished(
 
 
 @pytest.mark.asyncio
+async def test_record_finished_success_clears_reaper_error(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (prod mcp_registry, Oct 2026): the 4h reaper stamped a still-live
+    5h cycle `StaleRunReaped`; its later success left `succeeded` + a stale error."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.db import session as session_module
+    from app.ingestion import tasks
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", lambda: _Ctx(db_session))
+
+    run_id = await tasks.record_run_started("mcp_registry", "scheduled")
+    assert run_id is not None
+    await tasks.mark_stale_ingestion_runs(db_session, cutoff=datetime.now(UTC) + timedelta(1))
+    await tasks.record_run_finished(run_id, status="succeeded", duration_ms=5)
+    row = (
+        await db_session.execute(select(IngestionRun).where(IngestionRun.id == run_id))
+    ).scalar_one()
+    await db_session.refresh(row)
+    assert row.status == "succeeded"
+    assert row.error_class is None
+    assert row.error_message is None
+
+
+@pytest.mark.asyncio
 async def test_record_finished_failure_stores_error(
     db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:

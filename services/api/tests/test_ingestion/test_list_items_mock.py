@@ -300,6 +300,7 @@ async def test_mcp_registry_checkpoints_each_page_and_resumes_on_error() -> None
         ),
         patch("app.ingestion.framework.cursor.save_cursor_progress", save_progress),
         patch("app.ingestion.framework.cursor.write_cursor", write_cursor),
+        patch("app.ingestion.sources.mcp_registry._PAGE_RETRY_DELAYS_S", ()),
     ):
         items = [item async for item in adapter.list_items(client)]
 
@@ -315,6 +316,64 @@ async def test_mcp_registry_checkpoints_each_page_and_resumes_on_error() -> None
     )
     # ...and the completion write (success=True) must NOT fire on an interrupted sweep.
     write_cursor.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mcp_registry_transient_page_failure_is_retried_and_sweep_completes() -> None:
+    """Regression (prod, Oct 2026): the registry 500s / times out sporadically and
+    succeeds on retry. One blip on any page of a multi-hour sweep used to abort it,
+    so the watermark never advanced. A transient 5xx + a transport error on the same
+    page must be retried and the sweep must complete (watermark write fires)."""
+    import httpx
+
+    from app.ingestion.sources.mcp_registry import McpRegistryAdapter
+
+    adapter = McpRegistryAdapter(_mcp_config())
+    page = _make_response(
+        {
+            "servers": [
+                {
+                    "server": {"name": "io.github.acme/one"},
+                    "_meta": {
+                        "io.modelcontextprotocol.registry/official": {
+                            "updatedAt": "2025-03-03T00:00:00Z",
+                            "isLatest": True,
+                        }
+                    },
+                }
+            ],
+            "metadata": {},
+        }
+    )
+    client = AsyncMock()
+    client.get = AsyncMock(
+        side_effect=[
+            _make_response({"message": "boom"}, status=500),
+            httpx.ReadTimeout("slow"),
+            page,
+        ]
+    )
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    write_cursor = AsyncMock()
+    with (
+        patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
+        patch(
+            "app.ingestion.framework.cursor.read_cursor",
+            AsyncMock(return_value={"updated_since": "2025-01-01T00:00:00Z"}),
+        ),
+        patch("app.ingestion.framework.cursor.save_cursor_progress", AsyncMock()),
+        patch("app.ingestion.framework.cursor.write_cursor", write_cursor),
+        patch("app.ingestion.sources.mcp_registry.asyncio.sleep", AsyncMock()),
+    ):
+        items = [item async for item in adapter.list_items(client)]
+
+    assert [it.http_status for it in items] == [200]
+    assert client.get.await_count == 3
+    write_cursor.assert_awaited_once()
+    assert write_cursor.await_args is not None
+    assert write_cursor.await_args.args[2]["updated_since"] == "2025-03-03T00:00:00Z"
 
 
 @pytest.mark.asyncio

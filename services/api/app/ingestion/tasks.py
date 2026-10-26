@@ -36,6 +36,7 @@ from app.ingestion import (
 # package — not one adapter — keeps the periodic-task loop below complete.
 from app.ingestion import sources as _sources  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from app.ingestion.config.loader import load_source_configs
+from app.ingestion.framework.alerts import cadence_seconds
 from app.ingestion.framework.base_adapter import build_adapter
 from app.ingestion.framework.cursor import is_source_paused
 from app.ingestion.framework.exceptions import AdapterBlockedError, IngestionError
@@ -218,6 +219,12 @@ async def record_run_finished(
         # no-raw-payload invariant, security.md).
         values["error_class"] = type(error).__name__
         values["error_message"] = str(error)[:2048]
+    elif status == "succeeded":
+        # A long cycle can outlive the age-based run reaper, which stamps
+        # `StaleRunReaped` on the still-live row; a later success must not keep
+        # that stale error next to `succeeded`.
+        values["error_class"] = None
+        values["error_message"] = None
     try:
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -291,6 +298,15 @@ async def _mark_source_blocked(source: str, *, reason: str) -> None:
         logger.warning("ingestion.mark_blocked_failed", source=source)
 
 
+def _cycle_retry(cron: str) -> IngestionRetry:
+    """Retry strategy for one cadenced cycle: backoff clamped to half the cadence,
+    so a pending retry (which holds the queueing lock) never swallows a cron tick.
+    IngestionRetry is a BaseRetryStrategy; the RetryStrategy cast is accepted at
+    runtime."""
+    cadence = cadence_seconds(cron)
+    return IngestionRetry(max_delay_seconds=cadence / 2 if cadence else None)
+
+
 def _register_periodic(source_name: str, cron: str, queue: str) -> None:
     """Register a periodic Procrastinate task for one cadenced source.
 
@@ -308,9 +324,7 @@ def _register_periodic(source_name: str, cron: str, queue: str) -> None:
         priority=INGEST_CYCLE_PRIORITY,
         lock=f"ingest_cycle_{source_name}_lock",
         queueing_lock=f"ingest_cycle_{source_name}_lock",
-        retry=cast(
-            RetryStrategy, IngestionRetry()
-        ),  # IngestionRetry is BaseRetryStrategy; cast accepted at runtime
+        retry=cast(RetryStrategy, _cycle_retry(cron)),
     )
     async def _cycle(  # pyright: ignore[reportUnusedFunction]
         timestamp: int, _src: str = source_name, trigger: str = "scheduled"
