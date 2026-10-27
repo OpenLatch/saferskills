@@ -23,6 +23,7 @@ from __future__ import annotations
 from procrastinate import App, PsycopgConnector
 
 from app.core.config import coerce_ssl_to_sslmode, get_settings
+from app.ingestion.job_manager import ResilientJobManager
 
 _settings = get_settings()
 
@@ -82,6 +83,9 @@ procrastinate_app = App(
         "app.ingestion.sources.smithery",
     ],
 )
+# Retry the end-of-job status write on a dropped connection — a lost write left
+# a `doing` zombie under a live worker that heartbeat recovery never reclaims.
+procrastinate_app.job_manager = ResilientJobManager(connector=procrastinate_app.connector)
 
 # Priority for the cron-scheduled periodic maintenance tasks (reconcile drainer,
 # stalled-retrier, alert evaluator, archive/popularity/author/retention sweeps).
