@@ -14,6 +14,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
+from uuid import UUID
 
 import httpx
 import pytest
@@ -27,6 +28,7 @@ from app.main import app
 from app.routers import stats as stats_router
 from app.routers.stats import rule_count
 from app.scan import rubric
+from app.scan.persistence import refresh_latest_scan
 from app.schemas.stats import PlatformStats
 from app.services import github_stars
 
@@ -91,6 +93,7 @@ async def _seed_scan(
             "latency": latency_ms,
         },
     )
+    await refresh_latest_scan(session, [UUID(item_id)])
 
 
 async def _seed_run(
@@ -120,21 +123,18 @@ async def _seed_run(
 
 @pytest.mark.asyncio
 async def test_median_and_latency_exclude_pending(db_session: AsyncSession) -> None:
-    item_id = await _seed_item(db_session, "stats-median")
-    # Median is over per-capability scans (tier != unscoped); the pending
+    # Median is over each item's latest completed scan; an item with only a pending
     # (unscoped) scan must be excluded.
-    await _seed_scan(
-        db_session, item_id=item_id, idem="a" * 64, score=40, tier="orange", latency_ms=0
-    )
-    await _seed_scan(
-        db_session, item_id=item_id, idem="b" * 64, score=60, tier="yellow", latency_ms=0
-    )
-    await _seed_scan(
-        db_session, item_id=item_id, idem="c" * 64, score=80, tier="green", latency_ms=0
-    )
-    await _seed_scan(
-        db_session, item_id=item_id, idem="d" * 64, score=0, tier="unscoped", latency_ms=0
-    )
+    for slug, idem, score, tier in (
+        ("stats-median-a", "a", 40, "orange"),
+        ("stats-median-b", "b", 60, "yellow"),
+        ("stats-median-c", "c", 80, "green"),
+        ("stats-median-d", "d", 0, "unscoped"),
+    ):
+        item_id = await _seed_item(db_session, slug)
+        await _seed_scan(
+            db_session, item_id=item_id, idem=idem * 64, score=score, tier=tier, latency_ms=0
+        )
     # Latency is over completed repo SCAN RUNS (the timed unit); the pending run
     # must be excluded (per-capability scans carry latency_ms=0).
     await _seed_run(
