@@ -313,21 +313,13 @@ async def list_scans(
     """Slim summary list of repo scan RUNS (one row per repo scan, not per
     capability — a multi-capability repo would otherwise flood the feed).
     Findings count sums across the run's per-capability scans."""
-    findings_per_run = (
-        select(Scan.scan_run_id.label("run_id"), func.count(Finding.id).label("c"))
-        .join(Finding, Finding.scan_id == Scan.id)
-        .group_by(Scan.scan_run_id)
-        .subquery()
-    )
-
     # Public-only feed — unlisted runs never appear in any list. The
     # bulk auto-scan firehose (`ingestion` coverage/freshness + `rescan_rules`
     # version re-evals) is excluded too: the feed is submissions + notable scans,
     # not the thousands of background runs the reconciliation drainer produces.
     # Item scores still surface on /items + item pages.
     stmt = (
-        select(ScanRun, func.coalesce(findings_per_run.c.c, 0).label("findings_count"))
-        .join(findings_per_run, findings_per_run.c.run_id == ScanRun.id, isouter=True)
+        select(ScanRun)
         .where(ScanRun.visibility == "public")
         .where(ScanRun.source.notin_(_FEED_EXCLUDED_SOURCES))
     )
@@ -346,9 +338,23 @@ async def list_scans(
         stmt = stmt.order_by(ScanRun.repo_aggregate_score, ScanRun.scanned_at)
 
     stmt = stmt.limit(limit + 1)
-    rows = (await session.execute(stmt)).all()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
+    runs = list((await session.execute(stmt)).scalars().all())
+    has_more = len(runs) > limit
+    runs = runs[:limit]
+
+    # Count findings for this page only. Grouping before the LIMIT would aggregate
+    # every finding in the table on each request.
+    findings_counts: dict[object, int] = {}
+    if runs:
+        count_rows = (
+            await session.execute(
+                select(Scan.scan_run_id, func.count(Finding.id))
+                .join(Finding, Finding.scan_id == Scan.id)
+                .where(Scan.scan_run_id.in_([run.id for run in runs]))
+                .group_by(Scan.scan_run_id)
+            )
+        ).all()
+        findings_counts = {run_id: int(count) for run_id, count in count_rows}
 
     total = (
         await session.execute(
@@ -357,10 +363,10 @@ async def list_scans(
             .where(ScanRun.source.notin_(_FEED_EXCLUDED_SOURCES))
         )
     ).scalar_one()
-    next_cursor = rows[-1][0].id.hex if (has_more and rows) else None
+    next_cursor = runs[-1].id.hex if (has_more and runs) else None
 
     return ListEnvelope(
-        data=[_run_summary_row(run, int(count)) for run, count in rows],
+        data=[_run_summary_row(run, findings_counts.get(run.id, 0)) for run in runs],
         next_cursor=next_cursor,
         total_count=int(total),
     )

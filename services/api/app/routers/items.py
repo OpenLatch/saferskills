@@ -26,7 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.rate_limit import enforce_ip_rate_limit
-from app.db.session import get_session
+from app.core.ttl_cache import TtlCache
+from app.db.session import SessionFactory, get_session, get_session_factory
 from app.models.artifact_blob import ArtifactBlob
 from app.models.catalog_item import CatalogItem
 from app.models.install_event import InstallEvent
@@ -72,6 +73,8 @@ router = APIRouter(prefix="/items", tags=["items"])
 # Hard cap on a served snapshot zip (uncompressed total), mirrors the engine's
 # 25 MiB tarball fetch cap. Over this → 413 on the anonymous download endpoint.
 _MAX_ZIP_BYTES = 25 * 1024 * 1024
+
+_facets_cache: TtlCache[CatalogFacets] = TtlCache(name="item_facets", ttl_s=60.0)
 
 
 SortKey = Literal[
@@ -143,7 +146,17 @@ def _to_summary(
 
 
 @router.get("/facets", response_model=CatalogFacets)
-async def get_facets(session: AsyncSession = Depends(get_session)) -> CatalogFacets:
+async def get_facets(
+    session_factory: SessionFactory = Depends(get_session_factory),
+) -> CatalogFacets:
+    async def load() -> CatalogFacets:
+        async with session_factory() as session:
+            return await _compute_facets(session)
+
+    return await _facets_cache.get(load)
+
+
+async def _compute_facets(session: AsyncSession) -> CatalogFacets:
     # Public-only catalog: unlisted shadow rows never contribute to any facet.
     total = (
         await session.execute(
@@ -337,12 +350,14 @@ async def list_items(
         )
     if q:
         # Postgres FTS (search_vector tsvector, migration 0010) OR pg_trgm fuzzy
-        # on display_name. search_vector is a DB-generated column, not a
+        # on display_name. `%` is the indexable form (idx_catalog_items_name_trgm)
+        # at pg_trgm's default 0.3 threshold; similarity() can't use the index, and
+        # the OR would turn the whole search into a seq scan. search_vector is a DB-generated column, not a
         # mapped attribute — referenced via text() with a bound param.
         stmt = stmt.where(
             text(
                 "(catalog_items.search_vector @@ websearch_to_tsquery('english', :q) "
-                "OR similarity(catalog_items.display_name, :q) > 0.3)"
+                "OR catalog_items.display_name % :q)"
             ).bindparams(q=q)
         )
 

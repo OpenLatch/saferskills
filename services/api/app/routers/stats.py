@@ -2,8 +2,8 @@
 
 Single endpoint backing every live homepage metric (catalog size, registries,
 tier mix, median score, scan latency, rule count, agents, GitHub stars). The
-whole payload is memoized in-process for ~60s (no Redis per
-`.claude/rules/tech-stack.md`); `github_stars` carries its own ~1h cache inside
+whole payload sits in a single-flight, in-process cache (`TtlCache`, no Redis per
+`.claude/rules/tech-stack.md`), refreshed about every 60s; `github_stars` carries its own ~1h cache inside
 `services.github_stars`.
 
 Every scalar is nullable / floored so the frontend's `pickCount` fallback can
@@ -13,12 +13,11 @@ launch placeholder should stand in (see `.claude/rules/frontend-patterns.md`).
 
 from __future__ import annotations
 
-import time
-
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
+from app.core.ttl_cache import TtlCache
+from app.db.session import SessionFactory, get_session_factory
 from app.queries import (
     count_catalog_total,
     count_distinct_registries,
@@ -37,8 +36,7 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 # platform is added.
 SUPPORTED_AGENTS_COUNT = 8
 
-_CACHE_TTL_SECONDS = 60.0
-_cache: tuple[float, PlatformStats] | None = None
+_cache: TtlCache[PlatformStats] = TtlCache(name="stats", ttl_s=60.0)
 
 
 def rule_count() -> int:
@@ -71,21 +69,17 @@ async def _compute(session: AsyncSession) -> PlatformStats:
 @router.get("", response_model=PlatformStats, summary="Homepage platform metrics.")
 async def get_stats(
     response: Response,
-    session: AsyncSession = Depends(get_session),
+    session_factory: SessionFactory = Depends(get_session_factory),
 ) -> PlatformStats:
-    global _cache
     response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=300"
 
-    now = time.monotonic()
-    if _cache is not None and (now - _cache[0]) < _CACHE_TTL_SECONDS:
-        return _cache[1]
+    async def load() -> PlatformStats:
+        async with session_factory() as session:
+            return await _compute(session)
 
-    stats = await _compute(session)
-    _cache = (now, stats)
-    return stats
+    return await _cache.get(load)
 
 
 def reset_cache() -> None:
-    """Clear the memoized payload. Used by tests; harmless in production."""
-    global _cache
-    _cache = None
+    """Clear the cached payload. Used by tests; harmless in production."""
+    _cache.reset()

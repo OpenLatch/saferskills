@@ -11,7 +11,8 @@ scan-listing query proves the ordering matters.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -99,3 +100,12 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency: yields a per-request `AsyncSession`."""
     async with AsyncSessionLocal() as session:
         yield session
+
+
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
+
+
+def get_session_factory() -> SessionFactory:
+    """FastAPI dependency: the factory for work that outlives the request, such as
+    a shared `TtlCache` load. A request-scoped session closes when its request ends."""
+    return AsyncSessionLocal

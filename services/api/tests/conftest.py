@@ -27,6 +27,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.ttl_cache import reset_all_caches
 from app.main import app
 
 
@@ -75,6 +76,12 @@ def _test_database_url() -> str:
     if dev.endswith("_test"):
         return dev
     return f"{dev}_test"
+
+
+@pytest.fixture(autouse=True)
+def _reset_ttl_caches() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Process-wide response caches must not carry one test's rows into the next."""
+    reset_all_caches()
 
 
 @pytest_asyncio.fixture(scope="session")

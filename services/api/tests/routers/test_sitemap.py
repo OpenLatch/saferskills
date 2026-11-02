@@ -7,6 +7,7 @@ public scan. `lastmod` reflects the row's real `scanned_at`, never `now()`.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from xml.etree.ElementTree import Element
@@ -20,6 +21,7 @@ from app.models.catalog_item import CatalogItem
 from app.models.generated.agent_run import AgentRun
 from app.models.scan import Scan
 from app.models.scan_run import ScanRun
+from app.seo import sitemap as sitemap_queries
 
 _NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
@@ -276,3 +278,30 @@ async def test_agents_shard_graded_only(db_client: AsyncClient, db_session: Asyn
 async def test_unknown_section_404s(db_client: AsyncClient, db_session: AsyncSession) -> None:
     resp = await db_client.get("/api/v1/sitemap/shard/bogus-1.xml")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_concurrent_index_fetches_walk_the_corpus_once(
+    db_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: each index fetch re-enumerated every section, and each one that
+    timed out left the next fetch to start over."""
+    calls = 0
+    release = asyncio.Event()
+
+    async def _slow_names(_session: AsyncSession) -> list[str]:
+        nonlocal calls
+        calls += 1
+        await release.wait()
+        return ["items-1"]
+
+    monkeypatch.setattr(sitemap_queries, "index_shard_names", _slow_names)
+
+    requests = [asyncio.create_task(db_client.get("/api/v1/sitemap/index.xml")) for _ in range(5)]
+    await asyncio.sleep(0.05)
+    release.set()
+    responses = await asyncio.gather(*requests)
+
+    assert {resp.status_code for resp in responses} == {200}
+    assert calls == 1
+    assert "items-1" in responses[0].text

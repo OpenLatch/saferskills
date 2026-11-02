@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.catalog_item import CatalogItem
 from app.models.install_event import InstallEvent
 from app.models.scan import Scan
+from tests.sql_capture import capture_sql
 
 
 async def _seed(session: AsyncSession, n: int = 5) -> str:
@@ -388,3 +389,35 @@ async def test_activity_sort_and_sparkline(
     assert len(busiest) == 13
     assert sum(busiest) == 3
     assert busiest[-1] == 3  # `now` lands in the newest weekly bucket
+
+
+@pytest.mark.asyncio
+async def test_search_fuzzy_match_uses_the_indexable_operator(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Regression: `similarity(x, :q) > 0.3` can't use the trigram index, so one
+    search seq-scanned the catalog. A typo must still match through `%`."""
+    token = uuid.uuid4().hex[:8]
+    db_session.add(
+        CatalogItem(
+            kind="skill",
+            slug=f"{token}--helper",
+            display_name=f"{token} kubernetes helper",
+            github_url=f"https://github.com/{token}/helper",
+            github_org=token,
+            github_repo="helper",
+            default_branch="main",
+            popularity_tier="indexed",
+            popularity_score=1,
+            agent_compatibility=[],
+            sources=[],
+        )
+    )
+    await db_session.flush()
+
+    async with capture_sql(db_session) as statements:
+        resp = await db_client.get("/api/v1/items", params={"q": f"{token} kubernetes helpr"})
+
+    assert resp.status_code == 200
+    assert [row["slug"] for row in resp.json()["data"]] == [f"{token}--helper"]
+    assert not any("similarity(" in s for s in statements)
