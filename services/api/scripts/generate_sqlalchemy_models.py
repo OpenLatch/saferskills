@@ -540,7 +540,8 @@ def build_table_args(schema: dict[str, Any]) -> list[str]:
         args.append(f"sa.PrimaryKeyConstraint({cols})")
 
     for idx in schema.get("x-postgresql-indexes", []):
-        cols = ", ".join(f'"{c}"' for c in idx["columns"])
+        # A column with a sort spec ("score DESC NULLS LAST") is an expression.
+        cols = ", ".join(f'sa.text("{c}")' if " " in c else f'"{c}"' for c in idx["columns"])
         extra_args: list[str] = []
         if idx.get("unique"):
             extra_args.append("unique=True")

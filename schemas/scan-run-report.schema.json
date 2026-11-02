@@ -6,7 +6,8 @@
   "x-postgresql-classname": "ScanRun",
   "x-postgresql-tablename": "scan_runs",
   "x-postgresql-indexes": [
-    { "name": "idx_scan_runs_expires_at", "columns": ["expires_at"], "where": "visibility = 'unlisted'" }
+    { "name": "idx_scan_runs_expires_at", "columns": ["expires_at"], "where": "visibility = 'unlisted'" },
+    { "name": "idx_scan_runs_feed", "columns": ["scanned_at DESC", "id DESC"], "where": "visibility = 'public' AND source NOT IN ('ingestion', 'rescan_rules')" }
   ],
   "x-postgresql-extra-columns": [
     { "name": "idempotency_key", "type": "varchar", "length": 64, "nullable": false, "unique": true },

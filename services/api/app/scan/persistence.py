@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -440,6 +440,51 @@ async def create_unlisted_shadow_item(
     return item
 
 
+_REFRESH_LATEST_SCAN_SQL = text("""
+    WITH latest AS (
+        SELECT i.id AS item_id, s.id, s.aggregate_score, s.tier, s.scanned_at
+        FROM unnest(CAST(:item_ids AS uuid[])) AS i(id)
+        LEFT JOIN LATERAL (
+            SELECT id, aggregate_score, tier, scanned_at
+            FROM scans
+            WHERE catalog_item_id = i.id AND tier <> 'unscoped'
+            ORDER BY scanned_at DESC, id DESC
+            LIMIT 1
+        ) s ON true
+    ), updated AS (
+        UPDATE catalog_items c
+        SET latest_scan_id = l.id,
+            latest_scan_score = l.aggregate_score,
+            latest_scan_tier = l.tier,
+            latest_scanned_at = l.scanned_at
+        FROM latest l
+        WHERE c.id = l.item_id
+          AND (c.latest_scan_id, c.latest_scan_score, c.latest_scan_tier, c.latest_scanned_at)
+              IS DISTINCT FROM (l.id, l.aggregate_score, l.tier, l.scanned_at)
+        RETURNING 1
+    )
+    SELECT count(*) FROM updated
+""")
+
+
+async def refresh_latest_scan(session: AsyncSession, item_ids: Iterable[UUID]) -> int:
+    """Recompute `catalog_items.latest_scan_*` from `scans`. Returns the rows changed.
+
+    Every writer that adds, scores, moves or deletes a `scans` row calls this in the
+    same transaction. "Latest" means the newest scan with `tier != 'unscoped'`, as on
+    the item page and in the sitemap, so a rescan's placeholder doesn't blank the row.
+
+    Raw SQL on purpose: `updated_at` must not move, because the `recent` catalog sort
+    reads it, and an unchanged row isn't rewritten. Raw SQL doesn't autoflush, so
+    pending scan changes are flushed first.
+    """
+    ids = sorted(set(item_ids))
+    if not ids:
+        return 0
+    await session.flush()
+    return (await session.execute(_REFRESH_LATEST_SCAN_SQL, {"item_ids": ids})).scalar_one()
+
+
 def _placeholder_scan(
     catalog_item_id: UUID,
     idempotency_key: str,
@@ -591,6 +636,8 @@ async def _apply_scan_result(
             file_map = await _capture_snapshot(session, result.files_index)
         scan.file_hashes = file_map
         item.content_hash_sha256 = _snapshot_identity(file_map)
+
+    await refresh_latest_scan(session, [scan.catalog_item_id])
 
 
 async def persist_completed_scan(
@@ -898,6 +945,7 @@ async def promote_run_to_public(
             )
             existing.visibility = "public"
             await session.delete(item)
+            await refresh_latest_scan(session, [existing.id])
             promoted.append(_promoted_item(existing, merged=True))
         else:
             item.slug = canonical_slug
@@ -932,6 +980,14 @@ async def select_existing_by_idempotency(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def _run_scan_item_ids(session: AsyncSession, run_id: UUID) -> list[UUID]:
+    """Catalog items a run's scans belong to, read before those scans are deleted."""
+    rows = await session.execute(
+        select(Scan.catalog_item_id).where(Scan.scan_run_id == run_id).distinct()
+    )
+    return list(rows.scalars().all())
+
+
 async def delete_run_cascade(
     session: AsyncSession, run_id: UUID, *, allow_public: bool = False
 ) -> None:
@@ -961,6 +1017,7 @@ async def delete_run_cascade(
     scan_ids = list(
         (await session.execute(select(Scan.id).where(Scan.scan_run_id == run_id))).scalars().all()
     )
+    affected_items = await _run_scan_item_ids(session, run_id)
     if scan_ids:
         await session.execute(delete(Finding).where(Finding.scan_id.in_(scan_ids)))
     await session.execute(delete(ScanEvent).where(ScanEvent.scan_run_id == run_id))
@@ -968,6 +1025,7 @@ async def delete_run_cascade(
     # Shadow rows ONLY — a canonical public row has owner_run_id IS NULL.
     await session.execute(delete(CatalogItem).where(CatalogItem.owner_run_id == run_id))
     await session.execute(delete(UploadFile).where(UploadFile.scan_run_id == run_id))
+    await refresh_latest_scan(session, affected_items)
     await session.delete(run)
     await session.flush()
 
@@ -993,12 +1051,14 @@ async def reset_failed_run_for_rerun(session: AsyncSession, run: ScanRun) -> Sca
     scan_ids = list(
         (await session.execute(select(Scan.id).where(Scan.scan_run_id == run.id))).scalars().all()
     )
+    affected_items = await _run_scan_item_ids(session, run.id)
     if scan_ids:
         await session.execute(delete(Finding).where(Finding.scan_id.in_(scan_ids)))
     await session.execute(delete(ScanEvent).where(ScanEvent.scan_run_id == run.id))
     await session.execute(delete(Scan).where(Scan.scan_run_id == run.id))
     await session.execute(delete(CatalogItem).where(CatalogItem.owner_run_id == run.id))
     await session.execute(delete(UploadFile).where(UploadFile.scan_run_id == run.id))
+    await refresh_latest_scan(session, affected_items)
 
     run.status = "pending"
     run.repo_aggregate_score = 0

@@ -2,32 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from procrastinate.schema import SchemaManager
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ingestion.tasks_retention import sweep_succeeded_jobs
-
-
-@pytest_asyncio.fixture
-async def savepoint_session(db_engine: Any) -> AsyncIterator[AsyncSession]:
-    """The sweep commits per batch, so its commits must stay inside a rollback."""
-    async with db_engine.connect() as conn:
-        outer = await conn.begin()
-        session = AsyncSession(
-            bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
-        )
-        try:
-            yield session
-        finally:
-            await session.close()
-            await outer.rollback()
 
 
 @pytest.mark.asyncio
