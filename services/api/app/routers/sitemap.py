@@ -16,23 +16,34 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.db.session import get_session
+from app.core.ttl_cache import TtlCache
+from app.db.session import SessionFactory, get_session, get_session_factory
 from app.seo import sitemap
 
 router = APIRouter(prefix="/sitemap", tags=["seo"])
+
+# Matches the index's max-age. Crawlers fetch it rarely, but one uncached fetch
+# walks every section, so overlapping fetches must not each run that.
+_index_cache: TtlCache[str] = TtlCache(name="sitemap_index", ttl_s=3600.0)
 
 _CACHE_HEADERS = {"Cache-Control": "public, max-age=3600"}
 _XML = "application/xml"
 
 
 @router.get("/index.xml")
-async def sitemap_index(session: AsyncSession = Depends(get_session)) -> Response:
+async def sitemap_index(
+    session_factory: SessionFactory = Depends(get_session_factory),
+) -> Response:
     """The `<sitemapindex>`. Always lists the webapp-owned `static` shard first,
     then one shard per ≤50k rows of items / scans / agents."""
     origin = get_settings().saferskills_site_origin
-    db_shards = await sitemap.index_shard_names(session)
-    shard_names = ["static", *db_shards]
-    xml = sitemap.index(shard_names, origin)
+
+    async def load() -> str:
+        async with session_factory() as session:
+            db_shards = await sitemap.index_shard_names(session)
+        return sitemap.index(["static", *db_shards], origin)
+
+    xml = await _index_cache.get(load)
     return Response(xml, media_type=_XML, headers=_CACHE_HEADERS)
 
 

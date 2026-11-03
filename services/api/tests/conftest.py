@@ -21,12 +21,14 @@ import os
 import sys
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.ttl_cache import reset_all_caches
 from app.main import app
 
 
@@ -77,6 +79,12 @@ def _test_database_url() -> str:
     return f"{dev}_test"
 
 
+@pytest.fixture(autouse=True)
+def _reset_ttl_caches() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Process-wide response caches must not carry one test's rows into the next."""
+    reset_all_caches()
+
+
 @pytest_asyncio.fixture(scope="session")
 async def db_engine() -> AsyncIterator[object]:
     """Session-scoped async engine. Runs `alembic upgrade head` once.
@@ -103,6 +111,22 @@ async def db_engine() -> AsyncIterator[object]:
     engine = create_async_engine(url, pool_pre_ping=True)
     yield engine
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def savepoint_session(db_engine: Any) -> AsyncIterator[AsyncSession]:
+    """For code that commits: each commit releases a SAVEPOINT inside one outer
+    transaction, which teardown rolls back."""
+    async with db_engine.connect() as conn:
+        outer = await conn.begin()
+        session = AsyncSession(
+            bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
+        )
+        try:
+            yield session
+        finally:
+            await session.close()
+            await outer.rollback()
 
 
 @pytest_asyncio.fixture

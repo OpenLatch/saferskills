@@ -10,7 +10,9 @@ Covers:
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -20,11 +22,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import queries
-from app.db.session import get_session
+from app.db.session import get_session_factory
 from app.main import app
 from app.routers import stats as stats_router
 from app.routers.stats import rule_count
 from app.scan import rubric
+from app.schemas.stats import PlatformStats
 from app.services import github_stars
 
 
@@ -255,19 +258,20 @@ async def test_stats_endpoint_shape_and_cache_header(
     client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Route the endpoint at the rolled-back test session; stub the network proxy.
-    async def _override() -> AsyncIterator[AsyncSession]:
+    @asynccontextmanager
+    async def _shared_session() -> AsyncGenerator[AsyncSession]:
         yield db_session
 
     async def _fake_stars() -> int | None:
         return 4321
 
     stats_router.reset_cache()
-    app.dependency_overrides[get_session] = _override
+    app.dependency_overrides[get_session_factory] = lambda: _shared_session
     monkeypatch.setattr(stats_router, "get_github_stars", _fake_stars)
     try:
         resp = await client.get("/api/v1/stats")
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_session_factory, None)
         stats_router.reset_cache()
 
     assert resp.status_code == 200
@@ -278,3 +282,47 @@ async def test_stats_endpoint_shape_and_cache_header(
     assert body["github_stars"] == 4321
     # snake_case keys per OrmBaseModel contract.
     assert "tier_distribution" in body and "p95_latency_ms" in body
+
+
+@pytest.mark.asyncio
+async def test_concurrent_stats_requests_share_one_computation(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: every request that missed the cache ran the aggregate queries, so
+    a saturated database got more copies of its slowest query."""
+    calls = 0
+    release = asyncio.Event()
+    payload = PlatformStats(
+        catalog_total=1,
+        registries_count=1,
+        tier_distribution={},
+        median_score=None,
+        p95_latency_ms=None,
+        avg_latency_ms=None,
+        rule_count=1,
+        agents_count=8,
+        github_stars=None,
+    )
+
+    @asynccontextmanager
+    async def _no_session() -> AsyncGenerator[None]:
+        yield None
+
+    async def _slow_compute(_session: object) -> PlatformStats:
+        nonlocal calls
+        calls += 1
+        await release.wait()
+        return payload
+
+    monkeypatch.setattr(stats_router, "_compute", _slow_compute)
+    app.dependency_overrides[get_session_factory] = lambda: _no_session
+    try:
+        requests = [asyncio.create_task(client.get("/api/v1/stats")) for _ in range(10)]
+        await asyncio.sleep(0.05)
+        release.set()
+        responses = await asyncio.gather(*requests)
+    finally:
+        app.dependency_overrides.pop(get_session_factory, None)
+
+    assert {resp.status_code for resp in responses} == {200}
+    assert calls == 1

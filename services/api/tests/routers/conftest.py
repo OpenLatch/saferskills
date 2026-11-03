@@ -10,7 +10,8 @@ live Postgres (the `test-be` CI lane provides one); pure-JWT tests in
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -18,7 +19,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
+from app.db.session import get_session, get_session_factory
 from app.main import app
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
@@ -59,12 +60,18 @@ async def db_client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     async def _override() -> AsyncIterator[AsyncSession]:
         yield db_session
 
+    @asynccontextmanager
+    async def _shared_session() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
     app.dependency_overrides[get_session] = _override
+    app.dependency_overrides[get_session_factory] = lambda: _shared_session
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_session_factory, None)
 
 
 @pytest_asyncio.fixture

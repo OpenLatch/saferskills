@@ -18,6 +18,7 @@ from app.models.generated._base import (
     popularity_tier_enum,
     quality_tier_enum,
     source_kind_enum,
+    tier_enum,
     visibility_enum,
 )
 
@@ -45,6 +46,39 @@ class CatalogItem(Base):
         ),
         sa.Index("idx_catalog_items_last_scanned_at", "last_scanned_at"),
         sa.Index("idx_catalog_items_last_checked_at", "last_checked_at"),
+        sa.Index(
+            "idx_catalog_items_list_popularity",
+            sa.text("popularity_score DESC"),
+            "slug",
+            postgresql_where=sa.text("archived = false AND visibility = 'public'"),
+        ),
+        sa.Index(
+            "idx_catalog_items_list_score_asc",
+            "latest_scan_score",
+            "slug",
+            postgresql_where=sa.text("archived = false AND visibility = 'public'"),
+        ),
+        sa.Index(
+            "idx_catalog_items_list_score_desc",
+            sa.text("latest_scan_score DESC NULLS LAST"),
+            "slug",
+            postgresql_where=sa.text("archived = false AND visibility = 'public'"),
+        ),
+        sa.Index(
+            "idx_catalog_items_list_kind_score",
+            "kind",
+            sa.text("latest_scan_score DESC NULLS LAST"),
+            "slug",
+            postgresql_where=sa.text("archived = false AND visibility = 'public'"),
+        ),
+        sa.Index(
+            "idx_catalog_items_list_scanned_at",
+            sa.text("latest_scanned_at DESC"),
+            "slug",
+            postgresql_where=sa.text(
+                "archived = false AND visibility = 'public' AND latest_scanned_at IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -254,6 +288,26 @@ class CatalogItem(Base):
     )
 
     last_checked_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+
+    latest_scan_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        nullable=True,
+    )
+
+    latest_scan_score: Mapped[int | None] = mapped_column(
+        sa.Integer,
+        nullable=True,
+    )
+
+    latest_scan_tier: Mapped[str | None] = mapped_column(
+        tier_enum,
+        nullable=True,
+    )
+
+    latest_scanned_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=True,
     )

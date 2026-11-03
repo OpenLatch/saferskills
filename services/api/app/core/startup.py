@@ -23,10 +23,12 @@ import asyncio
 
 import structlog
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 from app.core.startup_state import startup_state
-from app.db.session import AsyncSessionLocal, async_engine
+from app.db.session import async_engine
 
 logger = structlog.get_logger(__name__)
 
@@ -61,40 +63,45 @@ async def _run_migrations_locked() -> None:
 
     Multiple API Machines boot simultaneously on deploy. Without a mutex they'd
     all call `alembic upgrade head` concurrently — the first would succeed,
-    others would race or fail on duplicate DDL. The lock is held on this
-    session's own connection via `pg_advisory_lock(key)`; subsequent Machines
-    block there until we release, at which point alembic sees `head` and the
-    upgrade is a no-op. The actual migration runs on env.py's separate fresh
-    async engine — correct for session-level locks.
+    others would race or fail on duplicate DDL. The lock is held on its own
+    connection via `pg_advisory_lock(key)`; subsequent Machines block there until
+    we release, at which point alembic sees `head` and the upgrade is a no-op. The
+    actual migration runs on env.py's separate fresh async engine — correct for
+    session-level locks.
+
+    The holder uses a dedicated AUTOCOMMIT connection, for two reasons:
+
+    - It must not sit in an open transaction. `CREATE INDEX CONCURRENTLY` waits for
+      older transactions to finish, and this one only ends after the migration does,
+      so a migration using it would wait on its own lock holder forever.
+    - The shared engine's statement_timeout (db/session.py connect_args) must not
+      apply: it would abort the blocking `pg_advisory_lock` wait under multi-Machine
+      contention. Ending the session early would also release the lock and let
+      another Machine race the DDL.
     """
     log = logger.bind(step="migrations", lock_key=_MIGRATION_LOCK_KEY)
 
-    async with AsyncSessionLocal() as lock_session:
-        # This session HOLDS the migration advisory lock for the whole migration
-        # (which runs on env.py's separate engine), sitting idle-in-transaction
-        # meanwhile. The shared engine's statement_timeout +
-        # idle_in_transaction_session_timeout (db/session.py connect_args) must NOT
-        # apply here: the timeout would abort the blocking `pg_advisory_lock` wait
-        # under multi-Machine contention, and idle_in_transaction would TERMINATE
-        # this session mid-migration — releasing the session-level lock and letting
-        # another Machine race the DDL. `SET LOCAL` scopes the exemption to this
-        # one transaction (no pooled-connection contamination).
-        await lock_session.execute(text("SET LOCAL statement_timeout = 0"))
-        await lock_session.execute(text("SET LOCAL idle_in_transaction_session_timeout = 0"))
-        await lock_session.execute(
-            text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY}
-        )
-        log.info("migrations_lock_acquired")
-        try:
-            log.info("migrations_start")
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _run_migrations_sync)
-            log.info("migrations_complete")
-        finally:
-            await lock_session.execute(
-                text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY}
+    lock_engine = create_async_engine(
+        get_settings().database_url, isolation_level="AUTOCOMMIT", poolclass=NullPool
+    )
+    try:
+        async with lock_engine.connect() as lock_conn:
+            await lock_conn.execute(
+                text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY}
             )
-            log.info("migrations_lock_released")
+            log.info("migrations_lock_acquired")
+            try:
+                log.info("migrations_start")
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, _run_migrations_sync)
+                log.info("migrations_complete")
+            finally:
+                await lock_conn.execute(
+                    text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY}
+                )
+                log.info("migrations_lock_released")
+    finally:
+        await lock_engine.dispose()
 
 
 async def run_startup() -> None:

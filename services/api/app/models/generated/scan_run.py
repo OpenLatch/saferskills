@@ -31,6 +31,14 @@ class ScanRun(Base):
             "expires_at",
             postgresql_where=sa.text("visibility = 'unlisted'"),
         ),
+        sa.Index(
+            "idx_scan_runs_feed",
+            sa.text("scanned_at DESC"),
+            sa.text("id DESC"),
+            postgresql_where=sa.text(
+                "visibility = 'public' AND source NOT IN ('ingestion', 'rescan_rules')"
+            ),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

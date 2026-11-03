@@ -11,7 +11,7 @@ import CatalogApp from '@/components/catalog/CatalogApp.tsx'
 import { stateFromSearchParams } from '@/components/catalog/constants'
 import { fetchCatalogFacets, listCatalogItems, type CatalogListResponse } from '@/lib/api/items'
 import { fetchPlatformStats } from '@/lib/api/stats'
-import { fetchOrNull } from '@/lib/fallback'
+import { fetchOrNullWithin, OPTIONAL_FETCH_TIMEOUT_MS } from '@/lib/fallback'
 
 import '@/styles/page-catalog.css'
 
@@ -47,8 +47,8 @@ const [response, facets, stats] = await Promise.all([
     page: pageNum,
     limit: PAGE_SIZE,
   }).catch(() => EMPTY),
-  fetchOrNull(fetchCatalogFacets),
-  fetchOrNull(fetchPlatformStats),
+  fetchOrNullWithin(fetchCatalogFacets, OPTIONAL_FETCH_TIMEOUT_MS),
+  fetchOrNullWithin(fetchPlatformStats, OPTIONAL_FETCH_TIMEOUT_MS),
 ])
 
 const totalIndexed = stats?.catalog_total ?? response.total_count

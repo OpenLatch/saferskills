@@ -13,7 +13,7 @@ import ScanRecents from '@/components/scan/ScanRecents.astro'
 import { listRecentSubmissionScans } from '@/lib/api/scans'
 import { listAgentScans } from '@/lib/api/agent-scans'
 import { fetchPlatformStats } from '@/lib/api/stats'
-import { fetchOrNull, pickCount } from '@/lib/fallback'
+import { fetchOrNullWithin, OPTIONAL_FETCH_TIMEOUT_MS, pickCount } from '@/lib/fallback'
 import { ruleCount as methodologyRuleCount } from '@/generated/methodology/rule-count'
 
 import '@/styles/page-scan-submit.css'
@@ -26,7 +26,7 @@ const initialMode = Astro.url.searchParams.get('mode') === 'agent' ? 'agent' : '
 const [recentScans, recentAgentsRes, stats] = await Promise.all([
   listRecentSubmissionScans({ limit: 4 }).catch(() => []),
   listAgentScans({ sort: 'newest', pageSize: 4 }).catch(() => null),
-  fetchOrNull(fetchPlatformStats),
+  fetchOrNullWithin(fetchPlatformStats, OPTIONAL_FETCH_TIMEOUT_MS),
 ])
 const recentAgents = recentAgentsRes?.data ?? []
 

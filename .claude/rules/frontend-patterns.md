@@ -132,6 +132,7 @@ The primitives live in `webapp/src/lib/fallback.ts`:
 - `pickList(live, placeholder, minItems = 3)` — use the live array only when it has ≥ `minItems` items.
 - `pickCount(live, placeholder, minCount = 10)` — use the live scalar only when it clears the floor. (`rule_count` passes `minCount = 1` — any rule count is meaningful.)
 - `fetchOrNull(fn)` — error-safe fetch → `null`, so the picker (not a scattered `.catch(() => [])`) decides live-vs-placeholder.
+- `fetchOrNullWithin(fn, ms)` — the same with a deadline, for optional widgets on an SSR page, so a slow one can't hold the whole response (`OPTIONAL_FETCH_TIMEOUT_MS`).
 
 Fallback values are quarantined in **one** clearly-labeled module (`webapp/src/data/launch-fallbacks.ts`), header-commented "Used ONLY as fallback — never a primary source." Genuine config/copy/cited-facts (install paths, curated marketing taxonomy, scoring weights, About-page cited stats) stays out of it.
 

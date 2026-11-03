@@ -66,6 +66,7 @@ procrastinate_app = App(
         "app.ingestion.tasks_archive",
         "app.ingestion.tasks_authors",
         "app.ingestion.tasks_retention",
+        "app.ingestion.tasks_latest_scan",
         "app.ingestion.framework.alerts",
         "app.ingestion.sources.claudeskills_info",
         "app.ingestion.sources.clawhub",

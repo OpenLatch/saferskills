@@ -39,3 +39,22 @@ export async function fetchOrNull<T>(fn: () => Promise<T>): Promise<T | null> {
     return null
   }
 }
+
+/**
+ * `fetchOrNull` with a deadline, for optional page data. SSR awaits everything
+ * before sending a byte, so a slow optional widget would otherwise hold the page.
+ */
+export async function fetchOrNullWithin<T>(fn: () => Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms)
+  })
+  try {
+    return await Promise.race([fetchOrNull(fn), deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** How long SSR waits for optional widgets such as stats and facets. */
+export const OPTIONAL_FETCH_TIMEOUT_MS = 3000

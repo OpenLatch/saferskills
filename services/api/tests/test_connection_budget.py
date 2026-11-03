@@ -12,13 +12,15 @@ silently exhausting the shared SQLAlchemy pool the public API serves from:
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 from app.core.config import Settings
-from app.db.session import get_session
+from app.db.session import get_session_factory
 from app.ingestion import worker
 from app.main import app
 
@@ -68,19 +70,22 @@ def test_worker_budget_counts_scan_concurrency(
 async def test_pool_timeout_returns_bounded_503() -> None:
     """A SQLAlchemy pool-checkout timeout surfaces as a clean 503, not a 500/hang.
 
-    Override `get_session` to raise the exact exception `pool_timeout` raises;
-    assert the registered handler maps it to the bounded back-pressure response.
+    Make the session factory raise the exact exception `pool_timeout` raises. The
+    facets load runs in a shared cache task, so this also proves its error reaches
+    the registered handler.
     """
 
-    async def _raise_pool_timeout() -> None:
+    @asynccontextmanager
+    async def _raise_pool_timeout() -> AsyncGenerator[None]:
         raise SQLAlchemyTimeoutError("QueuePool limit of size 5 overflow 10 reached")
+        yield
 
-    app.dependency_overrides[get_session] = _raise_pool_timeout
+    app.dependency_overrides[get_session_factory] = lambda: _raise_pool_timeout
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.get("/api/v1/items/facets")
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_session_factory, None)
 
     assert resp.status_code == 503
     body = json.loads(resp.content)
