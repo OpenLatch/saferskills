@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import io
 import logging
 import zipfile
@@ -313,7 +314,9 @@ async def list_items(
             count_stmt = select(func.count(CatalogItem.id)).where(*filters)
             return int((await total_session.execute(count_stmt)).scalar_one())
 
-    total_key = (
+    # Hashed so an entry's size can't grow with the request: the filter lists are
+    # unbounded and the cache holds up to its full entry count for a long time.
+    total_filters = (
         tuple(sorted(kind or ())),
         tuple(sorted(agent or ())),
         tuple(sorted(popularity_tier or ())),
@@ -324,6 +327,7 @@ async def list_items(
         q,
         show_low_quality,
     )
+    total_key = hashlib.sha256(repr(total_filters).encode()).digest()
     total = await _list_total_cache.get(total_key, load_total)
     total_pages = max(1, (total + limit - 1) // limit)
 

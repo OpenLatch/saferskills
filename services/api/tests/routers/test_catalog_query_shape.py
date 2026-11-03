@@ -18,7 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Scan
 from app.queries import latest_scan_tier_distribution, median_completed_score
-from app.routers.items import _related_items  # pyright: ignore[reportPrivateUsage]
+from app.routers.items import (
+    _list_total_cache,  # pyright: ignore[reportPrivateUsage]
+    _related_items,  # pyright: ignore[reportPrivateUsage]
+)
 from app.scan.persistence import refresh_latest_scan
 from tests.sql_capture import capture_sql
 
@@ -124,6 +127,20 @@ async def test_list_items_projects_scan_fields_and_page_findings(
     assert row["latest_scan_tier"] == "green"
     assert row["latest_scan_at"].startswith("2026-01-02")
     assert row["findings_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_filtered_total_cache_key_size_ignores_request_size(
+    db_client: AsyncClient,
+) -> None:
+    long_filter = [f"agent-{n}" * 50 for n in range(100)]
+
+    resp = await db_client.get("/api/v1/items", params={"agent": long_filter})
+
+    assert resp.status_code == 200
+    keys = list(_list_total_cache._caches)  # pyright: ignore[reportPrivateUsage]
+    assert len(keys) == 1
+    assert isinstance(keys[0], bytes) and len(keys[0]) == 32
 
 
 @pytest.mark.asyncio
