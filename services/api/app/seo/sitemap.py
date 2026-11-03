@@ -14,15 +14,16 @@ invariant in the I-07 design doc.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from xml.sax.saxutils import escape
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.generated.agent_run import AgentRun
 from app.models.generated.catalog_item import CatalogItem
-from app.models.generated.scan import Scan
 from app.models.generated.scan_run import ScanRun
+from app.queries import LISTED_ITEM
 from app.scan.constants import FEED_EXCLUDED_SOURCES
 
 # Hard sitemap-protocol limit: 50,000 URLs / 50 MB per file. 50k slug+lastmod
@@ -36,91 +37,64 @@ SECTIONS = ("items", "scans", "agents")
 Entry = tuple[str, datetime]
 
 
-async def _items(session: AsyncSession) -> list[Entry]:
-    """Public catalog items that ALREADY carry COMPLETED scan data (D-07-03).
-
-    "Completed" == `Scan.tier != 'unscoped'`. A pending / placeholder Scan row is
-    `aggregate_score=0, tier='unscoped'` and `aggregate_score` is NON-nullable, so
-    an `aggregate_score IS NOT NULL` check would wrongly admit thin / running
-    pages. `lastmod` = MAX(`scanned_at`) of the item's completed scans (a
-    maintained timestamp; `CatalogItem.updated_at` is not reliably stamped on
-    interactive / vendor completion).
-    """
-    stmt = (
-        select(CatalogItem.slug, func.max(Scan.scanned_at))
-        .join(Scan, Scan.catalog_item_id == CatalogItem.id)
-        .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
-        .where(Scan.tier != "unscoped")
-        .group_by(CatalogItem.id, CatalogItem.slug)
-        # Stable tiebreaker on slug — `scanned_at` is non-unique, and rows tied
-        # around the 50k shard boundary must not shift between separate shard HTTP
-        # requests (else a row lands in two shards or none).
-        .order_by(func.max(Scan.scanned_at).desc(), CatalogItem.slug.asc())
-    )
-    rows = (await session.execute(stmt)).all()
-    return [(f"/items/{slug}", ts) for slug, ts in rows]
-
-
-async def _scans(session: AsyncSession) -> list[Entry]:
-    """Public, COMPLETED repo runs, excluding the bulk firehose (D-07-03).
-
-    `status == 'completed'` is REQUIRED: `scan_runs.status` defaults `'pending'`
-    and a public submission row exists BEFORE it finishes — without the filter a
-    pending / failed run would leak into the sitemap. `lastmod` = `scanned_at`.
-    """
-    stmt = (
+# Each section is one (path, lastmod) query, ordered for stable shard windows. Sharing it
+# keeps the count and the entries from disagreeing. Every order has a unique tiebreaker,
+# because `scanned_at` isn't unique and rows tied around a 50k shard boundary must not
+# shift between separate shard requests (else a row lands in two shards or none).
+_QUERIES: dict[str, tuple[Select[Any], str]] = {
+    # Public catalog items that ALREADY carry COMPLETED scan data (D-07-03).
+    # `latest_scan_*` only ever points at a scan with `tier != 'unscoped'`, so a pending
+    # placeholder can't admit a thin page. `lastmod` is that scan's `scanned_at` (a
+    # maintained timestamp; `updated_at` isn't reliably stamped on scan completion).
+    "items": (
+        select(CatalogItem.slug, CatalogItem.latest_scanned_at)
+        .where(LISTED_ITEM)
+        .where(CatalogItem.latest_scanned_at.is_not(None))
+        .order_by(CatalogItem.latest_scanned_at.desc(), CatalogItem.slug.asc()),
+        "/items/{}",
+    ),
+    # Public, COMPLETED repo runs, excluding the bulk firehose (D-07-03). `status` is
+    # REQUIRED: `scan_runs.status` defaults `'pending'` and a public submission row exists
+    # BEFORE it finishes, so a pending or failed run would otherwise leak in.
+    "scans": (
         select(ScanRun.id, ScanRun.scanned_at)
         .where(ScanRun.visibility == "public")
         .where(ScanRun.status == "completed")
         .where(ScanRun.source.notin_(FEED_EXCLUDED_SOURCES))
-        # Stable id tiebreaker (non-unique scanned_at) for shard-boundary safety.
-        .order_by(ScanRun.scanned_at.desc(), ScanRun.id.desc())
-    )
-    rows = (await session.execute(stmt)).all()
-    return [(f"/scans/{rid}", ts) for rid, ts in rows]
-
-
-async def _agents(session: AsyncSession) -> list[Entry]:
-    """Public, graded Agent Reports only (mirror `directory._public_graded`).
-
-    `AgentRun` has no `scanned_at`-only timestamp guarantee — `scanned_at` is
-    nullable (set at grade time) while `created_at` is non-nullable — so
-    `lastmod` coalesces to `created_at` for a freshly graded run that has no
-    `scanned_at` yet, and ordering is on the always-present `created_at`.
-    """
-    stmt = (
+        .order_by(ScanRun.scanned_at.desc(), ScanRun.id.desc()),
+        "/scans/{}",
+    ),
+    # Public, graded Agent Reports only (mirror `directory._public_graded`). `scanned_at`
+    # is nullable (set at grade time), so `lastmod` coalesces to `created_at`.
+    "agents": (
         select(AgentRun.id, func.coalesce(AgentRun.scanned_at, AgentRun.created_at))
         .where(AgentRun.visibility == "public")
         .where(AgentRun.status.in_(("graded", "published")))
         .where(AgentRun.score.is_not(None))
-        # Order by the same coalesced lastmod (created_at is non-null) with a
-        # stable id tiebreaker for shard-boundary safety.
         .order_by(
             func.coalesce(AgentRun.scanned_at, AgentRun.created_at).desc(),
             AgentRun.id.desc(),
-        )
-    )
+        ),
+        "/agents/{}",
+    ),
+}
+
+
+async def section_entries(session: AsyncSession, section: str, *, page: int = 1) -> list[Entry]:
+    """One shard's entries (`page` is 1-based), fetched with LIMIT/OFFSET so a request
+    reads only its window. Raises KeyError for an unknown section; the route maps that
+    to a 404. Shard bodies aren't cached: each is several MB, on small machines."""
+    query, path = _QUERIES[section]
+    stmt = query.offset((page - 1) * SHARD_SIZE).limit(SHARD_SIZE)
     rows = (await session.execute(stmt)).all()
-    return [(f"/agents/{rid}", ts) for rid, ts in rows]
-
-
-_QUERIES = {"items": _items, "scans": _scans, "agents": _agents}
-
-
-async def section_entries(session: AsyncSession, section: str) -> list[Entry]:
-    """All entries for a section (`items` / `scans` / `agents`). Raises KeyError
-    for an unknown section — the route maps that to a 404."""
-    return await _QUERIES[section](session)
+    return [(path.format(key), ts) for key, ts in rows]
 
 
 async def section_count(session: AsyncSession, section: str) -> int:
     """Row count for a section — used to compute the shard count in the index."""
-    # Cheapest correct count: run the query and len() it. The result sets are
-    # bounded by the public corpus and the query is indexed; a separate COUNT
-    # subquery would have to re-derive the same GROUP BY / filter, so re-using the
-    # entry list keeps the two definitions identical (no drift between count and
-    # the shard a crawler then fetches).
-    return len(await section_entries(session, section))
+    query, _ = _QUERIES[section]
+    count = select(func.count()).select_from(query.order_by(None).subquery())
+    return int((await session.execute(count)).scalar_one())
 
 
 def _iso(ts: datetime) -> str:

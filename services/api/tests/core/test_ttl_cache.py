@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from app.core.ttl_cache import TtlCache
+from app.core.ttl_cache import KeyedTtlCache, TtlCache
 
 
 class _Loader:
@@ -137,3 +137,21 @@ async def test_cancelled_caller_does_not_cancel_the_shared_load() -> None:
 
     assert await staying == "v1"
     assert loader.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_keyed_cache_loads_per_key_and_evicts_least_recently_used() -> None:
+    cache: KeyedTtlCache[str] = KeyedTtlCache(name="t", ttl_s=60, max_entries=2)
+    loader = _Loader()
+
+    await cache.get("a", loader)
+    await cache.get("b", loader)
+    await cache.get("a", loader)  # hit; "b" is now least recently used
+    assert loader.calls == 2
+
+    await cache.get("c", loader)  # evicts "b"
+    await cache.get("a", loader)
+    assert loader.calls == 3
+
+    await cache.get("b", loader)
+    assert loader.calls == 4

@@ -5663,7 +5663,7 @@
     },
     "/api/v1/items": {
       "get": {
-        "description": "Catalog list with the per-row latest-scan join + filters.",
+        "description": "Catalog list with filters and sorting.",
         "operationId": "list_items_api_v1_items_get",
         "parameters": [
           {

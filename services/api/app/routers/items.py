@@ -1,9 +1,8 @@
 """Catalog browse surface — list + detail + facets.
 
-Reads `catalog_items` + optionally joins on the most-recent `scans` row to
-project `latest_scan_score` / `latest_scan_tier` per item. Supports
-keyset-style cursor pagination + a small set of filters that the catalog
-filter sidebar drives.
+List and facets read `catalog_items`, including its denormalised `latest_scan_*`
+columns. Supports keyset-style cursor pagination + a small set of filters that the
+catalog filter sidebar drives.
 """
 
 from __future__ import annotations
@@ -21,12 +20,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, asc, desc, func, nulls_last, or_, select, text, true
+from sqlalchemy import ColumnElement, asc, desc, func, nulls_last, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.rate_limit import enforce_ip_rate_limit
-from app.core.ttl_cache import TtlCache
+from app.core.ttl_cache import KeyedTtlCache, TtlCache
 from app.db.session import SessionFactory, get_session, get_session_factory
 from app.models.artifact_blob import ArtifactBlob
 from app.models.catalog_item import CatalogItem
@@ -34,7 +33,7 @@ from app.models.install_event import InstallEvent
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
 from app.models.vendor import VendorResponse
-from app.queries import latest_scan_tier_distribution
+from app.queries import LISTED_ITEM, latest_scan_tier_distribution
 from app.routers.scans import (
     _is_loopback,  # pyright: ignore[reportPrivateUsage]
     _peer_host,  # pyright: ignore[reportPrivateUsage]
@@ -75,6 +74,10 @@ router = APIRouter(prefix="/items", tags=["items"])
 _MAX_ZIP_BYTES = 25 * 1024 * 1024
 
 _facets_cache: TtlCache[CatalogFacets] = TtlCache(name="item_facets", ttl_s=60.0)
+# Keyed by filters, including the free-text `q`, so the bound matters.
+_list_total_cache: KeyedTtlCache[int] = KeyedTtlCache(
+    name="item_list_total", ttl_s=60.0, max_entries=1024
+)
 
 
 SortKey = Literal[
@@ -257,119 +260,74 @@ async def list_items(
     page: int = Query(default=1, ge=1),
     cursor: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    session_factory: SessionFactory = Depends(get_session_factory),
 ) -> CatalogListEnvelope:
-    """Catalog list with the per-row latest-scan join + filters."""
-    latest_scan_sub = select(
-        Scan.catalog_item_id.label("ci_id"),
-        Scan.aggregate_score.label("latest_score"),
-        Scan.tier.label("latest_tier"),
-        Scan.scanned_at.label("latest_scanned_at"),
-        func.row_number()
-        .over(partition_by=Scan.catalog_item_id, order_by=desc(Scan.scanned_at))
-        .label("rn"),
-    ).subquery()
-    latest_scan = (
-        select(
-            latest_scan_sub.c.ci_id,
-            latest_scan_sub.c.latest_score,
-            latest_scan_sub.c.latest_tier,
-            latest_scan_sub.c.latest_scanned_at,
-        )
-        .where(latest_scan_sub.c.rn == 1)
-        .subquery()
-    )
-
-    findings_sub = (
-        select(Finding.scan_id, func.count(Finding.id).label("findings_count"))
-        .group_by(Finding.scan_id)
-        .subquery()
-    )
-
-    # Per-item install count over the trailing quarter — drives the `most_active`
-    # / `least_active` sort. 1 row per item (grouped), so the LEFT JOIN below stays
-    # 1:1 and the filtered row-count == item-count. install_events is opt-in CLI
-    # telemetry (`.claude/rules/privacy.md`); when empty every count is 0.
+    """Catalog list with filters and sorting."""
+    # Score, tier and scan time come from `catalog_items.latest_scan_*`, so nothing here
+    # reads `scans`. Only the activity sorts join install counts.
     quarter_ago = datetime.now(tz=UTC) - timedelta(days=_ACTIVITY_DAYS)
-    install_quarter = (
-        select(
-            InstallEvent.catalog_item_id.label("ci_id"),
-            func.count().label("install_count"),
-        )
-        .where(InstallEvent.created_at >= quarter_ago)
-        .group_by(InstallEvent.catalog_item_id)
-        .subquery()
-    )
-    activity_count = func.coalesce(install_quarter.c.install_count, 0)
-
-    stmt = (
-        select(
-            CatalogItem,
-            latest_scan.c.latest_score,
-            latest_scan.c.latest_tier,
-            latest_scan.c.latest_scanned_at,
-            func.coalesce(findings_sub.c.findings_count, 0).label("findings_count"),
-        )
-        .join(latest_scan, latest_scan.c.ci_id == CatalogItem.id, isouter=True)
-        .join(
-            Scan,
-            and_(
-                Scan.catalog_item_id == CatalogItem.id,
-                Scan.scanned_at == latest_scan.c.latest_scanned_at,
-            ),
-            isouter=True,
-        )
-        .join(findings_sub, findings_sub.c.scan_id == Scan.id, isouter=True)
-        .join(install_quarter, install_quarter.c.ci_id == CatalogItem.id, isouter=True)
-        # Public-only catalog: unlisted shadow rows are never listed.
-        .where(CatalogItem.archived.is_(False), CatalogItem.visibility == "public")
-    )
+    filters: list[ColumnElement[bool]] = [cast("ColumnElement[bool]", LISTED_ITEM)]
 
     # Soft quality gate: the default catalog hides low/empty items;
     # `?showLowQuality=true` exposes them. Hidden items stay reachable by slug.
     if not show_low_quality:
-        stmt = stmt.where(CatalogItem.quality_tier.in_(["high", "medium"]))
+        filters.append(CatalogItem.quality_tier.in_(["high", "medium"]))
 
     if artifact_source:
-        stmt = stmt.where(CatalogItem.source_kind == artifact_source)
+        filters.append(CatalogItem.source_kind == artifact_source)
     if kind:
-        stmt = stmt.where(CatalogItem.kind.in_(kind))
+        filters.append(CatalogItem.kind.in_(kind))
     if popularity_tier:
-        stmt = stmt.where(CatalogItem.popularity_tier.in_(popularity_tier))
+        filters.append(CatalogItem.popularity_tier.in_(popularity_tier))
     if agent:
         # Array-overlap: keep items whose agent_compatibility contains ANY
         # requested agent. JSONB `@>` per agent, OR'd together.
-        stmt = stmt.where(or_(*[CatalogItem.agent_compatibility.contains([a]) for a in agent]))
+        filters.append(or_(*[CatalogItem.agent_compatibility.contains([a]) for a in agent]))
     if scan_tier:
-        stmt = stmt.where(latest_scan.c.latest_tier.in_(scan_tier))
+        filters.append(CatalogItem.latest_scan_tier.in_(scan_tier))
     if score_min > 0 or score_max < 100:
-        stmt = stmt.where(
-            and_(
-                func.coalesce(latest_scan.c.latest_score, 0) >= score_min,
-                func.coalesce(latest_scan.c.latest_score, 100) <= score_max,
-            )
-        )
+        # An item with no completed scan has no score, so a score filter excludes it.
+        filters.append(CatalogItem.latest_scan_score.between(score_min, score_max))
     if q:
         # Postgres FTS (search_vector tsvector, migration 0010) OR pg_trgm fuzzy
         # on display_name. `%` is the indexable form (idx_catalog_items_name_trgm)
         # at pg_trgm's default 0.3 threshold; similarity() can't use the index, and
-        # the OR would turn the whole search into a seq scan. search_vector is a DB-generated column, not a
-        # mapped attribute — referenced via text() with a bound param.
-        stmt = stmt.where(
-            text(
-                "(catalog_items.search_vector @@ websearch_to_tsquery('english', :q) "
-                "OR catalog_items.display_name % :q)"
-            ).bindparams(q=q)
+        # the OR would turn the whole search into a seq scan. search_vector is a
+        # DB-generated column, not a mapped attribute — referenced via text() with a
+        # bound param.
+        filters.append(
+            cast(
+                "ColumnElement[bool]",
+                text(
+                    "(catalog_items.search_vector @@ websearch_to_tsquery('english', :q) "
+                    "OR catalog_items.display_name % :q)"
+                ).bindparams(q=q),
+            )
         )
 
-    # Filtered total (respects every WHERE applied above) — drives total_pages.
-    # Wrap the filtered query in a subquery and count its rows; the latest-scan
-    # + findings joins are 1:1 per item so row-count == item-count.
-    total = int(
-        (
-            await session.execute(select(func.count()).select_from(stmt.order_by(None).subquery()))
-        ).scalar_one()
+    # Filtered total (respects every filter above) — drives total_pages. Counting most
+    # of the catalog is the one costly step left here and the pager tolerates a slightly
+    # old number, so it is cached per filter combination.
+    async def load_total() -> int:
+        async with session_factory() as total_session:
+            count_stmt = select(func.count(CatalogItem.id)).where(*filters)
+            return int((await total_session.execute(count_stmt)).scalar_one())
+
+    total_key = (
+        tuple(sorted(kind or ())),
+        tuple(sorted(agent or ())),
+        tuple(sorted(popularity_tier or ())),
+        tuple(sorted(scan_tier or ())),
+        score_min,
+        score_max,
+        artifact_source,
+        q,
+        show_low_quality,
     )
+    total = await _list_total_cache.get(total_key, load_total)
     total_pages = max(1, (total + limit - 1) // limit)
+
+    stmt = select(CatalogItem).where(*filters)
 
     # Legacy keyset cursor (back-compat) takes precedence when supplied;
     # otherwise offset/page pagination drives the numbered pager.
@@ -394,9 +352,9 @@ async def list_items(
             CatalogItem.slug,
         )
     elif sort == "highest_score":
-        stmt = stmt.order_by(desc(func.coalesce(latest_scan.c.latest_score, 0)), CatalogItem.slug)
+        stmt = stmt.order_by(CatalogItem.latest_scan_score.desc().nulls_last(), CatalogItem.slug)
     elif sort == "lowest_score":
-        stmt = stmt.order_by(func.coalesce(latest_scan.c.latest_score, 100), CatalogItem.slug)
+        stmt = stmt.order_by(CatalogItem.latest_scan_score.asc().nulls_last(), CatalogItem.slug)
     elif sort == "recent":
         stmt = stmt.order_by(desc(CatalogItem.updated_at), CatalogItem.slug)
     elif sort == "oldest":
@@ -412,10 +370,23 @@ async def list_items(
         body = func.nullif(CatalogItem.item_metadata["description"].astext, "")
         ordered = asc(func.lower(body)) if sort == "description_asc" else desc(func.lower(body))
         stmt = stmt.order_by(nulls_last(ordered), CatalogItem.slug)
-    elif sort == "most_active":
-        stmt = stmt.order_by(desc(activity_count), CatalogItem.slug)
-    elif sort == "least_active":
-        stmt = stmt.order_by(asc(activity_count), CatalogItem.slug)
+    elif sort in ("most_active", "least_active"):
+        # Per-item install count over the trailing quarter. 1 row per item (grouped),
+        # so the LEFT JOIN stays 1:1. install_events is CLI telemetry
+        # (`.claude/rules/privacy.md`); when empty every count is 0.
+        install_quarter = (
+            select(
+                InstallEvent.catalog_item_id.label("ci_id"),
+                func.count().label("install_count"),
+            )
+            .where(InstallEvent.created_at >= quarter_ago)
+            .group_by(InstallEvent.catalog_item_id)
+            .subquery()
+        )
+        activity_count = func.coalesce(install_quarter.c.install_count, 0)
+        stmt = stmt.join(install_quarter, install_quarter.c.ci_id == CatalogItem.id, isouter=True)
+        order = desc(activity_count) if sort == "most_active" else asc(activity_count)
+        stmt = stmt.order_by(order, CatalogItem.slug)
     elif sort == "least_installed":
         stmt = stmt.order_by(asc(CatalogItem.popularity_score), CatalogItem.slug)
     elif sort == "most_starred":
@@ -427,14 +398,27 @@ async def list_items(
     if not use_cursor:
         stmt = stmt.offset((page - 1) * limit)
     stmt = stmt.limit(limit + 1)
-    rows = (await session.execute(stmt)).all()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
+    items = list((await session.execute(stmt)).scalars().all())
+    has_more = len(items) > limit
+    items = items[:limit]
 
-    next_cursor = _encode_cursor(rows[-1][0].slug) if (has_more and rows) else None
+    next_cursor = _encode_cursor(items[-1].slug) if (has_more and items) else None
+
+    # Findings on each item's latest scan, for this page only.
+    latest_scan_ids = [item.latest_scan_id for item in items if item.latest_scan_id is not None]
+    findings_by_scan: dict[UUID, int] = {}
+    if latest_scan_ids:
+        finding_rows = (
+            await session.execute(
+                select(Finding.scan_id, func.count(Finding.id))
+                .where(Finding.scan_id.in_(latest_scan_ids))
+                .group_by(Finding.scan_id)
+            )
+        ).all()
+        findings_by_scan = {scan_id: int(count) for scan_id, count in finding_rows}
 
     # Per-item registry list — lookup ItemSource.registry_id for each id.
-    item_ids = [r[0].id for r in rows]
+    item_ids = [item.id for item in items]
     registries_by_item: dict[str, list[str]] = {}
     if item_ids:
         reg_rows = (
@@ -470,14 +454,16 @@ async def list_items(
         data=[
             _to_summary(
                 item,
-                latest_score=latest_score,
-                latest_tier=latest_tier,
-                latest_scan_at=latest_scan_at,
-                findings_count=int(findings_count),
+                latest_score=item.latest_scan_score,
+                latest_tier=item.latest_scan_tier,
+                latest_scan_at=item.latest_scanned_at,
+                findings_count=(
+                    findings_by_scan.get(item.latest_scan_id, 0) if item.latest_scan_id else 0
+                ),
                 registries=registries_by_item.get(str(item.id), []),
                 install_sparkline=sparkline_by_item.get(str(item.id), [0] * _ACTIVITY_WEEKS),
             )
-            for item, latest_score, latest_tier, latest_scan_at, findings_count in rows
+            for item in items
         ],
         next_cursor=next_cursor,
         total_count=total,
@@ -669,31 +655,18 @@ async def _related_items(
 
     Placeholder until the tag/category/co-install signal lands.
     """
-    latest_scan_sub = (
-        select(
-            Scan.catalog_item_id.label("ci_id"),
-            Scan.aggregate_score.label("score"),
-            Scan.tier.label("tier"),
-            func.row_number()
-            .over(partition_by=Scan.catalog_item_id, order_by=desc(Scan.scanned_at))
-            .label("rn"),
-        )
-    ).subquery()
     rows = (
         await session.execute(
             select(
                 CatalogItem.slug,
                 CatalogItem.display_name,
-                latest_scan_sub.c.score,
-                latest_scan_sub.c.tier,
+                CatalogItem.latest_scan_score,
+                CatalogItem.latest_scan_tier,
             )
-            .join(latest_scan_sub, latest_scan_sub.c.ci_id == CatalogItem.id, isouter=True)
+            .where(LISTED_ITEM)
             .where(CatalogItem.kind == kind)
             .where(CatalogItem.id != exclude_id)
-            .where(CatalogItem.archived.is_(False))
-            .where(CatalogItem.visibility == "public")
-            .where(or_(latest_scan_sub.c.rn == 1, latest_scan_sub.c.rn.is_(None)))
-            .order_by(desc(func.coalesce(latest_scan_sub.c.score, 0)), CatalogItem.slug)
+            .order_by(CatalogItem.latest_scan_score.desc().nulls_last(), CatalogItem.slug)
             .limit(limit)
         )
     ).all()
