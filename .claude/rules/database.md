@@ -39,7 +39,8 @@ The shared async engine (`app/db/session.py`) sets DB-layer timeouts via asyncpg
 
 **Exemptions (must NOT be aborted mid-operation):**
 - **Alembic migrations** run on a **separate** engine (`migrations/env.py::async_engine_from_config`) — never see these `connect_args`.
-- The **migration advisory-lock holder** (`core/startup.py::_run_migrations_locked`) and the **procrastinate-schema advisory-lock holder** (`ingestion/worker.py::apply_procrastinate_schema_locked`) `SET LOCAL statement_timeout = 0` + `idle_in_transaction_session_timeout = 0` on their lock session: they hold a session-level `pg_advisory_lock` idle-in-transaction for the whole migration / schema-apply, and `idle_in_transaction_session_timeout` would TERMINATE the session → release the lock → let another Machine race the DDL. `SET LOCAL` scopes the exemption to that one transaction (no pooled-connection contamination).
+- The **migration advisory-lock holder** (`core/startup.py::_run_migrations_locked`) runs on a dedicated AUTOCOMMIT connection with no timeouts. It must never sit in an open transaction: `CREATE INDEX CONCURRENTLY` waits for older transactions, so a migration using it would wait on its own lock holder forever and the API would never report healthy (`tests/core/test_startup_migration_lock.py`).
+- The **procrastinate-schema advisory-lock holder** (`ingestion/worker.py::apply_procrastinate_schema_locked`) `SET LOCAL statement_timeout = 0` + `idle_in_transaction_session_timeout = 0` on its lock session: it holds a session-level `pg_advisory_lock` idle-in-transaction for the whole schema-apply, and `idle_in_transaction_session_timeout` would TERMINATE the session → release the lock → let another Machine race the DDL. `SET LOCAL` scopes the exemption to that one transaction (no pooled-connection contamination).
 - The **CONCURRENTLY materialized-view refresh** (`ingestion/tasks_authors.py::author_summary_refresh`) runs on a dedicated short-lived AUTOCOMMIT engine with NO `statement_timeout` (a large-catalog refresh can exceed the cap), disposed immediately — so neither the refresh is aborted nor the shared pool contaminated.
 
 Per-tier override: the API can run a tighter `DB_STATEMENT_TIMEOUT_S` than the bulk worker via `fly.*.toml [env]`. See `environment-config.md` + `security.md` (the bounded-503 back-pressure posture).
@@ -309,7 +310,7 @@ Report is its own entity, never a `catalog_items` row) and hard-filter
 | New migration / head revision | "Migrations" — bump the current-head note |
 | New writer of `scans` rows, or a change to what "latest" means | "Latest-scan columns" + `app/scan/persistence.py::refresh_latest_scan` + `tests/scan/test_refresh_latest_scan.py` |
 | `crawler_cursors` alert-cooldown column change | "Migrations" head note + `app/models/crawler_cursor.py` (`last_alerted_at`/`alert_signature`) + `app/ingestion/framework/alerts.py` + `ingestion.md` § Periodic tasks (Alerts) |
-| Engine timeout / connect_args change | "Engine statement-timeout" + `app/db/session.py::engine_connect_args` + `app/main.py` handler + the exemptions (`startup.py` / `worker.py` `SET LOCAL`, `tasks_authors.py` dedicated engine) + `environment-config.md` |
+| Engine timeout / connect_args change | "Engine statement-timeout" + `app/db/session.py::engine_connect_args` + `app/main.py` handler + the exemptions (`worker.py` `SET LOCAL`, `startup.py` + `tasks_authors.py` dedicated engines) + `environment-config.md` |
 | New stored-content table or column | "Stored artifact snapshots" table + `security.md` retention tier |
 | Snapshot capture cap / heuristic change | "Stored artifact snapshots" § Contract + `app/scan/persistence.py` |
 | Blob-sweep job lands | "Retention + deletion" — replace "swept later" with the job + cadence |

@@ -35,11 +35,11 @@ def engine_connect_args(settings: Settings) -> dict[str, object]:
     reclaims a connection left idle inside an open transaction. Both are
     PER-STATEMENT / per-idle, so the chunked bulk-scan writes (each fast) are
     safe; alembic runs on a SEPARATE engine (`migrations/env.py`) and is
-    unaffected. The two long-lived advisory-lock holders (the migration lock in
-    `core/startup.py`, the procrastinate-schema lock in `ingestion/worker.py`)
-    disable both via `SET LOCAL`, and the CONCURRENTLY materialized-view refresh
-    (`ingestion/tasks_authors.py`) runs on a dedicated unbounded engine — none of
-    them must be aborted mid-operation.
+    unaffected. The procrastinate-schema lock holder (`ingestion/worker.py`)
+    disables both via `SET LOCAL`, while the migration lock holder
+    (`core/startup.py`) and the CONCURRENTLY materialized-view refresh
+    (`ingestion/tasks_authors.py`) run on dedicated unbounded AUTOCOMMIT engines —
+    none of them must be aborted mid-operation.
 
     `command_timeout` (s) is the asyncpg client-side backstop for a wholly
     unresponsive server; off by default (`db_command_timeout_s == 0`). Either
