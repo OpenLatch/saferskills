@@ -21,6 +21,7 @@ from app.models.catalog_item import CatalogItem
 from app.models.generated.agent_run import AgentRun
 from app.models.scan import Scan
 from app.models.scan_run import ScanRun
+from app.scan.persistence import refresh_latest_scan
 from app.seo import sitemap as sitemap_queries
 
 _NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
@@ -200,7 +201,7 @@ async def test_items_shard_requires_completed_scan(
             _make_scan(placeholder.id, tier="unscoped", scanned_at=datetime.now(tz=UTC), score=0),
         ]
     )
-    await db_session.flush()
+    await refresh_latest_scan(db_session, [scored.id, never.id, placeholder.id])
 
     resp = await db_client.get("/api/v1/sitemap/shard/items-1.xml")
     assert resp.status_code == 200
@@ -237,7 +238,7 @@ async def test_rescan_placeholder_keeps_completed_scan_and_sitemap_agree(
             _make_scan(item.id, tier="unscoped", scanned_at=newer, score=0),
         ]
     )
-    await db_session.flush()
+    await refresh_latest_scan(db_session, [item.id])
 
     # (a) the detail endpoint returns the COMPLETED scan, not the placeholder.
     detail = await db_client.get(f"/api/v1/items/{item.slug}")
