@@ -49,7 +49,7 @@ Details: `contributor-docs/codegen.md`.
 
 - **Schema-level**: `x-postgresql-tablename`, `x-postgresql-classname` (ORM class
   name when it differs from `title`, e.g. `ScanReport`→`Scan`), `x-postgresql-skip`
-  (wire-only — no table), `x-postgresql-indexes`, `x-postgresql-extra-columns`
+  (wire-only — no table), `x-postgresql-indexes` (a column entry may carry a sort spec, e.g. `score DESC NULLS LAST`), `x-postgresql-extra-columns`
   (DB columns absent from the wire shape — FKs, idempotency keys, timestamps …).
 - **Field-level**: `x-postgresql-enum-type`, `x-foreign-key` (`{table, column,
   ondelete}`), `x-primary-key`, `x-postgresql-unique`, `x-postgresql-default`,

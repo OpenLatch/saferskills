@@ -13,7 +13,12 @@
     { "name": "idx_catalog_items_visibility", "columns": ["visibility"] },
     { "name": "idx_catalog_items_owner_run_id", "columns": ["owner_run_id"], "where": "owner_run_id IS NOT NULL" },
     { "name": "idx_catalog_items_last_scanned_at", "columns": ["last_scanned_at"] },
-    { "name": "idx_catalog_items_last_checked_at", "columns": ["last_checked_at"] }
+    { "name": "idx_catalog_items_last_checked_at", "columns": ["last_checked_at"] },
+    { "name": "idx_catalog_items_list_popularity", "columns": ["popularity_score DESC", "slug"], "where": "archived = false AND visibility = 'public'" },
+    { "name": "idx_catalog_items_list_score_asc", "columns": ["latest_scan_score", "slug"], "where": "archived = false AND visibility = 'public'" },
+    { "name": "idx_catalog_items_list_score_desc", "columns": ["latest_scan_score DESC NULLS LAST", "slug"], "where": "archived = false AND visibility = 'public'" },
+    { "name": "idx_catalog_items_list_kind_score", "columns": ["kind", "latest_scan_score DESC NULLS LAST", "slug"], "where": "archived = false AND visibility = 'public'" },
+    { "name": "idx_catalog_items_list_scanned_at", "columns": ["latest_scanned_at DESC", "slug"], "where": "archived = false AND visibility = 'public' AND latest_scanned_at IS NOT NULL" }
   ],
   "x-postgresql-extra-columns": [
     {
@@ -41,6 +46,27 @@
     },
     {
       "name": "last_checked_at",
+      "type": "timestamp",
+      "nullable": true
+    },
+    {
+      "name": "latest_scan_id",
+      "type": "uuid",
+      "nullable": true
+    },
+    {
+      "name": "latest_scan_score",
+      "type": "integer",
+      "nullable": true
+    },
+    {
+      "name": "latest_scan_tier",
+      "type": "varchar",
+      "enum_type": "tier",
+      "nullable": true
+    },
+    {
+      "name": "latest_scanned_at",
       "type": "timestamp",
       "nullable": true
     }

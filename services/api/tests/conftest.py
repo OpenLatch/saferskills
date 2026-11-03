@@ -21,6 +21,7 @@ import os
 import sys
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -110,6 +111,22 @@ async def db_engine() -> AsyncIterator[object]:
     engine = create_async_engine(url, pool_pre_ping=True)
     yield engine
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def savepoint_session(db_engine: Any) -> AsyncIterator[AsyncSession]:
+    """For code that commits: each commit releases a SAVEPOINT inside one outer
+    transaction, which teardown rolls back."""
+    async with db_engine.connect() as conn:
+        outer = await conn.begin()
+        session = AsyncSession(
+            bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
+        )
+        try:
+            yield session
+        finally:
+            await session.close()
+            await outer.rollback()
 
 
 @pytest_asyncio.fixture

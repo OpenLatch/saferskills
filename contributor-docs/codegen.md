@@ -47,7 +47,7 @@ enum columns) and wired in as the production models:
 
 **Schema-level:** `x-postgresql-tablename`, `x-postgresql-classname` (ORM class
 name ≠ schema `title`, e.g. `scan-report.schema.json` title `ScanReport` → class
-`Scan`), `x-postgresql-skip: true` (wire-only — no table), `x-postgresql-indexes`
+`Scan`), `x-postgresql-skip: true` (wire-only — no table), `x-postgresql-indexes` (a column entry may carry a sort spec, e.g. `score DESC NULLS LAST`)
 (`{name, columns, unique?, where?}`), `x-postgresql-extra-columns` (DB columns the
 wire shape omits — `{name, type, length?, nullable?, unique?, default?,
 foreign_key?, enum_type?}`).
