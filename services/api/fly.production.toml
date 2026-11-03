@@ -20,7 +20,7 @@ HISHEL_DB_PATH = "/home/app/.hishel.db"
 # OpenTelemetry traces → the shared Grafana Vector over 6PN internal DNS (same
 # Fly org). Logs already flow via the Fly NATS drain; only traces need this
 # endpoint. Metrics are deferred (no metric exporter wired yet). See telemetry.md.
-OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability.internal:4318"
+OTEL_EXPORTER_OTLP_ENDPOINT = "http://openlatch-observability-us-east-1.internal:4318"
 OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
 OTEL_SERVICE_NAME = "saferskills-api"
 POSTHOG_HOST = "https://eu.i.posthog.com"
