@@ -41,7 +41,7 @@ Deployed by `.github/workflows/deploy.yml` (`deploy-staging-worker` / `deploy-pr
 
 The worker loads the same `Settings`, so `ENV=staging|production` hard-fails boot without the four guard secrets. `deploy.yml` stages these via `flyctl secrets set --stage`: `TURNSTILE_SECRET_KEY`, `SAFERSKILLS_CLI_POW_SECRET`, `SAFERSKILLS_AGENT_MASTER_KEY`, `SAFERSKILLS_PACK_SIGNING_KEY` (+ `POSTHOG_PROJECT_KEY`, `POSTHOG_SERVER_KEY`, `SLACK_ALERTS_WEBHOOK_URL`). The HTTP-route-only `SAFERSKILLS_ADMIN_KEY` / `SAFERSKILLS_PROXY_SHARED_SECRET` are **not** set here.
 
-Not staged by CI (set once manually, as on the API app): `DATABASE_URL`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`.
+Not staged by CI (set once manually, as on the API app): `DATABASE_URL`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`. `DATABASE_URL` is the Fly Managed Postgres **direct** URL (`direct.<cluster-id>.flympg.net`), identical to the API app's — never the PgBouncer URL (see [`.claude/rules/environment-config.md`](../../.claude/rules/environment-config.md) `DATABASE_URL`).
 
 ```bash
 # First-time app creation (operator):

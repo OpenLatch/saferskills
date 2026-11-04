@@ -16,7 +16,7 @@ The stack below is the contract. Every dep tracks its current latest major or la
 | **Validation** | Pydantic 2.13+ | v2 only. |
 | **ORM** | SQLAlchemy 2 (async) | Async-only — `AsyncSession` everywhere. |
 | **Migrations** | Alembic | Latest. |
-| **Database** | PostgreSQL 17 | Latest GA. Single Postgres — no Redis, no other store. |
+| **Database** | PostgreSQL 17 | Latest GA. Single Postgres — no Redis, no other store. Staging + production: **Fly Managed Postgres**, reached via its direct URL, never PgBouncer (`environment-config.md` § `DATABASE_URL`). Local/CI: the `postgres` compose service. |
 | **Frontend framework** | Astro 7 + React 19 islands | Deliberate divergence from openlatch-platform (which uses Vite + React 19 SPA). Islands via `client:idle`/`client:load`/`client:visible`. |
 | **CSS** | Tailwind v4 | No `tailwind.config.js`; tokens live in `ui/styles/tokens.css` per `design-system.md`. |
 | **UI primitives** | shadcn/ui (Radix + Tailwind) | Component code lives under `ui/components/`; never imported from a registry at build time. |
