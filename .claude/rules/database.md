@@ -58,6 +58,7 @@ Catalog reads need each item's latest scan. Computing that over all of `scans` p
 - **One writer: `app/scan/persistence.py::refresh_latest_scan(session, item_ids)`.** Anything that adds, scores, moves or deletes a `scans` row must call it in the same transaction. Today: `_apply_scan_result`, the promotion merge, `delete_run_cascade`, `reset_failed_run_for_rerun`. It must not move `updated_at`, which the `recent` sort reads.
 - **Existing rows** are filled by the hourly `latest_scan_backfill` task (`ingestion.md` § Periodic tasks), not the migration, because migrations run on API boot.
 - DB-only `x-postgresql-extra-columns` on `catalog-item.schema.json`: not on the wire entity.
+- **Readers:** `GET /items`, related items, `/stats`, the tier facet and the items sitemap all read these columns and must not read `scans`. `tests/routers/test_catalog_query_shape.py` guards this.
 
 **Migrating a busy table.** 0027 runs in an autocommit block. The `ALTER` takes a 3s `lock_timeout` and retries, because an unbounded wait would queue every read behind it and a failure would put the API in degraded mode while `/health` stays 200. Indexes use `CREATE INDEX CONCURRENTLY`, each dropped first so an interrupted build's INVALID index can't survive a re-run.
 

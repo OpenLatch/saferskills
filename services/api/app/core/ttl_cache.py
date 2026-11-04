@@ -21,14 +21,15 @@ from __future__ import annotations
 import asyncio
 import time
 import weakref
-from collections.abc import Awaitable, Callable
+from collections import OrderedDict
+from collections.abc import Awaitable, Callable, Hashable
 from typing import Any
 
 import structlog
 
 logger = structlog.get_logger(__name__)
 
-_instances: weakref.WeakSet[TtlCache[Any]] = weakref.WeakSet()
+_instances: weakref.WeakSet[TtlCache[Any] | KeyedTtlCache[Any]] = weakref.WeakSet()
 
 
 class TtlCache[T]:
@@ -89,6 +90,32 @@ class TtlCache[T]:
             return value
         finally:
             self._task = None
+
+
+class KeyedTtlCache[T]:
+    """One `TtlCache` per key, evicting the least recently used past `max_entries`.
+    The bound matters when keys come from request input."""
+
+    def __init__(self, *, name: str, ttl_s: float, max_entries: int) -> None:
+        self._name = name
+        self._ttl_s = ttl_s
+        self._max_entries = max_entries
+        self._caches: OrderedDict[Hashable, TtlCache[T]] = OrderedDict()
+        _instances.add(self)
+
+    async def get(self, key: Hashable, loader: Callable[[], Awaitable[T]]) -> T:
+        cache: TtlCache[T] | None = self._caches.get(key)
+        if cache is None:
+            cache = TtlCache[T](name=self._name, ttl_s=self._ttl_s)
+            self._caches[key] = cache
+            if len(self._caches) > self._max_entries:
+                self._caches.popitem(last=False)
+        else:
+            self._caches.move_to_end(key)
+        return await cache.get(loader)
+
+    def reset(self) -> None:
+        self._caches.clear()
 
 
 def _mark_exception_retrieved(task: asyncio.Task[Any]) -> None:

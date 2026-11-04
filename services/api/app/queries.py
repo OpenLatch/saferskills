@@ -4,24 +4,24 @@ Extracted so the catalog facets endpoint (`routers/items.py`) and the homepage
 stats endpoint (`routers/stats.py`) compute identical numbers from one place
 rather than duplicating SQL.
 
-"Completed" scan = a scan whose `tier` is not ``unscoped``. Pending rows are
-inserted with `tier='unscoped'`, `aggregate_score=0`, `latency_ms=0`
-(`scan.persistence._placeholder_scan`); the engine always assigns a real tier
-(green/yellow/orange/red) on completion. Filtering on `tier != 'unscoped'` is
-therefore the single, schema-honest definition of "completed".
+Per-item scan numbers read `catalog_items.latest_scan_*`, never `scans`, which is too
+large to aggregate per request. See `scan.persistence.refresh_latest_scan`.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
-from app.models.scan import Scan
 from app.models.scan_run import ScanRun
 
-_UNSCOPED = "unscoped"
+# The predicate of the catalog's partial list indexes (migration 0027). It has to be
+# this literal text: SQLAlchemy's `.is_(False)` renders `archived IS false`, which
+# Postgres doesn't treat as implying the index's `archived = false`, so the query would
+# fall back to a seq scan and sort.
+LISTED_ITEM = text("catalog_items.archived = false AND catalog_items.visibility = 'public'")
 
 
 async def count_catalog_total(session: AsyncSession) -> int:
@@ -47,37 +47,25 @@ async def count_distinct_registries(session: AsyncSession) -> int:
 
 
 async def latest_scan_tier_distribution(session: AsyncSession) -> dict[str, int]:
-    """Count of items bucketed by the tier of their most-recent scan."""
-    latest_per_item = (
-        select(Scan.catalog_item_id, func.max(Scan.scanned_at).label("max_scanned_at"))
-        .group_by(Scan.catalog_item_id)
-        .subquery()
-    )
+    """Count of public items by the tier of their latest completed scan. Items with
+    no completed scan aren't counted."""
     rows = (
         await session.execute(
-            select(Scan.tier, func.count(Scan.id))
-            .join(
-                latest_per_item,
-                and_(
-                    Scan.catalog_item_id == latest_per_item.c.catalog_item_id,
-                    Scan.scanned_at == latest_per_item.c.max_scanned_at,
-                ),
-            )
-            .join(CatalogItem, CatalogItem.id == Scan.catalog_item_id)
-            .where(CatalogItem.visibility == "public")
-            .group_by(Scan.tier)
+            select(CatalogItem.latest_scan_tier, func.count(CatalogItem.id))
+            .where(CatalogItem.visibility == "public", CatalogItem.latest_scan_tier.is_not(None))
+            .group_by(CatalogItem.latest_scan_tier)
         )
     ).all()
-    return {tier: int(count) for tier, count in rows}
+    return {str(tier): int(count) for tier, count in rows}
 
 
 async def median_completed_score(session: AsyncSession) -> int | None:
-    """Median (P50) aggregate score over completed scans. None when empty."""
+    """Median (P50) of each public item's latest completed score. None when empty."""
     value = (
         await session.execute(
-            select(func.percentile_cont(0.5).within_group(Scan.aggregate_score.asc()))
-            .join(CatalogItem, CatalogItem.id == Scan.catalog_item_id)
-            .where(Scan.tier != _UNSCOPED, CatalogItem.visibility == "public")
+            select(
+                func.percentile_cont(0.5).within_group(CatalogItem.latest_scan_score.asc())
+            ).where(CatalogItem.visibility == "public", CatalogItem.latest_scan_score.is_not(None))
         )
     ).scalar_one_or_none()
     return round(value) if value is not None else None

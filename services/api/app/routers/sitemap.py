@@ -6,8 +6,8 @@ the apex (`/sitemap.xml`, `/sitemaps/<shard>.xml`) so crawlers see clean
 + completed rows, never a `share_token` URL — see `.claude/rules/security.md`
 § Public-input handling.
 
-Cache-on-read (D-07-02): `Cache-Control: public, max-age=3600`; the query is
-indexed and regenerates on a cache miss — no materialized table to keep in sync.
+Cache-on-read (D-07-02): `Cache-Control: public, max-age=3600`. Each shard reads only
+its window through the section's index; the index counts sections and is cached.
 """
 
 from __future__ import annotations
@@ -63,7 +63,6 @@ async def sitemap_shard(name: str, session: AsyncSession = Depends(get_session))
     if page_n < 1:
         raise HTTPException(status_code=404, detail="malformed sitemap shard")
 
-    entries = await sitemap.section_entries(session, section)
-    window = entries[(page_n - 1) * sitemap.SHARD_SIZE : page_n * sitemap.SHARD_SIZE]
-    xml = sitemap.urlset(window, origin)
+    entries = await sitemap.section_entries(session, section, page=page_n)
+    xml = sitemap.urlset(entries, origin)
     return Response(xml, media_type=_XML, headers=_CACHE_HEADERS)

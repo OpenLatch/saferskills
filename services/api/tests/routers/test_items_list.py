@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.catalog_item import CatalogItem
 from app.models.install_event import InstallEvent
 from app.models.scan import Scan
+from app.scan.persistence import refresh_latest_scan
 from tests.sql_capture import capture_sql
 
 
@@ -242,6 +243,7 @@ async def _seed_scored(session: AsyncSession, scores: list[int]) -> str:
                 scanned_at=now,
             )
         )
+        await refresh_latest_scan(session, [item.id])
     await session.flush()
     return token
 
