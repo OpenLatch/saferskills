@@ -71,7 +71,7 @@ After any code change touching shipped layers, run `/verify-build` — it auto-d
 | **Frontend** | TypeScript (strict), Astro 7 + React 19 islands, Tailwind v4, shadcn/ui (Radix + Tailwind v4), Biome, Vitest, pnpm 10. (Astro instead of Vite is a deliberate divergence vs openlatch-platform — public SSG catalog needs SEO + Lighthouse + share-preview, see `.claude/rules/tech-stack.md` § Frontend.) |
 | **Backend** | Python 3.14, FastAPI, Pydantic v2, Ruff + pyright, uv, pytest, SQLAlchemy 2 (async), Alembic |
 | **Detection** | In-process deterministic rules under `rubric/`. **No LLM in the verdict path** — every finding has a static rule_id and a quotable line of evidence. |
-| **Data** | PostgreSQL 17, in-process LRU caches (no Redis), PG full-text search + pg_trgm |
+| **Data** | PostgreSQL 17 (Fly Managed Postgres in staging/prod, direct URL — never PgBouncer), in-process LRU caches (no Redis), PG full-text search + pg_trgm |
 | **Infra** | Docker, Docker Compose (self-hosted), GitHub Actions, dual-registry push (ghcr.io archive + registry.fly.io for deploys), Fly.io (production) |
 | **Auth** (planned) | better-auth + magic link + @better-auth/sso (SAML) |
 | **Observability** | PostHog (errors + closed-enum analytics, dedicated EU project 272364, no PII) + Grafana Cloud (shared stack under `saferskills-*` prefix) + OpenTelemetry |

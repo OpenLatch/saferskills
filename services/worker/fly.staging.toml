@@ -35,9 +35,10 @@ POSTHOG_HOST = "https://eu.i.posthog.com"
 PUBLIC_BASE_URL = "https://staging.saferskills.ai"
 # This IS the worker process — run the in-process Procrastinate worker.
 INGESTION_WORKER_ENABLED = "true"
-# Tuned for the 512 MB shared-cpu-1x box AND to spare the 256 MB shared-cpu-1x
-# Postgres from saturating under bulk-scan load (the e2e-staging gate flakes when
-# /items + /stats hang behind a saturated PG). Single-concurrency on BOTH queues
+# Tuned for the 512 MB shared-cpu-1x box AND (historically) to spare the old 256 MB
+# unmanaged Fly Postgres from saturating under bulk-scan load (the e2e-staging gate
+# flaked when /items + /stats hung behind a saturated PG). Staging now runs on Fly
+# Managed Postgres; kept until re-baselined. Single-concurrency on BOTH queues
 # keeps the steady-state SQLAlchemy-connection draw minimal; a small reconcile
 # batch + a long freshness window throttle the firehose; the drainer's
 # SCAN_RECONCILE_MAX_BACKLOG back-pressure (below) caps the queue depth.

@@ -106,10 +106,11 @@ class Settings(BaseSettings):
     )
 
     # ── Connection budget ──────────────────────────────────────────────────
-    # Three pools open against one small Postgres per Machine: SQLAlchemy
+    # Three pools open against one Postgres per Machine: SQLAlchemy
     # (API + ingestion-task sessions), asyncpg (LISTEN/NOTIFY), and the
-    # Procrastinate job-queue connector. The DB is a shared-cpu-1x:256MB box —
-    # RAM, not the 300 max_connections, is the constraint (~5-10 MB per backend).
+    # Procrastinate job-queue connector. Staging/prod use Fly Managed Postgres via
+    # its DIRECT url (never PgBouncer — see environment-config.md DATABASE_URL);
+    # the bound is the plan's connection limit across every API + worker Machine.
     # Lowered defaults keep idle footprint modest while still bursting on demand;
     # all env-configurable so they scale with prod RAM when real users arrive.
     db_pool_size: int = Field(
