@@ -36,9 +36,10 @@ STARTUP_MAX_RETRIES = 5
 STARTUP_BASE_DELAY_SECONDS = 2
 
 # Arbitrary but constant 32-bit int for the cluster-wide migration mutex.
-# pg_advisory_lock is keyed on this — any Machine holding this lock blocks all
-# other Machines trying to run migrations until it releases.
+# The advisory lock is keyed on this — any process holding it makes all others
+# trying to run migrations wait until it releases.
 _MIGRATION_LOCK_KEY = 0x5AFE5C11
+_MIGRATION_LOCK_POLL_SECONDS = 2
 
 
 def _run_migrations_sync() -> None:
@@ -64,20 +65,22 @@ async def _run_migrations_locked() -> None:
     Multiple API Machines boot simultaneously on deploy. Without a mutex they'd
     all call `alembic upgrade head` concurrently — the first would succeed,
     others would race or fail on duplicate DDL. The lock is held on its own
-    connection via `pg_advisory_lock(key)`; subsequent Machines block there until
-    we release, at which point alembic sees `head` and the upgrade is a no-op. The
-    actual migration runs on env.py's separate fresh async engine — correct for
-    session-level locks.
+    connection; subsequent processes poll for it until we release, at which point
+    alembic sees `head` and the upgrade is a no-op. The actual migration runs on
+    env.py's separate fresh async engine — correct for session-level locks.
 
-    The holder uses a dedicated AUTOCOMMIT connection, for two reasons:
+    `CREATE INDEX CONCURRENTLY` waits for older transactions and running statements
+    to finish, so nothing that depends on the migration ending may stay open during
+    it. Postgres can't detect this as a deadlock, because the session holding the lock
+    isn't the one building the index:
 
-    - It must not sit in an open transaction. `CREATE INDEX CONCURRENTLY` waits for
-      older transactions to finish, and this one only ends after the migration does,
-      so a migration using it would wait on its own lock holder forever.
-    - The shared engine's statement_timeout (db/session.py connect_args) must not
-      apply: it would abort the blocking `pg_advisory_lock` wait under multi-Machine
-      contention. Ending the session early would also release the lock and let
-      another Machine race the DDL.
+    - The holder uses AUTOCOMMIT, so it doesn't sit in an open transaction.
+    - Waiters poll `pg_try_advisory_lock` rather than block in `pg_advisory_lock`,
+      whose statement stays running until the lock is free.
+
+    The connection is dedicated so the shared engine's statement_timeout
+    (db/session.py connect_args) can't end the session and release the lock, which
+    would let another process race the DDL.
     """
     log = logger.bind(step="migrations", lock_key=_MIGRATION_LOCK_KEY)
 
@@ -86,9 +89,13 @@ async def _run_migrations_locked() -> None:
     )
     try:
         async with lock_engine.connect() as lock_conn:
-            await lock_conn.execute(
-                text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY}
-            )
+            while True:
+                result = await lock_conn.execute(
+                    text("SELECT pg_try_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY}
+                )
+                if result.scalar():
+                    break
+                await asyncio.sleep(_MIGRATION_LOCK_POLL_SECONDS)
             log.info("migrations_lock_acquired")
             try:
                 log.info("migrations_start")
