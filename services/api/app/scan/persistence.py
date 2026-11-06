@@ -19,7 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -299,13 +299,19 @@ def unlisted_capability_slug(run_id: UUID, kind: str, name: str | None) -> str:
 
 
 async def ensure_capability_item(
-    session: AsyncSession, ref: GithubRef, github_url: str, cap: CapabilityResult
+    session: AsyncSession,
+    ref: GithubRef,
+    github_url: str,
+    cap: CapabilityResult,
+    *,
+    slug: str | None = None,
 ) -> CatalogItem:
     """Upsert the catalog_items row for one discovered capability, keyed on its
     per-capability slug. `kind` comes from the capability (no longer a hardcoded
-    `"skill"`); rescans resolve to the same slug and update in place.
+    `"skill"`); rescans resolve to the same slug and update in place. `slug`
+    overrides the derived one when the run had to disambiguate it.
     """
-    slug = capability_slug(ref, cap.kind, cap.name)
+    slug = slug or capability_slug(ref, cap.kind, cap.name)
     stmt = select(CatalogItem).where(CatalogItem.slug == slug)
     existing = (await session.execute(stmt)).scalar_one_or_none()
     if existing is not None:
@@ -362,16 +368,17 @@ def _upload_source(run: ScanRun) -> dict[str, object]:
 
 
 async def ensure_upload_capability_item(
-    session: AsyncSession, run: ScanRun, cap: CapabilityResult
+    session: AsyncSession, run: ScanRun, cap: CapabilityResult, *, slug: str | None = None
 ) -> CatalogItem:
     """Upsert the CANONICAL public-upload catalog row for one capability.
 
     Slug `upload--<arthash8>--<kind>-<name>`; `visibility='public'`,
     `source_kind='upload'`, `owner_run_id=NULL`, no GitHub provenance, and a
     `sources=[{registryId:'upload', …}]` attribution. Idempotent on the slug.
+    `slug` overrides the derived one when the run had to disambiguate it.
     """
     content_hash = run.content_hash_sha256 or "00000000"
-    slug = upload_capability_slug(content_hash, cap.kind, cap.name)
+    slug = slug or upload_capability_slug(content_hash, cap.kind, cap.name)
     existing = (
         await session.execute(select(CatalogItem).where(CatalogItem.slug == slug))
     ).scalar_one_or_none()
@@ -448,7 +455,8 @@ _REFRESH_LATEST_SCAN_SQL = text("""
             SELECT id, aggregate_score, tier, scanned_at
             FROM scans
             WHERE catalog_item_id = i.id AND tier <> 'unscoped'
-            ORDER BY scanned_at DESC, id DESC
+            -- Same order as app.queries.NEWEST_SCAN_FIRST: a tie never hides a worse score.
+            ORDER BY scanned_at DESC, aggregate_score ASC, id DESC
             LIMIT 1
         ) s ON true
     ), updated AS (
@@ -741,6 +749,34 @@ def _capability_scan_key(run: ScanRun, cap: CapabilityResult) -> str:
     )
 
 
+def _run_capability_slugs(
+    run: ScanRun, ref: GithubRef | None, caps: Sequence[CapabilityResult]
+) -> list[str | None]:
+    """The public catalog slug for each capability of a run, unique within the run.
+
+    Different names can slugify the same (`a_b` and `a-b`, or two non-Latin names
+    that both fall back to the repo name), and two capabilities on one slug share
+    one catalog item. The first holder keeps the plain slug, so an existing item
+    carries on; later ones get a component-path suffix. Unlisted shadows return
+    None: they are disambiguated where they're created.
+    """
+    if run.visibility == "unlisted":
+        return [None] * len(caps)
+    taken: set[str] = set()
+    slugs: list[str | None] = []
+    for cap in caps:
+        if run.source_kind == "upload":
+            slug = upload_capability_slug(run.content_hash_sha256 or "00000000", cap.kind, cap.name)
+        else:
+            assert ref is not None  # github-public always parses a ref
+            slug = capability_slug(ref, cap.kind, cap.name)
+        if slug in taken:
+            slug = _disambiguate(slug, cap.component_path or "")
+        taken.add(slug)
+        slugs.append(slug)
+    return slugs
+
+
 async def persist_completed_scan_run(
     session: AsyncSession,
     run: ScanRun,
@@ -777,14 +813,15 @@ async def persist_completed_scan_run(
     if use_upload_files and full_files_index is not None:
         await _store_upload_files(session, run.id, full_files_index)
 
-    for cap in repo_result.capabilities:
+    slugs = _run_capability_slugs(run, ref, repo_result.capabilities)
+    for cap, slug in zip(repo_result.capabilities, slugs, strict=True):
         if is_unlisted:
             item = await create_unlisted_shadow_item(session, run, cap, ref=ref)
         elif is_upload:
-            item = await ensure_upload_capability_item(session, run, cap)
+            item = await ensure_upload_capability_item(session, run, cap, slug=slug)
         else:
             assert ref is not None  # github-public always parses a ref
-            item = await ensure_capability_item(session, ref, run.github_url or "", cap)
+            item = await ensure_capability_item(session, ref, run.github_url or "", cap, slug=slug)
 
         cap_key = _capability_scan_key(run, cap)
         scan = (
@@ -813,6 +850,12 @@ async def persist_completed_scan_run(
         else:
             scan.scan_run_id = run.id
             scan.component_path = cap.component_path or None
+            if scan.catalog_item_id != item.id:
+                # The capability now has its own item (an older scan shared one);
+                # its scan follows it, and the item it leaves is recomputed.
+                previous_item_id = scan.catalog_item_id
+                scan.catalog_item_id = item.id
+                await refresh_latest_scan(session, [previous_item_id])
         await _apply_scan_result(
             session,
             scan,

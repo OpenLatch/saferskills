@@ -214,15 +214,20 @@ def _detect_components(file_index: list[tuple[str, bytes]]) -> list[_Component]:
             add(KIND_MCP, name, parent, is_dir=True)
             continue
 
-        # plugin — plugin.json manifest, or a `.claude-plugin/` directory.
+        # plugin — a `.claude-plugin/` directory, or a plugin.json manifest. Either
+        # way the plugin is the directory that *contains* `.claude-plugin`, so a
+        # manifest inside it joins that one component rather than starting another.
+        if ".claude-plugin/" in f"{posix}/":
+            head = posix.split(".claude-plugin/", 1)[0].rstrip("/")
+            add(KIND_PLUGIN, _basename(head) if head else "", head, is_dir=True)
+            # The manifest's declared name wins, whichever file was seen first.
+            declared = _json_str(content, "name") if base == "plugin.json" else ""
+            if declared:
+                components[(KIND_PLUGIN, head)].name = declared
+            continue
         if base == "plugin.json":
             name = _json_str(content, "name") or (_basename(parent) if parent else "")
             add(KIND_PLUGIN, name, parent, is_dir=True)
-            continue
-        if ".claude-plugin/" in f"{posix}/":
-            # Anchor at the directory that *contains* `.claude-plugin`.
-            head = posix.split(".claude-plugin/", 1)[0].rstrip("/")
-            add(KIND_PLUGIN, _basename(head) if head else "", head, is_dir=True)
             continue
 
         # mcp_server — package.json declaring an `mcpServers` block.

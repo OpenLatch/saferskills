@@ -10,12 +10,19 @@ large to aggregate per request. See `scan.persistence.refresh_latest_scan`.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select, text
+from sqlalchemy import asc, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog_item import CatalogItem
 from app.models.item_source import ItemSource
+from app.models.scan import Scan
 from app.models.scan_run import ScanRun
+
+# Newest scan first. Scans sharing a timestamp put the lower score first, so a tie
+# never hides a worse result, then id for a stable order. Matches the ORDER BY in
+# `scan.persistence._REFRESH_LATEST_SCAN_SQL`, so an item page and the catalog list
+# pick the same scan.
+NEWEST_SCAN_FIRST = (desc(Scan.scanned_at), asc(Scan.aggregate_score), desc(Scan.id))
 
 # The predicate of the catalog's partial list indexes (migration 0027). It has to be
 # this literal text: SQLAlchemy's `.is_(False)` renders `archived IS false`, which

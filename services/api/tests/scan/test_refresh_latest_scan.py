@@ -59,8 +59,10 @@ async def _scan(
     tier: str,
     age_days: int = 0,
     run_id: UUID | None = None,
+    scan_id: UUID | None = None,
 ) -> Scan:
     scan = Scan(
+        id=scan_id or uuid.uuid4(),
         catalog_item_id=item.id,
         scan_run_id=run_id,
         idempotency_key=uuid.uuid4().hex,
@@ -157,6 +159,18 @@ async def test_picks_newest_completed_scan_and_ignores_a_newer_placeholder(
         "green",
         _NOW - timedelta(days=1),
     )
+
+
+@pytest.mark.asyncio
+async def test_a_same_timestamp_tie_picks_the_lower_score(db_session: AsyncSession) -> None:
+    # The higher id carries the higher score, so an id-only tie-break would hide the red.
+    item = await _item(db_session)
+    red = await _scan(db_session, item, score=15, tier="red", scan_id=UUID(int=1))
+    await _scan(db_session, item, score=91, tier="green", scan_id=UUID(int=2))
+
+    await refresh_latest_scan(db_session, [item.id])
+
+    assert await _latest(db_session, item.id) == (red.id, 15, "red", _NOW)
 
 
 @pytest.mark.asyncio

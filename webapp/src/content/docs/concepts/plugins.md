@@ -7,7 +7,7 @@ A plugin is a package that bundles several capabilities — skills, MCP servers,
 
 ## What does a plugin bundle?
 
-A plugin is the "everything in one install" [capability](/docs/concepts/glossary/#capability) kind. Rather than installing a skill, then an MCP server, then a hook separately, a plugin packages them together so a single command sets up a whole workflow. In the Claude Code family a plugin is identified by a `plugin.json` or a `.claude-plugin/` directory; plugins are compatible with Claude Code and OpenClaw.
+A plugin is the "everything in one install" [capability](/docs/concepts/glossary/#capability) kind. Rather than installing a skill, then an MCP server, then a hook separately, a plugin packages them together so a single command sets up a whole workflow. In the Claude Code family a plugin is identified by a `plugin.json` or a `.claude-plugin/` directory; plugins are compatible with Claude Code and OpenClaw. SaferSkills scans the whole plugin: the folder that contains `.claude-plugin/`, not only that directory.
 
 The convenience is real, and so is the trade-off: you are accepting every capability the bundle contains, in one decision, often without reading each one.
 

@@ -21,7 +21,7 @@ A scan targets a **repository**, and one repo can hold several capabilities — 
 - the **consolidated repo score** — the mean of those capability scores;
 - a button to open each capability in the public catalog.
 
-One catalog entry = one capability, so a capability links straight to its own `/items/<slug>` page with version history and a permalink. A repo with no recognisable capability is scored as a single whole-repo entry. Discovery is deterministic and static — the same file tree always yields the same capabilities.
+One catalog entry = one capability, so a capability links straight to its own `/items/<slug>` page with version history and a permalink. A repo with no recognisable capability is scored as a single whole-repo entry. A plugin is the folder that contains its `.claude-plugin/` directory, so its manifest and its code are scored together as one capability. Discovery is deterministic and static — the same file tree always yields the same capabilities.
 
 ## Sub-score taxonomy & weights
 

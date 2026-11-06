@@ -161,6 +161,34 @@ def test_claude_plugin_dir_anchors_plugin() -> None:
     assert caps[0].component_path == "my-plugin"
 
 
+def test_claude_plugin_manifest_anchors_at_the_plugin_root() -> None:
+    # `.claude-plugin/plugin.json` belongs to the folder containing `.claude-plugin`.
+    # Anchoring it at `.claude-plugin` itself split one plugin into two capabilities
+    # that shared a slug, so the catalog item carried two scans from one run.
+    files = [
+        (".claude-plugin/plugin.json", _b('{"name":"superskill"}')),
+        (".claude-plugin/marketplace.json", _b("{}")),
+        ("commands/run.md", _b("# run")),
+    ]
+    caps = discover_capabilities(files)
+    assert [(c.kind, c.name, c.component_path) for c in caps] == [(KIND_PLUGIN, "superskill", "")]
+    assert ".claude-plugin/plugin.json" in _paths(caps[0])
+    assert "commands/run.md" in _paths(caps[0])
+
+
+def test_nested_claude_plugin_manifest_anchors_at_its_plugin_dir() -> None:
+    # The marketplace file comes first, so the folder name is seen before the manifest.
+    files = [
+        ("plugins/toll/.claude-plugin/marketplace.json", _b("{}")),
+        ("plugins/toll/.claude-plugin/plugin.json", _b('{"name":"toll402"}')),
+        ("plugins/toll/hooks.md", _b("# h")),
+    ]
+    caps = discover_capabilities(files)
+    assert [(c.kind, c.name, c.component_path) for c in caps] == [
+        (KIND_PLUGIN, "toll402", "plugins/toll")
+    ]
+
+
 def test_cursor_mdc_rules_each_a_capability() -> None:
     files = [
         (".cursor/rules/style.mdc", _b("style rules")),

@@ -285,3 +285,42 @@ async def test_item_detail_public_upload_no_ref_sha(
     assert body["item"]["agent_compatibility"] == ["claude-code"]
     assert len(body["versions"]) == 1
     assert body["versions"][0]["ref_sha"] is None
+
+
+@pytest.mark.asyncio
+async def test_item_page_and_list_agree_on_a_same_timestamp_tie(
+    db_client: AsyncClient, seed_item: SeededItem, db_session: AsyncSession
+) -> None:
+    """Two scans with one timestamp: the page and the list both show the lower score."""
+    from uuid import UUID
+
+    from app.scan.persistence import refresh_latest_scan
+
+    item, seeded = seed_item
+    # The lowest possible id, so an id-only tie-break would pick the seeded green scan.
+    red = Scan(
+        id=UUID(int=1),
+        catalog_item_id=item.id,
+        idempotency_key=f"tie-{item.slug}",
+        github_url=item.github_url,
+        ref_sha="a" * 40,
+        aggregate_score=15,
+        tier="red",
+        sub_scores=seeded.sub_scores,
+        score_breakdown={},
+        rubric_version=seeded.rubric_version,
+        engine_version=seeded.engine_version,
+        latency_ms=0,
+        source="submission",
+        scanned_at=seeded.scanned_at,
+    )
+    db_session.add(red)
+    await db_session.flush()
+    await refresh_latest_scan(db_session, [item.id])
+
+    page = (await db_client.get(f"/api/v1/items/{item.slug}")).json()
+    listed = (await db_client.get("/api/v1/items", params={"q": "Acme Widget"})).json()["data"]
+    row = next(r for r in listed if r["slug"] == item.slug)
+
+    assert page["latest_scan"]["aggregate_score"] == 15
+    assert row["latest_scan_score"] == 15
