@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog_item import CatalogItem
 from app.models.scan import Finding, Scan
+from app.models.scan_run import ScanRun
 from app.scan import persistence
 from app.scan.engine import (
     CapabilityResult,
@@ -187,6 +190,99 @@ async def test_rescan_run_updates_in_place_no_duplicates(
     assert items == 3
     findings = (await db_session.execute(select(func.count(Finding.id)))).scalar_one()
     assert findings == 0  # clean repo result → no findings, no accumulation
+
+
+def _same_slug_result() -> RepoScanResult:
+    """Two capabilities whose different names slugify to the same slug."""
+    caps = [
+        CapabilityResult("skill", "many-chat", "skills/a", _scan_result(90, "green")),
+        CapabilityResult("skill", "many_chat", "skills/b", _scan_result(15, "red")),
+    ]
+    return RepoScanResult(
+        capabilities=caps,
+        repo_aggregate_score=52,
+        repo_tier="orange",
+        kind_tally={"skill": 2},
+        capability_count=2,
+        ref_sha="a" * 40,
+        file_count=2,
+        latency_ms=1,
+        skipped_files=[],
+    )
+
+
+async def _same_slug_run(session: AsyncSession, url: str) -> ScanRun:
+    run = await persistence.persist_pending_scan_run(
+        session,
+        idempotency_key=uuid.uuid4().hex,
+        github_url=url,
+        rubric_version="a1b2c3d",
+        engine_version="def5678",
+        source="submission",
+    )
+    await persistence.persist_completed_scan_run(session, run, _same_slug_result())
+    await session.flush()
+    return run
+
+
+async def _slug_of_scan(session: AsyncSession, path: str, url: str) -> str:
+    return (
+        await session.execute(
+            select(CatalogItem.slug)
+            .join(Scan, Scan.catalog_item_id == CatalogItem.id)
+            .where(Scan.component_path == path, Scan.github_url == url)
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_capabilities_with_the_same_slug_get_their_own_items(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _no_network(_org: str, _repo: str) -> RepositoryMetadata:
+        return RepositoryMetadata()
+
+    monkeypatch.setattr(persistence, "get_repository_metadata", _no_network)
+    url = "https://github.com/acme/slugclash"
+
+    await _same_slug_run(db_session, url)
+
+    # The first capability keeps the plain slug, so an existing item carries on.
+    assert await _slug_of_scan(db_session, "skills/a", url) == "acme--slugclash--skill-many-chat"
+    other = await _slug_of_scan(db_session, "skills/b", url)
+    assert other.startswith("acme--slugclash--skill-many-chat-")
+
+
+@pytest.mark.asyncio
+async def test_a_rescan_moves_a_capability_scan_off_a_shared_item(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _no_network(_org: str, _repo: str) -> RepositoryMetadata:
+        return RepositoryMetadata()
+
+    monkeypatch.setattr(persistence, "get_repository_metadata", _no_network)
+    url = "https://github.com/acme/slugmove"
+    await _same_slug_run(db_session, url)
+
+    # Recreate the state older scans left behind: both scans on the one shared item.
+    shared = (
+        await db_session.execute(
+            select(CatalogItem).where(CatalogItem.slug == "acme--slugmove--skill-many-chat")
+        )
+    ).scalar_one()
+    await db_session.execute(
+        update(Scan)
+        .where(Scan.github_url == url, Scan.component_path == "skills/b")
+        .values(catalog_item_id=shared.id)
+    )
+    await persistence.refresh_latest_scan(db_session, [shared.id])
+
+    await _same_slug_run(db_session, url)
+
+    assert await _slug_of_scan(db_session, "skills/b", url) != shared.slug
+    await db_session.refresh(shared)
+    assert shared.latest_scan_score == 90
 
 
 @pytest.mark.asyncio

@@ -34,7 +34,7 @@ from app.models.install_event import InstallEvent
 from app.models.item_source import ItemSource
 from app.models.scan import Finding, Scan
 from app.models.vendor import VendorResponse
-from app.queries import LISTED_ITEM, latest_scan_tier_distribution
+from app.queries import LISTED_ITEM, NEWEST_SCAN_FIRST, latest_scan_tier_distribution
 from app.routers.scans import (
     _is_loopback,  # pyright: ignore[reportPrivateUsage]
     _peer_host,  # pyright: ignore[reportPrivateUsage]
@@ -560,7 +560,7 @@ async def _versions(
                 Scan.file_hashes,
             )
             .where(Scan.catalog_item_id == catalog_item_id)
-            .order_by(desc(Scan.scanned_at))
+            .order_by(*NEWEST_SCAN_FIRST)
             .limit(limit)
         )
     ).all()
@@ -601,7 +601,7 @@ async def _latest_snapshot_scan(session: AsyncSession, catalog_item_id: object) 
                 select(Scan)
                 .where(Scan.catalog_item_id == catalog_item_id)
                 .where(Scan.file_hashes.isnot(None))
-                .order_by(desc(Scan.scanned_at))
+                .order_by(*NEWEST_SCAN_FIRST)
             )
         )
         .scalars()
@@ -734,7 +734,7 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
     latest_scan_stmt = (
         select(Scan)
         .where(Scan.catalog_item_id == item.id, Scan.tier != "unscoped")
-        .order_by(desc(Scan.scanned_at))
+        .order_by(*NEWEST_SCAN_FIRST)
         .limit(1)
     )
     latest = (await session.execute(latest_scan_stmt)).scalar_one_or_none()
@@ -760,7 +760,7 @@ async def get_item(slug: str, session: AsyncSession = Depends(get_session)) -> I
             await session.execute(
                 select(Scan.sub_scores)
                 .where(Scan.catalog_item_id == item.id, Scan.tier != "unscoped")
-                .order_by(desc(Scan.scanned_at))
+                .order_by(*NEWEST_SCAN_FIRST)
                 .offset(1)
                 .limit(1)
             )
@@ -884,7 +884,7 @@ async def get_item_diff(
                 select(Scan)
                 .where(Scan.catalog_item_id == item.id)
                 .where(Scan.scanned_at < to_scan.scanned_at)
-                .order_by(desc(Scan.scanned_at))
+                .order_by(*NEWEST_SCAN_FIRST)
                 .limit(1)
             )
         ).scalar_one_or_none()
