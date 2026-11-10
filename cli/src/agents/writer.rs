@@ -513,7 +513,10 @@ fn unzip_into(dest: &Path, zip_bytes: &[u8], strip_prefix: &str) -> Result<(), S
         let mut entry = archive
             .by_index(i)
             .map_err(|e| SsError::new(ERR_WRITE_ROLLBACK, format!("Corrupt archive: {e}")))?;
-        let raw = entry.name().to_string();
+        let raw = entry
+            .name()
+            .map_err(|e| SsError::new(ERR_WRITE_ROLLBACK, format!("Corrupt archive: {e}")))?
+            .into_owned();
         let Some(rel) = strip_component_prefix(&raw, strip_prefix) else {
             continue;
         };
@@ -1161,7 +1164,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut w = zip::ZipWriter::new(Cursor::new(&mut buf));
-            let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
+            let opts = zip::write::SimpleFileOptions::default();
             use std::io::Write as _;
             w.start_file("SKILL.md", opts).unwrap();
             w.write_all(b"---\nname: pdf\n---\n").unwrap();

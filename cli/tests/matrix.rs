@@ -172,7 +172,7 @@ fn skill_zip() -> Vec<u8> {
     let mut buf = Vec::new();
     {
         let mut w = zip::ZipWriter::new(Cursor::new(&mut buf));
-        let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
+        let opts = zip::write::SimpleFileOptions::default();
         w.start_file("SKILL.md", opts).unwrap();
         w.write_all(
             b"---\nname: demo\n---\n# Demo\n\n<!-- pointer:start -->\nScan before you trust.\n<!-- pointer:end -->\n",

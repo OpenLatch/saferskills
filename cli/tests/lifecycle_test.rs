@@ -462,7 +462,7 @@ fn plugin_install_lands_and_enumerate_rediscovers() {
     {
         use std::io::Write as _;
         let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
+        let opts = zip::write::SimpleFileOptions::default();
         w.start_file(".claude-plugin/plugin.json", opts).unwrap();
         w.write_all(br#"{"name":"ksail","version":"0.1.0"}"#)
             .unwrap();
