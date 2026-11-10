@@ -619,7 +619,9 @@ fn read_zip_entry(zip_bytes: &[u8], path: &str) -> Option<Vec<u8>> {
     let want = path.replace('\\', "/");
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).ok()?;
-        if entry.name().replace('\\', "/") == want {
+        // zip 9: `name()` is fallible (undecodable name) — skip such entries.
+        let Ok(name) = entry.name() else { continue };
+        if name.replace('\\', "/") == want {
             let mut buf = Vec::new();
             std::io::Read::read_to_end(&mut entry, &mut buf).ok()?;
             return Some(buf);
@@ -638,7 +640,7 @@ fn read_skill_md_by_suffix(zip_bytes: &[u8]) -> Option<Vec<u8>> {
             archive
                 .by_index(i)
                 .ok()
-                .map(|e| e.name().replace('\\', "/"))
+                .and_then(|e| e.name().ok().map(|n| n.replace('\\', "/")))
         })
         .collect();
     let target = names.into_iter().find(|n| n.ends_with("/SKILL.md"))?;
