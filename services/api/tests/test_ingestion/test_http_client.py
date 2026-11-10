@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
+from hishel import AsyncSqliteStorage, CacheOptions
 
 from app.ingestion.framework.exceptions import OutboundDenyError
 from app.ingestion.framework.http_client import (
@@ -13,6 +15,7 @@ from app.ingestion.framework.http_client import (
     HttpClientFactory,
     _hishel_ttl_hook,  # pyright: ignore[reportPrivateUsage]
     _shared_storage,  # pyright: ignore[reportPrivateUsage]
+    _SharedStorageCacheTransport,  # pyright: ignore[reportPrivateUsage]
     _SSRFTransport,  # pyright: ignore[reportPrivateUsage]
 )
 
@@ -137,7 +140,7 @@ class TestHishelTtlHook:
         hook = _hishel_ttl_hook(3600.0)
         request = httpx.Request("GET", "https://example.com/feed")
         await hook(request)
-        assert request.extensions["hishel_ttl"] == 3600.0
+        assert request.extensions["caching"] == {"ttl": 3600.0}
 
     @pytest.mark.asyncio
     async def test_extension_not_sent_as_a_header(self) -> None:
@@ -146,3 +149,41 @@ class TestHishelTtlHook:
         request = httpx.Request("GET", "https://api.github.com/repos/x/y")
         await hook(request)
         assert "x-hishel-ttl" not in {k.lower() for k in request.headers}
+
+
+class TestRfcRevalidation:
+    """Hishel 2.x defaults to a NON-RFC cache; the factory must opt into RFC-9111 so
+    a stale entry is revalidated with a conditional GET (a free 304 vs the GitHub
+    rate limit) instead of being served blindly or refetched in full."""
+
+    @pytest.mark.asyncio
+    async def test_etag_revalidates_with_conditional_get(self, tmp_path: Path) -> None:
+        conditional: list[str | None] = []
+
+        def upstream(request: httpx.Request) -> httpx.Response:
+            conditional.append(request.headers.get("if-none-match"))
+            if request.headers.get("if-none-match") == '"v1"':
+                return httpx.Response(304, headers={"etag": '"v1"'})
+            return httpx.Response(
+                200, headers={"etag": '"v1"', "cache-control": "no-cache"}, content=b"body"
+            )
+
+        storage = AsyncSqliteStorage(database_path=f"{tmp_path}/cache.db")
+        transport = _SharedStorageCacheTransport(
+            next_transport=httpx.MockTransport(upstream),
+            storage=storage,
+            rfc=CacheOptions(shared=True, allow_stale=True),
+        )
+        try:
+            async with httpx.AsyncClient(
+                transport=transport, event_hooks={"request": [_hishel_ttl_hook(60.0)]}
+            ) as client:
+                first = await client.get("https://example.com/feed")
+                second = await client.get("https://example.com/feed")
+            assert first.content == second.content == b"body"
+            assert second.status_code == 200
+            assert first.extensions["caching"]["stored"] is True
+            assert second.extensions["caching"]["revalidated"] is True
+            assert conditional == [None, '"v1"']
+        finally:
+            await storage.close()
