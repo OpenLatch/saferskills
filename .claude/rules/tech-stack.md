@@ -17,14 +17,15 @@ The stack below is the contract. Every dep tracks its current latest major or la
 | **ORM** | SQLAlchemy 2 (async) | Async-only — `AsyncSession` everywhere. |
 | **Migrations** | Alembic | Latest. |
 | **Database** | PostgreSQL 17 | Latest GA. Single Postgres — no Redis, no other store. Staging + production: **Fly Managed Postgres**, reached via its direct URL, never PgBouncer (`environment-config.md` § `DATABASE_URL`). Local/CI: the `postgres` compose service. |
-| **Frontend framework** | Astro 7 + React 19 islands | Deliberate divergence from openlatch-platform (which uses Vite + React 19 SPA). Islands via `client:idle`/`client:load`/`client:visible`. |
+| **Frontend framework** | Astro 7 + React 19 islands (`@astrojs/react` 7, `@astrojs/mdx` 8) | Deliberate divergence from openlatch-platform (which uses Vite + React 19 SPA). Islands via `client:idle`/`client:load`/`client:visible`. Markdown/MDX runs on the remark `unified` processor from `@astrojs/markdown-remark` (set as `markdown.processor` in `astro.config.mjs`), not the Sätteri default, because the docs asides are remark plugins. |
+| **TypeScript** | TypeScript 6 | **Held on 6** (Dependabot ignores the major): TS 7.0 is unsupported by `astro check`; revisit at TS ≥ 7.1 via `@astrojs/ts-content-mapper`. |
 | **CSS** | Tailwind v4 | No `tailwind.config.js`; tokens live in `ui/styles/tokens.css` per `design-system.md`. |
 | **UI primitives** | shadcn/ui (Radix + Tailwind) | Component code lives under `ui/components/`; never imported from a registry at build time. |
 | **Lint + format** | Biome 2.6 | One tool for TS/JS/JSON — replaces both ESLint and Prettier. |
 | **Lint + format — Python** | Ruff | Lint + format in one pass. |
 | **Type-check — Python** | Pyright | Strict mode in CI. |
 | **Type-check — Frontend** | `tsc --noEmit` + `astro check` | Both required in CI. |
-| **Unit tests — Frontend** | Vitest 4 | ≥70% line coverage. |
+| **Unit tests — Frontend** | Vitest 5 (jsdom 31 + `@testing-library/jest-dom` 7) | ≥70% line coverage. |
 | **Unit tests — Backend** | pytest | ≥70% line coverage. |
 | **E2E** | Playwright 1.64 | Under `tools/e2e/`. |
 | **Story browser** | Ladle | Replaces Storybook (lighter, Vite-native — runs alongside Astro for component browsing only). |

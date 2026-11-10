@@ -12,6 +12,12 @@ updates:
       day: "monday"
     open-pull-requests-limit: 5
     labels: ["dependencies", "area/ci"]
+    # TypeScript 7.0 (the Go rewrite) breaks `astro check` (Astro: "install
+    # TypeScript 6"); Astro's TS7 checker path needs 7.1+. Drop this ignore once
+    # we migrate `astro check` to @astrojs/ts-content-mapper on TS >= 7.1.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend-minor-patch:
         update-types: ["minor", "patch"]
