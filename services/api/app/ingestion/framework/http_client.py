@@ -1,7 +1,7 @@
 """HTTPX + Hishel (RFC-9111) + per-source rate-limit + SSRF-allowlist client factory.
 
 Every adapter calls `HttpClientFactory.build(adapter, settings)` to get a client that:
-  - caches per RFC 9111 (Hishel 1.x AsyncCacheTransport → AsyncSqliteStorage at
+  - caches per RFC 9111 (Hishel 2.x AsyncCacheTransport → AsyncSqliteStorage at
     settings.hishel_db_path); 304 revalidations cost 0 wire bytes vs the GitHub limit
   - enforces the per-adapter outbound allowlist (adapter.source_hosts) + a private-IP
     denylist at the transport layer (SSRF guard, security.md #2)
@@ -18,7 +18,7 @@ import time
 from typing import Any
 
 import httpx
-from hishel import AsyncSqliteStorage, CacheOptions, SpecificationPolicy
+from hishel import AsyncSqliteStorage, CacheOptions
 from hishel.httpx import AsyncCacheTransport
 
 from app.core.config import Settings
@@ -43,7 +43,7 @@ _LAST_REQUEST_TS: dict[str, float] = {}
 # database is locked` spamming the worker (~thousands/hour, eviction never ran).
 # Sharing ONE instance means one connection + one write-lock, so Hishel's own
 # serialisation actually holds. Per-adapter TTL moves to the per-request
-# `hishel_ttl` extension (see `_hishel_ttl_hook`) so the share doesn't flatten
+# `caching` extension (see `_hishel_ttl_hook`) so the share doesn't flatten
 # the github-24h vs aggregator-1h retention.
 _SHARED_STORAGE: dict[str, AsyncSqliteStorage] = {}
 
@@ -53,11 +53,13 @@ def _shared_storage(settings: Settings) -> AsyncSqliteStorage:
     storage = _SHARED_STORAGE.get(path)
     if storage is None:
         # default_ttl is only the fallback for entries lacking a per-request
-        # `hishel_ttl` (none, via this factory) — the github TTL is the safe
+        # `caching` TTL override (none, via this factory) — the github TTL is the safe
         # dominant default. Construction is lazy: no connection opens until the
         # first cache hit/miss, so this is safe to call from sync code.
         storage = AsyncSqliteStorage(
-            database_path=path, default_ttl=float(settings.hishel_github_ttl_seconds)
+            database_path=path,
+            default_ttl=float(settings.hishel_github_ttl_seconds),
+            max_size=settings.hishel_max_size_bytes,
         )
         _SHARED_STORAGE[path] = storage
     return storage
@@ -103,13 +105,15 @@ def _ttl_for(adapter: BaseAdapter, settings: Settings) -> float:
 class HttpClientFactory:
     @classmethod
     def build(cls, adapter: BaseAdapter, settings: Settings) -> httpx.AsyncClient:
-        policy = SpecificationPolicy(cache_options=CacheOptions(shared=True, allow_stale=True))
+        # Hishel 2.x defaults to a non-RFC cache (serves any 2xx until TTL, ignoring
+        # Cache-Control/ETag); passing CacheOptions selects RFC-9111 mode, which is
+        # what makes 304 revalidations free vs the GitHub rate limit.
         transport = _SharedStorageCacheTransport(
             next_transport=_SSRFTransport(adapter.source_hosts),
             storage=_shared_storage(settings),
-            policy=policy,
+            rfc=CacheOptions(shared=True, allow_stale=True),
         )
-        # Per-adapter cache TTL travels as a per-request Hishel extension (persisted
+        # Per-adapter cache TTL travels as a per-request Hishel override (persisted
         # per entry) instead of the storage's default_ttl, so every adapter shares the
         # one storage instance without flattening github-24h vs aggregator-1h retention.
         request_hooks: list[Any] = [
@@ -135,13 +139,13 @@ class HttpClientFactory:
 
 
 def _hishel_ttl_hook(ttl: float) -> Any:
-    """Carry the per-adapter cache TTL on each request as a Hishel `hishel_ttl`
-    extension. Hishel persists it per cache entry (it is exempt from the
-    `hishel_*`-metadata strip), so a single shared storage instance still honours
+    """Carry the per-adapter cache TTL on each request as a Hishel `caching`
+    extension override (`{"ttl": ...}`, merged over the transport config). Hishel
+    persists it per cache entry, so a single shared storage instance still honours
     each adapter's retention. An httpx extension never serialises to the wire."""
 
     async def hook(request: httpx.Request) -> None:
-        request.extensions["hishel_ttl"] = ttl
+        request.extensions["caching"] = {**request.extensions.get("caching", {}), "ttl": ttl}
 
     return hook
 
