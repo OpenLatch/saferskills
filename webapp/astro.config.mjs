@@ -1,3 +1,4 @@
+import { unified } from '@astrojs/markdown-remark'
 import mdx from '@astrojs/mdx'
 import node from '@astrojs/node'
 import react from '@astrojs/react'
@@ -51,8 +52,10 @@ export default defineConfig({
   // Docs `:::note`/`:::tip` asides stay markdown-native: remark-directive parses
   // them, remarkAsides maps them to design-system <aside> callouts. Scoped to
   // MD/MDX content — the generated methodology MDX has no `:::` directives.
+  // Astro 7 / @astrojs/mdx 8 default to the Sätteri processor, which can't run
+  // remark plugins; pin the remark/rehype `unified` processor (MDX inherits it).
   markdown: {
-    remarkPlugins: [remarkDirective, remarkAsides],
+    processor: unified({ remarkPlugins: [remarkDirective, remarkAsides] }),
     // Always-dark code blocks (matches the site's terminal aesthetic). The
     // default `github-dark` fails WCAG AA on comment tokens (3.04:1); the
     // high-contrast GitHub theme clears AA — gated by the docs axe spec in the
