@@ -41,6 +41,8 @@ def _patch_transport(
         rel = _raw_relpath(request)
         if requested is not None:
             requested.append(rel)
+        if rel not in blobs:
+            return httpx.Response(404)
         return httpx.Response(200, content=blobs[rel])
 
     real_client = httpx.AsyncClient
@@ -173,3 +175,15 @@ async def test_raw_urls_pinned_to_ref_sha(monkeypatch: pytest.MonkeyPatch) -> No
     await fetch_file_index_via_trees(URL, ref_sha=REF_SHA, default_branch="main")
 
     assert captured == [f"https://raw.githubusercontent.com/acme/monorepo/{REF_SHA}/dir/f.txt"]
+
+
+@pytest.mark.asyncio
+async def test_blob_404_is_a_permanent_fetch_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A blob deleted between the tree listing and the raw GET re-404s on retry: it
+    must surface as FetchError (handled by the scan, no Procrastinate retry), never a
+    raw HTTPStatusError that `is_transient_failure` would retry 3 times."""
+    tree = _tree(_blob("gone.md", 2))
+    _patch_transport(monkeypatch, tree=tree, blobs={})
+
+    with pytest.raises(FetchError, match="blob not found"):
+        await fetch_file_index_via_trees(URL, ref_sha=REF_SHA, default_branch="main")

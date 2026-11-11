@@ -229,6 +229,37 @@ def test_job_bridge_captures_retries_without_job_arguments(client: MagicMock) ->
         logger.setLevel(old_level)
 
 
+@pytest.mark.asyncio
+async def test_worker_reports_a_failing_job_once_not_per_retry(client: MagicMock) -> None:
+    """Real Procrastinate worker: a job failing on every attempt (retry=3 -> 4 runs)
+    is reported to PostHog once, at the terminal failure, not on each retried run."""
+    from procrastinate import App, RetryStrategy
+    from procrastinate.testing import InMemoryConnector
+
+    app = App(connector=InMemoryConnector())
+    runs: list[int] = []
+
+    @app.task(name="always_failing", retry=RetryStrategy(max_attempts=3, wait=0))
+    async def always_failing() -> None:
+        runs.append(1)
+        raise ConnectionError("blip")
+
+    parent = logging.getLogger("procrastinate")
+    old_handlers, old_level = parent.handlers[:], parent.level
+    try:
+        errors.install_job_error_capture()
+        parent.setLevel(logging.INFO)
+        async with app.open_async():
+            await always_failing.defer_async()
+            await app.run_worker_async(wait=False, install_signal_handlers=False)
+        assert len(runs) == 4
+        client.capture.assert_called_once()
+        assert _payload(client)["error_context"] == "job"
+    finally:
+        parent.handlers[:] = old_handlers
+        parent.setLevel(old_level)
+
+
 def test_disabled_cancelled_and_broken_transport_never_raise(
     client: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:

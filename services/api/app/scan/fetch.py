@@ -501,6 +501,11 @@ async def fetch_file_index_via_trees(
             )
             async with semaphore:
                 resp = await client.get(raw_url, headers=auth_headers)
+            if resp.status_code == 404:
+                # Deleted/renamed between the tree listing and the fetch: a retry
+                # re-404s. Permanent, so FetchError (handled by the caller) rather
+                # than a raw HTTPStatusError that burns 3 Procrastinate retries.
+                raise FetchError(f"blob not found: {ref.org}/{ref.repo}@{ref_sha[:7]}:{path}")
             resp.raise_for_status()
             return (path, resp.content)
 
