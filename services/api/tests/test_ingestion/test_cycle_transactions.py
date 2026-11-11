@@ -99,10 +99,12 @@ async def test_clawhub_fetch_releases_preflight_transaction(
                 assert result["items_seen"] == result["http_304_count"] == 1
 
         assert len(run_ids) == 1
-        if failure:
+        if failure == "provider":
             report_error.assert_called_once()
             assert report_error.call_args.kwargs == {"context": "ingestion"}
         else:
+            # An unexpected error re-raises into IngestionRetry; the worker's job-log
+            # bridge reports it once, on the terminal attempt, not this wrapper.
             report_error.assert_not_called()
         assert all(not session.in_transaction() for session in sessions)
         async with factory() as verification:
