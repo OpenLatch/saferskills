@@ -260,6 +260,68 @@ async def test_worker_reports_a_failing_job_once_not_per_retry(client: MagicMock
         parent.setLevel(old_level)
 
 
+@pytest.mark.asyncio
+async def test_ingestion_cycle_bug_is_reported_once_across_retries(
+    client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Real ingestion task wrapper under a real Procrastinate worker: an unexpected
+    cycle error re-raises into the IngestionRetry schedule on every attempt. The
+    failure is reported once (terminal job_error), not once per attempt plus once."""
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock
+
+    from procrastinate.testing import InMemoryConnector
+
+    from app.core import config as config_module
+    from app.db import session as session_module
+    from app.ingestion import procrastinate_app, tasks
+    from app.ingestion.config.loader import get_source_config
+    from app.ingestion.framework import retry
+    from app.ingestion.sources.smithery import SmitheryAdapter
+
+    monkeypatch.setattr(config_module.get_settings(), "ingestion_source_blocklist", [])
+    monkeypatch.setattr(retry, "_SCHEDULE_SECONDS", (0, 0, 0, 0))
+    adapter = SmitheryAdapter(get_source_config("smithery"))
+
+    async def _boom(*_a: object, **_k: object) -> None:
+        raise RuntimeError("bug")  # a fresh exception object per attempt, as in prod
+
+    adapter.run_cycle = AsyncMock(side_effect=_boom)  # type: ignore[method-assign]
+    monkeypatch.setattr(tasks, "build_adapter", lambda _name: adapter)  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    monkeypatch.setattr(tasks, "is_source_paused", AsyncMock(return_value=False))
+    monkeypatch.setattr(tasks, "record_run_started", AsyncMock(return_value=None))
+    monkeypatch.setattr(tasks, "record_run_finished", AsyncMock())
+
+    @asynccontextmanager
+    async def _session():  # type: ignore[no-untyped-def]
+        yield MagicMock()
+
+    monkeypatch.setattr(session_module, "AsyncSessionLocal", _session)
+
+    parent = logging.getLogger("procrastinate")
+    old_handlers, old_level = parent.handlers[:], parent.level
+    try:
+        errors.install_job_error_capture()
+        parent.setLevel(logging.INFO)
+        with procrastinate_app.replace_connector(InMemoryConnector()):
+            async with procrastinate_app.open_async():
+                await procrastinate_app.tasks["ingest_cycle_smithery"].defer_async(timestamp=0)  # pyright: ignore[reportUnknownMemberType]
+                await procrastinate_app.run_worker_async(wait=False, install_signal_handlers=False)
+        assert adapter.run_cycle.await_count > 1  # retried
+        # Other periodic jobs on the shared queue may fail on the fake session;
+        # only the cycle's own RuntimeError matters here.
+        contexts = [
+            c.kwargs["properties"]["error_context"]
+            for c in client.capture.call_args_list
+            if c.args[0] == "$exception"
+            and c.kwargs["properties"]["$exception_list"][0]["type"] == "RuntimeError"
+        ]
+        assert contexts == ["job"]
+    finally:
+        parent.handlers[:] = old_handlers
+        parent.setLevel(old_level)
+
+
 def test_disabled_cancelled_and_broken_transport_never_raise(
     client: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:

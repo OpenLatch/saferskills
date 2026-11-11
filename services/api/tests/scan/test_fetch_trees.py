@@ -179,7 +179,7 @@ async def test_raw_urls_pinned_to_ref_sha(monkeypatch: pytest.MonkeyPatch) -> No
 
 @pytest.mark.asyncio
 async def test_blob_404_is_a_permanent_fetch_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A blob deleted between the tree listing and the raw GET re-404s on retry: it
+    """A blob the pinned SHA no longer serves (force-push / GC) re-404s on retry: it
     must surface as FetchError (handled by the scan, no Procrastinate retry), never a
     raw HTTPStatusError that `is_transient_failure` would retry 3 times."""
     tree = _tree(_blob("gone.md", 2))
