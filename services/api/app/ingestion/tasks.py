@@ -133,10 +133,11 @@ async def run_source_cycle(source_name: str, trigger: str = "scheduled") -> dict
             )
             return {"skipped": "failed", "reason": reason}
         except Exception as exc:
-            capture_exception(exc, context="ingestion")
             # UNEXPECTED (a real bug, e.g. a KeyError in normalize) — keep the full
             # traceback so it's debuggable, and re-raise so it surfaces loudly and
-            # the IngestionRetry schedule applies.
+            # the IngestionRetry schedule applies. NOT captured here: every attempt
+            # is a fresh exception, so a capture here fires once per retry. The
+            # worker's Procrastinate log bridge reports the terminal failure once.
             logger.exception("ingestion.cycle_failed", source=source_name)
             emit_ingestion_cycle_failed(source=source_name, reason="other")
             # Run-record write #2 (own session) BEFORE re-raise — a rolled-back

@@ -224,7 +224,12 @@ class ErrorCaptureMiddleware:
 class _JobErrorHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         # Procrastinate attaches exc_info to both terminal and retried job logs.
-        # Ignore its message, args, and extra: they contain job arguments.
+        # A retried attempt (`job_error_retry`, `job_aborted_retry`) is not a failure
+        # yet: report only the terminal one, or one blip costs up to 4 events.
+        # Read just that `action` discriminator; message, args and the rest of
+        # `extra` contain job arguments and are ignored.
+        if str(getattr(record, "action", "")).endswith("_retry"):
+            return
         if record.exc_info and isinstance(record.exc_info[1], Exception):
             capture_exception(record.exc_info[1], context="job")
 
