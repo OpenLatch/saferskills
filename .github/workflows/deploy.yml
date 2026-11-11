@@ -395,7 +395,8 @@ jobs:
     name: E2E smoke against staging
     needs: [deploy-staging-api, deploy-staging-webapp, deploy-staging-worker]
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && (needs.deploy-staging-api.result == 'success' || needs.deploy-staging-webapp.result == 'success' || needs.deploy-staging-worker.result == 'success')
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, where the locked Playwright cannot install Chromium.
+    runs-on: ubuntu-24.04
     steps:
       - uses: step-security/harden-runner@v2
         with: { egress-policy: audit }
